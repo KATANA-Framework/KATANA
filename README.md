@@ -134,14 +134,90 @@ SQL-запросы описываются в `.sql` файлах и служат
 
 ---
 
-## CLI
+## CLI инструменты
 
-katana new # создание каркаса проекта
-katana gen openapi # генерация маршрутов и DTO
-katana gen sql # генерация моделей и репозиториев
-katana dev # запуск в dev-режиме
-katana db migrate # управление миграциями
-katana bench # локальные нагрузочные тесты
+### Создание проекта
+
+    katana new <project-name>
+
+Создает минимальный каркас сервиса:
+- CMake файл
+- директории src/, include/, api/, sql/
+- базовый main с пустым реактором
+
+---
+
+### Генерация API из OpenAPI
+
+    katana gen openapi -i api/openapi.yaml -o gen/
+
+Формирует:
+- таблицу маршрутов (compile-time)
+- DTO (pmr-совместимые)
+- валидаторы
+- сериализацию / десериализацию
+
+Параметры:
+
+    --json=ondemand|dom|zero-copy
+    --alloc=arena|pmr|heap
+    --strict
+
+---
+
+### Генерация SQL-репозиториев
+
+    katana gen sql -i sql/ -o gen/
+
+Формирует:
+- модели данных
+- prepared statements обертки
+- репозитории и транзакционные интерфейсы
+- bulk операции и предикаты
+
+---
+
+### Режим разработки (hot reload)
+
+    katana dev
+
+Поведение:
+- горячая замена кода без перезапуска реакторов
+- быстрые сборки (clang + ccache)
+- локальный PostgreSQL / Redis / Prometheus / OpenTelemetry
+- отключение NUMA pinning
+
+Флаги:
+
+    --hot
+    --no-arena
+    --mock-db
+    --mock-cache
+
+---
+
+### Миграции базы данных
+
+    katana db migrate up
+    katana db migrate down
+
+Дополнительно:
+
+    katana db status
+    katana db create
+
+---
+
+### Нагрузочное тестирование
+
+    katana bench -c bench/profile.toml
+
+Флаги:
+
+    --strict-latency
+    --export-grafana
+    --export-flame
+
 
 ---
 
