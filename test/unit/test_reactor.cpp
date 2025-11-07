@@ -86,7 +86,7 @@ TEST_F(ReactorTest, RegisterFd) {
     std::thread writer([pipefd]() {
         std::this_thread::sleep_for(50ms);
         char buf = 'x';
-        write(pipefd[1], &buf, 1);
+        [[maybe_unused]] auto _ = write(pipefd[1], &buf, 1);
     });
 
     reactor_->run();
@@ -246,7 +246,7 @@ TEST_F(ReactorTest, ExceptionInFdCallback) {
     std::thread writer([pipefd, this]() {
         std::this_thread::sleep_for(50ms);
         char buf = 'x';
-        write(pipefd[1], &buf, 1);
+        [[maybe_unused]] auto _ = write(pipefd[1], &buf, 1);
 
         std::this_thread::sleep_for(50ms);
         reactor_->schedule([this]() {

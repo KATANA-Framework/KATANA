@@ -38,7 +38,7 @@ int main() {
         if (res) {
             reactor.schedule_after(std::chrono::milliseconds(200), [pipefd]() {
                 const char* msg = "Hello from reactor!";
-                write(pipefd[1], msg, strlen(msg));
+                [[maybe_unused]] auto _ = write(pipefd[1], msg, strlen(msg));
             });
         }
 
