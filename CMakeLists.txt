@@ -32,6 +32,7 @@ add_library(katana_core STATIC
     katana/core/src/io_buffer.cpp
     katana/core/src/arena.cpp
     katana/core/src/problem.cpp
+    katana/core/src/http.cpp
 )
 
 target_include_directories(katana_core PUBLIC
