@@ -29,14 +29,14 @@ reactor_pool::~reactor_pool() {
 
 void reactor_pool::start() {
     for (auto& ctx : reactors_) {
-        ctx->running = true;
+        ctx->running.store(true, std::memory_order_release);
         ctx->thread = std::thread(&reactor_pool::worker_thread, this, ctx.get());
     }
 }
 
 void reactor_pool::stop() {
     for (auto& ctx : reactors_) {
-        ctx->running = false;
+        ctx->running.store(false, std::memory_order_release);
         ctx->reactor->stop();
     }
 }

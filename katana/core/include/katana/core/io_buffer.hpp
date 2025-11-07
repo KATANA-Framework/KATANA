@@ -47,11 +47,25 @@ private:
     size_t write_pos_ = 0;
 };
 
-class scatter_gather {
+class scatter_gather_read {
 public:
-    scatter_gather() = default;
+    scatter_gather_read() = default;
 
     void add_buffer(std::span<uint8_t> buf);
+
+    const iovec* iov() const noexcept { return iovecs_.data(); }
+    size_t count() const noexcept { return iovecs_.size(); }
+
+    void clear() noexcept;
+
+private:
+    std::vector<iovec> iovecs_;
+};
+
+class scatter_gather_write {
+public:
+    scatter_gather_write() = default;
+
     void add_buffer(std::span<const uint8_t> buf);
 
     const iovec* iov() const noexcept { return iovecs_.data(); }
@@ -63,7 +77,7 @@ private:
     std::vector<iovec> iovecs_;
 };
 
-result<size_t> read_vectored(int fd, scatter_gather& sg);
-result<size_t> write_vectored(int fd, scatter_gather& sg);
+result<size_t> read_vectored(int fd, scatter_gather_read& sg);
+result<size_t> write_vectored(int fd, scatter_gather_write& sg);
 
 } // namespace katana

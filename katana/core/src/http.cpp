@@ -106,8 +106,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 if (line.empty()) {
                     auto cl = request_.header("Content-Length");
                     if (cl) {
-                        content_length_ = std::stoull(std::string(*cl));
-                        state_ = state::body;
+                        try {
+                            content_length_ = std::stoull(std::string(*cl));
+                            state_ = state::body;
+                        } catch (...) {
+                            return std::unexpected(make_error_code(error_code::invalid_fd));
+                        }
                     } else {
                         state_ = state::complete;
                     }
