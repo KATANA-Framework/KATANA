@@ -12,7 +12,9 @@ namespace katana {
 
 class monotonic_arena : public std::pmr::memory_resource {
 public:
-    explicit monotonic_arena(size_t block_size = 64 * 1024);
+    static constexpr size_t DEFAULT_BLOCK_SIZE = 64 * 1024;  // 64KB default block size
+
+    explicit monotonic_arena(size_t block_size = DEFAULT_BLOCK_SIZE);
     ~monotonic_arena() override;
 
     monotonic_arena(const monotonic_arena&) = delete;
