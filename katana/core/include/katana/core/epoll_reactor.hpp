@@ -3,7 +3,9 @@
 #include "reactor.hpp"
 #include "metrics.hpp"
 #include "mpsc_queue.hpp"
+#include "wheel_timer.hpp"
 
+#include <sys/epoll.h>
 #include <atomic>
 #include <unordered_map>
 #include <vector>
@@ -23,11 +25,19 @@ public:
 
     result<void> run() override;
     void stop() override;
+    void graceful_stop(std::chrono::milliseconds timeout) override;
 
     result<void> register_fd(
         int fd,
         event_type events,
         event_callback callback
+    ) override;
+
+    result<void> register_fd_with_timeout(
+        int fd,
+        event_type events,
+        event_callback callback,
+        const timeout_config& config
     ) override;
 
     result<void> modify_fd(
@@ -36,6 +46,8 @@ public:
     ) override;
 
     result<void> unregister_fd(int fd) override;
+
+    void refresh_fd_timeout(int fd) override;
 
     bool schedule(task_fn task) override;
 
@@ -52,6 +64,10 @@ private:
     struct fd_state {
         event_callback callback;
         event_type events;
+        timeout_config timeouts;
+        wheel_timer<>::timeout_id timeout_id = 0;
+        std::chrono::steady_clock::time_point last_activity;
+        bool has_timeout = false;
     };
 
     struct timer_entry {
@@ -66,12 +82,17 @@ private:
     result<void> process_events(int timeout_ms);
     void process_tasks();
     void process_timers();
+    void process_wheel_timer();
     int calculate_timeout() const;
     void handle_exception(std::string_view location, std::exception_ptr ex, int fd = -1) noexcept;
+    void setup_fd_timeout(int fd, fd_state& state);
+    void cancel_fd_timeout(fd_state& state);
 
     int epoll_fd_;
     int max_events_;
     std::atomic<bool> running_;
+    std::atomic<bool> graceful_shutdown_;
+    std::chrono::steady_clock::time_point graceful_shutdown_deadline_;
 
     std::unordered_map<int, fd_state> fd_states_;
     mpsc_queue<task_fn> pending_tasks_;
@@ -81,7 +102,9 @@ private:
     exception_handler exception_handler_;
     reactor_metrics metrics_;
 
-    // Reusable buffer for epoll_wait to avoid allocations in hot path
+    wheel_timer<> wheel_timer_;
+    std::chrono::steady_clock::time_point last_wheel_tick_;
+
     std::vector<epoll_event> events_buffer_;
 };
 

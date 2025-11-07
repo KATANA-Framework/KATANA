@@ -172,14 +172,22 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
         size_t reactor_idx = pool.select_reactor();
         auto& r = pool.get_reactor(reactor_idx);
 
-        auto result = r.register_fd(
+        timeout_config timeouts{
+            std::chrono::milliseconds(30000),
+            std::chrono::milliseconds(30000),
+            std::chrono::milliseconds(60000)
+        };
+
+        auto result = r.register_fd_with_timeout(
             client_fd,
             event_type::readable | event_type::edge_triggered,
-            [conn](event_type events) {
+            [conn, &r](event_type events) {
                 if (has_flag(events, event_type::readable)) {
                     handle_client(*conn);
+                    r.refresh_fd_timeout(conn->fd);
                 }
-            }
+            },
+            timeouts
         );
 
         if (!result) {
@@ -226,7 +234,7 @@ int main() {
 
     shutdown_manager::instance().setup_signal_handlers();
     shutdown_manager::instance().set_shutdown_callback([&pool]() {
-        pool.stop();
+        pool.graceful_stop(std::chrono::milliseconds(30000));
     });
 
     std::cout << "Server running. Press Ctrl+C to stop.\n";
