@@ -16,10 +16,12 @@
 using namespace katana;
 using katana::http::ci_equal;
 
-// Server configuration
-constexpr uint16_t PORT = 8080;  // Default HTTP port
-constexpr size_t BUFFER_SIZE = 4096;  // Read buffer size
-constexpr size_t ARENA_BLOCK_SIZE = 8192;  // Per-connection arena size
+constexpr uint16_t PORT = 8080;
+constexpr size_t BUFFER_SIZE = 4096;
+constexpr size_t ARENA_BLOCK_SIZE = 8192;
+constexpr size_t MAX_CONNECTIONS = 10000;
+
+static std::atomic<size_t> active_connections{0};
 
 int create_listener() {
     int sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
@@ -69,6 +71,7 @@ struct connection {
         int expected_fd = fd.exchange(-1, std::memory_order_acq_rel);
         if (expected_fd >= 0) {
             close(expected_fd);
+            active_connections.fetch_sub(1, std::memory_order_relaxed);
         }
     }
 };
@@ -101,7 +104,13 @@ void handle_client(connection& conn) {
             std::string serialized = resp.serialize();
             int write_fd = conn.fd.load(std::memory_order_relaxed);
             if (write_fd >= 0) {
-                [[maybe_unused]] auto _ = write(write_fd, serialized.data(), serialized.size());
+                size_t total_written = 0;
+                while (total_written < serialized.size()) {
+                    ssize_t written = write(write_fd, serialized.data() + total_written,
+                                          serialized.size() - total_written);
+                    if (written <= 0) break;
+                    total_written += static_cast<size_t>(written);
+                }
             }
             conn.safe_close();
             return;
@@ -168,6 +177,10 @@ void handle_client(connection& conn) {
 
 void accept_connections(reactor_pool& pool, int listener_fd) {
     while (true) {
+        if (active_connections.load(std::memory_order_relaxed) >= MAX_CONNECTIONS) {
+            return;
+        }
+
         sockaddr_in client_addr{};
         socklen_t addr_len = sizeof(client_addr);
 
@@ -185,6 +198,8 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
 
         int flag = 1;
         setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+
+        active_connections.fetch_add(1, std::memory_order_relaxed);
 
         auto conn = std::make_shared<connection>();
         conn->fd.store(client_fd, std::memory_order_relaxed);
@@ -215,6 +230,7 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
 
         if (!result) {
             close(client_fd);
+            active_connections.fetch_sub(1, std::memory_order_relaxed);
         }
     }
 }

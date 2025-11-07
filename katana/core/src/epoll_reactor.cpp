@@ -111,16 +111,25 @@ result<void> epoll_reactor::run() {
                 break;
             }
             if (now >= graceful_shutdown_deadline_) {
-                for (auto it = fd_states_.begin(); it != fd_states_.end(); ) {
-                    int fd = it->first;
+                std::vector<int> fds_to_close;
+                fds_to_close.reserve(fd_states_.size());
+                for (const auto& [fd, _] : fd_states_) {
+                    fds_to_close.push_back(fd);
+                }
+                for (int fd : fds_to_close) {
+                    auto it = fd_states_.find(fd);
+                    if (it == fd_states_.end()) continue;
                     try {
                         it->second.callback(event_type::error);
                     } catch (...) {
                         handle_exception("forced_shutdown_callback", std::current_exception(), fd);
                     }
-                    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
-                    close(fd);
-                    it = fd_states_.erase(it);
+                    it = fd_states_.find(fd);
+                    if (it != fd_states_.end()) {
+                        epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+                        close(fd);
+                        fd_states_.erase(it);
+                    }
                 }
                 running_ = false;
                 break;

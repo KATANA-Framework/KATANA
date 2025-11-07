@@ -66,45 +66,61 @@ KATANA/
 
 ## Внешние зависимости (политика)
 
-### Асинхронность и сеть
+### Этапы 1-3: Zero-Dependency Foundation
 
-**standalone Asio** (или Boost.Asio), **Boost.Beast** (HTTP/WebSocket)
+Этапы 1-3 реализуют подход **без внешних зависимостей**, используя только C++23 stdlib и прямые Linux syscalls. Преимущества:
 
-### Форматирование и логирование
+- Полный контроль над производительностью
+- Упрощенная сборка и развертывание
+- Уменьшенная attack surface
+- Быстрая компиляция
+
+**Основная реализация (этапы 1-3):**
+- Собственный epoll-based reactor (без Asio)
+- Собственный HTTP/1.1 парсер (без Boost.Beast)
+- std::pmr для управления памятью
+- std::expected для обработки ошибок
+- Прямые syscalls для I/O
+
+### Этап 4+: Выборочные зависимости
+
+Внешние зависимости будут добавляться выборочно на поздних этапах:
+
+**Асинхронность и сеть** (этап 7+)
+
+Опционально: **standalone Asio** / **Boost.Asio**, **Boost.Beast** для HTTP/2, WebSocket
+
+**Форматирование и логирование** (этап 5+)
 
 **fmt**, **spdlog**
 
-### Сериализация
+**Сериализация** (этап 4+)
 
-**nlohmann::json** (или Boost.JSON для скорости), **yaml-cpp**, **toml++**
+**nlohmann::json**, **yaml-cpp**, **toml++**
 
-### Метапомощники
+**SQL** (этап 4+)
 
-**gsl-lite**/**MS GSL**, **tl::expected** (до std::expected), **nonstd::span** (если нет std::span)
+**PostgreSQL** (libpq), **SQLite3**
 
-### SQL
-
-**PostgreSQL** (libpq), **SQLite3**; миграции — встроенные или schemacpp
-
-### Кэш
+**Кэш** (этап 4+)
 
 **redis-plus-plus**
 
-### Безопасность
+**Безопасность** (этап 7+)
 
 **OpenSSL**/**BoringSSL**, **jwt-cpp**
 
-### Наблюдаемость
+**Наблюдаемость** (этап 5-6)
 
 **OpenTelemetry C++ SDK**, **Prometheus-cpp**
 
-### Тестирование
+**Тестирование**
 
-**GoogleTest**, **RapidCheck** (property-based), **libFuzzer**/**LLVM** (fuzzing)
+**GoogleTest**, **libFuzzer**/**LLVM** (fuzzing)
 
-### Качество кода
+**Качество кода**
 
-**clang-tidy**, **include-what-you-use**, **sanitizers** (ASan/UBSan/TSan), **gcov**/**llvm-cov**
+**clang-tidy**, **sanitizers** (ASan/UBSan/TSan/LSan)
 
 ---
 
@@ -112,17 +128,19 @@ KATANA/
 
 ### 1. katana/core (Runtime)
 
-**Reactor-per-core**: по CPU core — свой event loop (Asio `io_context` + work guard).
+**Reactor-per-core**: по CPU core — свой event loop (собственный epoll-based reactor с thread pinning).
 
-**Scheduler**: планировщик задач, привязка к ядрам, work stealing между локальными пулами.
+**Scheduler**: планировщик задач, привязка к ядрам, lock-free MPSC очереди.
 
-**Coroutines**: C++20 `co_await` адаптеры поверх Asio (таймауты, отмена, cancellation token).
+**Event Loop**: Edge-triggered epoll, vectored I/O (readv/writev), поддержка EPOLLONESHOT.
 
-**Allocators**: аренные/пулы (pmr), small-buffer оптимизации, ring/circular buffers.
+**Allocators**: arena-per-request (std::pmr::monotonic_buffer_resource), zero-copy где возможно.
 
-**Timers/Clock**: монотонные таймеры, wheel-timers для массовых таймеров.
+**Timers/Clock**: монотонные таймеры, wheel-timers (512 слотов, гранулярность 100ms).
 
-**Safety**: только RAII-ресурсы, `gsl::not_null`, запрет сырого `new`/`delete`.
+**Safety**: строгий RAII, std::expected для ошибок, запрет сырого `new`/`delete`.
+
+**Примечание**: Этапы 1-3 используют собственную реализацию. Будущие этапы могут опционально интегрировать Asio/корутины.
 
 ### 2. katana/net
 
@@ -134,13 +152,19 @@ KATANA/
 
 ### 3. katana/http
 
-**Server**: на Boost.Beast, HTTP/1.1; HTTP/2 — опционально (nghttp2/llhttp).
+**Server**: Собственный HTTP/1.1 парсер с chunked encoding, keep-alive, лимитами безопасности.
 
-**Router**: таблица маршрутов (сгенерирована из OpenAPI), статическая диспетчеризация по методу+пути.
+**Parser**: Zero-copy парсинг, строгое соответствие RFC 7230, настраиваемые лимиты размеров.
 
-**Middleware**: логирование, аутентификация, rate-limit, CORS, gzip/brotli, tracing.
+**Serializer**: Поддержка Content-Length и chunked transfer encoding.
 
-**Error Mapping**: exceptions → Problem Details (RFC 7807), `expected<T, E>` → 4xx/5xx.
+**Error Mapping**: std::expected → Problem Details (RFC 7807).
+
+**Router**: (этап 2+) таблица маршрутов из OpenAPI, статическая диспетчеризация.
+
+**Middleware**: (этап 3+) логирование, аутентификация, rate-limit, CORS, трейсинг.
+
+**HTTP/2**: (этап 7+) через nghttp2 или собственную реализацию.
 
 ### 4. katana/sql
 
@@ -206,11 +230,22 @@ katana codegen api/openapi.yaml sql/*.sql -o gen/
 
 ## Пайплайн обработки запроса (типовой)
 
-1. **Accept соединения** → HTTP parse (Beast) → Router dispatch
-2. **Middleware chain**: tracing → auth → rate-limit → etc.
-3. **Handler** (`co_await`): валидация → бизнес-логика → SQL/Cache вызовы → доменные события
+### Этап 1 (текущий)
+
+1. **Accept соединения** → Edge-triggered epoll → регистрация FD с таймаутами
+2. **HTTP parse**: Собственный инкрементальный парсер → объект Request с arena allocation
+3. **Handler**: Синхронный обработчик → генерация Response
+4. **Сериализация ответа**: HTTP/1.1 сериализатор → Vectored I/O запись
+5. **Keep-alive**: Переиспользование соединения или graceful close
+6. **Метрики**: Атомарные счетчики (tasks, events, timers, exceptions)
+
+### Этап 2+ (запланировано)
+
+1. **Accept соединения** → HTTP parse → **Router dispatch** (из OpenAPI)
+2. **Middleware chain**: трейсинг → аутентификация → rate-limit → и т.д.
+3. **Handler** (опционально `co_await`): валидация → бизнес-логика → SQL/Cache вызовы
 4. **Сериализация ответа**, запись в сокет
-5. **Метрики**: инкременты, latency buckets; **Трейсинг**: spans закрываются
+5. **Метрики**: p50/p95/p99 гистограммы; **Трейсинг**: OpenTelemetry spans
 
 ---
 

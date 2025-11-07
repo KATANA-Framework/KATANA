@@ -30,10 +30,24 @@ public:
         size_t slot_offset = std::min(ticks, WHEEL_SIZE - 1);
         size_t target_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
 
-        timeout_id id = next_id_++;
-        if (next_id_ == 0) {
-            next_id_ = 1;
-        }
+        timeout_id id;
+        bool collision;
+        do {
+            id = next_id_++;
+            if (next_id_ == 0) {
+                next_id_ = 1;
+            }
+            collision = false;
+            for (const auto& s : slots_) {
+                for (const auto& e : s.entries) {
+                    if (e.id == id) {
+                        collision = true;
+                        break;
+                    }
+                }
+                if (collision) break;
+            }
+        } while (collision);
 
         slots_[target_slot].entries.push_back({id, std::move(cb), ticks});
         return id;
