@@ -5,10 +5,20 @@
 
 #include <chrono>
 #include <functional>
+#include <exception>
+#include <string_view>
 
 namespace katana {
 
 using task_fn = std::function<void()>;
+
+struct exception_context {
+    std::string_view location;
+    std::exception_ptr exception;
+    int fd = -1;
+};
+
+using exception_handler = std::function<void(const exception_context&)>;
 
 class reactor {
 public:
@@ -36,6 +46,8 @@ public:
         std::chrono::milliseconds delay,
         task_fn task
     ) = 0;
+
+    virtual void set_exception_handler(exception_handler handler) = 0;
 };
 
 } // namespace katana

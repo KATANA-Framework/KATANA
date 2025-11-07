@@ -38,7 +38,7 @@ int main() {
         if (res) {
             reactor.schedule_after(std::chrono::milliseconds(200), [pipefd]() {
                 const char* msg = "Hello from reactor!";
-                write(pipefd[1], msg, strlen(msg));
+                [[maybe_unused]] auto _ = write(pipefd[1], msg, strlen(msg));
             });
         }
 
@@ -54,6 +54,15 @@ int main() {
 
     if (result) {
         std::cout << "Reactor stopped successfully\n";
+
+        const auto& metrics = reactor.metrics();
+        std::cout << "\nReactor metrics:\n";
+        std::cout << "  Tasks scheduled: " << metrics.tasks_scheduled.load() << "\n";
+        std::cout << "  Tasks executed: " << metrics.tasks_executed.load() << "\n";
+        std::cout << "  FD events processed: " << metrics.fd_events_processed.load() << "\n";
+        std::cout << "  Timers fired: " << metrics.timers_fired.load() << "\n";
+        std::cout << "  Exceptions caught: " << metrics.exceptions_caught.load() << "\n";
+
         return 0;
     } else {
         std::cerr << "Reactor error: " << result.error().message() << "\n";
