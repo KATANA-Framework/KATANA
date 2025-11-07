@@ -126,6 +126,10 @@ response response::error(const problem_details& problem) {
 }
 
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
+    if (data.size() > MAX_BUFFER_SIZE || buffer_.size() > MAX_BUFFER_SIZE - data.size()) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
     if (state_ != state::body && state_ != state::chunk_data) {
         if (buffer_.size() + data.size() > MAX_HEADER_SIZE) {
             return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -217,7 +221,8 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 if (current_chunk_size_ == 0) {
                     state_ = state::chunk_trailer;
                 } else {
-                    if (chunked_body_.size() + current_chunk_size_ > MAX_BODY_SIZE) {
+                    if (current_chunk_size_ > MAX_BODY_SIZE ||
+                        chunked_body_.size() > MAX_BODY_SIZE - current_chunk_size_) {
                         return std::unexpected(make_error_code(error_code::invalid_fd));
                     }
                     state_ = state::chunk_data;
@@ -245,8 +250,8 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         }
     }
 
-    // Compact buffer if parse_pos_ exceeds threshold
-    if (parse_pos_ > COMPACT_THRESHOLD) {
+    // Compact buffer if parse_pos_ exceeds threshold or buffer is too large
+    if (parse_pos_ > COMPACT_THRESHOLD || buffer_.size() > MAX_HEADER_SIZE * 2) {
         compact_buffer();
     }
 
