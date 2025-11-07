@@ -2,6 +2,7 @@
 #include "katana/core/http.hpp"
 #include "katana/core/system_limits.hpp"
 #include "katana/core/shutdown.hpp"
+#include "katana/core/arena.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -46,12 +47,19 @@ int create_listener() {
 
 struct connection {
     int fd = -1;
+    monotonic_arena arena;
     http::parser parser;
-    std::vector<uint8_t> read_buffer;
-    std::vector<uint8_t> write_buffer;
+    std::pmr::vector<uint8_t> read_buffer;
+    std::pmr::vector<uint8_t> write_buffer;
     size_t write_pos = 0;
 
-    connection() : read_buffer(BUFFER_SIZE) {}
+    connection()
+        : arena(8192)
+        , read_buffer(&arena)
+        , write_buffer(&arena)
+    {
+        read_buffer.resize(BUFFER_SIZE);
+    }
 };
 
 void handle_client(connection& conn) {
@@ -106,6 +114,7 @@ void handle_client(connection& conn) {
             }
 
             if (conn.write_pos == conn.write_buffer.size()) {
+                conn.arena.reset();
                 close(conn.fd);
                 return;
             }

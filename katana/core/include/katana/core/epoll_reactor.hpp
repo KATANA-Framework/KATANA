@@ -2,12 +2,12 @@
 
 #include "reactor.hpp"
 #include "metrics.hpp"
+#include "mpsc_queue.hpp"
 
 #include <atomic>
 #include <unordered_map>
 #include <vector>
 #include <queue>
-#include <mutex>
 
 namespace katana {
 
@@ -72,10 +72,10 @@ private:
     std::atomic<bool> running_;
 
     std::unordered_map<int, fd_state> fd_states_;
-    std::vector<task_fn> pending_tasks_;
+    mpsc_queue<task_fn> pending_tasks_;
     std::priority_queue<timer_entry, std::vector<timer_entry>, std::greater<timer_entry>> timers_;
+    mpsc_queue<timer_entry> pending_timers_;
 
-    mutable std::mutex tasks_mutex_;
     exception_handler exception_handler_;
     reactor_metrics metrics_;
 };

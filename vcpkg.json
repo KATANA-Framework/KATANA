@@ -1,0 +1,9 @@
+{
+  "name": "katana",
+  "version": "0.1.0",
+  "description": "High-performance async C++ framework with reactor-per-core architecture",
+  "homepage": "https://github.com/KATANA-Framework/KATANA",
+  "license": "MIT",
+  "supports": "linux",
+  "dependencies": []
+}
