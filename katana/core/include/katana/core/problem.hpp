@@ -1,0 +1,32 @@
+#pragma once
+
+#include <string>
+#include <string_view>
+#include <optional>
+#include <unordered_map>
+#include <cstdint>
+
+namespace katana {
+
+struct problem_details {
+    std::string type = "about:blank";
+    std::string title;
+    int status = 500;
+    std::optional<std::string> detail;
+    std::optional<std::string> instance;
+    std::unordered_map<std::string, std::string> extensions;
+
+    std::string to_json() const;
+
+    static problem_details bad_request(std::string_view detail = "");
+    static problem_details unauthorized(std::string_view detail = "");
+    static problem_details forbidden(std::string_view detail = "");
+    static problem_details not_found(std::string_view detail = "");
+    static problem_details method_not_allowed(std::string_view detail = "");
+    static problem_details conflict(std::string_view detail = "");
+    static problem_details unprocessable_entity(std::string_view detail = "");
+    static problem_details internal_server_error(std::string_view detail = "");
+    static problem_details service_unavailable(std::string_view detail = "");
+};
+
+} // namespace katana
