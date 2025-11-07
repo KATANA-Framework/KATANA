@@ -86,23 +86,27 @@ void io_buffer::ensure_writable(size_t bytes) {
     }
 }
 
-void scatter_gather::add_buffer(std::span<uint8_t> buf) {
+void scatter_gather_read::add_buffer(std::span<uint8_t> buf) {
     if (!buf.empty()) {
         iovecs_.push_back(iovec{buf.data(), buf.size()});
     }
 }
 
-void scatter_gather::add_buffer(std::span<const uint8_t> buf) {
+void scatter_gather_read::clear() noexcept {
+    iovecs_.clear();
+}
+
+void scatter_gather_write::add_buffer(std::span<const uint8_t> buf) {
     if (!buf.empty()) {
         iovecs_.push_back(iovec{const_cast<uint8_t*>(buf.data()), buf.size()});
     }
 }
 
-void scatter_gather::clear() noexcept {
+void scatter_gather_write::clear() noexcept {
     iovecs_.clear();
 }
 
-result<size_t> read_vectored(int fd, scatter_gather& sg) {
+result<size_t> read_vectored(int fd, scatter_gather_read& sg) {
 #ifdef __linux__
     ssize_t result = readv(fd, const_cast<iovec*>(sg.iov()), static_cast<int>(sg.count()));
 
@@ -121,7 +125,7 @@ result<size_t> read_vectored(int fd, scatter_gather& sg) {
 #endif
 }
 
-result<size_t> write_vectored(int fd, scatter_gather& sg) {
+result<size_t> write_vectored(int fd, scatter_gather_write& sg) {
 #ifdef __linux__
     ssize_t result = writev(fd, sg.iov(), static_cast<int>(sg.count()));
 

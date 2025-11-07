@@ -42,7 +42,7 @@ private:
         std::unique_ptr<epoll_reactor> reactor;
         std::thread thread;
         uint32_t core_id = 0;
-        bool running = false;
+        std::atomic<bool> running{false};
     };
 
     void worker_thread(reactor_context* ctx);
