@@ -119,7 +119,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    buffer_.append(reinterpret_cast<const char*>(data.data()), data.size());
+    buffer_.append(static_cast<const char*>(static_cast<const void*>(data.data())), data.size());
 
     while (state_ != state::complete) {
         if (state_ == state::request_line || state_ == state::headers) {

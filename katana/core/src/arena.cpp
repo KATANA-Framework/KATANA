@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <memory>
 #include <cstdlib>
+#include <bit>
 
 namespace katana {
 
@@ -26,7 +27,7 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
     }
 
     for (auto& b : blocks_) {
-        uintptr_t addr = reinterpret_cast<uintptr_t>(b.data.get()) + b.used;
+        uintptr_t addr = std::bit_cast<uintptr_t>(b.data.get()) + b.used;
         uintptr_t aligned_addr = (addr + alignment - 1) & ~(alignment - 1);
         size_t padding = aligned_addr - addr;
         size_t total = padding + bytes;
@@ -34,7 +35,7 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
         if (b.used + total <= b.size) {
             b.used += total;
             bytes_allocated_ += bytes;
-            return reinterpret_cast<void*>(aligned_addr);
+            return std::bit_cast<void*>(aligned_addr);
         }
     }
 
@@ -42,7 +43,7 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
     allocate_new_block(block_size);
 
     auto& b = blocks_.back();
-    uintptr_t addr = reinterpret_cast<uintptr_t>(b.data.get());
+    uintptr_t addr = std::bit_cast<uintptr_t>(b.data.get());
     uintptr_t aligned_addr = (addr + alignment - 1) & ~(alignment - 1);
     size_t padding = aligned_addr - addr;
     size_t total = padding + bytes;
@@ -50,7 +51,7 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
     b.used = total;
     bytes_allocated_ += bytes;
 
-    return reinterpret_cast<void*>(aligned_addr);
+    return std::bit_cast<void*>(aligned_addr);
 }
 
 void monotonic_arena::do_deallocate(void*, size_t, size_t) {
