@@ -64,17 +64,17 @@ public:
         std::cout << "Successful: " << successful << "\n";
         std::cout << "Failed: " << (samples_.size() - successful) << "\n";
         std::cout << "\nLatency (ms):\n";
-        std::cout << "  Min:    " << (latencies.front() / 1000000.0) << " ms\n";
-        std::cout << "  Avg:    " << (avg / 1000000.0) << " ms\n";
-        std::cout << "  p50:    " << (p50 / 1000000.0) << " ms\n";
-        std::cout << "  p90:    " << (p90 / 1000000.0) << " ms\n";
-        std::cout << "  p95:    " << (p95 / 1000000.0) << " ms\n";
-        std::cout << "  p99:    " << (p99 / 1000000.0) << " ms\n";
-        std::cout << "  p99.9:  " << (p999 / 1000000.0) << " ms\n";
-        std::cout << "  Max:    " << (latencies.back() / 1000000.0) << " ms\n";
+        std::cout << "  Min:    " << (static_cast<double>(latencies.front()) / 1000000.0) << " ms\n";
+        std::cout << "  Avg:    " << (static_cast<double>(avg) / 1000000.0) << " ms\n";
+        std::cout << "  p50:    " << (static_cast<double>(p50) / 1000000.0) << " ms\n";
+        std::cout << "  p90:    " << (static_cast<double>(p90) / 1000000.0) << " ms\n";
+        std::cout << "  p95:    " << (static_cast<double>(p95) / 1000000.0) << " ms\n";
+        std::cout << "  p99:    " << (static_cast<double>(p99) / 1000000.0) << " ms\n";
+        std::cout << "  p99.9:  " << (static_cast<double>(p999) / 1000000.0) << " ms\n";
+        std::cout << "  Max:    " << (static_cast<double>(latencies.back()) / 1000000.0) << " ms\n";
 
         // Stage 1 requirement: p99 < 1.5-2.0 ms
-        if (p99 / 1000000.0 < 2.0) {
+        if (static_cast<double>(p99) / 1000000.0 < 2.0) {
             std::cout << "\n✅ PASS: p99 latency < 2.0 ms (Stage 1 requirement)\n";
         } else {
             std::cout << "\n❌ FAIL: p99 latency >= 2.0 ms (Stage 1 requirement)\n";
@@ -198,7 +198,7 @@ int32_t main(int32_t argc, char* argv[]) {
     tracker.print_stats();
 
     std::cout << "\nBenchmark duration: " << total_duration.count() << " ms\n";
-    std::cout << "Throughput: " << (total_requests * 1000.0 / total_duration.count())
+    std::cout << "Throughput: " << (static_cast<double>(total_requests) * 1000.0 / static_cast<double>(total_duration.count()))
               << " req/s\n";
 
     return 0;

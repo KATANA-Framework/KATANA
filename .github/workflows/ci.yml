@@ -37,7 +37,7 @@ jobs:
           ${{ matrix.compiler.cc }} \
           ${{ matrix.compiler.cxx }} \
           liburing-dev \
-          benchmark
+          libbenchmark-dev
 
     - name: Configure CMake (no sanitizer)
       if: matrix.sanitizer == 'none'

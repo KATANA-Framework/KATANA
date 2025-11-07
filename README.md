@@ -299,44 +299,51 @@ Thread pinning (опциональная оптимизация):
 
 ## Дорожная карта
 
-### Этап 1 — Базовый runtime
+### Этап 1 — Базовый runtime ✅
 
 **Цель**: устойчивый server loop без гонок, ASan/LSan-clean; `hello-world p99 < 1.5–2.0 ms` на одном сокете.
 
-- [ ] Реализовать базовый event loop на epoll
-  - [ ] Абстракция `Reactor` с методами `run()`, `stop()`, `schedule()`
-  - [ ] Регистрация file descriptors (EPOLLIN/EPOLLOUT/EPOLLET)
-  - [ ] Обработка событий с таймаутами
-- [ ] Reactor-per-core архитектура
-  - [ ] Создание N реакторов по числу CPU cores
-  - [ ] Полная изоляция состояния между реакторами (no shared state)
-  - [ ] Опционально: thread pinning через `sched_setaffinity` (оптимизация производительности)
-- [ ] Vectored I/O
-  - [ ] Обёртки над `readv`/`writev`
-  - [ ] Управление scatter-gather буферами
-- [ ] Arena allocator (per-request)
-  - [ ] Монотонный аллокатор с фиксированными блоками
-  - [ ] Интеграция с `std::pmr::memory_resource`
-  - [ ] Reset арены после завершения запроса
-- [ ] HTTP/1.1 parser
-  - [ ] Парсинг request line (method, URI, version)
-  - [ ] Парсинг заголовков (складывание multiline)
-  - [ ] Chunked transfer encoding
-  - [ ] Keep-alive и connection pooling
-- [ ] HTTP/1.1 serializer
-  - [ ] Формирование response (status line, headers, body)
-  - [ ] Поддержка `Content-Length` и `Transfer-Encoding: chunked`
-- [ ] RFC 7807 (Problem Details)
-  - [ ] Структура `Problem` (type, title, status, detail, instance)
-  - [ ] Хелперы для типовых ошибок (400, 404, 500, 503)
-- [ ] Системные лимиты
-  - [ ] `rlimit` для файловых дескрипторов
-  - [ ] Лимиты на размер заголовков/body
-  - [ ] Graceful shutdown с дедлайном
-- [ ] Базовые тесты
-  - [ ] Unit-тесты парсера HTTP
-  - [ ] ASan/LSan прогоны
-  - [ ] Hello-world benchmark (wrk/h2load)
+- [x] Реализовать базовый event loop на epoll
+  - [x] Абстракция `Reactor` с методами `run()`, `stop()`, `schedule()`
+  - [x] Регистрация file descriptors (EPOLLIN/EPOLLOUT/EPOLLET)
+  - [x] Обработка событий с таймаутами (wheel_timer)
+- [x] Reactor-per-core архитектура
+  - [x] Создание N реакторов по числу CPU cores
+  - [x] Полная изоляция состояния между реакторами (no shared state)
+  - [x] Опционально: thread pinning через `sched_setaffinity` (оптимизация производительности)
+- [x] Vectored I/O
+  - [x] Обёртки над `readv`/`writev`
+  - [x] Управление scatter-gather буферами
+- [x] Arena allocator (per-request)
+  - [x] Монотонный аллокатор с фиксированными блоками
+  - [x] Интеграция с `std::pmr::memory_resource`
+  - [x] Reset арены после завершения запроса
+- [x] HTTP/1.1 parser
+  - [x] Парсинг request line (method, URI, version)
+  - [x] Парсинг заголовков (складывание multiline)
+  - [x] Chunked transfer encoding
+  - [x] Keep-alive и connection pooling
+- [x] HTTP/1.1 serializer
+  - [x] Формирование response (status line, headers, body)
+  - [x] Поддержка `Content-Length` и `Transfer-Encoding: chunked`
+- [x] RFC 7807 (Problem Details)
+  - [x] Структура `Problem` (type, title, status, detail, instance)
+  - [x] Хелперы для типовых ошибок (400, 404, 500, 503)
+- [x] Системные лимиты
+  - [x] `rlimit` для файловых дескрипторов
+  - [x] Лимиты на размер заголовков/body
+  - [x] Graceful shutdown с дедлайном
+- [x] Базовые тесты
+  - [x] Unit-тесты парсера HTTP (39 tests passing)
+  - [x] ASan/LSan прогоны (в CI pipeline)
+  - [x] Hello-world benchmark (latency_benchmark)
+
+**Дополнительно реализовано (STL-style RAII API)**:
+- [x] `tcp_socket` — RAII wrapper для сокетов с move semantics
+- [x] `tcp_listener` — RAII factory для accept с fluent interface
+- [x] `fd_watch` — RAII registration handle для автоматического unregister
+- [x] STL-compatible iterator interface для `reactor_pool` (range-based for loops)
+- [x] Примеры: `raii_echo_server`, `raii_http_server` с monadic composition
 
 ---
 

@@ -17,6 +17,7 @@ reactor_pool::reactor_pool(const reactor_pool_config& config)
     for (uint32_t i = 0; i < config_.reactor_count; ++i) {
         auto ctx = std::make_unique<reactor_context>();
         ctx->reactor = std::make_unique<epoll_reactor>(config_.max_events_per_reactor);
+        ctx->core_id = i;
         reactors_.push_back(std::move(ctx));
     }
 }
@@ -102,6 +103,13 @@ metrics_snapshot reactor_pool::aggregate_metrics() const {
 }
 
 void reactor_pool::worker_thread(reactor_context* ctx) {
+    if (config_.enable_thread_pinning) {
+        if (!cpu_info::pin_thread_to_core(ctx->core_id)) {
+            std::cerr << "[reactor_pool] Warning: Failed to pin thread to core "
+                      << ctx->core_id << "\n";
+        }
+    }
+
     auto result = ctx->reactor->run();
     if (!result) {
         std::cerr << "[reactor_pool] Reactor error: " << result.error().message() << "\n";
