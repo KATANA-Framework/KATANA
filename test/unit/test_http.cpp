@@ -64,7 +64,7 @@ TEST(HttpParser, ParseAllMethods) {
 
     for (const auto& tc : cases) {
         parser p;
-        std::string request = tc.method_str + " / HTTP/1.1\r\n\r\n";
+        std::string request = tc.method_str + " / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         auto data = as_bytes(request);
 
         auto result = p.parse(data);
@@ -127,7 +127,7 @@ TEST(HttpParser, ParseIncrementalData) {
 TEST(HttpParser, ParseIncrementalBody) {
     parser p;
 
-    std::string headers = "POST / HTTP/1.1\r\nContent-Length: 10\r\n\r\n";
+    std::string headers = "POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 10\r\n\r\n";
     std::string body_part1 = "hello";
     std::string body_part2 = "world";
 

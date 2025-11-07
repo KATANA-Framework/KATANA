@@ -117,9 +117,9 @@ void scatter_gather_write::clear() noexcept {
     iovecs_.clear();
 }
 
-result<size_t> read_vectored(int fd, scatter_gather_read& sg) {
+result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 #ifdef __linux__
-    ssize_t result = readv(fd, const_cast<iovec*>(sg.iov()), static_cast<int>(sg.count()));
+    ssize_t result = readv(fd, const_cast<iovec*>(sg.iov()), static_cast<int32_t>(sg.count()));
 
     if (result < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -136,9 +136,9 @@ result<size_t> read_vectored(int fd, scatter_gather_read& sg) {
 #endif
 }
 
-result<size_t> write_vectored(int fd, scatter_gather_write& sg) {
+result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
 #ifdef __linux__
-    ssize_t result = writev(fd, sg.iov(), static_cast<int>(sg.count()));
+    ssize_t result = writev(fd, sg.iov(), static_cast<int32_t>(sg.count()));
 
     if (result < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {

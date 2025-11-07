@@ -4,6 +4,7 @@
 #include "katana/core/system_limits.hpp"
 #include "katana/core/shutdown.hpp"
 #include "katana/core/arena.hpp"
+#include "katana/core/io_buffer.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -12,6 +13,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cstring>
+#include <chrono>
 
 using namespace katana;
 using katana::http::ci_equal;
@@ -20,16 +22,42 @@ constexpr uint16_t PORT = 8080;
 constexpr size_t BUFFER_SIZE = 4096;
 constexpr size_t ARENA_BLOCK_SIZE = 8192;
 constexpr size_t MAX_CONNECTIONS = 10000;
+constexpr size_t MAX_ACCEPTS_PER_TICK = 100;
 
 static std::atomic<size_t> active_connections{0};
+static std::atomic<size_t> total_requests{0};
+static std::atomic<size_t> keepalive_reuses{0};
 
-int create_listener() {
-    int sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+struct rate_limiter {
+    std::chrono::steady_clock::time_point last_reset;
+    size_t accepts_this_period{0};
+    static constexpr auto PERIOD = std::chrono::milliseconds(100);
+
+    bool should_accept() {
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_reset >= PERIOD) {
+            last_reset = now;
+            accepts_this_period = 0;
+        }
+
+        if (accepts_this_period >= MAX_ACCEPTS_PER_TICK) {
+            return false;
+        }
+
+        ++accepts_this_period;
+        return true;
+    }
+};
+
+static rate_limiter accept_limiter;
+
+int32_t create_listener() {
+    int32_t sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (sockfd < 0) {
         return -1;
     }
 
-    int opt = 1;
+    int32_t opt = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
 
@@ -52,12 +80,13 @@ int create_listener() {
 }
 
 struct connection {
-    std::atomic<int> fd{-1};
+    std::atomic<int32_t> fd{-1};
     monotonic_arena arena;
     http::parser parser;
     std::pmr::vector<uint8_t> read_buffer;
     std::pmr::vector<uint8_t> write_buffer;
     size_t write_pos = 0;
+    size_t requests_on_connection = 0;
 
     connection()
         : arena(ARENA_BLOCK_SIZE)
@@ -68,7 +97,7 @@ struct connection {
     }
 
     void safe_close() {
-        int expected_fd = fd.exchange(-1, std::memory_order_acq_rel);
+        int32_t expected_fd = fd.exchange(-1, std::memory_order_acq_rel);
         if (expected_fd >= 0) {
             close(expected_fd);
             active_connections.fetch_sub(1, std::memory_order_relaxed);
@@ -78,45 +107,55 @@ struct connection {
 
 void handle_client(connection& conn) {
     while (true) {
-        int fd_val = conn.fd.load(std::memory_order_relaxed);
+        int32_t fd_val = conn.fd.load(std::memory_order_relaxed);
         if (fd_val < 0) {
             return;
         }
-        ssize_t n = recv(fd_val, conn.read_buffer.data(), conn.read_buffer.size(), 0);
 
-        if (n < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                return;
+        scatter_gather_read sg_read;
+        sg_read.add_buffer(std::span<uint8_t>(conn.read_buffer.data(), conn.read_buffer.size()));
+
+        auto read_result = read_vectored(fd_val, sg_read);
+        if (!read_result) {
+            if (read_result.error().value() != EAGAIN && read_result.error().value() != EWOULDBLOCK) {
+                conn.safe_close();
             }
-            conn.safe_close();
             return;
         }
 
+        size_t n = *read_result;
         if (n == 0) {
             conn.safe_close();
             return;
         }
 
-        auto result = conn.parser.parse(std::span<const uint8_t>(conn.read_buffer.data(), static_cast<size_t>(n)));
+        auto result = conn.parser.parse(std::span<const uint8_t>(conn.read_buffer.data(), n));
 
         if (!result) {
             auto resp = http::response::error(problem_details::bad_request("Invalid HTTP request"));
             std::string serialized = resp.serialize();
-            int write_fd = conn.fd.load(std::memory_order_relaxed);
+
+            scatter_gather_write sg_write;
+            sg_write.add_buffer(std::span<const uint8_t>(
+                reinterpret_cast<const uint8_t*>(serialized.data()),
+                serialized.size()
+            ));
+
+            int32_t write_fd = conn.fd.load(std::memory_order_relaxed);
             if (write_fd >= 0) {
-                size_t total_written = 0;
-                while (total_written < serialized.size()) {
-                    ssize_t written = write(write_fd, serialized.data() + total_written,
-                                          serialized.size() - total_written);
-                    if (written <= 0) break;
-                    total_written += static_cast<size_t>(written);
-                }
+                write_vectored(write_fd, sg_write);
             }
             conn.safe_close();
             return;
         }
 
         if (conn.parser.is_complete()) {
+            ++conn.requests_on_connection;
+            if (conn.requests_on_connection > 1) {
+                keepalive_reuses.fetch_add(1, std::memory_order_relaxed);
+            }
+            total_requests.fetch_add(1, std::memory_order_relaxed);
+
             auto& req = conn.parser.get_request();
             auto resp = http::response::ok("Hello, World!", "text/plain");
 
@@ -130,10 +169,16 @@ void handle_client(connection& conn) {
                               !ci_equal(*connection_header, "keep-alive");
             }
 
+            // Limit max requests per connection
+            if (conn.requests_on_connection >= 1000) {
+                should_close = true;
+            }
+
             if (should_close) {
                 resp.set_header("Connection", "close");
             } else {
                 resp.set_header("Connection", "keep-alive");
+                resp.set_header("Keep-Alive", "timeout=60, max=1000");
             }
 
             std::string serialized = resp.serialize();
@@ -141,24 +186,33 @@ void handle_client(connection& conn) {
             conn.write_pos = 0;
 
             while (conn.write_pos < conn.write_buffer.size()) {
-                int send_fd = conn.fd.load(std::memory_order_relaxed);
+                int32_t send_fd = conn.fd.load(std::memory_order_relaxed);
                 if (send_fd < 0) {
                     return;
                 }
-                ssize_t written = send(send_fd,
-                                     conn.write_buffer.data() + conn.write_pos,
-                                     conn.write_buffer.size() - conn.write_pos,
-                                     0);
 
-                if (written < 0) {
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                scatter_gather_write sg_write;
+                sg_write.add_buffer(std::span<const uint8_t>(
+                    conn.write_buffer.data() + conn.write_pos,
+                    conn.write_buffer.size() - conn.write_pos
+                ));
+
+                auto write_result = write_vectored(send_fd, sg_write);
+                if (!write_result) {
+                    if (write_result.error().value() == EAGAIN ||
+                        write_result.error().value() == EWOULDBLOCK) {
                         break;
                     }
                     conn.safe_close();
                     return;
                 }
 
-                conn.write_pos += static_cast<size_t>(written);
+                size_t written = *write_result;
+                if (written == 0) {
+                    break;
+                }
+
+                conn.write_pos += written;
             }
 
             if (conn.write_pos == conn.write_buffer.size()) {
@@ -175,16 +229,22 @@ void handle_client(connection& conn) {
     }
 }
 
-void accept_connections(reactor_pool& pool, int listener_fd) {
-    while (true) {
+void accept_connections(reactor_pool& pool, int32_t listener_fd) {
+    size_t accepts_this_call = 0;
+
+    while (accepts_this_call < MAX_ACCEPTS_PER_TICK) {
         if (active_connections.load(std::memory_order_relaxed) >= MAX_CONNECTIONS) {
+            return;
+        }
+
+        if (!accept_limiter.should_accept()) {
             return;
         }
 
         sockaddr_in client_addr{};
         socklen_t addr_len = sizeof(client_addr);
 
-        int client_fd = accept4(listener_fd,
+        int32_t client_fd = accept4(listener_fd,
                                static_cast<sockaddr*>(static_cast<void*>(&client_addr)),
                                &addr_len,
                                SOCK_NONBLOCK | SOCK_CLOEXEC);
@@ -196,7 +256,9 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
             continue;
         }
 
-        int flag = 1;
+        ++accepts_this_call;
+
+        int32_t flag = 1;
         setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 
         active_connections.fetch_add(1, std::memory_order_relaxed);
@@ -219,7 +281,7 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
             [conn, &r](event_type events) {
                 if (has_flag(events, event_type::readable)) {
                     handle_client(*conn);
-                    int refresh_fd = conn->fd.load(std::memory_order_relaxed);
+                    int32_t refresh_fd = conn->fd.load(std::memory_order_relaxed);
                     if (refresh_fd >= 0) {
                         r.refresh_fd_timeout(refresh_fd);
                     }
@@ -235,13 +297,13 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
     }
 }
 
-int main() {
+int32_t main() {
     auto limits_result = system_limits::set_max_fds(65536);
     if (!limits_result) {
         std::cerr << "Failed to set max FDs: " << limits_result.error().message() << "\n";
     }
 
-    int listener_fd = create_listener();
+    int32_t listener_fd = create_listener();
     if (listener_fd < 0) {
         std::cerr << "Failed to create listener socket\n";
         return 1;
@@ -289,6 +351,8 @@ int main() {
     std::cout << "  FD events: " << total_metrics.fd_events_processed << "\n";
     std::cout << "  Timers fired: " << total_metrics.timers_fired << "\n";
     std::cout << "  Exceptions: " << total_metrics.exceptions_caught << "\n";
+    std::cout << "  Total requests: " << total_requests.load() << "\n";
+    std::cout << "  Keep-Alive reuses: " << keepalive_reuses.load() << "\n";
 
     return 0;
 }

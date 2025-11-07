@@ -17,7 +17,7 @@ class epoll_reactor : public reactor {
 public:
     static constexpr size_t DEFAULT_MAX_PENDING_TASKS = 10000;
 
-    explicit epoll_reactor(int max_events = 128, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
+    explicit epoll_reactor(int32_t max_events = 128, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
     ~epoll_reactor() override;
 
     epoll_reactor(const epoll_reactor&) = delete;
@@ -28,26 +28,26 @@ public:
     void graceful_stop(std::chrono::milliseconds timeout) override;
 
     result<void> register_fd(
-        int fd,
+        int32_t fd,
         event_type events,
         event_callback callback
     ) override;
 
     result<void> register_fd_with_timeout(
-        int fd,
+        int32_t fd,
         event_type events,
         event_callback callback,
         const timeout_config& config
     ) override;
 
     result<void> modify_fd(
-        int fd,
+        int32_t fd,
         event_type events
     ) override;
 
-    result<void> unregister_fd(int fd) override;
+    result<void> unregister_fd(int32_t fd) override;
 
-    void refresh_fd_timeout(int fd) override;
+    void refresh_fd_timeout(int32_t fd) override;
 
     bool schedule(task_fn task) override;
 
@@ -79,17 +79,17 @@ private:
         }
     };
 
-    result<void> process_events(int timeout_ms);
+    result<void> process_events(int32_t timeout_ms);
     void process_tasks();
     void process_timers();
     void process_wheel_timer();
-    int calculate_timeout() const;
-    void handle_exception(std::string_view location, std::exception_ptr ex, int fd = -1) noexcept;
-    void setup_fd_timeout(int fd, fd_state& state);
+    int32_t calculate_timeout() const;
+    void handle_exception(std::string_view location, std::exception_ptr ex, int32_t fd = -1) noexcept;
+    void setup_fd_timeout(int32_t fd, fd_state& state);
     void cancel_fd_timeout(fd_state& state);
 
-    int epoll_fd_;
-    int max_events_;
+    int32_t epoll_fd_;
+    int32_t max_events_;
     std::atomic<bool> running_;
     std::atomic<bool> graceful_shutdown_;
     std::chrono::steady_clock::time_point graceful_shutdown_deadline_;

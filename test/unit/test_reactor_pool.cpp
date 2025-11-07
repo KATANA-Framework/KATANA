@@ -7,7 +7,6 @@
 TEST(ReactorPoolTest, CreatePool) {
     katana::reactor_pool_config config;
     config.reactor_count = 4;
-    config.enable_pinning = false;
 
     katana::reactor_pool pool(config);
     EXPECT_EQ(pool.reactor_count(), 4);
@@ -15,7 +14,6 @@ TEST(ReactorPoolTest, CreatePool) {
 
 TEST(ReactorPoolTest, DefaultCoreCount) {
     katana::reactor_pool_config config;
-    config.enable_pinning = false;
 
     katana::reactor_pool pool(config);
     EXPECT_EQ(pool.reactor_count(), katana::cpu_info::core_count());
@@ -24,7 +22,6 @@ TEST(ReactorPoolTest, DefaultCoreCount) {
 TEST(ReactorPoolTest, StartStop) {
     katana::reactor_pool_config config;
     config.reactor_count = 2;
-    config.enable_pinning = false;
 
     katana::reactor_pool pool(config);
 
@@ -48,7 +45,6 @@ TEST(ReactorPoolTest, StartStop) {
 TEST(ReactorPoolTest, RoundRobinSelection) {
     katana::reactor_pool_config config;
     config.reactor_count = 4;
-    config.enable_pinning = false;
 
     katana::reactor_pool pool(config);
 
@@ -68,7 +64,6 @@ TEST(ReactorPoolTest, RoundRobinSelection) {
 TEST(ReactorPoolTest, MetricsAggregation) {
     katana::reactor_pool_config config;
     config.reactor_count = 2;
-    config.enable_pinning = false;
 
     katana::reactor_pool pool(config);
 
@@ -92,7 +87,6 @@ TEST(ReactorPoolTest, MetricsAggregation) {
 TEST(ReactorPoolTest, IsolatedState) {
     katana::reactor_pool_config config;
     config.reactor_count = 2;
-    config.enable_pinning = false;
 
     katana::reactor_pool pool(config);
 

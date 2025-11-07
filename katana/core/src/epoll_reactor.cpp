@@ -50,7 +50,7 @@ constexpr event_type from_epoll_events(uint32_t events) noexcept {
 
 } // namespace
 
-epoll_reactor::epoll_reactor(int max_events, size_t max_pending_tasks)
+epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
     : epoll_fd_(-1)
     , max_events_(max_events)
     , running_(false)
@@ -111,12 +111,12 @@ result<void> epoll_reactor::run() {
                 break;
             }
             if (now >= graceful_shutdown_deadline_) {
-                std::vector<int> fds_to_close;
+                std::vector<int32_t> fds_to_close;
                 fds_to_close.reserve(fd_states_.size());
                 for (const auto& [fd, _] : fd_states_) {
                     fds_to_close.push_back(fd);
                 }
-                for (int fd : fds_to_close) {
+                for (int32_t fd : fds_to_close) {
                     auto it = fd_states_.find(fd);
                     if (it == fd_states_.end()) continue;
                     try {
@@ -157,7 +157,7 @@ void epoll_reactor::graceful_stop(std::chrono::milliseconds timeout) {
 }
 
 result<void> epoll_reactor::register_fd(
-    int fd,
+    int32_t fd,
     event_type events,
     event_callback callback
 ) {
@@ -179,7 +179,7 @@ result<void> epoll_reactor::register_fd(
 }
 
 result<void> epoll_reactor::register_fd_with_timeout(
-    int fd,
+    int32_t fd,
     event_type events,
     event_callback callback,
     const timeout_config& config
@@ -205,7 +205,7 @@ result<void> epoll_reactor::register_fd_with_timeout(
     return {};
 }
 
-result<void> epoll_reactor::modify_fd(int fd, event_type events) {
+result<void> epoll_reactor::modify_fd(int32_t fd, event_type events) {
     if (fd < 0) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
@@ -227,7 +227,7 @@ result<void> epoll_reactor::modify_fd(int fd, event_type events) {
     return {};
 }
 
-result<void> epoll_reactor::unregister_fd(int fd) {
+result<void> epoll_reactor::unregister_fd(int32_t fd) {
     if (fd < 0) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
@@ -247,7 +247,7 @@ result<void> epoll_reactor::unregister_fd(int fd) {
     return {};
 }
 
-void epoll_reactor::refresh_fd_timeout(int fd) {
+void epoll_reactor::refresh_fd_timeout(int32_t fd) {
     auto it = fd_states_.find(fd);
     if (it != fd_states_.end() && it->second.has_timeout) {
         it->second.last_activity = std::chrono::steady_clock::now();
@@ -278,10 +278,10 @@ bool epoll_reactor::schedule_after(
     return true;
 }
 
-result<void> epoll_reactor::process_events(int timeout_ms) {
+result<void> epoll_reactor::process_events(int32_t timeout_ms) {
     events_buffer_.resize(max_events_);
 
-    int nfds = epoll_wait(epoll_fd_, events_buffer_.data(), max_events_, timeout_ms);
+    int32_t nfds = epoll_wait(epoll_fd_, events_buffer_.data(), max_events_, timeout_ms);
 
     if (nfds < 0) {
         if (errno == EINTR) {
@@ -290,8 +290,8 @@ result<void> epoll_reactor::process_events(int timeout_ms) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
-    for (int i = 0; i < nfds; ++i) {
-        int fd = events_buffer_[i].data.fd;
+    for (int32_t i = 0; i < nfds; ++i) {
+        int32_t fd = events_buffer_[i].data.fd;
         auto it = fd_states_.find(fd);
         if (it != fd_states_.end()) {
             event_type ev = from_epoll_events(events_buffer_[i].events);
@@ -346,7 +346,7 @@ void epoll_reactor::process_timers() {
     }
 }
 
-int epoll_reactor::calculate_timeout() const {
+int32_t epoll_reactor::calculate_timeout() const {
     if (!pending_tasks_.empty()) {
         return 0;
     }
@@ -366,7 +366,7 @@ int epoll_reactor::calculate_timeout() const {
         deadline - now
     );
 
-    return static_cast<int>(std::min<int64_t>(timeout.count(), 100));
+    return static_cast<int32_t>(std::min<int64_t>(timeout.count(), 100));
 }
 
 void epoll_reactor::set_exception_handler(exception_handler handler) {
@@ -383,7 +383,7 @@ void epoll_reactor::process_wheel_timer() {
     }
 }
 
-void epoll_reactor::setup_fd_timeout(int fd, fd_state& state) {
+void epoll_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
     state.timeout_id = wheel_timer_.add(
         state.timeouts.idle_timeout,
         [this, fd]() {
@@ -411,7 +411,7 @@ void epoll_reactor::cancel_fd_timeout(fd_state& state) {
 void epoll_reactor::handle_exception(
     std::string_view location,
     std::exception_ptr ex,
-    int fd
+    int32_t fd
 ) noexcept {
     metrics_.exceptions_caught.fetch_add(1, std::memory_order_relaxed);
 

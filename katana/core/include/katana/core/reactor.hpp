@@ -16,7 +16,7 @@ using task_fn = inplace_function<void(), 128>;
 struct exception_context {
     std::string_view location;
     std::exception_ptr exception;
-    int fd = -1;
+    int32_t fd = -1;
 };
 
 using exception_handler = std::function<void(const exception_context&)>;
@@ -36,26 +36,26 @@ public:
     virtual void graceful_stop(std::chrono::milliseconds timeout = std::chrono::milliseconds(30000)) = 0;
 
     virtual result<void> register_fd(
-        int fd,
+        int32_t fd,
         event_type events,
         event_callback callback
     ) = 0;
 
     virtual result<void> register_fd_with_timeout(
-        int fd,
+        int32_t fd,
         event_type events,
         event_callback callback,
         const timeout_config& config
     ) = 0;
 
     virtual result<void> modify_fd(
-        int fd,
+        int32_t fd,
         event_type events
     ) = 0;
 
-    virtual result<void> unregister_fd(int fd) = 0;
+    virtual result<void> unregister_fd(int32_t fd) = 0;
 
-    virtual void refresh_fd_timeout(int fd) = 0;
+    virtual void refresh_fd_timeout(int32_t fd) = 0;
 
     virtual bool schedule(task_fn task) = 0;
 

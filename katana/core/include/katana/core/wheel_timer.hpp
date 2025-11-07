@@ -3,6 +3,7 @@
 #include "inplace_function.hpp"
 #include <chrono>
 #include <vector>
+#include <unordered_map>
 #include <cstdint>
 #include <cassert>
 
@@ -30,38 +31,34 @@ public:
         size_t slot_offset = std::min(ticks, WHEEL_SIZE - 1);
         size_t target_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
 
-        timeout_id id;
-        bool collision;
-        do {
-            id = next_id_++;
-            if (next_id_ == 0) {
-                next_id_ = 1;
-            }
-            collision = false;
-            for (const auto& s : slots_) {
-                for (const auto& e : s.entries) {
-                    if (e.id == id) {
-                        collision = true;
-                        break;
-                    }
-                }
-                if (collision) break;
-            }
-        } while (collision);
+        timeout_id id = next_id_++;
+        if (next_id_ == 0) {
+            next_id_ = 1;
+        }
 
         slots_[target_slot].entries.push_back({id, std::move(cb), ticks});
+        id_to_slot_[id] = target_slot;
         return id;
     }
 
     bool cancel(timeout_id id) {
-        for (auto& s : slots_) {
-            auto it = std::find_if(s.entries.begin(), s.entries.end(),
-                [id](const entry& e) { return e.id == id; });
-            if (it != s.entries.end()) {
-                s.entries.erase(it);
-                return true;
-            }
+        auto slot_it = id_to_slot_.find(id);
+        if (slot_it == id_to_slot_.end()) {
+            return false;
         }
+
+        size_t slot_idx = slot_it->second;
+        auto& entries = slots_[slot_idx].entries;
+        auto it = std::find_if(entries.begin(), entries.end(),
+            [id](const entry& e) { return e.id == id; });
+
+        if (it != entries.end()) {
+            entries.erase(it);
+            id_to_slot_.erase(slot_it);
+            return true;
+        }
+
+        id_to_slot_.erase(slot_it);
         return false;
     }
 
@@ -69,12 +66,15 @@ public:
         auto& current = slots_[current_slot_];
 
         for (auto& e : current.entries) {
+            id_to_slot_.erase(e.id);
+
             if (e.remaining_ticks <= 1) {
                 e.callback();
             } else {
                 e.remaining_ticks--;
                 size_t slot_offset = std::min(e.remaining_ticks, WHEEL_SIZE - 1);
                 size_t new_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
+                id_to_slot_[e.id] = new_slot;
                 slots_[new_slot].entries.push_back(std::move(e));
             }
         }
@@ -103,6 +103,7 @@ private:
     };
 
     std::vector<slot> slots_;
+    std::unordered_map<timeout_id, size_t> id_to_slot_;
     size_t current_slot_;
     timeout_id next_id_;
 };

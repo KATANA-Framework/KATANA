@@ -89,7 +89,7 @@ private:
     std::vector<iovec> iovecs_;
 };
 
-result<size_t> read_vectored(int fd, scatter_gather_read& sg);
-result<size_t> write_vectored(int fd, scatter_gather_write& sg);
+result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg);
+result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg);
 
 } // namespace katana
