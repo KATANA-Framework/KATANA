@@ -209,12 +209,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                         if (!current_value) {
                             return std::unexpected(make_error_code(error_code::invalid_fd));
                         }
-                        std::string new_value = std::string(*current_value) + " " + std::string(line);
-                        auto value_view = std::string_view(new_value);
-                        while (!value_view.empty() && (value_view.front() == ' ' || value_view.front() == '\t')) {
-                            value_view.remove_prefix(1);
+                        auto folded_view = std::string_view(line);
+                        while (!folded_view.empty() && (folded_view.front() == ' ' || folded_view.front() == '\t')) {
+                            folded_view.remove_prefix(1);
                         }
-                        request_.headers.set(last_header_name_, std::string(value_view));
+                        std::string new_value = std::string(*current_value) + " " + std::string(folded_view);
+                        request_.headers.set(last_header_name_, new_value);
                     } else {
                         auto res = parse_header_line(line);
                         if (!res) {

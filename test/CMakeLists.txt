@@ -12,6 +12,7 @@ add_executable(unit_tests
     unit/test_reactor.cpp
     unit/test_reactor_pool.cpp
     unit/test_http.cpp
+    unit/test_wheel_timer.cpp
 )
 
 target_link_libraries(unit_tests

@@ -37,58 +37,101 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          cmake \
-          ninja-build \
-          ${{ matrix.compiler.cc }} \
-          ${{ matrix.compiler.cxx }} \
-          liburing-dev
+        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} liburing-dev libc++-18-dev libc++abi-18-dev
+        else
+          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} liburing-dev
+        fi
 
     - name: Configure CMake (no sanitizer)
       if: matrix.sanitizer == 'none'
       run: |
-        cmake -B ${{github.workspace}}/build \
-          -G Ninja \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
-          -DENABLE_TESTING=ON
+        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++" \
+            -DENABLE_TESTING=ON
+        else
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DENABLE_TESTING=ON
+        fi
 
     - name: Configure CMake (ASan)
       if: matrix.sanitizer == 'asan'
       run: |
-        cmake -B ${{github.workspace}}/build \
-          -G Ninja \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
-          -DENABLE_TESTING=ON \
-          -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
-          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DENABLE_TESTING=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g -stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address -stdlib=libc++"
+        else
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DENABLE_TESTING=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+        fi
 
     - name: Configure CMake (TSan)
       if: matrix.sanitizer == 'tsan'
       run: |
-        cmake -B ${{github.workspace}}/build \
-          -G Ninja \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
-          -DENABLE_TESTING=ON \
-          -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
-          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DENABLE_TESTING=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g -stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread -stdlib=libc++"
+        else
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DENABLE_TESTING=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+        fi
 
     - name: Configure CMake (UBSan)
       if: matrix.sanitizer == 'ubsan'
       run: |
-        cmake -B ${{github.workspace}}/build \
-          -G Ninja \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
-          -DENABLE_TESTING=ON \
-          -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g" \
-          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined"
+        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DENABLE_TESTING=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g -stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined -stdlib=libc++"
+        else
+          cmake -B ${{github.workspace}}/build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DENABLE_TESTING=ON \
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined"
+        fi
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{ matrix.build_type }} -j$(nproc)
@@ -107,7 +150,7 @@ jobs:
     - name: Install Clang
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-18 cmake ninja-build liburing-dev
+        sudo apt-get install -y clang-18 cmake ninja-build liburing-dev libc++-18-dev libc++abi-18-dev
 
     - name: Build Fuzzers
       run: |
@@ -116,6 +159,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_C_COMPILER=clang-18 \
           -DCMAKE_CXX_COMPILER=clang++-18 \
+          -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+          -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++" \
           -DENABLE_FUZZING=ON
         cmake --build ${{github.workspace}}/build --target http_parser_fuzz
 
@@ -148,7 +193,7 @@ jobs:
         cmake --build ${{github.workspace}}/build --config Release -j$(nproc)
 
     - name: Start test server
-      working-directory: ${{github.workspace}}/build/examples
+      working-directory: ${{github.workspace}}/build
       run: |
         ./hello_world_server &
         sleep 2
