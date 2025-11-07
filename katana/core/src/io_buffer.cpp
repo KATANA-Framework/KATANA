@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cerrno>
+#include <limits.h>
 
 #ifdef __linux__
 #include <sys/uio.h>
@@ -119,7 +120,8 @@ void scatter_gather_write::clear() noexcept {
 
 result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 #ifdef __linux__
-    ssize_t result = readv(fd, const_cast<iovec*>(sg.iov()), static_cast<int32_t>(sg.count()));
+    int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
+    ssize_t result = readv(fd, const_cast<iovec*>(sg.iov()), iov_count);
 
     if (result < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -138,7 +140,8 @@ result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 
 result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
 #ifdef __linux__
-    ssize_t result = writev(fd, sg.iov(), static_cast<int32_t>(sg.count()));
+    int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
+    ssize_t result = writev(fd, sg.iov(), iov_count);
 
     if (result < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
