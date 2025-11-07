@@ -31,7 +31,7 @@ struct request {
     std::string uri;
     std::string version;
     headers_map headers;
-    std::string body;
+    std::string_view body;
 
     std::optional<std::string_view> header(std::string_view name) const {
         return headers.get(name);
@@ -76,6 +76,7 @@ public:
     bool is_complete() const noexcept { return state_ == state::complete; }
     const request& get_request() const noexcept { return request_; }
     request&& take_request() { return std::move(request_); }
+    const std::string& buffer() const noexcept { return buffer_; }
 
 private:
     result<void> parse_request_line(std::string_view line);
@@ -85,12 +86,13 @@ private:
     state state_ = state::request_line;
     request request_;
     std::string buffer_;
-    size_t parse_pos_ = 0;  // Current parsing position - avoids O(n²) erase operations
+    std::string chunked_body_;
+    size_t parse_pos_ = 0;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
     bool is_chunked_ = false;
 
-    static constexpr size_t COMPACT_THRESHOLD = 4096;  // Compact buffer when parse_pos_ exceeds this
+    static constexpr size_t COMPACT_THRESHOLD = 4096;
 };
 
 method parse_method(std::string_view str);

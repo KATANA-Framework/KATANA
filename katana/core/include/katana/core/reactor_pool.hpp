@@ -28,6 +28,7 @@ public:
 
     void start();
     void stop();
+    void graceful_stop(std::chrono::milliseconds timeout = std::chrono::milliseconds(30000));
     void wait();
 
     epoll_reactor& get_reactor(size_t index);

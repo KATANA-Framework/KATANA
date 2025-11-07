@@ -180,7 +180,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         } else if (state_ == state::body) {
             size_t remaining = buffer_.size() - parse_pos_;
             if (remaining >= content_length_) {
-                request_.body = buffer_.substr(parse_pos_, content_length_);
+                request_.body = std::string_view(buffer_.data() + parse_pos_, content_length_);
                 parse_pos_ += content_length_;
                 state_ = state::complete;
             } else {
@@ -201,13 +201,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             }
 
             try {
-                // std::stoull doesn't support string_view, need to convert
                 std::string chunk_str(chunk_line);
                 current_chunk_size_ = std::stoull(chunk_str, nullptr, 16);
                 if (current_chunk_size_ == 0) {
                     state_ = state::chunk_trailer;
                 } else {
-                    if (request_.body.size() + current_chunk_size_ > MAX_BODY_SIZE) {
+                    if (chunked_body_.size() + current_chunk_size_ > MAX_BODY_SIZE) {
                         return std::unexpected(make_error_code(error_code::invalid_fd));
                     }
                     state_ = state::chunk_data;
@@ -218,7 +217,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         } else if (state_ == state::chunk_data) {
             size_t remaining = buffer_.size() - parse_pos_;
             if (remaining >= current_chunk_size_ + 2) {
-                request_.body.append(buffer_.substr(parse_pos_, current_chunk_size_));
+                chunked_body_.append(buffer_.substr(parse_pos_, current_chunk_size_));
                 parse_pos_ += current_chunk_size_ + 2;
                 state_ = state::chunk_size;
             } else {
@@ -230,6 +229,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 return state_;
             }
             parse_pos_ = pos + 2;
+            request_.body = chunked_body_;
             state_ = state::complete;
         }
     }

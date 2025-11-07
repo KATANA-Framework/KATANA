@@ -41,6 +41,13 @@ void reactor_pool::stop() {
     }
 }
 
+void reactor_pool::graceful_stop(std::chrono::milliseconds timeout) {
+    for (auto& ctx : reactors_) {
+        ctx->running.store(false, std::memory_order_release);
+        ctx->reactor->graceful_stop(timeout);
+    }
+}
+
 void reactor_pool::wait() {
     for (auto& ctx : reactors_) {
         if (ctx->thread.joinable()) {
