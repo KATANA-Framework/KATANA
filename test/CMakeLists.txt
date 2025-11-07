@@ -20,5 +20,16 @@ target_link_libraries(unit_tests
     pthread
 )
 
+add_executable(integration_tests
+    integration/test_http_server.cpp
+)
+
+target_link_libraries(integration_tests
+    katana_core
+    GTest::gtest_main
+    pthread
+)
+
 include(GoogleTest)
 gtest_discover_tests(unit_tests)
+gtest_discover_tests(integration_tests)

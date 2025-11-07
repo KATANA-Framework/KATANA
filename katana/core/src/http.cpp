@@ -42,6 +42,10 @@ void response::set_header(std::string name, std::string value) {
 }
 
 std::string response::serialize() const {
+    if (chunked) {
+        return serialize_chunked();
+    }
+
     std::ostringstream oss;
 
     oss << "HTTP/1.1 " << status << " " << reason << "\r\n";
@@ -55,6 +59,33 @@ std::string response::serialize() const {
     if (!body.empty()) {
         oss << body;
     }
+
+    return oss.str();
+}
+
+std::string response::serialize_chunked(size_t chunk_size) const {
+    std::ostringstream oss;
+
+    oss << "HTTP/1.1 " << status << " " << reason << "\r\n";
+
+    for (const auto& [name, value] : headers) {
+        if (name != "Content-Length") {
+            oss << name << ": " << value << "\r\n";
+        }
+    }
+
+    oss << "Transfer-Encoding: chunked\r\n";
+    oss << "\r\n";
+
+    size_t offset = 0;
+    while (offset < body.size()) {
+        size_t current_chunk = std::min(chunk_size, body.size() - offset);
+        oss << std::hex << current_chunk << "\r\n";
+        oss << body.substr(offset, current_chunk) << "\r\n";
+        offset += current_chunk;
+    }
+
+    oss << "0\r\n\r\n";
 
     return oss.str();
 }
@@ -84,6 +115,10 @@ response response::error(const problem_details& problem) {
 }
 
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
+    if (buffer_.size() + data.size() > MAX_HEADER_SIZE && state_ != state::body) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
     buffer_.append(reinterpret_cast<const char*>(data.data()), data.size());
 
     while (state_ != state::complete) {
@@ -104,16 +139,25 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 state_ = state::headers;
             } else {
                 if (line.empty()) {
-                    auto cl = request_.header("Content-Length");
-                    if (cl) {
-                        try {
-                            content_length_ = std::stoull(std::string(*cl));
-                            state_ = state::body;
-                        } catch (...) {
-                            return std::unexpected(make_error_code(error_code::invalid_fd));
-                        }
+                    auto te = request_.header("Transfer-Encoding");
+                    if (te && *te == "chunked") {
+                        is_chunked_ = true;
+                        state_ = state::chunk_size;
                     } else {
-                        state_ = state::complete;
+                        auto cl = request_.header("Content-Length");
+                        if (cl) {
+                            try {
+                                content_length_ = std::stoull(std::string(*cl));
+                                if (content_length_ > MAX_BODY_SIZE) {
+                                    return std::unexpected(make_error_code(error_code::invalid_fd));
+                                }
+                                state_ = state::body;
+                            } catch (...) {
+                                return std::unexpected(make_error_code(error_code::invalid_fd));
+                            }
+                        } else {
+                            state_ = state::complete;
+                        }
                     }
                 } else {
                     auto res = parse_header_line(line);
@@ -130,6 +174,48 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             } else {
                 return state_;
             }
+        } else if (state_ == state::chunk_size) {
+            auto pos = buffer_.find("\r\n");
+            if (pos == std::string::npos) {
+                return state_;
+            }
+
+            std::string chunk_line = buffer_.substr(0, pos);
+            buffer_.erase(0, pos + 2);
+
+            auto semicolon = chunk_line.find(';');
+            if (semicolon != std::string::npos) {
+                chunk_line = chunk_line.substr(0, semicolon);
+            }
+
+            try {
+                current_chunk_size_ = std::stoull(chunk_line, nullptr, 16);
+                if (current_chunk_size_ == 0) {
+                    state_ = state::chunk_trailer;
+                } else {
+                    if (request_.body.size() + current_chunk_size_ > MAX_BODY_SIZE) {
+                        return std::unexpected(make_error_code(error_code::invalid_fd));
+                    }
+                    state_ = state::chunk_data;
+                }
+            } catch (...) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+        } else if (state_ == state::chunk_data) {
+            if (buffer_.size() >= current_chunk_size_ + 2) {
+                request_.body.append(buffer_.substr(0, current_chunk_size_));
+                buffer_.erase(0, current_chunk_size_ + 2);
+                state_ = state::chunk_size;
+            } else {
+                return state_;
+            }
+        } else if (state_ == state::chunk_trailer) {
+            auto pos = buffer_.find("\r\n");
+            if (pos == std::string::npos) {
+                return state_;
+            }
+            buffer_.erase(0, pos + 2);
+            state_ = state::complete;
         }
     }
 
@@ -150,7 +236,12 @@ result<void> parser::parse_request_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    request_.uri = std::string(line.substr(uri_start, uri_end - uri_start));
+    auto uri = line.substr(uri_start, uri_end - uri_start);
+    if (uri.size() > MAX_URI_LENGTH) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    request_.uri = std::string(uri);
     request_.version = std::string(line.substr(uri_end + 1));
 
     return {};
