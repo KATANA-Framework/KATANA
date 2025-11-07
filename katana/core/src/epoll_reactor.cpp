@@ -377,7 +377,7 @@ void epoll_reactor::process_wheel_timer() {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_wheel_tick_);
 
-    if (elapsed.count() >= static_cast<int64_t>(wheel_timer<>::TICK_MS)) {
+    if (static_cast<uint64_t>(elapsed.count()) >= wheel_timer<>::TICK_MS) {
         wheel_timer_.tick();
         last_wheel_tick_ = now;
     }
