@@ -1,4 +1,5 @@
 build/
+Testing/
 *.o
 *.a
 *.so
