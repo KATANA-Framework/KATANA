@@ -30,6 +30,7 @@ add_library(katana_core STATIC
     katana/core/src/cpu_info.cpp
     katana/core/src/reactor_pool.cpp
     katana/core/src/io_buffer.cpp
+    katana/core/src/arena.cpp
 )
 
 target_include_directories(katana_core PUBLIC
