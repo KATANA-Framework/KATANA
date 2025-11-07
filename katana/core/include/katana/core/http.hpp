@@ -2,10 +2,10 @@
 
 #include "result.hpp"
 #include "problem.hpp"
+#include "http_headers.hpp"
 
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <optional>
 #include <span>
 
@@ -30,20 +30,25 @@ struct request {
     method http_method = method::UNKNOWN;
     std::string uri;
     std::string version;
-    std::unordered_map<std::string, std::string> headers;
+    headers_map headers;
     std::string body;
 
-    std::optional<std::string_view> header(std::string_view name) const;
+    std::optional<std::string_view> header(std::string_view name) const {
+        return headers.get(name);
+    }
 };
 
 struct response {
     int status = 200;
     std::string reason;
-    std::unordered_map<std::string, std::string> headers;
+    headers_map headers;
     std::string body;
     bool chunked = false;
 
-    void set_header(std::string name, std::string value);
+    void set_header(std::string name, std::string value) {
+        headers.set(std::move(name), std::move(value));
+    }
+
     std::string serialize() const;
     std::string serialize_chunked(size_t chunk_size = 4096) const;
 
@@ -75,13 +80,17 @@ public:
 private:
     result<void> parse_request_line(std::string_view line);
     result<void> parse_header_line(std::string_view line);
+    void compact_buffer();
 
     state state_ = state::request_line;
     request request_;
     std::string buffer_;
+    size_t parse_pos_ = 0;  // Current parsing position - avoids O(n²) erase operations
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
     bool is_chunked_ = false;
+
+    static constexpr size_t COMPACT_THRESHOLD = 4096;  // Compact buffer when parse_pos_ exceeds this
 };
 
 method parse_method(std::string_view str);

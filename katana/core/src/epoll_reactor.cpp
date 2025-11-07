@@ -22,6 +22,9 @@ constexpr uint32_t to_epoll_events(event_type events) noexcept {
     if (has_flag(events, event_type::edge_triggered)) {
         result |= EPOLLET;
     }
+    if (has_flag(events, event_type::oneshot)) {
+        result |= EPOLLONESHOT;
+    }
 
     return result;
 }
@@ -47,10 +50,12 @@ constexpr event_type from_epoll_events(uint32_t events) noexcept {
 
 } // namespace
 
-epoll_reactor::epoll_reactor(int max_events)
+epoll_reactor::epoll_reactor(int max_events, size_t max_pending_tasks)
     : epoll_fd_(-1)
     , max_events_(max_events)
     , running_(false)
+    , pending_tasks_(max_pending_tasks)
+    , pending_timers_(max_pending_tasks)
     , exception_handler_([](const exception_context& ctx) {
         std::cerr << "[reactor] Exception in " << ctx.location;
         if (ctx.fd >= 0) {
@@ -77,6 +82,8 @@ epoll_reactor::epoll_reactor(int max_events)
             "epoll_create1 failed"
         );
     }
+
+    events_buffer_.resize(max_events_);
 }
 
 epoll_reactor::~epoll_reactor() {
@@ -170,24 +177,33 @@ result<void> epoll_reactor::unregister_fd(int fd) {
     return {};
 }
 
-void epoll_reactor::schedule(task_fn task) {
-    pending_tasks_.push(std::move(task));
+bool epoll_reactor::schedule(task_fn task) {
+    if (!pending_tasks_.try_push(std::move(task))) {
+        metrics_.tasks_rejected.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    return true;
 }
 
-void epoll_reactor::schedule_after(
+bool epoll_reactor::schedule_after(
     std::chrono::milliseconds delay,
     task_fn task
 ) {
     auto deadline = std::chrono::steady_clock::now() + delay;
-    pending_timers_.push(timer_entry{deadline, std::move(task)});
+    if (!pending_timers_.try_push(timer_entry{deadline, std::move(task)})) {
+        metrics_.tasks_rejected.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    return true;
 }
 
 result<void> epoll_reactor::process_events(int timeout_ms) {
-    std::vector<epoll_event> events(max_events_);
+    // Reuse pre-allocated buffer - no allocation here!
+    events_buffer_.resize(max_events_);
 
-    int nfds = epoll_wait(epoll_fd_, events.data(), max_events_, timeout_ms);
+    int nfds = epoll_wait(epoll_fd_, events_buffer_.data(), max_events_, timeout_ms);
 
     if (nfds < 0) {
         if (errno == EINTR) {
@@ -197,10 +213,10 @@ result<void> epoll_reactor::process_events(int timeout_ms) {
     }
 
     for (int i = 0; i < nfds; ++i) {
-        int fd = events[i].data.fd;
+        int fd = events_buffer_[i].data.fd;
         auto it = fd_states_.find(fd);
         if (it != fd_states_.end()) {
-            event_type ev = from_epoll_events(events[i].events);
+            event_type ev = from_epoll_events(events_buffer_[i].events);
             try {
                 it->second.callback(ev);
                 metrics_.fd_events_processed.fetch_add(1, std::memory_order_relaxed);

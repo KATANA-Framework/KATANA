@@ -13,7 +13,9 @@ namespace katana {
 
 class epoll_reactor : public reactor {
 public:
-    explicit epoll_reactor(int max_events = 128);
+    static constexpr size_t DEFAULT_MAX_PENDING_TASKS = 10000;
+
+    explicit epoll_reactor(int max_events = 128, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
     ~epoll_reactor() override;
 
     epoll_reactor(const epoll_reactor&) = delete;
@@ -35,9 +37,9 @@ public:
 
     result<void> unregister_fd(int fd) override;
 
-    void schedule(task_fn task) override;
+    bool schedule(task_fn task) override;
 
-    void schedule_after(
+    bool schedule_after(
         std::chrono::milliseconds delay,
         task_fn task
     ) override;
@@ -78,6 +80,9 @@ private:
 
     exception_handler exception_handler_;
     reactor_metrics metrics_;
+
+    // Reusable buffer for epoll_wait to avoid allocations in hot path
+    std::vector<epoll_event> events_buffer_;
 };
 
 } // namespace katana

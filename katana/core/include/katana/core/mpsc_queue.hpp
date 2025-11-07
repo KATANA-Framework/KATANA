@@ -9,7 +9,7 @@ namespace katana {
 template <typename T>
 class mpsc_queue {
 public:
-    mpsc_queue() {
+    explicit mpsc_queue(size_t max_size = 0) : max_size_(max_size) {
         auto n = new node();
         head_.store(n, std::memory_order_relaxed);
         tail_ = n;
@@ -29,6 +29,23 @@ public:
 
         node* prev = head_.exchange(new_node, std::memory_order_acq_rel);
         prev->next.store(new_node, std::memory_order_release);
+
+        if (max_size_ > 0) {
+            size_.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+
+    // Try to push if under limit. Returns false if queue is full.
+    bool try_push(T value) {
+        if (max_size_ > 0) {
+            size_t current_size = size_.load(std::memory_order_relaxed);
+            if (current_size >= max_size_) {
+                return false;
+            }
+        }
+
+        push(std::move(value));
+        return true;
     }
 
     std::optional<T> pop() {
@@ -40,11 +57,20 @@ public:
         T value = std::move(next->data.value());
         delete tail_;
         tail_ = next;
+
+        if (max_size_ > 0) {
+            size_.fetch_sub(1, std::memory_order_relaxed);
+        }
+
         return value;
     }
 
     bool empty() const {
         return tail_->next.load(std::memory_order_acquire) == nullptr;
+    }
+
+    size_t size() const {
+        return size_.load(std::memory_order_relaxed);
     }
 
 private:
@@ -55,6 +81,8 @@ private:
 
     alignas(64) std::atomic<node*> head_;
     alignas(64) node* tail_;
+    alignas(64) std::atomic<size_t> size_{0};
+    const size_t max_size_;  // 0 means unlimited
 };
 
 } // namespace katana

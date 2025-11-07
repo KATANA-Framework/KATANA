@@ -1,5 +1,6 @@
 #include "katana/core/reactor_pool.hpp"
 #include "katana/core/http.hpp"
+#include "katana/core/http_headers.hpp"
 #include "katana/core/system_limits.hpp"
 #include "katana/core/shutdown.hpp"
 #include "katana/core/arena.hpp"
@@ -13,6 +14,7 @@
 #include <cstring>
 
 using namespace katana;
+using katana::http::ci_equal;
 
 constexpr uint16_t PORT = 8080;
 constexpr size_t BUFFER_SIZE = 4096;
@@ -90,9 +92,26 @@ void handle_client(connection& conn) {
         }
 
         if (conn.parser.is_complete()) {
+            auto& req = conn.parser.get_request();
             auto resp = http::response::ok("Hello, World!", "text/plain");
-            std::string serialized = resp.serialize();
 
+            bool should_close = false;
+            auto connection_header = req.header("Connection");
+            if (connection_header && (*connection_header == "close" ||
+                ci_equal(*connection_header, "close"))) {
+                should_close = true;
+            } else if (req.version == "HTTP/1.0") {
+                should_close = !connection_header ||
+                              !ci_equal(*connection_header, "keep-alive");
+            }
+
+            if (should_close) {
+                resp.set_header("Connection", "close");
+            } else {
+                resp.set_header("Connection", "keep-alive");
+            }
+
+            std::string serialized = resp.serialize();
             conn.write_buffer.assign(serialized.begin(), serialized.end());
             conn.write_pos = 0;
 
@@ -114,9 +133,14 @@ void handle_client(connection& conn) {
             }
 
             if (conn.write_pos == conn.write_buffer.size()) {
+                if (should_close) {
+                    close(conn.fd);
+                    return;
+                }
+
+                conn.parser = http::parser();
                 conn.arena.reset();
-                close(conn.fd);
-                return;
+                conn.write_pos = 0;
             }
         }
     }
