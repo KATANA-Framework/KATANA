@@ -48,7 +48,7 @@ struct request {
 };
 
 struct response {
-    int status = 200;
+    int32_t status = 200;
     std::string reason;
     headers_map headers;
     std::string body;
@@ -102,6 +102,7 @@ private:
     request request_;
     std::string buffer_;
     std::string chunked_body_;
+    std::string last_header_name_;
     size_t parse_pos_ = 0;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;

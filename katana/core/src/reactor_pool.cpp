@@ -17,7 +17,6 @@ reactor_pool::reactor_pool(const reactor_pool_config& config)
     for (uint32_t i = 0; i < config_.reactor_count; ++i) {
         auto ctx = std::make_unique<reactor_context>();
         ctx->reactor = std::make_unique<epoll_reactor>(config_.max_events_per_reactor);
-        ctx->core_id = i;
         reactors_.push_back(std::move(ctx));
     }
 }
@@ -61,7 +60,37 @@ epoll_reactor& reactor_pool::get_reactor(size_t index) {
 }
 
 size_t reactor_pool::select_reactor() noexcept {
+    if (config_.enable_adaptive_balancing) {
+        return select_least_loaded();
+    }
     return next_reactor_.fetch_add(1, std::memory_order_relaxed) % reactors_.size();
+}
+
+size_t reactor_pool::select_least_loaded() noexcept {
+    if (reactors_.empty()) {
+        return 0;
+    }
+
+    size_t min_load_idx = 0;
+    uint64_t min_load = UINT64_MAX;
+
+    for (size_t i = 0; i < reactors_.size(); ++i) {
+        auto metrics = reactors_[i]->reactor->metrics().snapshot();
+
+        // Load score: pending tasks + active events + rejected tasks * 10
+        uint64_t load = (metrics.tasks_scheduled - metrics.tasks_executed) +
+                       metrics.fd_events_processed +
+                       (metrics.tasks_rejected * 10);
+
+        reactors_[i]->load_score.store(load, std::memory_order_relaxed);
+
+        if (load < min_load) {
+            min_load = load;
+            min_load_idx = i;
+        }
+    }
+
+    return min_load_idx;
 }
 
 metrics_snapshot reactor_pool::aggregate_metrics() const {
@@ -73,12 +102,6 @@ metrics_snapshot reactor_pool::aggregate_metrics() const {
 }
 
 void reactor_pool::worker_thread(reactor_context* ctx) {
-    if (config_.enable_pinning) {
-        if (!cpu_info::pin_thread_to_core(ctx->core_id)) {
-            std::cerr << "[reactor_pool] Failed to pin thread to core " << ctx->core_id << "\n";
-        }
-    }
-
     auto result = ctx->reactor->run();
     if (!result) {
         std::cerr << "[reactor_pool] Reactor error: " << result.error().message() << "\n";

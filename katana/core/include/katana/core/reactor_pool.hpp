@@ -14,8 +14,8 @@ namespace katana {
 
 struct reactor_pool_config {
     uint32_t reactor_count = 0;
-    bool enable_pinning = true;
-    int max_events_per_reactor = 128;
+    int32_t max_events_per_reactor = 128;
+    bool enable_adaptive_balancing = true;
 };
 
 class reactor_pool {
@@ -42,9 +42,11 @@ private:
     struct reactor_context {
         std::unique_ptr<epoll_reactor> reactor;
         std::thread thread;
-        uint32_t core_id = 0;
         std::atomic<bool> running{false};
+        std::atomic<uint64_t> load_score{0};
     };
+
+    size_t select_least_loaded() noexcept;
 
     void worker_thread(reactor_context* ctx);
 

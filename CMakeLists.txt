@@ -51,8 +51,22 @@ target_include_directories(katana_core PUBLIC
     katana/core/include
 )
 
-enable_testing()
-add_subdirectory(test)
+option(ENABLE_TESTING "Enable testing" ON)
+option(ENABLE_BENCHMARKS "Enable benchmarks" OFF)
+option(ENABLE_FUZZING "Enable fuzzing" OFF)
+
+if(ENABLE_TESTING)
+    enable_testing()
+    add_subdirectory(test)
+endif()
+
+if(ENABLE_BENCHMARKS)
+    add_subdirectory(benchmark)
+endif()
+
+if(ENABLE_FUZZING AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_subdirectory(test/fuzz)
+endif()
 
 add_executable(basic_reactor_example examples/basic_reactor.cpp)
 target_link_libraries(basic_reactor_example katana_core)

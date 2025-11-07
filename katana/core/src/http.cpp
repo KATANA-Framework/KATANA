@@ -170,6 +170,14 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 state_ = state::headers;
             } else {
                 if (line.empty()) {
+                    // HTTP/1.1 requires Host header
+                    if (request_.version == "HTTP/1.1") {
+                        auto host = request_.header("Host");
+                        if (!host) {
+                            return std::unexpected(make_error_code(error_code::invalid_fd));
+                        }
+                    }
+
                     auto te = request_.header("Transfer-Encoding");
                     if (te && *te == "chunked") {
                         is_chunked_ = true;
@@ -192,9 +200,26 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                         }
                     }
                 } else {
-                    auto res = parse_header_line(line);
-                    if (!res) {
-                        return std::unexpected(res.error());
+                    // RFC 7230 multiline header folding
+                    if (!line.empty() && (line.front() == ' ' || line.front() == '\t')) {
+                        if (last_header_name_.empty()) {
+                            return std::unexpected(make_error_code(error_code::invalid_fd));
+                        }
+                        auto current_value = request_.header(last_header_name_);
+                        if (!current_value) {
+                            return std::unexpected(make_error_code(error_code::invalid_fd));
+                        }
+                        std::string new_value = std::string(*current_value) + " " + std::string(line);
+                        auto value_view = std::string_view(new_value);
+                        while (!value_view.empty() && (value_view.front() == ' ' || value_view.front() == '\t')) {
+                            value_view.remove_prefix(1);
+                        }
+                        request_.headers.set(last_header_name_, std::string(value_view));
+                    } else {
+                        auto res = parse_header_line(line);
+                        if (!res) {
+                            return std::unexpected(res.error());
+                        }
                     }
                 }
             }
@@ -310,7 +335,8 @@ result<void> parser::parse_header_line(std::string_view line) {
         value.remove_prefix(1);
     }
 
-    request_.headers.set(std::string(name), std::string(value));
+    last_header_name_ = std::string(name);
+    request_.headers.set(last_header_name_, std::string(value));
     ++header_count_;
     return {};
 }

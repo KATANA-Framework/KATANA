@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        compiler:
+          - { cc: gcc-13, cxx: g++-13 }
+          - { cc: clang-18, cxx: clang++-18 }
+        build_type: [Debug, Release]
+        sanitizer: [none, asan, tsan, ubsan]
+        exclude:
+          - compiler: { cc: gcc-13, cxx: g++-13 }
+            sanitizer: tsan
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          ${{ matrix.compiler.cc }} \
+          ${{ matrix.compiler.cxx }} \
+          liburing-dev \
+          benchmark
+
+    - name: Configure CMake (no sanitizer)
+      if: matrix.sanitizer == 'none'
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+          -DENABLE_TESTING=ON
+
+    - name: Configure CMake (ASan)
+      if: matrix.sanitizer == 'asan'
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+          -DENABLE_TESTING=ON \
+          -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+
+    - name: Configure CMake (TSan)
+      if: matrix.sanitizer == 'tsan'
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+          -DENABLE_TESTING=ON \
+          -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+
+    - name: Configure CMake (UBSan)
+      if: matrix.sanitizer == 'ubsan'
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+          -DENABLE_TESTING=ON \
+          -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined"
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{ matrix.build_type }} -j$(nproc)
+
+    - name: Run Tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{ matrix.build_type }} --output-on-failure --verbose
+
+  fuzzing:
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Clang
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-18 cmake ninja-build
+
+    - name: Build Fuzzers
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=clang-18 \
+          -DCMAKE_CXX_COMPILER=clang++-18 \
+          -DENABLE_FUZZING=ON
+        cmake --build ${{github.workspace}}/build --target http_parser_fuzz
+
+    - name: Run Fuzzers (short run)
+      working-directory: ${{github.workspace}}/build/test/fuzz
+      run: |
+        ./http_parser_fuzz -max_total_time=60 -max_len=8192
+
+  benchmark:
+    runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'benchmark')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build g++-13
+
+    - name: Build
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER=gcc-13 \
+          -DCMAKE_CXX_COMPILER=g++-13 \
+          -DENABLE_BENCHMARKS=ON
+        cmake --build ${{github.workspace}}/build --config Release -j$(nproc)
+
+    - name: Start test server
+      working-directory: ${{github.workspace}}/build/examples
+      run: |
+        ./hello_world_server &
+        sleep 2
+
+    - name: Run Latency Benchmark
+      working-directory: ${{github.workspace}}/build/benchmark
+      run: |
+        ./latency_benchmark 10000 10
+
+    - name: Stop test server
+      run: |
+        killall hello_world_server || true
+
+  static-analysis:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy-18 cppcheck
+
+    - name: Run clang-tidy
+      run: |
+        find katana/core/src katana/core/include -name '*.cpp' -o -name '*.hpp' | \
+          xargs clang-tidy-18 -p build --warnings-as-errors=* || true
+
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --inconclusive --std=c++23 \
+          --suppress=missingInclude \
+          -I katana/core/include \
+          katana/core/src examples
