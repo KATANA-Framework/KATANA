@@ -14,6 +14,7 @@ namespace katana::http {
 constexpr size_t MAX_HEADER_SIZE = 8192;
 constexpr size_t MAX_BODY_SIZE = 10 * 1024 * 1024;
 constexpr size_t MAX_URI_LENGTH = 2048;
+constexpr size_t MAX_HEADER_COUNT = 100;
 
 enum class method {
     GET,
@@ -31,7 +32,7 @@ struct request {
     std::string uri;
     std::string version;
     headers_map headers;
-    std::string_view body;
+    std::string body;
 
     std::optional<std::string_view> header(std::string_view name) const {
         return headers.get(name);
@@ -90,6 +91,7 @@ private:
     size_t parse_pos_ = 0;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
+    size_t header_count_ = 0;
     bool is_chunked_ = false;
 
     static constexpr size_t COMPACT_THRESHOLD = 4096;

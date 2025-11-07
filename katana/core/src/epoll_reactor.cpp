@@ -105,8 +105,18 @@ result<void> epoll_reactor::run() {
         process_tasks();
 
         if (graceful_shutdown_.load(std::memory_order_relaxed)) {
-            if (fd_states_.empty() ||
-                std::chrono::steady_clock::now() >= graceful_shutdown_deadline_) {
+            auto now = std::chrono::steady_clock::now();
+            if (fd_states_.empty()) {
+                running_ = false;
+                break;
+            }
+            if (now >= graceful_shutdown_deadline_) {
+                for (auto it = fd_states_.begin(); it != fd_states_.end(); ) {
+                    int fd = it->first;
+                    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+                    close(fd);
+                    it = fd_states_.erase(it);
+                }
                 running_ = false;
                 break;
             }
@@ -164,17 +174,19 @@ result<void> epoll_reactor::register_fd_with_timeout(
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
+    fd_state state{std::move(callback), events, config, 0,
+                   std::chrono::steady_clock::now(), true};
+    setup_fd_timeout(fd, state);
+
     epoll_event ev{};
     ev.events = to_epoll_events(events);
     ev.data.fd = fd;
 
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
+        cancel_fd_timeout(state);
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
-    fd_state state{std::move(callback), events, config, 0,
-                   std::chrono::steady_clock::now(), true};
-    setup_fd_timeout(fd, state);
     fd_states_[fd] = std::move(state);
     return {};
 }
@@ -364,6 +376,7 @@ void epoll_reactor::setup_fd_timeout(int fd, fd_state& state) {
             auto it = fd_states_.find(fd);
             if (it != fd_states_.end()) {
                 try {
+                    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
                     close(fd);
                     fd_states_.erase(it);
                 } catch (...) {
