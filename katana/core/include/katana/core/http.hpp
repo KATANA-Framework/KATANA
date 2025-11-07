@@ -60,6 +60,7 @@ public:
     result<state> parse(std::span<const uint8_t> data);
 
     bool is_complete() const noexcept { return state_ == state::complete; }
+    const request& get_request() const noexcept { return request_; }
     request&& take_request() { return std::move(request_); }
 
 private:
