@@ -41,6 +41,9 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
 
         if (aligned_ptr && space >= bytes) {
             size_t padding = static_cast<uint8_t*>(aligned_ptr) - (b.data.get() + b.used);
+            if (padding > SIZE_MAX - bytes || b.used > SIZE_MAX - (padding + bytes)) {
+                throw std::bad_alloc();
+            }
             b.used += padding + bytes;
             bytes_allocated_ += bytes;
             return aligned_ptr;
@@ -60,6 +63,9 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
     }
 
     size_t padding = static_cast<uint8_t*>(aligned_ptr) - b.data.get();
+    if (padding > SIZE_MAX - bytes) {
+        throw std::bad_alloc();
+    }
     b.used = padding + bytes;
     bytes_allocated_ += bytes;
 

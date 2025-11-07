@@ -16,8 +16,10 @@
 using namespace katana;
 using katana::http::ci_equal;
 
-constexpr uint16_t PORT = 8080;
-constexpr size_t BUFFER_SIZE = 4096;
+// Server configuration
+constexpr uint16_t PORT = 8080;  // Default HTTP port
+constexpr size_t BUFFER_SIZE = 4096;  // Read buffer size
+constexpr size_t ARENA_BLOCK_SIZE = 8192;  // Per-connection arena size
 
 int create_listener() {
     int sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
@@ -48,8 +50,7 @@ int create_listener() {
 }
 
 struct connection {
-    int fd = -1;
-    std::atomic<bool> closed{false};
+    std::atomic<int> fd{-1};
     monotonic_arena arena;
     http::parser parser;
     std::pmr::vector<uint8_t> read_buffer;
@@ -57,7 +58,7 @@ struct connection {
     size_t write_pos = 0;
 
     connection()
-        : arena(8192)
+        : arena(ARENA_BLOCK_SIZE)
         , read_buffer(&arena)
         , write_buffer(&arena)
     {
@@ -65,15 +66,20 @@ struct connection {
     }
 
     void safe_close() {
-        if (!closed.exchange(true, std::memory_order_acq_rel)) {
-            close(fd);
+        int expected_fd = fd.exchange(-1, std::memory_order_acq_rel);
+        if (expected_fd >= 0) {
+            close(expected_fd);
         }
     }
 };
 
 void handle_client(connection& conn) {
     while (true) {
-        ssize_t n = recv(conn.fd, conn.read_buffer.data(), conn.read_buffer.size(), 0);
+        int fd_val = conn.fd.load(std::memory_order_relaxed);
+        if (fd_val < 0) {
+            return;
+        }
+        ssize_t n = recv(fd_val, conn.read_buffer.data(), conn.read_buffer.size(), 0);
 
         if (n < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -93,7 +99,10 @@ void handle_client(connection& conn) {
         if (!result) {
             auto resp = http::response::error(problem_details::bad_request("Invalid HTTP request"));
             std::string serialized = resp.serialize();
-            [[maybe_unused]] auto _ = write(conn.fd, serialized.data(), serialized.size());
+            int write_fd = conn.fd.load(std::memory_order_relaxed);
+            if (write_fd >= 0) {
+                [[maybe_unused]] auto _ = write(write_fd, serialized.data(), serialized.size());
+            }
             conn.safe_close();
             return;
         }
@@ -123,7 +132,11 @@ void handle_client(connection& conn) {
             conn.write_pos = 0;
 
             while (conn.write_pos < conn.write_buffer.size()) {
-                ssize_t written = send(conn.fd,
+                int send_fd = conn.fd.load(std::memory_order_relaxed);
+                if (send_fd < 0) {
+                    return;
+                }
+                ssize_t written = send(send_fd,
                                      conn.write_buffer.data() + conn.write_pos,
                                      conn.write_buffer.size() - conn.write_pos,
                                      0);
@@ -174,7 +187,7 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
         setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 
         auto conn = std::make_shared<connection>();
-        conn->fd = client_fd;
+        conn->fd.store(client_fd, std::memory_order_relaxed);
 
         size_t reactor_idx = pool.select_reactor();
         auto& r = pool.get_reactor(reactor_idx);
@@ -191,7 +204,10 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
             [conn, &r](event_type events) {
                 if (has_flag(events, event_type::readable)) {
                     handle_client(*conn);
-                    r.refresh_fd_timeout(conn->fd);
+                    int refresh_fd = conn->fd.load(std::memory_order_relaxed);
+                    if (refresh_fd >= 0) {
+                        r.refresh_fd_timeout(refresh_fd);
+                    }
                 }
             },
             timeouts

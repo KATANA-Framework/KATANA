@@ -21,6 +21,10 @@ namespace katana {
 class io_buffer {
 public:
     io_buffer() = default;
+    io_buffer(io_buffer&&) noexcept = default;
+    io_buffer& operator=(io_buffer&&) noexcept = default;
+    io_buffer(const io_buffer&) = default;
+    io_buffer& operator=(const io_buffer&) = default;
     explicit io_buffer(size_t capacity);
 
     void append(std::span<const uint8_t> data);
@@ -50,6 +54,10 @@ private:
 class scatter_gather_read {
 public:
     scatter_gather_read() = default;
+    scatter_gather_read(scatter_gather_read&&) noexcept = default;
+    scatter_gather_read& operator=(scatter_gather_read&&) noexcept = default;
+    scatter_gather_read(const scatter_gather_read&) = default;
+    scatter_gather_read& operator=(const scatter_gather_read&) = default;
 
     void add_buffer(std::span<uint8_t> buf);
 
@@ -65,6 +73,10 @@ private:
 class scatter_gather_write {
 public:
     scatter_gather_write() = default;
+    scatter_gather_write(scatter_gather_write&&) noexcept = default;
+    scatter_gather_write& operator=(scatter_gather_write&&) noexcept = default;
+    scatter_gather_write(const scatter_gather_write&) = default;
+    scatter_gather_write& operator=(const scatter_gather_write&) = default;
 
     void add_buffer(std::span<const uint8_t> buf);
 

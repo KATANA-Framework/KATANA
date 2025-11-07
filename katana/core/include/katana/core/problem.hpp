@@ -16,6 +16,12 @@ struct problem_details {
     std::optional<std::string> instance;
     std::unordered_map<std::string, std::string> extensions;
 
+    problem_details() = default;
+    problem_details(problem_details&&) noexcept = default;
+    problem_details& operator=(problem_details&&) noexcept = default;
+    problem_details(const problem_details&) = default;
+    problem_details& operator=(const problem_details&) = default;
+
     std::string to_json() const;
 
     static problem_details bad_request(std::string_view detail = "");
