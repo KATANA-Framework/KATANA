@@ -1,0 +1,69 @@
+#pragma once
+
+#include "result.hpp"
+
+#include <vector>
+#include <span>
+#include <cstdint>
+#include <string_view>
+
+#ifdef __linux__
+#include <sys/uio.h>
+#else
+struct iovec {
+    void* iov_base;
+    size_t iov_len;
+};
+#endif
+
+namespace katana {
+
+class io_buffer {
+public:
+    io_buffer() = default;
+    explicit io_buffer(size_t capacity);
+
+    void append(std::span<const uint8_t> data);
+    void append(std::string_view str);
+
+    std::span<uint8_t> writable_span(size_t size);
+    void commit(size_t bytes);
+
+    std::span<const uint8_t> readable_span() const noexcept;
+    void consume(size_t bytes);
+
+    size_t size() const noexcept { return write_pos_ - read_pos_; }
+    size_t capacity() const noexcept { return buffer_.size(); }
+    bool empty() const noexcept { return read_pos_ == write_pos_; }
+
+    void clear() noexcept;
+    void reserve(size_t new_capacity);
+
+private:
+    void ensure_writable(size_t bytes);
+
+    std::vector<uint8_t> buffer_;
+    size_t read_pos_ = 0;
+    size_t write_pos_ = 0;
+};
+
+class scatter_gather {
+public:
+    scatter_gather() = default;
+
+    void add_buffer(std::span<uint8_t> buf);
+    void add_buffer(std::span<const uint8_t> buf);
+
+    const iovec* iov() const noexcept { return iovecs_.data(); }
+    size_t count() const noexcept { return iovecs_.size(); }
+
+    void clear() noexcept;
+
+private:
+    std::vector<iovec> iovecs_;
+};
+
+result<size_t> read_vectored(int fd, scatter_gather& sg);
+result<size_t> write_vectored(int fd, scatter_gather& sg);
+
+} // namespace katana
