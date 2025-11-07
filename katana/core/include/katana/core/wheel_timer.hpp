@@ -26,10 +26,14 @@ public:
 
         size_t ticks = (timeout.count() + TICK_MS - 1) / TICK_MS;
         if (ticks == 0) ticks = 1;
-        if (ticks >= WHEEL_SIZE) ticks = WHEEL_SIZE - 1;
 
-        size_t target_slot = (current_slot_ + ticks) % WHEEL_SIZE;
+        size_t slot_offset = std::min(ticks, WHEEL_SIZE - 1);
+        size_t target_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
+
         timeout_id id = next_id_++;
+        if (next_id_ == 0) {
+            next_id_ = 1;
+        }
 
         slots_[target_slot].entries.push_back({id, std::move(cb), ticks});
         return id;
@@ -55,7 +59,8 @@ public:
                 e.callback();
             } else {
                 e.remaining_ticks--;
-                size_t new_slot = (current_slot_ + e.remaining_ticks) % WHEEL_SIZE;
+                size_t slot_offset = std::min(e.remaining_ticks, WHEEL_SIZE - 1);
+                size_t new_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
                 slots_[new_slot].entries.push_back(std::move(e));
             }
         }

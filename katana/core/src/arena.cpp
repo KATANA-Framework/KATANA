@@ -26,32 +26,44 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
         return nullptr;
     }
 
-    for (auto& b : blocks_) {
-        uintptr_t addr = std::bit_cast<uintptr_t>(b.data.get()) + b.used;
-        uintptr_t aligned_addr = (addr + alignment - 1) & ~(alignment - 1);
-        size_t padding = aligned_addr - addr;
-        size_t total = padding + bytes;
+    if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
+        throw std::bad_alloc();
+    }
 
-        if (b.used + total <= b.size) {
-            b.used += total;
+    for (auto& b : blocks_) {
+        if (b.used >= b.size) {
+            continue;
+        }
+
+        void* ptr = b.data.get() + b.used;
+        size_t space = b.size - b.used;
+        void* aligned_ptr = std::align(alignment, bytes, ptr, space);
+
+        if (aligned_ptr && space >= bytes) {
+            size_t padding = static_cast<uint8_t*>(aligned_ptr) - (b.data.get() + b.used);
+            b.used += padding + bytes;
             bytes_allocated_ += bytes;
-            return std::bit_cast<void*>(aligned_addr);
+            return aligned_ptr;
         }
     }
 
-    size_t block_size = std::max(block_size_, bytes + alignof(std::max_align_t));
+    size_t block_size = std::max(block_size_, bytes + alignment - 1);
     allocate_new_block(block_size);
 
     auto& b = blocks_.back();
-    uintptr_t addr = std::bit_cast<uintptr_t>(b.data.get());
-    uintptr_t aligned_addr = (addr + alignment - 1) & ~(alignment - 1);
-    size_t padding = aligned_addr - addr;
-    size_t total = padding + bytes;
+    void* ptr = b.data.get();
+    size_t space = b.size;
+    void* aligned_ptr = std::align(alignment, bytes, ptr, space);
 
-    b.used = total;
+    if (!aligned_ptr || space < bytes) {
+        throw std::bad_alloc();
+    }
+
+    size_t padding = static_cast<uint8_t*>(aligned_ptr) - b.data.get();
+    b.used = padding + bytes;
     bytes_allocated_ += bytes;
 
-    return std::bit_cast<void*>(aligned_addr);
+    return aligned_ptr;
 }
 
 void monotonic_arena::do_deallocate(void*, size_t, size_t) {

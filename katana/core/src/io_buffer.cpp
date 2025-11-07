@@ -79,7 +79,19 @@ void io_buffer::ensure_writable(size_t bytes) {
         }
 
         if (available < bytes) {
-            size_t new_size = std::max(buffer_.size() * 2, write_pos_ + bytes);
+            size_t current_size = buffer_.size();
+            size_t doubled_size = current_size;
+
+            if (current_size > 0 && current_size <= SIZE_MAX / 2) {
+                doubled_size = current_size * 2;
+            }
+
+            size_t required_size = write_pos_ + bytes;
+            if (required_size < write_pos_ || required_size < bytes) {
+                throw std::bad_alloc();
+            }
+
+            size_t new_size = std::max(doubled_size, required_size);
             buffer_.resize(new_size);
         }
     }

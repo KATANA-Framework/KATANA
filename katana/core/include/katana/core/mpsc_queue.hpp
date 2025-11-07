@@ -38,13 +38,15 @@ public:
     // Try to push if under limit. Returns false if queue is full.
     bool try_push(T value) {
         if (max_size_ > 0) {
-            size_t current_size = size_.load(std::memory_order_relaxed);
-            if (current_size >= max_size_) {
+            size_t old_size = size_.fetch_add(1, std::memory_order_relaxed);
+            if (old_size >= max_size_) {
+                size_.fetch_sub(1, std::memory_order_relaxed);
                 return false;
             }
+            push_impl(std::move(value));
+        } else {
+            push(std::move(value));
         }
-
-        push(std::move(value));
         return true;
     }
 
@@ -74,6 +76,14 @@ public:
     }
 
 private:
+    void push_impl(T value) {
+        auto new_node = new node();
+        new_node->data = std::move(value);
+
+        node* prev = head_.exchange(new_node, std::memory_order_acq_rel);
+        prev->next.store(new_node, std::memory_order_release);
+    }
+
     struct node {
         std::atomic<node*> next{nullptr};
         std::optional<T> data;

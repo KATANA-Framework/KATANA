@@ -49,6 +49,7 @@ int create_listener() {
 
 struct connection {
     int fd = -1;
+    std::atomic<bool> closed{false};
     monotonic_arena arena;
     http::parser parser;
     std::pmr::vector<uint8_t> read_buffer;
@@ -62,6 +63,12 @@ struct connection {
     {
         read_buffer.resize(BUFFER_SIZE);
     }
+
+    void safe_close() {
+        if (!closed.exchange(true, std::memory_order_acq_rel)) {
+            close(fd);
+        }
+    }
 };
 
 void handle_client(connection& conn) {
@@ -72,12 +79,12 @@ void handle_client(connection& conn) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 return;
             }
-            close(conn.fd);
+            conn.safe_close();
             return;
         }
 
         if (n == 0) {
-            close(conn.fd);
+            conn.safe_close();
             return;
         }
 
@@ -87,7 +94,7 @@ void handle_client(connection& conn) {
             auto resp = http::response::error(problem_details::bad_request("Invalid HTTP request"));
             std::string serialized = resp.serialize();
             [[maybe_unused]] auto _ = write(conn.fd, serialized.data(), serialized.size());
-            close(conn.fd);
+            conn.safe_close();
             return;
         }
 
@@ -125,7 +132,7 @@ void handle_client(connection& conn) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK) {
                         break;
                     }
-                    close(conn.fd);
+                    conn.safe_close();
                     return;
                 }
 
@@ -134,7 +141,7 @@ void handle_client(connection& conn) {
 
             if (conn.write_pos == conn.write_buffer.size()) {
                 if (should_close) {
-                    close(conn.fd);
+                    conn.safe_close();
                     return;
                 }
 

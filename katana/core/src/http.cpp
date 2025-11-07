@@ -126,8 +126,14 @@ response response::error(const problem_details& problem) {
 }
 
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
-    if (buffer_.size() + data.size() > MAX_HEADER_SIZE && state_ != state::body) {
-        return std::unexpected(make_error_code(error_code::invalid_fd));
+    if (state_ != state::body && state_ != state::chunk_data) {
+        if (buffer_.size() + data.size() > MAX_HEADER_SIZE) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
+    } else {
+        if (buffer_.size() + data.size() > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
     }
 
     buffer_.append(static_cast<const char*>(static_cast<const void*>(data.data())), data.size());
@@ -158,10 +164,11 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                         auto cl = request_.header("Content-Length");
                         if (cl) {
                             try {
-                                content_length_ = std::stoull(std::string(*cl));
-                                if (content_length_ > MAX_BODY_SIZE) {
+                                unsigned long long val = std::stoull(std::string(*cl));
+                                if (val > SIZE_MAX || val > MAX_BODY_SIZE) {
                                     return std::unexpected(make_error_code(error_code::invalid_fd));
                                 }
+                                content_length_ = static_cast<size_t>(val);
                                 state_ = state::body;
                             } catch (...) {
                                 return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -180,7 +187,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         } else if (state_ == state::body) {
             size_t remaining = buffer_.size() - parse_pos_;
             if (remaining >= content_length_) {
-                request_.body = std::string_view(buffer_.data() + parse_pos_, content_length_);
+                request_.body = std::string(buffer_.data() + parse_pos_, content_length_);
                 parse_pos_ += content_length_;
                 state_ = state::complete;
             } else {
@@ -202,7 +209,11 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
             try {
                 std::string chunk_str(chunk_line);
-                current_chunk_size_ = std::stoull(chunk_str, nullptr, 16);
+                unsigned long long chunk_val = std::stoull(chunk_str, nullptr, 16);
+                if (chunk_val > SIZE_MAX) {
+                    return std::unexpected(make_error_code(error_code::invalid_fd));
+                }
+                current_chunk_size_ = static_cast<size_t>(chunk_val);
                 if (current_chunk_size_ == 0) {
                     state_ = state::chunk_trailer;
                 } else {
@@ -268,6 +279,10 @@ result<void> parser::parse_request_line(std::string_view line) {
 }
 
 result<void> parser::parse_header_line(std::string_view line) {
+    if (header_count_ >= MAX_HEADER_COUNT) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
     auto colon = line.find(':');
     if (colon == std::string_view::npos) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -281,6 +296,7 @@ result<void> parser::parse_header_line(std::string_view line) {
     }
 
     request_.headers.set(std::string(name), std::string(value));
+    ++header_count_;
     return {};
 }
 
