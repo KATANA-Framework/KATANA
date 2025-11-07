@@ -25,7 +25,7 @@ public:
     timeout_id add(std::chrono::milliseconds timeout, callback_fn cb) {
         assert(cb && "Callback must be valid");
 
-        size_t ticks = (timeout.count() + TICK_MS - 1) / TICK_MS;
+        size_t ticks = (static_cast<size_t>(timeout.count()) + TICK_MS - 1) / TICK_MS;
         if (ticks == 0) ticks = 1;
 
         size_t slot_offset = std::min(ticks, WHEEL_SIZE - 1);
