@@ -12,6 +12,7 @@ enum class event_type : uint32_t {
     edge_triggered = 1 << 2,
     error = 1 << 3,
     hup = 1 << 4,
+    oneshot = 1 << 5,
 };
 
 constexpr event_type operator|(event_type lhs, event_type rhs) noexcept {
