@@ -134,6 +134,16 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         if (buffer_.size() + data.size() > MAX_HEADER_SIZE) {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
+        size_t crlf_count = 0;
+        for (size_t i = 0; i < buffer_.size(); ++i) {
+            if (buffer_[i] == '\n') ++crlf_count;
+        }
+        for (size_t i = 0; i < data.size(); ++i) {
+            if (data[i] == '\n') ++crlf_count;
+        }
+        if (crlf_count > MAX_HEADER_COUNT + 2) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
     } else {
         if (buffer_.size() + data.size() > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
             return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -214,7 +224,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             try {
                 std::string chunk_str(chunk_line);
                 unsigned long long chunk_val = std::stoull(chunk_str, nullptr, 16);
-                if (chunk_val > SIZE_MAX) {
+                if (chunk_val > SIZE_MAX || chunk_val > MAX_BODY_SIZE) {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
                 current_chunk_size_ = static_cast<size_t>(chunk_val);

@@ -35,14 +35,16 @@ public:
         }
     }
 
-    // Try to push if under limit. Returns false if queue is full.
     bool try_push(T value) {
         if (max_size_ > 0) {
-            size_t old_size = size_.fetch_add(1, std::memory_order_relaxed);
-            if (old_size >= max_size_) {
-                size_.fetch_sub(1, std::memory_order_relaxed);
-                return false;
-            }
+            size_t old_size = size_.load(std::memory_order_acquire);
+            do {
+                if (old_size >= max_size_) {
+                    return false;
+                }
+            } while (!size_.compare_exchange_weak(old_size, old_size + 1,
+                                                  std::memory_order_acq_rel,
+                                                  std::memory_order_acquire));
             push_impl(std::move(value));
         } else {
             push(std::move(value));
