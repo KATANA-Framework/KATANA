@@ -41,7 +41,7 @@ std::string response::serialize() const {
     auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
 
     result += "HTTP/1.1 ";
-    result.append(status_buf, ptr - status_buf);
+    result.append(status_buf, static_cast<size_t>(ptr - status_buf));
     result += " ";
     result += reason;
     result += "\r\n";
@@ -67,7 +67,7 @@ std::string response::serialize_chunked(size_t chunk_size) const {
     auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
 
     result += "HTTP/1.1 ";
-    result.append(status_buf, ptr - status_buf);
+    result.append(status_buf, static_cast<size_t>(ptr - status_buf));
     result += " ";
     result += reason;
     result += "\r\n";
@@ -89,7 +89,7 @@ std::string response::serialize_chunked(size_t chunk_size) const {
         size_t current_chunk = std::min(chunk_size, body.size() - offset);
         auto [chunk_ptr, chunk_ec] = std::to_chars(chunk_size_buf, chunk_size_buf + sizeof(chunk_size_buf),
                                                      current_chunk, 16);
-        result.append(chunk_size_buf, chunk_ptr - chunk_size_buf);
+        result.append(chunk_size_buf, static_cast<size_t>(chunk_ptr - chunk_size_buf));
         result += "\r\n";
         result.append(body.data() + offset, current_chunk);
         result += "\r\n";
