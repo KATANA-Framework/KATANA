@@ -1,6 +1,7 @@
 #pragma once
 
 #include "reactor.hpp"
+#include "metrics.hpp"
 
 #include <atomic>
 #include <unordered_map>
@@ -41,6 +42,10 @@ public:
         task_fn task
     ) override;
 
+    void set_exception_handler(exception_handler handler) override;
+
+    const reactor_metrics& metrics() const noexcept { return metrics_; }
+
 private:
     struct fd_state {
         event_callback callback;
@@ -60,6 +65,7 @@ private:
     void process_tasks();
     void process_timers();
     int calculate_timeout() const;
+    void handle_exception(std::string_view location, std::exception_ptr ex, int fd = -1) noexcept;
 
     int epoll_fd_;
     int max_events_;
@@ -70,6 +76,8 @@ private:
     std::priority_queue<timer_entry, std::vector<timer_entry>, std::greater<timer_entry>> timers_;
 
     mutable std::mutex tasks_mutex_;
+    exception_handler exception_handler_;
+    reactor_metrics metrics_;
 };
 
 } // namespace katana
