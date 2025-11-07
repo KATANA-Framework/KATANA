@@ -128,9 +128,13 @@ KATANA/
 
 ### 1. katana/core (Runtime)
 
-**Reactor-per-core**: по CPU core — свой event loop (собственный epoll-based reactor с thread pinning).
+**Reactor-per-core**: каждое CPU core получает независимый event loop (собственный epoll-based reactor).
 
-**Scheduler**: планировщик задач, привязка к ядрам, lock-free MPSC очереди.
+**Complete Isolation**: каждый reactor имеет собственное состояние без shared data — это обеспечивает корректность и отсутствие гонок.
+
+**Thread Pinning (Optional)**: опциональная оптимизация производительности для улучшения CPU cache locality и NUMA-aware размещения. Не требуется для корректности работы.
+
+**Scheduler**: планировщик задач, lock-free MPSC очереди для межпоточной коммуникации (если требуется).
 
 **Event Loop**: Edge-triggered epoll, vectored I/O (readv/writev), поддержка EPOLLONESHOT.
 
@@ -317,21 +321,48 @@ LTO (Link-Time Optimization) в релизе.
 
 ## Конкурентность и изоляция
 
-### Reactor-per-core
+### Reactor-per-core с полной изоляцией
 
-Каждое ядро CPU получает независимый event loop без shared state.
+Каждое ядро CPU получает независимый event loop **без shared state между реакторами**.
 
-### Нет глобальных локов
+**Гарантии изоляции**:
+- Никаких глобальных mutable переменных
+- Никаких mutex/locks в critical path
+- Никаких race conditions на состоянии запроса
+- Каждый reactor — самодостаточная единица обработки
 
-Никаких `std::mutex` в hot-path, состояние изолировано.
+### Per-core ресурсы
 
-### Per-core пулы
-
-Соединения к БД, Redis, кэш — всё per-core.
+Соединения к БД, Redis, кэш, arena allocators — всё изолировано per-core:
+- **DB connection pool**: каждый reactor владеет своими соединениями
+- **Cache**: локальный кэш без синхронизации между cores
+- **Arena allocators**: независимые аллокаторы без contention
 
 ### Нет handoff между потоками
 
-Запрос обрабатывается от начала до конца на одном ядре.
+Запрос обрабатывается от начала до конца на одном ядре — это ключевое архитектурное свойство, обеспечивающее:
+- Отсутствие межпоточных гонок
+- Предсказуемые задержки (нет ожидания на locks)
+- CPU cache locality (L1/L2 остаются горячими)
+
+### Thread pinning — опциональная оптимизация
+
+**Корректность НЕ зависит от pinning**: изоляция реакторов гарантирует отсутствие race conditions независимо от того, мигрирует поток между ядрами или нет.
+
+**Pinning как оптимизация**:
+- Улучшает CPU cache locality (снижает L1/L2 invalidation)
+- Важно для NUMA-систем (multi-socket серверы)
+- Стабилизирует tail latencies (p99/p999)
+
+**Когда использовать**:
+- Production deployments с строгими latency SLA
+- Multi-socket NUMA системы
+- Высоконагруженные сценарии
+
+**Когда не использовать**:
+- Development окружения (`--no-pin` флаг)
+- Платформы без `sched_setaffinity` (macOS, Windows требуют других API)
+- Контейнеризованные окружения (affinity управляется снаружи)
 
 ---
 
