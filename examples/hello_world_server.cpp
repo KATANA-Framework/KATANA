@@ -32,7 +32,7 @@ int create_listener() {
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(PORT);
 
-    if (bind(sockfd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+    if (bind(sockfd, static_cast<sockaddr*>(static_cast<void*>(&addr)), sizeof(addr)) < 0) {
         close(sockfd);
         return -1;
     }
@@ -128,7 +128,7 @@ void accept_connections(reactor_pool& pool, int listener_fd) {
         socklen_t addr_len = sizeof(client_addr);
 
         int client_fd = accept4(listener_fd,
-                               reinterpret_cast<sockaddr*>(&client_addr),
+                               static_cast<sockaddr*>(static_cast<void*>(&client_addr)),
                                &addr_len,
                                SOCK_NONBLOCK | SOCK_CLOEXEC);
 

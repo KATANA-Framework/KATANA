@@ -29,7 +29,7 @@ protected:
         addr.sin_addr.s_addr = inet_addr("127.0.0.1");
         addr.sin_port = htons(TEST_PORT);
 
-        ASSERT_GE(bind(listener_fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)), 0);
+        ASSERT_GE(bind(listener_fd, static_cast<sockaddr*>(static_cast<void*>(&addr)), sizeof(addr)), 0);
         ASSERT_GE(listen(listener_fd, 10), 0);
     }
 
@@ -69,12 +69,7 @@ TEST_F(HTTPServerTest, ChunkedParsing) {
         "0\r\n"
         "\r\n";
 
-    auto result = parser.parse(
-        std::span<const uint8_t>(
-            reinterpret_cast<const uint8_t*>(request_data.data()),
-            request_data.size()
-        )
-    );
+    auto result = parser.parse(http::as_bytes(request_data));
 
     ASSERT_TRUE(result);
     EXPECT_TRUE(parser.is_complete());
@@ -89,12 +84,7 @@ TEST_F(HTTPServerTest, SizeLimits) {
     std::string huge_uri(3000, 'a');
     std::string request_data = "GET /" + huge_uri + " HTTP/1.1\r\n\r\n";
 
-    auto result = parser.parse(
-        std::span<const uint8_t>(
-            reinterpret_cast<const uint8_t*>(request_data.data()),
-            request_data.size()
-        )
-    );
+    auto result = parser.parse(http::as_bytes(request_data));
 
     EXPECT_FALSE(result);
 }

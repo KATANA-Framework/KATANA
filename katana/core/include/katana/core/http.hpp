@@ -87,4 +87,11 @@ private:
 method parse_method(std::string_view str);
 std::string_view method_to_string(method m);
 
+inline std::span<const uint8_t> as_bytes(std::string_view sv) noexcept {
+    return std::span<const uint8_t>(
+        static_cast<const uint8_t*>(static_cast<const void*>(sv.data())),
+        sv.size()
+    );
+}
+
 } // namespace katana::http

@@ -8,7 +8,7 @@ TEST(HttpParser, ParseSimpleGetRequest) {
     parser p;
 
     std::string request = "GET /index.html HTTP/1.1\r\nHost: example.com\r\n\r\n";
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     ASSERT_TRUE(result.has_value());
@@ -33,7 +33,7 @@ TEST(HttpParser, ParsePostRequestWithBody) {
                          "\r\n"
                          "{\"key\":\"val\"}";
 
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     ASSERT_TRUE(result.has_value());
@@ -65,7 +65,7 @@ TEST(HttpParser, ParseAllMethods) {
     for (const auto& tc : cases) {
         parser p;
         std::string request = tc.method_str + " / HTTP/1.1\r\n\r\n";
-        std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+        auto data = as_bytes(request);
 
         auto result = p.parse(data);
         ASSERT_TRUE(result.has_value());
@@ -83,7 +83,7 @@ TEST(HttpParser, ParseMultipleHeaders) {
                          "Connection: keep-alive\r\n"
                          "\r\n";
 
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     ASSERT_TRUE(result.has_value());
@@ -104,17 +104,17 @@ TEST(HttpParser, ParseIncrementalData) {
     std::string part2 = "Host: example.com\r\n";
     std::string part3 = "\r\n";
 
-    std::span<const uint8_t> data1(reinterpret_cast<const uint8_t*>(part1.data()), part1.size());
+    auto data1 = as_bytes(part1);
     auto result1 = p.parse(data1);
     ASSERT_TRUE(result1.has_value());
     EXPECT_EQ(*result1, parser::state::headers);
 
-    std::span<const uint8_t> data2(reinterpret_cast<const uint8_t*>(part2.data()), part2.size());
+    auto data2 = as_bytes(part2);
     auto result2 = p.parse(data2);
     ASSERT_TRUE(result2.has_value());
     EXPECT_EQ(*result2, parser::state::headers);
 
-    std::span<const uint8_t> data3(reinterpret_cast<const uint8_t*>(part3.data()), part3.size());
+    auto data3 = as_bytes(part3);
     auto result3 = p.parse(data3);
     ASSERT_TRUE(result3.has_value());
     EXPECT_EQ(*result3, parser::state::complete);
@@ -131,17 +131,17 @@ TEST(HttpParser, ParseIncrementalBody) {
     std::string body_part1 = "hello";
     std::string body_part2 = "world";
 
-    std::span<const uint8_t> data1(reinterpret_cast<const uint8_t*>(headers.data()), headers.size());
+    auto data1 = as_bytes(headers);
     auto result1 = p.parse(data1);
     ASSERT_TRUE(result1.has_value());
     EXPECT_EQ(*result1, parser::state::body);
 
-    std::span<const uint8_t> data2(reinterpret_cast<const uint8_t*>(body_part1.data()), body_part1.size());
+    auto data2 = as_bytes(body_part1);
     auto result2 = p.parse(data2);
     ASSERT_TRUE(result2.has_value());
     EXPECT_EQ(*result2, parser::state::body);
 
-    std::span<const uint8_t> data3(reinterpret_cast<const uint8_t*>(body_part2.data()), body_part2.size());
+    auto data3 = as_bytes(body_part2);
     auto result3 = p.parse(data3);
     ASSERT_TRUE(result3.has_value());
     EXPECT_EQ(*result3, parser::state::complete);
@@ -153,7 +153,7 @@ TEST(HttpParser, InvalidRequestLineNoSpace) {
     parser p;
 
     std::string request = "GETHTTP/1.1\r\n\r\n";
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     EXPECT_FALSE(result.has_value());
@@ -163,7 +163,7 @@ TEST(HttpParser, InvalidRequestLineMissingVersion) {
     parser p;
 
     std::string request = "GET /\r\n\r\n";
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     EXPECT_FALSE(result.has_value());
@@ -173,7 +173,7 @@ TEST(HttpParser, InvalidHeaderNoColon) {
     parser p;
 
     std::string request = "GET / HTTP/1.1\r\nInvalidHeader\r\n\r\n";
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     EXPECT_FALSE(result.has_value());
@@ -183,7 +183,7 @@ TEST(HttpParser, InvalidContentLength) {
     parser p;
 
     std::string request = "POST / HTTP/1.1\r\nContent-Length: invalid\r\n\r\n";
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     EXPECT_FALSE(result.has_value());
@@ -193,7 +193,7 @@ TEST(HttpParser, HeaderValueWithLeadingSpaces) {
     parser p;
 
     std::string request = "GET / HTTP/1.1\r\nHost:   example.com\r\n\r\n";
-    std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(request.data()), request.size());
+    auto data = as_bytes(request);
 
     auto result = p.parse(data);
     ASSERT_TRUE(result.has_value());

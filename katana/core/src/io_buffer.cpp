@@ -22,11 +22,10 @@ void io_buffer::append(std::span<const uint8_t> data) {
 }
 
 void io_buffer::append(std::string_view str) {
-    auto bytes = std::span<const uint8_t>(
-        reinterpret_cast<const uint8_t*>(str.data()),
+    append(std::span<const uint8_t>(
+        reinterpret_cast<const uint8_t*>(static_cast<const void*>(str.data())),
         str.size()
-    );
-    append(bytes);
+    ));
 }
 
 std::span<uint8_t> io_buffer::writable_span(size_t size) {
