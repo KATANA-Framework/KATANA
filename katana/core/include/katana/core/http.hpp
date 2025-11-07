@@ -11,10 +11,12 @@
 
 namespace katana::http {
 
-constexpr size_t MAX_HEADER_SIZE = 8192;
-constexpr size_t MAX_BODY_SIZE = 10 * 1024 * 1024;
-constexpr size_t MAX_URI_LENGTH = 2048;
-constexpr size_t MAX_HEADER_COUNT = 100;
+// Security limits for HTTP parsing
+constexpr size_t MAX_HEADER_SIZE = 8192;  // 8KB max for all headers
+constexpr size_t MAX_BODY_SIZE = 10 * 1024 * 1024;  // 10MB max body size
+constexpr size_t MAX_URI_LENGTH = 2048;  // 2KB max URI length
+constexpr size_t MAX_HEADER_COUNT = 100;  // Max number of headers
+constexpr size_t MAX_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;  // Total buffer limit
 
 enum class method {
     GET,
@@ -34,6 +36,12 @@ struct request {
     headers_map headers;
     std::string body;
 
+    request() = default;
+    request(request&&) noexcept = default;
+    request& operator=(request&&) noexcept = default;
+    request(const request&) = default;
+    request& operator=(const request&) = default;
+
     std::optional<std::string_view> header(std::string_view name) const {
         return headers.get(name);
     }
@@ -45,6 +53,12 @@ struct response {
     headers_map headers;
     std::string body;
     bool chunked = false;
+
+    response() = default;
+    response(response&&) noexcept = default;
+    response& operator=(response&&) noexcept = default;
+    response(const response&) = default;
+    response& operator=(const response&) = default;
 
     void set_header(std::string name, std::string value) {
         headers.set(std::move(name), std::move(value));

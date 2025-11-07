@@ -113,6 +113,11 @@ result<void> epoll_reactor::run() {
             if (now >= graceful_shutdown_deadline_) {
                 for (auto it = fd_states_.begin(); it != fd_states_.end(); ) {
                     int fd = it->first;
+                    try {
+                        it->second.callback(event_type::error);
+                    } catch (...) {
+                        handle_exception("forced_shutdown_callback", std::current_exception(), fd);
+                    }
                     epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
                     close(fd);
                     it = fd_states_.erase(it);

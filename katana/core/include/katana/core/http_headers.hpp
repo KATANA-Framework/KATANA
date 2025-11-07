@@ -22,6 +22,10 @@ inline bool ci_equal(std::string_view a, std::string_view b) noexcept {
 class headers_map {
 public:
     headers_map() = default;
+    headers_map(headers_map&&) noexcept = default;
+    headers_map& operator=(headers_map&&) noexcept = default;
+    headers_map(const headers_map&) = default;
+    headers_map& operator=(const headers_map&) = default;
 
     void set(std::string name, std::string value) {
         for (auto& [n, v] : headers_) {
