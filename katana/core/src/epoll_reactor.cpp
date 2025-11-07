@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <iostream>
 
 namespace katana {
 
@@ -50,6 +51,23 @@ epoll_reactor::epoll_reactor(int max_events)
     : epoll_fd_(-1)
     , max_events_(max_events)
     , running_(false)
+    , exception_handler_([](const exception_context& ctx) {
+        std::cerr << "[reactor] Exception in " << ctx.location;
+        if (ctx.fd >= 0) {
+            std::cerr << " (fd=" << ctx.fd << ")";
+        }
+        std::cerr << ": ";
+        try {
+            if (ctx.exception) {
+                std::rethrow_exception(ctx.exception);
+            }
+        } catch (const std::exception& e) {
+            std::cerr << e.what();
+        } catch (...) {
+            std::cerr << "unknown exception";
+        }
+        std::cerr << "\n";
+    })
 {
     epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (epoll_fd_ < 0) {
@@ -155,6 +173,7 @@ result<void> epoll_reactor::unregister_fd(int fd) {
 void epoll_reactor::schedule(task_fn task) {
     std::lock_guard<std::mutex> lock(tasks_mutex_);
     pending_tasks_.push_back(std::move(task));
+    metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
 }
 
 void epoll_reactor::schedule_after(
@@ -164,6 +183,7 @@ void epoll_reactor::schedule_after(
     auto deadline = std::chrono::steady_clock::now() + delay;
     std::lock_guard<std::mutex> lock(tasks_mutex_);
     timers_.push(timer_entry{deadline, std::move(task)});
+    metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
 }
 
 result<void> epoll_reactor::process_events(int timeout_ms) {
@@ -183,7 +203,12 @@ result<void> epoll_reactor::process_events(int timeout_ms) {
         auto it = fd_states_.find(fd);
         if (it != fd_states_.end()) {
             event_type ev = from_epoll_events(events[i].events);
-            it->second.callback(ev);
+            try {
+                it->second.callback(ev);
+                metrics_.fd_events_processed.fetch_add(1, std::memory_order_relaxed);
+            } catch (...) {
+                handle_exception("fd_callback", std::current_exception(), fd);
+            }
         }
     }
 
@@ -198,7 +223,12 @@ void epoll_reactor::process_tasks() {
     }
 
     for (auto& task : tasks) {
-        task();
+        try {
+            task();
+            metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
+        } catch (...) {
+            handle_exception("scheduled_task", std::current_exception());
+        }
     }
 }
 
@@ -216,7 +246,13 @@ void epoll_reactor::process_timers() {
     }
 
     for (auto& task : ready_tasks) {
-        task();
+        try {
+            task();
+            metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
+            metrics_.timers_fired.fetch_add(1, std::memory_order_relaxed);
+        } catch (...) {
+            handle_exception("delayed_task", std::current_exception());
+        }
     }
 }
 
@@ -243,6 +279,27 @@ int epoll_reactor::calculate_timeout() const {
     );
 
     return static_cast<int>(std::min<int64_t>(timeout.count(), 100));
+}
+
+void epoll_reactor::set_exception_handler(exception_handler handler) {
+    exception_handler_ = std::move(handler);
+}
+
+void epoll_reactor::handle_exception(
+    std::string_view location,
+    std::exception_ptr ex,
+    int fd
+) noexcept {
+    metrics_.exceptions_caught.fetch_add(1, std::memory_order_relaxed);
+
+    if (exception_handler_) {
+        try {
+            exception_handler_(exception_context{location, ex, fd});
+        } catch (...) {
+            // Exception handler itself threw - fallback to stderr
+            std::cerr << "[reactor] Exception handler threw an exception!\n";
+        }
+    }
 }
 
 } // namespace katana
