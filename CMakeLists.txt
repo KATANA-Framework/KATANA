@@ -56,6 +56,7 @@ target_include_directories(katana_core PUBLIC
 option(ENABLE_TESTING "Enable testing" ON)
 option(ENABLE_BENCHMARKS "Enable benchmarks" OFF)
 option(ENABLE_FUZZING "Enable fuzzing" OFF)
+option(ENABLE_EXAMPLES "Enable examples" OFF)
 
 if(ENABLE_TESTING)
     enable_testing()
@@ -70,14 +71,16 @@ if(ENABLE_FUZZING AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_subdirectory(test/fuzz)
 endif()
 
-add_executable(basic_reactor_example examples/basic_reactor.cpp)
-target_link_libraries(basic_reactor_example katana_core)
+if(ENABLE_EXAMPLES)
+    add_executable(basic_reactor_example examples/basic_reactor.cpp)
+    target_link_libraries(basic_reactor_example katana_core)
 
-add_executable(hello_world_server examples/hello_world_server.cpp)
-target_link_libraries(hello_world_server katana_core)
+    add_executable(hello_world_server examples/hello_world_server.cpp)
+    target_link_libraries(hello_world_server katana_core)
 
-add_executable(raii_echo_server examples/raii_echo_server.cpp)
-target_link_libraries(raii_echo_server katana_core)
+    add_executable(raii_echo_server examples/raii_echo_server.cpp)
+    target_link_libraries(raii_echo_server katana_core)
 
-add_executable(raii_http_server examples/raii_http_server.cpp)
-target_link_libraries(raii_http_server katana_core)
+    add_executable(raii_http_server examples/raii_http_server.cpp)
+    target_link_libraries(raii_http_server katana_core)
+endif()

@@ -28,6 +28,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install LLVM repository (Ubuntu 22.04 only)
+      if: matrix.os == 'ubuntu-22.04' && matrix.compiler.cc == 'clang-18'
+      run: |
+        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+        echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -36,8 +42,7 @@ jobs:
           ninja-build \
           ${{ matrix.compiler.cc }} \
           ${{ matrix.compiler.cxx }} \
-          liburing-dev \
-          libbenchmark-dev
+          liburing-dev
 
     - name: Configure CMake (no sanitizer)
       if: matrix.sanitizer == 'none'
@@ -102,7 +107,7 @@ jobs:
     - name: Install Clang
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-18 cmake ninja-build
+        sudo apt-get install -y clang-18 cmake ninja-build liburing-dev
 
     - name: Build Fuzzers
       run: |
@@ -129,7 +134,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build g++-13
+        sudo apt-get install -y cmake ninja-build g++-13 libbenchmark-dev liburing-dev
 
     - name: Build
       run: |
@@ -138,7 +143,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_C_COMPILER=gcc-13 \
           -DCMAKE_CXX_COMPILER=g++-13 \
-          -DENABLE_BENCHMARKS=ON
+          -DENABLE_BENCHMARKS=ON \
+          -DENABLE_EXAMPLES=ON
         cmake --build ${{github.workspace}}/build --config Release -j$(nproc)
 
     - name: Start test server
