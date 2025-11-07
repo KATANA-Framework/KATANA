@@ -40,9 +40,9 @@ public:
 
     virtual result<void> unregister_fd(int fd) = 0;
 
-    virtual void schedule(task_fn task) = 0;
+    virtual bool schedule(task_fn task) = 0;
 
-    virtual void schedule_after(
+    virtual bool schedule_after(
         std::chrono::milliseconds delay,
         task_fn task
     ) = 0;

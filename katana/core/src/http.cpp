@@ -1,7 +1,7 @@
 #include "katana/core/http.hpp"
 
-#include <sstream>
 #include <algorithm>
+#include <charconv>
 
 namespace katana::http {
 
@@ -29,65 +29,76 @@ std::string_view method_to_string(method m) {
     }
 }
 
-std::optional<std::string_view> request::header(std::string_view name) const {
-    auto it = headers.find(std::string(name));
-    if (it != headers.end()) {
-        return it->second;
-    }
-    return std::nullopt;
-}
-
-void response::set_header(std::string name, std::string value) {
-    headers[std::move(name)] = std::move(value);
-}
-
 std::string response::serialize() const {
     if (chunked) {
         return serialize_chunked();
     }
 
-    std::ostringstream oss;
+    std::string result;
+    result.reserve(256 + body.size());
 
-    oss << "HTTP/1.1 " << status << " " << reason << "\r\n";
+    char status_buf[16];
+    auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
+
+    result += "HTTP/1.1 ";
+    result.append(status_buf, ptr - status_buf);
+    result += " ";
+    result += reason;
+    result += "\r\n";
 
     for (const auto& [name, value] : headers) {
-        oss << name << ": " << value << "\r\n";
+        result += name;
+        result += ": ";
+        result += value;
+        result += "\r\n";
     }
 
-    oss << "\r\n";
+    result += "\r\n";
+    result += body;
 
-    if (!body.empty()) {
-        oss << body;
-    }
-
-    return oss.str();
+    return result;
 }
 
 std::string response::serialize_chunked(size_t chunk_size) const {
-    std::ostringstream oss;
+    std::string result;
+    result.reserve(512 + body.size());
 
-    oss << "HTTP/1.1 " << status << " " << reason << "\r\n";
+    char status_buf[16];
+    auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
+
+    result += "HTTP/1.1 ";
+    result.append(status_buf, ptr - status_buf);
+    result += " ";
+    result += reason;
+    result += "\r\n";
 
     for (const auto& [name, value] : headers) {
         if (name != "Content-Length") {
-            oss << name << ": " << value << "\r\n";
+            result += name;
+            result += ": ";
+            result += value;
+            result += "\r\n";
         }
     }
 
-    oss << "Transfer-Encoding: chunked\r\n";
-    oss << "\r\n";
+    result += "Transfer-Encoding: chunked\r\n\r\n";
 
     size_t offset = 0;
+    char chunk_size_buf[32];
     while (offset < body.size()) {
         size_t current_chunk = std::min(chunk_size, body.size() - offset);
-        oss << std::hex << current_chunk << "\r\n";
-        oss << body.substr(offset, current_chunk) << "\r\n";
+        auto [chunk_ptr, chunk_ec] = std::to_chars(chunk_size_buf, chunk_size_buf + sizeof(chunk_size_buf),
+                                                     current_chunk, 16);
+        result.append(chunk_size_buf, chunk_ptr - chunk_size_buf);
+        result += "\r\n";
+        result.append(body.data() + offset, current_chunk);
+        result += "\r\n";
         offset += current_chunk;
     }
 
-    oss << "0\r\n\r\n";
+    result += "0\r\n\r\n";
 
-    return oss.str();
+    return result;
 }
 
 response response::ok(std::string body, std::string content_type) {
@@ -123,13 +134,13 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
     while (state_ != state::complete) {
         if (state_ == state::request_line || state_ == state::headers) {
-            auto pos = buffer_.find("\r\n");
+            auto pos = buffer_.find("\r\n", parse_pos_);
             if (pos == std::string::npos) {
                 return state_;
             }
 
-            std::string line = buffer_.substr(0, pos);
-            buffer_.erase(0, pos + 2);
+            std::string_view line(buffer_.data() + parse_pos_, pos - parse_pos_);
+            parse_pos_ = pos + 2;
 
             if (state_ == state::request_line) {
                 auto res = parse_request_line(line);
@@ -167,29 +178,32 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 }
             }
         } else if (state_ == state::body) {
-            if (buffer_.size() >= content_length_) {
-                request_.body = buffer_.substr(0, content_length_);
-                buffer_.erase(0, content_length_);
+            size_t remaining = buffer_.size() - parse_pos_;
+            if (remaining >= content_length_) {
+                request_.body = buffer_.substr(parse_pos_, content_length_);
+                parse_pos_ += content_length_;
                 state_ = state::complete;
             } else {
                 return state_;
             }
         } else if (state_ == state::chunk_size) {
-            auto pos = buffer_.find("\r\n");
+            auto pos = buffer_.find("\r\n", parse_pos_);
             if (pos == std::string::npos) {
                 return state_;
             }
 
-            std::string chunk_line = buffer_.substr(0, pos);
-            buffer_.erase(0, pos + 2);
+            std::string_view chunk_line(buffer_.data() + parse_pos_, pos - parse_pos_);
+            parse_pos_ = pos + 2;
 
             auto semicolon = chunk_line.find(';');
-            if (semicolon != std::string::npos) {
+            if (semicolon != std::string_view::npos) {
                 chunk_line = chunk_line.substr(0, semicolon);
             }
 
             try {
-                current_chunk_size_ = std::stoull(chunk_line, nullptr, 16);
+                // std::stoull doesn't support string_view, need to convert
+                std::string chunk_str(chunk_line);
+                current_chunk_size_ = std::stoull(chunk_str, nullptr, 16);
                 if (current_chunk_size_ == 0) {
                     state_ = state::chunk_trailer;
                 } else {
@@ -202,21 +216,27 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
         } else if (state_ == state::chunk_data) {
-            if (buffer_.size() >= current_chunk_size_ + 2) {
-                request_.body.append(buffer_.substr(0, current_chunk_size_));
-                buffer_.erase(0, current_chunk_size_ + 2);
+            size_t remaining = buffer_.size() - parse_pos_;
+            if (remaining >= current_chunk_size_ + 2) {
+                request_.body.append(buffer_.substr(parse_pos_, current_chunk_size_));
+                parse_pos_ += current_chunk_size_ + 2;
                 state_ = state::chunk_size;
             } else {
                 return state_;
             }
         } else if (state_ == state::chunk_trailer) {
-            auto pos = buffer_.find("\r\n");
+            auto pos = buffer_.find("\r\n", parse_pos_);
             if (pos == std::string::npos) {
                 return state_;
             }
-            buffer_.erase(0, pos + 2);
+            parse_pos_ = pos + 2;
             state_ = state::complete;
         }
+    }
+
+    // Compact buffer if parse_pos_ exceeds threshold
+    if (parse_pos_ > COMPACT_THRESHOLD) {
+        compact_buffer();
     }
 
     return state_;
@@ -260,8 +280,20 @@ result<void> parser::parse_header_line(std::string_view line) {
         value.remove_prefix(1);
     }
 
-    request_.headers[std::string(name)] = std::string(value);
+    request_.headers.set(std::string(name), std::string(value));
     return {};
+}
+
+void parser::compact_buffer() {
+    if (parse_pos_ > 0 && parse_pos_ < buffer_.size()) {
+        // Move unparsed data to the beginning of the buffer
+        buffer_.erase(0, parse_pos_);
+        parse_pos_ = 0;
+    } else if (parse_pos_ >= buffer_.size()) {
+        // All data has been parsed, clear the buffer
+        buffer_.clear();
+        parse_pos_ = 0;
+    }
 }
 
 } // namespace katana::http
