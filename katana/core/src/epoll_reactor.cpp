@@ -171,8 +171,7 @@ result<void> epoll_reactor::unregister_fd(int fd) {
 }
 
 void epoll_reactor::schedule(task_fn task) {
-    std::lock_guard<std::mutex> lock(tasks_mutex_);
-    pending_tasks_.push_back(std::move(task));
+    pending_tasks_.push(std::move(task));
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
 }
 
@@ -181,8 +180,7 @@ void epoll_reactor::schedule_after(
     task_fn task
 ) {
     auto deadline = std::chrono::steady_clock::now() + delay;
-    std::lock_guard<std::mutex> lock(tasks_mutex_);
-    timers_.push(timer_entry{deadline, std::move(task)});
+    pending_timers_.push(timer_entry{deadline, std::move(task)});
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
 }
 
@@ -216,15 +214,9 @@ result<void> epoll_reactor::process_events(int timeout_ms) {
 }
 
 void epoll_reactor::process_tasks() {
-    std::vector<task_fn> tasks;
-    {
-        std::lock_guard<std::mutex> lock(tasks_mutex_);
-        tasks.swap(pending_tasks_);
-    }
-
-    for (auto& task : tasks) {
+    while (auto task = pending_tasks_.pop()) {
         try {
-            task();
+            (*task)();
             metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
         } catch (...) {
             handle_exception("scheduled_task", std::current_exception());
@@ -233,19 +225,16 @@ void epoll_reactor::process_tasks() {
 }
 
 void epoll_reactor::process_timers() {
-    auto now = std::chrono::steady_clock::now();
-    std::vector<task_fn> ready_tasks;
-
-    {
-        std::lock_guard<std::mutex> lock(tasks_mutex_);
-
-        while (!timers_.empty() && timers_.top().deadline <= now) {
-            ready_tasks.push_back(std::move(timers_.top().task));
-            timers_.pop();
-        }
+    while (auto timer = pending_timers_.pop()) {
+        timers_.push(std::move(*timer));
     }
 
-    for (auto& task : ready_tasks) {
+    auto now = std::chrono::steady_clock::now();
+
+    while (!timers_.empty() && timers_.top().deadline <= now) {
+        auto task = std::move(timers_.top().task);
+        timers_.pop();
+
         try {
             task();
             metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
@@ -257,8 +246,6 @@ void epoll_reactor::process_timers() {
 }
 
 int epoll_reactor::calculate_timeout() const {
-    std::lock_guard<std::mutex> lock(tasks_mutex_);
-
     if (!pending_tasks_.empty()) {
         return 0;
     }

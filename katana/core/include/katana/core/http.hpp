@@ -11,6 +11,10 @@
 
 namespace katana::http {
 
+constexpr size_t MAX_HEADER_SIZE = 8192;
+constexpr size_t MAX_BODY_SIZE = 10 * 1024 * 1024;
+constexpr size_t MAX_URI_LENGTH = 2048;
+
 enum class method {
     GET,
     POST,
@@ -37,9 +41,11 @@ struct response {
     std::string reason;
     std::unordered_map<std::string, std::string> headers;
     std::string body;
+    bool chunked = false;
 
     void set_header(std::string name, std::string value);
     std::string serialize() const;
+    std::string serialize_chunked(size_t chunk_size = 4096) const;
 
     static response ok(std::string body = "", std::string content_type = "text/plain");
     static response json(std::string body);
@@ -54,6 +60,9 @@ public:
         request_line,
         headers,
         body,
+        chunk_size,
+        chunk_data,
+        chunk_trailer,
         complete
     };
 
@@ -71,6 +80,8 @@ private:
     request request_;
     std::string buffer_;
     size_t content_length_ = 0;
+    size_t current_chunk_size_ = 0;
+    bool is_chunked_ = false;
 };
 
 method parse_method(std::string_view str);
