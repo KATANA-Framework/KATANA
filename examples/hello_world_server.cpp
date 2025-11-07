@@ -87,6 +87,8 @@ struct connection {
     std::pmr::vector<uint8_t> write_buffer;
     size_t write_pos = 0;
     size_t requests_on_connection = 0;
+    bool writing_response = false;
+    bool should_close_after_write = false;
 
     connection()
         : arena(ARENA_BLOCK_SIZE)
@@ -106,12 +108,48 @@ struct connection {
 };
 
 void handle_client(connection& conn) {
-    while (true) {
-        int32_t fd_val = conn.fd.load(std::memory_order_relaxed);
-        if (fd_val < 0) {
+    int32_t fd_val = conn.fd.load(std::memory_order_relaxed);
+    if (fd_val < 0) {
+        return;
+    }
+
+    if (conn.writing_response) {
+        while (conn.write_pos < conn.write_buffer.size()) {
+            scatter_gather_write sg_write;
+            sg_write.add_buffer(std::span<const uint8_t>(
+                conn.write_buffer.data() + conn.write_pos,
+                conn.write_buffer.size() - conn.write_pos
+            ));
+
+            auto write_result = write_vectored(fd_val, sg_write);
+            if (!write_result) {
+                if (write_result.error().value() == EAGAIN ||
+                    write_result.error().value() == EWOULDBLOCK) {
+                    return;
+                }
+                conn.safe_close();
+                return;
+            }
+
+            size_t written = *write_result;
+            if (written == 0) {
+                return;
+            }
+            conn.write_pos += written;
+        }
+
+        conn.writing_response = false;
+        if (conn.should_close_after_write) {
+            conn.safe_close();
             return;
         }
 
+        conn.parser = http::parser();
+        conn.arena.reset();
+        conn.write_pos = 0;
+    }
+
+    while (true) {
         scatter_gather_read sg_read;
         sg_read.add_buffer(std::span<uint8_t>(conn.read_buffer.data(), conn.read_buffer.size()));
 
@@ -141,91 +179,86 @@ void handle_client(connection& conn) {
                 serialized.size()
             ));
 
-            int32_t write_fd = conn.fd.load(std::memory_order_relaxed);
-            if (write_fd >= 0) {
-                write_vectored(write_fd, sg_write);
-            }
+            write_vectored(fd_val, sg_write);
             conn.safe_close();
             return;
         }
 
-        if (conn.parser.is_complete()) {
-            ++conn.requests_on_connection;
-            if (conn.requests_on_connection > 1) {
-                keepalive_reuses.fetch_add(1, std::memory_order_relaxed);
-            }
-            total_requests.fetch_add(1, std::memory_order_relaxed);
-
-            auto& req = conn.parser.get_request();
-            auto resp = http::response::ok("Hello, World!", "text/plain");
-
-            bool should_close = false;
-            auto connection_header = req.header("Connection");
-            if (connection_header && (*connection_header == "close" ||
-                ci_equal(*connection_header, "close"))) {
-                should_close = true;
-            } else if (req.version == "HTTP/1.0") {
-                should_close = !connection_header ||
-                              !ci_equal(*connection_header, "keep-alive");
-            }
-
-            // Limit max requests per connection
-            if (conn.requests_on_connection >= 1000) {
-                should_close = true;
-            }
-
-            if (should_close) {
-                resp.set_header("Connection", "close");
-            } else {
-                resp.set_header("Connection", "keep-alive");
-                resp.set_header("Keep-Alive", "timeout=60, max=1000");
-            }
-
-            std::string serialized = resp.serialize();
-            conn.write_buffer.assign(serialized.begin(), serialized.end());
-            conn.write_pos = 0;
-
-            while (conn.write_pos < conn.write_buffer.size()) {
-                int32_t send_fd = conn.fd.load(std::memory_order_relaxed);
-                if (send_fd < 0) {
-                    return;
-                }
-
-                scatter_gather_write sg_write;
-                sg_write.add_buffer(std::span<const uint8_t>(
-                    conn.write_buffer.data() + conn.write_pos,
-                    conn.write_buffer.size() - conn.write_pos
-                ));
-
-                auto write_result = write_vectored(send_fd, sg_write);
-                if (!write_result) {
-                    if (write_result.error().value() == EAGAIN ||
-                        write_result.error().value() == EWOULDBLOCK) {
-                        break;
-                    }
-                    conn.safe_close();
-                    return;
-                }
-
-                size_t written = *write_result;
-                if (written == 0) {
-                    break;
-                }
-
-                conn.write_pos += written;
-            }
-
-            if (conn.write_pos == conn.write_buffer.size()) {
-                if (should_close) {
-                    conn.safe_close();
-                    return;
-                }
-
-                conn.parser = http::parser();
-                conn.arena.reset();
-                conn.write_pos = 0;
-            }
+        if (!conn.parser.is_complete()) {
+            continue;
         }
+
+        ++conn.requests_on_connection;
+        if (conn.requests_on_connection > 1) {
+            keepalive_reuses.fetch_add(1, std::memory_order_relaxed);
+        }
+        total_requests.fetch_add(1, std::memory_order_relaxed);
+
+        auto& req = conn.parser.get_request();
+        auto resp = http::response::ok("Hello, World!", "text/plain");
+
+        bool should_close = false;
+        auto connection_header = req.header("Connection");
+        if (connection_header && (*connection_header == "close" ||
+            ci_equal(*connection_header, "close"))) {
+            should_close = true;
+        } else if (req.version == "HTTP/1.0") {
+            should_close = !connection_header ||
+                          !ci_equal(*connection_header, "keep-alive");
+        }
+
+        if (conn.requests_on_connection >= 1000) {
+            should_close = true;
+        }
+
+        if (should_close) {
+            resp.set_header("Connection", "close");
+        } else {
+            resp.set_header("Connection", "keep-alive");
+            resp.set_header("Keep-Alive", "timeout=60, max=1000");
+        }
+
+        std::string serialized = resp.serialize();
+        conn.write_buffer.assign(serialized.begin(), serialized.end());
+        conn.write_pos = 0;
+
+        while (conn.write_pos < conn.write_buffer.size()) {
+            scatter_gather_write sg_write;
+            sg_write.add_buffer(std::span<const uint8_t>(
+                conn.write_buffer.data() + conn.write_pos,
+                conn.write_buffer.size() - conn.write_pos
+            ));
+
+            auto write_result = write_vectored(fd_val, sg_write);
+            if (!write_result) {
+                if (write_result.error().value() == EAGAIN ||
+                    write_result.error().value() == EWOULDBLOCK) {
+                    conn.writing_response = true;
+                    conn.should_close_after_write = should_close;
+                    return;
+                }
+                conn.safe_close();
+                return;
+            }
+
+            size_t written = *write_result;
+            if (written == 0) {
+                conn.writing_response = true;
+                conn.should_close_after_write = should_close;
+                return;
+            }
+
+            conn.write_pos += written;
+        }
+
+        if (should_close) {
+            conn.safe_close();
+            return;
+        }
+
+        conn.parser = http::parser();
+        conn.arena.reset();
+        conn.write_pos = 0;
     }
 }
 
