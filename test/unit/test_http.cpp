@@ -266,3 +266,80 @@ TEST(HttpMethod, MethodToString) {
     EXPECT_EQ(method_to_string(method::OPTIONS), "OPTIONS");
     EXPECT_EQ(method_to_string(method::UNKNOWN), "UNKNOWN");
 }
+
+TEST(HttpParser, ParseMultilineHeaderFoldingSpace) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "X-Custom-Header: value-line1\r\n"
+                         " value-line2\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+
+    const auto& req = p.get_request();
+    EXPECT_EQ(req.header("X-Custom-Header").value_or(""), "value-line1 value-line2");
+}
+
+TEST(HttpParser, ParseMultilineHeaderFoldingTab) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "X-Long-Header: first-part\r\n"
+                         "\tsecond-part\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+
+    const auto& req = p.get_request();
+    EXPECT_EQ(req.header("X-Long-Header").value_or(""), "first-part second-part");
+}
+
+TEST(HttpParser, ParseMultilineHeaderMultipleFolds) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "X-Very-Long-Header: part1\r\n"
+                         " part2\r\n"
+                         "\tpart3\r\n"
+                         "  part4\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+
+    const auto& req = p.get_request();
+    auto value = req.header("X-Very-Long-Header").value_or("");
+    EXPECT_TRUE(value.find("part1") != std::string::npos);
+    EXPECT_TRUE(value.find("part2") != std::string::npos);
+    EXPECT_TRUE(value.find("part3") != std::string::npos);
+    EXPECT_TRUE(value.find("part4") != std::string::npos);
+}
+
+TEST(HttpParser, RejectFoldingWithoutPriorHeader) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         " invalid-folding\r\n"
+                         "Host: example.com\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    EXPECT_FALSE(result.has_value());
+}
