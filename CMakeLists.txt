@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.20...4.2)
 project(katana VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -34,8 +34,6 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "UBSan")
     add_compile_options(-O1 -g -fsanitize=undefined -fno-omit-frame-pointer)
     add_link_options(-fsanitize=undefined)
 endif()
-
-include_directories(katana/core/include)
 
 add_library(katana_core STATIC
     katana/core/src/epoll_reactor.cpp
