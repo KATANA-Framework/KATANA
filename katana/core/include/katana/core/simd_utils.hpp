@@ -46,9 +46,10 @@ inline const char* find_crlf_avx2(const char* data, size_t len) noexcept {
 
         __m256i crlf_match = _mm256_and_si256(cr_match, lf_match);
         int mask = _mm256_movemask_epi8(crlf_match);
+        const auto mask_bits = static_cast<unsigned int>(mask);
 
-        if (mask != 0) {
-            int offset = __builtin_ctz(mask);
+        if (mask_bits != 0U) {
+            const auto offset = static_cast<size_t>(__builtin_ctz(mask_bits));
             return data + i + offset;
         }
     }
@@ -74,9 +75,10 @@ inline const char* find_crlf_sse2(const char* data, size_t len) noexcept {
 
         __m128i crlf_match = _mm_and_si128(cr_match, lf_match);
         int mask = _mm_movemask_epi8(crlf_match);
+        const auto mask_bits = static_cast<unsigned int>(mask);
 
-        if (mask != 0) {
-            int offset = __builtin_ctz(mask);
+        if (mask_bits != 0U) {
+            const auto offset = static_cast<size_t>(__builtin_ctz(mask_bits));
             return data + i + offset;
         }
     }
