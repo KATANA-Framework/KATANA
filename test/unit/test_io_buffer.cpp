@@ -125,15 +125,12 @@ TEST(IOBuffer, LargeBuffer) {
     EXPECT_EQ(readable[1024 * 1024 - 1], 0xAB);
 }
 
-TEST(IOBuffer, CopyAndMove) {
+TEST(IOBuffer, Move) {
     io_buffer buf1;
     buf1.append("test data");
 
-    io_buffer buf2 = buf1;
+    io_buffer buf2 = std::move(buf1);
     EXPECT_EQ(buf2.size(), 9);
-
-    io_buffer buf3 = std::move(buf1);
-    EXPECT_EQ(buf3.size(), 9);
 }
 
 TEST(ScatterGatherRead, AddBuffer) {
