@@ -483,11 +483,12 @@ void epoll_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
         [this, fd]() {
             if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
                 fd_states_[static_cast<size_t>(fd)].callback) {
+                auto& entry = fd_states_[static_cast<size_t>(fd)];
                 try {
                     epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
                     close(fd);
-                    fd_states_[static_cast<size_t>(fd)].callback(event_type::timeout);
-                    fd_states_[static_cast<size_t>(fd)] = fd_state{};
+                    entry.callback(event_type::timeout);
+                    entry = fd_state{};
                 } catch (...) {
                     handle_exception("timeout_handler", std::current_exception(), fd);
                 }
