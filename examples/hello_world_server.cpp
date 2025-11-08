@@ -305,8 +305,8 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
 
         ++accepts_this_call;
 
-        int32_t flag = 1;
-        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+        int32_t nodelay = 1;
+        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
 
         active_connections.fetch_add(1, std::memory_order_relaxed);
 
