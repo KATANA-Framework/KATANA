@@ -4,6 +4,7 @@
 #include "metrics.hpp"
 #include "mpsc_queue.hpp"
 #include "wheel_timer.hpp"
+#include "timeout.hpp"
 
 #include <sys/epoll.h>
 #include <atomic>
@@ -61,12 +62,14 @@ public:
     const reactor_metrics& metrics() const noexcept { return metrics_; }
 
 private:
+    using fd_wheel_timer = wheel_timer<2048, 8>;
+
     struct fd_state {
         event_callback callback;
         event_type events;
         timeout_config timeouts;
-        wheel_timer<>::timeout_id timeout_id = 0;
-        std::chrono::steady_clock::time_point last_activity;
+        fd_wheel_timer::timeout_id timeout_id = 0;
+        Timeout activity_timer;
         bool has_timeout = false;
     };
 
@@ -89,7 +92,6 @@ private:
     void cancel_fd_timeout(fd_state& state);
     std::chrono::milliseconds fd_timeout_for(const fd_state& state) const;
     result<void> ensure_fd_capacity(int32_t fd);
-    std::chrono::milliseconds time_until_next_wheel_tick(std::chrono::steady_clock::time_point now) const;
     std::chrono::milliseconds time_until_graceful_deadline(std::chrono::steady_clock::time_point now) const;
 
     int32_t epoll_fd_;
@@ -107,9 +109,7 @@ private:
     exception_handler exception_handler_;
     reactor_metrics metrics_;
 
-    wheel_timer<> wheel_timer_;
-    std::chrono::steady_clock::time_point last_wheel_tick_;
-
+    fd_wheel_timer wheel_timer_;
     std::vector<epoll_event> events_buffer_;
 };
 
