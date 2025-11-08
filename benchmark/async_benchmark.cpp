@@ -82,10 +82,25 @@ int main(int argc, char* argv[]) {
     size_t total_responses = 0;
 
     auto start = std::chrono::high_resolution_clock::now();
+    auto last_progress = start;
+    size_t last_responses = 0;
 
     std::vector<epoll_event> events(1024);
 
     while (total_responses < target_requests) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_progress).count();
+
+        if (total_responses == last_responses && elapsed > 10) {
+            std::cerr << "\nBenchmark stalled (no progress for 10s)\n";
+            break;
+        }
+
+        if (total_responses != last_responses) {
+            last_progress = now;
+            last_responses = total_responses;
+        }
+
         int nfds = epoll_wait(epoll_fd, events.data(), static_cast<int>(events.size()), 100);
 
         for (int i = 0; i < nfds; ++i) {
