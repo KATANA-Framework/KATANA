@@ -3,8 +3,60 @@
 #include <algorithm>
 #include <charconv>
 #include <cstring>
+#include <cctype>
 
 namespace katana::http {
+
+namespace {
+
+constexpr bool is_token_char(unsigned char c) noexcept {
+    if (std::isalnum(c) != 0) {
+        return true;
+    }
+
+    switch (c) {
+        case '!': case '#': case '$': case '%': case '&': case '\'':
+        case '*': case '+': case '-': case '.': case '^': case '_':
+        case '`': case '|': case '~':
+            return true;
+        default:
+            return false;
+    }
+}
+
+constexpr bool is_ctl(unsigned char c) noexcept {
+    return c < 0x20 || c == 0x7f;
+}
+
+std::string_view trim_ows(std::string_view value) noexcept {
+    while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) {
+        value.remove_prefix(1);
+    }
+    while (!value.empty() && (value.back() == ' ' || value.back() == '\t')) {
+        value.remove_suffix(1);
+    }
+    return value;
+}
+
+bool contains_invalid_header_value(std::string_view value) noexcept {
+    for (unsigned char c : value) {
+        if ((is_ctl(c) && c != '\t') || c >= 0x80) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool contains_invalid_uri_char(std::string_view uri) noexcept {
+    for (unsigned char c : uri) {
+        if (c == ' ' || c == '\r' || c == '\n' || is_ctl(c) || c >= 0x80) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
 
 method parse_method(std::string_view str) {
     if (str == "GET") return method::get;
@@ -131,27 +183,28 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    if (state_ != state::body && state_ != state::chunk_data) {
-        if (buffer_.size() + data.size() > MAX_HEADER_SIZE) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
-        }
-        size_t crlf_count = 0;
-        for (size_t i = 0; i < buffer_.size(); ++i) {
-            if (buffer_[i] == '\n') ++crlf_count;
-        }
-        for (size_t i = 0; i < data.size(); ++i) {
-            if (data[i] == '\n') ++crlf_count;
-        }
-        if (crlf_count > MAX_HEADER_COUNT + 2) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
-        }
-    } else {
-        if (buffer_.size() + data.size() > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
-        }
-    }
-
     buffer_.append(static_cast<const char*>(static_cast<const void*>(data.data())), data.size());
+
+    if (state_ != state::body && state_ != state::chunk_data) {
+        if (buffer_.size() > MAX_HEADER_SIZE) {
+            auto header_end = buffer_.find("\r\n\r\n");
+            if (header_end == std::string::npos || header_end + 4 > MAX_HEADER_SIZE) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+        }
+
+        size_t crlf_pairs = 0;
+        for (size_t i = 0; i + 1 < buffer_.size(); ++i) {
+            if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
+                ++crlf_pairs;
+            }
+        }
+        if (crlf_pairs > MAX_HEADER_COUNT + 2) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
+    } else if (buffer_.size() > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
 
     while (state_ != state::complete) {
         if (state_ == state::request_line || state_ == state::headers) {
@@ -241,6 +294,10 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                         while (!folded_view.empty() && (folded_view.front() == ' ' || folded_view.front() == '\t')) {
                             folded_view.remove_prefix(1);
                         }
+                        folded_view = trim_ows(folded_view);
+                        if (contains_invalid_header_value(folded_view)) {
+                            return std::unexpected(make_error_code(error_code::invalid_fd));
+                        }
                         std::string new_value = std::string(*current_value) + " " + std::string(folded_view);
                         request_.headers.set(last_header_name_, new_value);
                     } else {
@@ -292,9 +349,8 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             unsigned long long chunk_val = 0;
             auto [ptr, ec] = std::from_chars(chunk_line.data(), chunk_line.data() + chunk_line.size(),
                                              chunk_val, 16);
-            // Gracefully handle invalid chunk sizes - return incomplete state
             if (ec != std::errc() || ptr != chunk_line.data() + chunk_line.size()) {
-                return state_;
+                return std::unexpected(make_error_code(error_code::invalid_fd));
             }
             if (chunk_val > SIZE_MAX || chunk_val > MAX_BODY_SIZE) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -312,6 +368,10 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         } else if (state_ == state::chunk_data) {
             size_t remaining = buffer_.size() - parse_pos_;
             if (remaining >= current_chunk_size_ + 2) {
+                if (buffer_[parse_pos_ + current_chunk_size_] != '\r' ||
+                    buffer_[parse_pos_ + current_chunk_size_ + 1] != '\n') {
+                    return std::unexpected(make_error_code(error_code::invalid_fd));
+                }
                 // Optimized: avoid substr temp copy, use insert directly
                 chunked_body_.insert(chunked_body_.end(),
                     buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_),
@@ -360,7 +420,11 @@ result<void> parser::parse_request_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    request_.http_method = parse_method(line.substr(0, method_end));
+    auto method_str = line.substr(0, method_end);
+    request_.http_method = parse_method(method_str);
+    if (request_.http_method == method::unknown) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
 
     auto uri_start = method_end + 1;
     auto uri_end = line.find(' ', uri_start);
@@ -373,8 +437,17 @@ result<void> parser::parse_request_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
+    if (contains_invalid_uri_char(uri)) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
     request_.uri = std::string(uri);
-    request_.version = std::string(line.substr(uri_end + 1));
+
+    auto version = line.substr(uri_end + 1);
+    if (version != "HTTP/1.1") {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+    request_.version = std::string(version);
 
     return {};
 }
@@ -392,8 +465,19 @@ result<void> parser::parse_header_line(std::string_view line) {
     auto name = line.substr(0, colon);
     auto value = line.substr(colon + 1);
 
-    while (!value.empty() && value.front() == ' ') {
-        value.remove_prefix(1);
+    if (name.empty()) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    for (unsigned char c : name) {
+        if (!is_token_char(c)) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
+    }
+
+    value = trim_ows(value);
+    if (contains_invalid_header_value(value)) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
     last_header_name_ = std::string(name);

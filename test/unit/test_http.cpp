@@ -159,10 +159,30 @@ TEST(HttpParser, InvalidRequestLineNoSpace) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST(HttpParser, RejectUnknownMethod) {
+    parser p;
+
+    std::string request = "TRACE / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
 TEST(HttpParser, InvalidRequestLineMissingVersion) {
     parser p;
 
     std::string request = "GET /\r\n\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, RejectInvalidHttpVersion) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.0\r\nHost: example.com\r\n\r\n";
     auto data = as_bytes(request);
 
     auto result = p.parse(data);
@@ -183,6 +203,26 @@ TEST(HttpParser, InvalidContentLength) {
     parser p;
 
     std::string request = "POST / HTTP/1.1\r\nContent-Length: invalid\r\n\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, RejectHeaderWithIllegalTokenCharacters) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\nBad Header: value\r\n\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, RejectHeaderValueControlCharacters) {
+    parser p;
+
+    std::string request = std::string("GET / HTTP/1.1\r\nHeader: value") + std::string(1, '\x01') + "\r\n\r\n";
     auto data = as_bytes(request);
 
     auto result = p.parse(data);
@@ -379,17 +419,17 @@ TEST(HttpParser, ChunkedEncodingIncremental) {
     auto data1 = as_bytes(part1);
     auto result1 = p.parse(data1);
     ASSERT_TRUE(result1.has_value());
-    EXPECT_EQ(*result1, parser::state::body);
+    EXPECT_EQ(*result1, parser::state::chunk_size);
 
     auto data2 = as_bytes(part2);
     auto result2 = p.parse(data2);
     ASSERT_TRUE(result2.has_value());
-    EXPECT_EQ(*result2, parser::state::body);
+    EXPECT_EQ(*result2, parser::state::chunk_size);
 
     auto data3 = as_bytes(part3);
     auto result3 = p.parse(data3);
     ASSERT_TRUE(result3.has_value());
-    EXPECT_EQ(*result3, parser::state::body);
+    EXPECT_EQ(*result3, parser::state::chunk_size);
 
     auto data4 = as_bytes(part4);
     auto result4 = p.parse(data4);
@@ -397,6 +437,22 @@ TEST(HttpParser, ChunkedEncodingIncremental) {
     EXPECT_EQ(*result4, parser::state::complete);
 
     EXPECT_EQ(p.get_request().body, "foobar");
+}
+
+TEST(HttpParser, RejectChunkWithoutTrailingCrlf) {
+    parser p;
+
+    std::string request = "POST /data HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "Transfer-Encoding: chunked\r\n"
+                         "\r\n"
+                         "5\r\n"
+                         "hello"
+                         "0\r\n\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpParser, ChunkedEncodingWithTrailer) {
