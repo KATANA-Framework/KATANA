@@ -39,7 +39,8 @@ std::string_view trim_ows(std::string_view value) noexcept {
 }
 
 bool contains_invalid_header_value(std::string_view value) noexcept {
-    for (unsigned char c : value) {
+    for (char ch : value) {
+        auto c = static_cast<unsigned char>(ch);
         if ((is_ctl(c) && c != '\t') || c >= 0x80) {
             return true;
         }
@@ -48,7 +49,8 @@ bool contains_invalid_header_value(std::string_view value) noexcept {
 }
 
 bool contains_invalid_uri_char(std::string_view uri) noexcept {
-    for (unsigned char c : uri) {
+    for (char ch : uri) {
+        auto c = static_cast<unsigned char>(ch);
         if (c == ' ' || c == '\r' || c == '\n' || is_ctl(c) || c >= 0x80) {
             return true;
         }
@@ -469,7 +471,8 @@ result<void> parser::parse_header_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    for (unsigned char c : name) {
+    for (char ch : name) {
+        auto c = static_cast<unsigned char>(ch);
         if (!is_token_char(c)) {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
