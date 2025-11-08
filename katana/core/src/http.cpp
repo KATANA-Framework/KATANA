@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cstring>
 
 namespace katana::http {
 
@@ -154,7 +155,15 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
     while (state_ != state::complete) {
         if (state_ == state::request_line || state_ == state::headers) {
-            auto pos = buffer_.find("\r\n", parse_pos_);
+            // Optimized single-pass CRLF search from parse_pos_ onwards
+            size_t pos = std::string::npos;
+            for (size_t i = parse_pos_; i + 1 < buffer_.size(); ++i) {
+                if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
+                    pos = i;
+                    break;
+                }
+            }
+
             if (pos == std::string::npos) {
                 return state_;
             }
@@ -179,7 +188,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                     }
 
                     auto te = request_.header("Transfer-Encoding");
-                    if (te && *te == "chunked") {
+                    if (te && ci_equal(*te, "chunked")) {
                         is_chunked_ = true;
                         state_ = state::chunk_size;
                     } else {
@@ -236,7 +245,15 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 return state_;
             }
         } else if (state_ == state::chunk_size) {
-            auto pos = buffer_.find("\r\n", parse_pos_);
+            // Optimized single-pass CRLF search
+            size_t pos = std::string::npos;
+            for (size_t i = parse_pos_; i + 1 < buffer_.size(); ++i) {
+                if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
+                    pos = i;
+                    break;
+                }
+            }
+
             if (pos == std::string::npos) {
                 return state_;
             }
@@ -276,14 +293,25 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         } else if (state_ == state::chunk_data) {
             size_t remaining = buffer_.size() - parse_pos_;
             if (remaining >= current_chunk_size_ + 2) {
-                chunked_body_.append(buffer_.substr(parse_pos_, current_chunk_size_));
+                // Optimized: avoid substr temp copy, use insert directly
+                chunked_body_.insert(chunked_body_.end(),
+                    buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_),
+                    buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_ + current_chunk_size_));
                 parse_pos_ += current_chunk_size_ + 2;
                 state_ = state::chunk_size;
             } else {
                 return state_;
             }
         } else if (state_ == state::chunk_trailer) {
-            auto pos = buffer_.find("\r\n", parse_pos_);
+            // Optimized single-pass CRLF search
+            size_t pos = std::string::npos;
+            for (size_t i = parse_pos_; i + 1 < buffer_.size(); ++i) {
+                if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
+                    pos = i;
+                    break;
+                }
+            }
+
             if (pos == std::string::npos) {
                 return state_;
             }
@@ -350,13 +378,18 @@ result<void> parser::parse_header_line(std::string_view line) {
 }
 
 void parser::compact_buffer() {
-    if (parse_pos_ > 0 && parse_pos_ < buffer_.size()) {
-        // Move unparsed data to the beginning of the buffer
-        buffer_.erase(0, parse_pos_);
-        parse_pos_ = 0;
-    } else if (parse_pos_ >= buffer_.size()) {
-        // All data has been parsed, clear the buffer
+    if (parse_pos_ >= buffer_.size()) {
         buffer_.clear();
+        parse_pos_ = 0;
+    } else if (parse_pos_ > COMPACT_THRESHOLD / 2) {
+        // Optimized: use memmove-based erase only when necessary
+        size_t remaining = buffer_.size() - parse_pos_;
+        if (remaining > 0) {
+            memmove(buffer_.data(), buffer_.data() + parse_pos_, remaining);
+            buffer_.resize(remaining);
+        } else {
+            buffer_.clear();
+        }
         parse_pos_ = 0;
     }
 }
