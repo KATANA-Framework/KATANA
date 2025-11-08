@@ -94,8 +94,15 @@ public:
     [[nodiscard]] const std::string& buffer() const noexcept { return buffer_; }
 
 private:
-    result<void> parse_request_line(std::string_view line);
-    result<void> parse_header_line(std::string_view line);
+    result<state> parse_request_line_state();
+    result<state> parse_headers_state();
+    result<state> parse_body_state();
+    result<state> parse_chunk_size_state();
+    result<state> parse_chunk_data_state();
+    result<state> parse_chunk_trailer_state();
+
+    result<void> process_request_line(std::string_view line);
+    result<void> process_header_line(std::string_view line);
     void compact_buffer();
 
     state state_ = state::request_line;

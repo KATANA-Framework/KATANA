@@ -23,8 +23,8 @@ public:
     io_buffer() = default;
     io_buffer(io_buffer&&) noexcept = default;
     io_buffer& operator=(io_buffer&&) noexcept = default;
-    io_buffer(const io_buffer&) = default;
-    io_buffer& operator=(const io_buffer&) = default;
+    io_buffer(const io_buffer&) = delete;
+    io_buffer& operator=(const io_buffer&) = delete;
     explicit io_buffer(size_t capacity);
 
     void append(std::span<const uint8_t> data);
@@ -45,10 +45,13 @@ public:
 
 private:
     void ensure_writable(size_t bytes);
+    void compact_if_needed();
 
     std::vector<uint8_t> buffer_;
     size_t read_pos_ = 0;
     size_t write_pos_ = 0;
+
+    static constexpr size_t COMPACT_THRESHOLD = 4096;
 };
 
 class scatter_gather_read {

@@ -124,10 +124,15 @@ public:
     headers_map& operator=(const headers_map&) = default;
 
     void set(std::string name, std::string value) {
-        // Store with lowercase key for O(1) case-insensitive lookup
         std::string lower_key = to_lower(name);
         original_names_[lower_key] = std::move(name);
         headers_[std::move(lower_key)] = std::move(value);
+    }
+
+    void set_view(std::string_view name, std::string_view value) {
+        std::string lower_key = to_lower(name);
+        original_names_[lower_key] = std::string(name);
+        headers_[std::move(lower_key)] = std::string(value);
     }
 
     [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
