@@ -9,19 +9,30 @@ namespace katana::http {
 
 namespace {
 
-constexpr bool is_token_char(unsigned char c) noexcept {
-    if (std::isalnum(c) != 0) {
-        return true;
-    }
+alignas(64) static const bool TOKEN_CHARS[256] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,1,0,1,1,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,
+    0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+};
 
-    switch (c) {
-        case '!': case '#': case '$': case '%': case '&': case '\'':
-        case '*': case '+': case '-': case '.': case '^': case '_':
-        case '`': case '|': case '~':
-            return true;
-        default:
-            return false;
-    }
+alignas(64) static const bool INVALID_HEADER_CHARS[256] = {
+    1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+};
+
+inline bool is_token_char(unsigned char c) noexcept {
+    return TOKEN_CHARS[c];
 }
 
 constexpr bool is_ctl(unsigned char c) noexcept {
@@ -40,8 +51,7 @@ std::string_view trim_ows(std::string_view value) noexcept {
 
 bool contains_invalid_header_value(std::string_view value) noexcept {
     for (char ch : value) {
-        auto c = static_cast<unsigned char>(ch);
-        if ((is_ctl(c) && c != '\t') || c >= 0x80) {
+        if (INVALID_HEADER_CHARS[static_cast<unsigned char>(ch)]) {
             return true;
         }
     }

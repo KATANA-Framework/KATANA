@@ -327,25 +327,27 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
             std::chrono::milliseconds(60000)
         };
 
-        auto result = r.register_fd_with_timeout(
-            client_fd,
-            event_type::readable | event_type::edge_triggered,
-            [conn, &r](event_type events) {
-                if (has_flag(events, event_type::readable)) {
-                    handle_client(*conn);
-                    int32_t refresh_fd = conn->fd.load(std::memory_order_relaxed);
-                    if (refresh_fd >= 0) {
-                        r.refresh_fd_timeout(refresh_fd);
+        r.schedule([conn, &r, client_fd, timeouts]() {
+            auto result = r.register_fd_with_timeout(
+                client_fd,
+                event_type::readable | event_type::edge_triggered,
+                [conn, &r](event_type events) {
+                    if (has_flag(events, event_type::readable)) {
+                        handle_client(*conn);
+                        int32_t refresh_fd = conn->fd.load(std::memory_order_relaxed);
+                        if (refresh_fd >= 0) {
+                            r.refresh_fd_timeout(refresh_fd);
+                        }
                     }
-                }
-            },
-            timeouts
-        );
+                },
+                timeouts
+            );
 
-        if (!result) {
-            close(client_fd);
-            active_connections.fetch_sub(1, std::memory_order_relaxed);
-        }
+            if (!result) {
+                close(client_fd);
+                active_connections.fetch_sub(1, std::memory_order_relaxed);
+            }
+        });
     }
 }
 
@@ -364,7 +366,6 @@ int32_t main() {
     std::cout << "Starting hello-world server on port " << PORT << "\n";
 
     reactor_pool pool;
-    pool.start();
 
     size_t main_reactor_idx = pool.select_reactor();
     auto& main_reactor = pool.get_reactor(main_reactor_idx);
@@ -384,6 +385,8 @@ int32_t main() {
         close(listener_fd);
         return 1;
     }
+
+    pool.start();
 
     shutdown_manager::instance().setup_signal_handlers();
     shutdown_manager::instance().set_shutdown_callback([&pool]() {

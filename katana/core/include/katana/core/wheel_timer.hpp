@@ -203,6 +203,11 @@ private:
     void advance_slot() {
         current_slot_ = (current_slot_ + 1) % WHEEL_SIZE;
         auto& bucket = slots_[current_slot_];
+
+        if ((current_slot_ + 1) < WHEEL_SIZE) {
+            __builtin_prefetch(&slots_[current_slot_ + 1], 0, 3);
+        }
+
         if (bucket.handles.empty()) {
             return;
         }
@@ -211,7 +216,13 @@ private:
         bucket.handles.clear();
         bucket.handles.reserve(handles.size());
 
-        for (auto& handle : handles) {
+        for (size_t i = 0; i < handles.size(); ++i) {
+            auto& handle = handles[i];
+
+            if (i + 1 < handles.size() && handles[i + 1].index < entries_.size()) {
+                __builtin_prefetch(&entries_[handles[i + 1].index], 0, 3);
+            }
+
             if (handle.index >= entries_.size()) {
                 continue;
             }
