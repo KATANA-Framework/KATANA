@@ -89,10 +89,9 @@ int main(int argc, char* argv[]) {
         int nfds = epoll_wait(epoll_fd, events.data(), static_cast<int>(events.size()), 100);
 
         for (int i = 0; i < nfds; ++i) {
-            auto* conn = static_cast<connection_state*>(events[i].data.ptr);
+            auto* conn = static_cast<connection_state*>(events[static_cast<size_t>(i)].data.ptr);
 
-            // Try to send requests
-            if (events[i].events & EPOLLOUT) {
+            if (events[static_cast<size_t>(i)].events & EPOLLOUT) {
                 while (total_requests < target_requests && !conn->waiting_for_response) {
                     ssize_t sent = send(conn->fd, request, request_len, MSG_DONTWAIT);
                     if (sent > 0) {
@@ -105,8 +104,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // Try to receive responses
-            if (events[i].events & EPOLLIN) {
+            if (events[static_cast<size_t>(i)].events & EPOLLIN) {
                 ssize_t received = recv(conn->fd, conn->buffer, sizeof(conn->buffer), MSG_DONTWAIT);
                 if (received > 0) {
                     conn->responses_received++;

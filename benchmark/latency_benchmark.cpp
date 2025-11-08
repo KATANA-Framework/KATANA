@@ -119,7 +119,7 @@ bool send_request(int32_t sockfd) {
         if (sent <= 0) {
             return false;
         }
-        total_sent += sent;
+        total_sent += static_cast<size_t>(sent);
     }
 
     char buffer[4096];

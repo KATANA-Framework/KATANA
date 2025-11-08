@@ -159,7 +159,7 @@ void core_performance_plaintext_throughput(benchmark_reporter& reporter, const c
         std::vector<std::thread> threads;
 
         for (size_t i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&, requests_per_thread]() {
+            threads.emplace_back([&]() {
                 while (!start_flag.load()) std::this_thread::yield();
 
                 int32_t sockfd = create_connection(host, port);
