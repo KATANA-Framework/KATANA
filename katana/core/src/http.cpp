@@ -257,7 +257,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             );
 
             if (found) {
-                pos = static_cast<const char*>(found) - buffer_.data();
+                pos = static_cast<size_t>(static_cast<const char*>(found) - buffer_.data());
 
                 for (size_t i = parse_pos_; i <= pos; ++i) {
                     unsigned char c = static_cast<unsigned char>(buffer_[i]);
@@ -355,7 +355,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 "\r\n", 2
             );
             if (found) {
-                pos = static_cast<const char*>(found) - buffer_.data();
+                pos = static_cast<size_t>(static_cast<const char*>(found) - buffer_.data());
             }
 
             if (pos == std::string::npos) {
@@ -420,7 +420,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 "\r\n", 2
             );
             if (found) {
-                pos = static_cast<const char*>(found) - buffer_.data();
+                pos = static_cast<size_t>(static_cast<const char*>(found) - buffer_.data());
             }
 
             if (pos == std::string::npos) {

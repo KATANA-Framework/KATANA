@@ -277,7 +277,7 @@ TEST(VectoredIO, MultipleSmallBuffers) {
     ASSERT_TRUE(read_result.has_value());
     EXPECT_EQ(*read_result, 10);
 
-    for (int i = 0; i < 10; ++i) {
+    for (size_t i = 0; i < 10; ++i) {
         EXPECT_EQ(read_buf[i], i);
     }
 
