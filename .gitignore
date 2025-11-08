@@ -10,3 +10,6 @@ compile_commands.json
 .idea/
 *.swp
 *~
+benchmark_results.md
+BENCHMARK_FINAL*.md
+/tmp/*.md
