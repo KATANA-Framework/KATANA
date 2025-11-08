@@ -115,6 +115,12 @@ int32_t create_connection(const char* host, uint16_t port) {
     int32_t sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) return -1;
 
+    timeval timeout{};
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
