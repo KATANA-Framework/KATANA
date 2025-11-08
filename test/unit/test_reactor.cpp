@@ -1,4 +1,10 @@
+#ifdef KATANA_USE_IO_URING
+#include "katana/core/io_uring_reactor.hpp"
+using reactor_impl = katana::io_uring_reactor;
+#else
 #include "katana/core/epoll_reactor.hpp"
+using reactor_impl = katana::epoll_reactor;
+#endif
 
 #include <gtest/gtest.h>
 #include <unistd.h>
@@ -10,14 +16,14 @@ using namespace std::chrono_literals;
 class ReactorTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        reactor_ = std::make_unique<katana::epoll_reactor>();
+        reactor_ = std::make_unique<reactor_impl>();
     }
 
     void TearDown() override {
         reactor_.reset();
     }
 
-    std::unique_ptr<katana::epoll_reactor> reactor_;
+    std::unique_ptr<reactor_impl> reactor_;
 };
 
 TEST_F(ReactorTest, CreateReactor) {
