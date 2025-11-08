@@ -1,7 +1,7 @@
 #pragma once
 
 #include "reactor.hpp"
-#include "epoll_reactor.hpp"
+#include "reactor_impl.hpp"
 #include "metrics.hpp"
 
 #include <vector>
@@ -22,7 +22,7 @@ struct reactor_pool_config {
 class reactor_pool {
 private:
     struct reactor_context {
-        std::unique_ptr<epoll_reactor> reactor;
+        std::unique_ptr<reactor_impl> reactor;
         std::thread thread;
         std::atomic<bool> running{false};
         std::atomic<uint64_t> load_score{0};
@@ -34,10 +34,10 @@ public:
     class iterator {
     public:
         using iterator_category = std::random_access_iterator_tag;
-        using value_type = epoll_reactor;
+        using value_type = reactor_impl;
         using difference_type = std::ptrdiff_t;
-        using pointer = epoll_reactor*;
-        using reference = epoll_reactor&;
+        using pointer = reactor_impl*;
+        using reference = reactor_impl&;
 
         iterator() = default;
         explicit iterator(std::vector<std::unique_ptr<reactor_context>>::iterator it) : it_(it) {}
@@ -84,12 +84,12 @@ public:
     void graceful_stop(std::chrono::milliseconds timeout = std::chrono::milliseconds(30000));
     void wait();
 
-    epoll_reactor& get_reactor(size_t index);
+    reactor_impl& get_reactor(size_t index);
     [[nodiscard]] size_t reactor_count() const noexcept { return reactors_.size(); }
     [[nodiscard]] size_t size() const noexcept { return reactors_.size(); }
 
-    epoll_reactor& operator[](size_t index) { return get_reactor(index); }
-    const epoll_reactor& operator[](size_t index) const {
+    reactor_impl& operator[](size_t index) { return get_reactor(index); }
+    const reactor_impl& operator[](size_t index) const {
         return const_cast<reactor_pool*>(this)->get_reactor(index);
     }
 
