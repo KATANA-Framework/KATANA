@@ -66,7 +66,7 @@ public:
 
     void unregister() noexcept {
         if (reactor_ && fd_ >= 0) {
-            reactor_->unregister_fd(fd_);
+            (void)reactor_->unregister_fd(fd_);
             reactor_ = nullptr;
             fd_ = -1;
         }
