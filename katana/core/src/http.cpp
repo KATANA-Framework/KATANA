@@ -185,16 +185,19 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                     } else {
                         auto cl = request_.header("Content-Length");
                         if (cl) {
-                            try {
-                                unsigned long long val = std::stoull(std::string(*cl));
-                                if (val > SIZE_MAX || val > MAX_BODY_SIZE) {
-                                    return std::unexpected(make_error_code(error_code::invalid_fd));
-                                }
-                                content_length_ = static_cast<size_t>(val);
-                                state_ = state::body;
-                            } catch (...) {
+                            std::string_view cl_view = *cl;
+                            while (!cl_view.empty() && (cl_view.back() == ' ' || cl_view.back() == '\t')) {
+                                cl_view.remove_suffix(1);
+                            }
+
+                            unsigned long long val = 0;
+                            auto [ptr, ec] = std::from_chars(cl_view.data(), cl_view.data() + cl_view.size(), val);
+                            if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() ||
+                                val > SIZE_MAX || val > MAX_BODY_SIZE) {
                                 return std::unexpected(make_error_code(error_code::invalid_fd));
                             }
+                            content_length_ = static_cast<size_t>(val);
+                            state_ = state::body;
                         } else {
                             state_ = state::complete;
                         }
@@ -246,24 +249,29 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 chunk_line = chunk_line.substr(0, semicolon);
             }
 
-            try {
-                std::string chunk_str(chunk_line);
-                unsigned long long chunk_val = std::stoull(chunk_str, nullptr, 16);
-                if (chunk_val > SIZE_MAX || chunk_val > MAX_BODY_SIZE) {
+            while (!chunk_line.empty() && (chunk_line.back() == ' ' || chunk_line.back() == '\t')) {
+                chunk_line.remove_suffix(1);
+            }
+            while (!chunk_line.empty() && (chunk_line.front() == ' ' || chunk_line.front() == '\t')) {
+                chunk_line.remove_prefix(1);
+            }
+
+            unsigned long long chunk_val = 0;
+            auto [ptr, ec] = std::from_chars(chunk_line.data(), chunk_line.data() + chunk_line.size(),
+                                             chunk_val, 16);
+            if (ec != std::errc() || ptr != chunk_line.data() + chunk_line.size() ||
+                chunk_val > SIZE_MAX || chunk_val > MAX_BODY_SIZE) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+            current_chunk_size_ = static_cast<size_t>(chunk_val);
+            if (current_chunk_size_ == 0) {
+                state_ = state::chunk_trailer;
+            } else {
+                if (current_chunk_size_ > MAX_BODY_SIZE ||
+                    chunked_body_.size() > MAX_BODY_SIZE - current_chunk_size_) {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
-                current_chunk_size_ = static_cast<size_t>(chunk_val);
-                if (current_chunk_size_ == 0) {
-                    state_ = state::chunk_trailer;
-                } else {
-                    if (current_chunk_size_ > MAX_BODY_SIZE ||
-                        chunked_body_.size() > MAX_BODY_SIZE - current_chunk_size_) {
-                        return std::unexpected(make_error_code(error_code::invalid_fd));
-                    }
-                    state_ = state::chunk_data;
-                }
-            } catch (...) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
+                state_ = state::chunk_data;
             }
         } else if (state_ == state::chunk_data) {
             size_t remaining = buffer_.size() - parse_pos_;

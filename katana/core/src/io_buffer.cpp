@@ -60,40 +60,40 @@ void io_buffer::clear() noexcept {
 }
 
 void io_buffer::reserve(size_t new_capacity) {
-    if (new_capacity > buffer_.size()) {
-        buffer_.resize(new_capacity);
+    if (new_capacity > buffer_.capacity()) {
+        buffer_.reserve(new_capacity);
     }
 }
 
 void io_buffer::ensure_writable(size_t bytes) {
-    size_t available = buffer_.size() - write_pos_;
+    size_t current_size = buffer_.size();
+    size_t available = current_size > write_pos_ ? current_size - write_pos_ : 0;
 
     if (available < bytes) {
-        if (read_pos_ > 0) {
+        if (read_pos_ > 0 && write_pos_ > read_pos_) {
             size_t data_size = write_pos_ - read_pos_;
-            if (data_size > 0) {
-                std::memmove(buffer_.data(), buffer_.data() + read_pos_, data_size);
-            }
+            std::memmove(buffer_.data(), buffer_.data() + read_pos_, data_size);
             read_pos_ = 0;
             write_pos_ = data_size;
-            available = buffer_.size() - write_pos_;
+            available = current_size > write_pos_ ? current_size - write_pos_ : 0;
         }
 
         if (available < bytes) {
-            size_t current_size = buffer_.size();
-            size_t doubled_size = current_size;
+            size_t current_cap = buffer_.capacity();
+            size_t doubled_cap = current_cap > 0 ? current_cap * 2 : 64;
 
-            if (current_size > 0 && current_size <= SIZE_MAX / 2) {
-                doubled_size = current_size * 2;
+            if (current_cap > SIZE_MAX / 2) {
+                doubled_cap = SIZE_MAX;
             }
 
-            size_t required_size = write_pos_ + bytes;
-            if (required_size < write_pos_ || required_size < bytes) {
+            size_t required_cap = write_pos_ + bytes;
+            if (required_cap < write_pos_ || required_cap < bytes) {
                 throw std::bad_alloc();
             }
 
-            size_t new_size = std::max(doubled_size, required_size);
-            buffer_.resize(new_size);
+            size_t new_cap = std::max(doubled_cap, required_cap);
+            buffer_.reserve(new_cap);
+            buffer_.resize(write_pos_ + bytes);
         }
     }
 }

@@ -11,13 +11,20 @@ result<std::span<uint8_t>> tcp_socket::read(std::span<uint8_t> buf) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    ssize_t n = ::read(fd_, buf.data(), buf.size());
+    ssize_t n;
+    do {
+        n = ::read(fd_, buf.data(), buf.size());
+    } while (n < 0 && errno == EINTR);
 
     if (n < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return std::span<uint8_t>{};
         }
         return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    if (n == 0 && !buf.empty()) {
+        return std::unexpected(make_error_code(error_code::ok));
     }
 
     return buf.subspan(0, static_cast<size_t>(n));
@@ -28,7 +35,10 @@ result<size_t> tcp_socket::write(std::span<const uint8_t> data) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    ssize_t n = ::write(fd_, data.data(), data.size());
+    ssize_t n;
+    do {
+        n = ::write(fd_, data.data(), data.size());
+    } while (n < 0 && errno == EINTR);
 
     if (n < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
