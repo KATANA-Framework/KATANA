@@ -11,10 +11,7 @@ namespace katana::http {
 namespace {
 
 // HTTP protocol constants
-constexpr size_t HEADER_SEPARATOR_LEN = 2;     // ": "
-constexpr size_t CRLF_LEN = 2;                  // "\r\n"
-constexpr size_t HTTP_VERSION_PREFIX_LEN = 9;   // "HTTP/1.1 "
-constexpr int HEX_BASE = 16;                    // Hexadecimal base for chunked encoding
+constexpr int HEX_BASE = 16;  // Hexadecimal base for chunked encoding
 
 constexpr std::string_view CHUNKED_ENCODING_HEADER = "Transfer-Encoding: chunked\r\n\r\n";
 constexpr std::string_view CHUNKED_TERMINATOR = "0\r\n\r\n";
@@ -114,7 +111,7 @@ std::string response::serialize() const {
 
     size_t headers_size = 0;
     for (const auto& [name, value] : headers) {
-        headers_size += name.size() + HEADER_SEPARATOR_LEN + value.size() + CRLF_LEN;
+        headers_size += name.size() + HEADER_SEPARATOR.size() + value.size() + CRLF.size();
     }
 
     std::string result;
@@ -146,7 +143,7 @@ std::string response::serialize_chunked(size_t chunk_size) const {
     size_t headers_size = 0;
     for (const auto& [name, value] : headers) {
         if (name != "Content-Length") {
-            headers_size += name.size() + HEADER_SEPARATOR_LEN + value.size() + CRLF_LEN;
+            headers_size += name.size() + HEADER_SEPARATOR.size() + value.size() + CRLF.size();
         }
     }
 
