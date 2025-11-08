@@ -22,7 +22,7 @@ constexpr uint16_t PORT = 8080;
 constexpr size_t BUFFER_SIZE = 4096;
 constexpr size_t ARENA_BLOCK_SIZE = 8192;
 constexpr size_t MAX_CONNECTIONS = 10000;
-constexpr size_t MAX_ACCEPTS_PER_TICK = 100;
+constexpr size_t MAX_ACCEPTS_PER_TICK = 10000;
 
 static std::atomic<size_t> active_connections{0};
 static std::atomic<size_t> total_requests{0};

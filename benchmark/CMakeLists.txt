@@ -35,3 +35,16 @@ target_link_libraries(simple_benchmark
     PRIVATE
         pthread
 )
+
+add_executable(async_benchmark async_benchmark.cpp)
+
+target_compile_options(async_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_link_libraries(async_benchmark
+    PRIVATE
+        pthread
+)
