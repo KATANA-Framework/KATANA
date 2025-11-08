@@ -326,6 +326,9 @@ TEST_F(ReactorTest, RegisterFdWithTimeout) {
     EXPECT_GE(elapsed, std::chrono::milliseconds(100));
     EXPECT_LT(elapsed, std::chrono::milliseconds(300));
 
+    auto snapshot = reactor_->metrics().snapshot();
+    EXPECT_EQ(snapshot.fd_timeouts, 1);
+
     close(pipefd[0]);
     close(pipefd[1]);
 }
@@ -348,6 +351,8 @@ TEST_F(ReactorTest, RefreshFdTimeout) {
                 timed_out = true;
                 reactor_->stop();
             } else if (refresh_count < 3) {
+                char buf;
+                [[maybe_unused]] auto n = ::read(pipefd[0], &buf, 1);
                 ++refresh_count;
                 reactor_->refresh_fd_timeout(pipefd[0]);
             }
