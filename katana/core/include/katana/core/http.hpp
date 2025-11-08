@@ -12,25 +12,25 @@
 namespace katana::http {
 
 // Security limits for HTTP parsing
-constexpr size_t MAX_HEADER_SIZE = 8192;  // 8KB max for all headers
-constexpr size_t MAX_BODY_SIZE = 10 * 1024 * 1024;  // 10MB max body size
-constexpr size_t MAX_URI_LENGTH = 2048;  // 2KB max URI length
+constexpr size_t MAX_HEADER_SIZE = 8192UL;
+constexpr size_t MAX_BODY_SIZE = 10UL * 1024UL * 1024UL;
+constexpr size_t MAX_URI_LENGTH = 2048UL;
 constexpr size_t MAX_HEADER_COUNT = 100;  // Max number of headers
 constexpr size_t MAX_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;  // Total buffer limit
 
-enum class method {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
-    HEAD,
-    OPTIONS,
-    UNKNOWN
+enum class method : uint8_t {
+    get,
+    post,
+    put,
+    del,
+    patch,
+    head,
+    options,
+    unknown
 };
 
 struct request {
-    method http_method = method::UNKNOWN;
+    method http_method = method::unknown;
     std::string uri;
     std::string version;
     headers_map headers;
@@ -42,7 +42,7 @@ struct request {
     request(const request&) = default;
     request& operator=(const request&) = default;
 
-    std::optional<std::string_view> header(std::string_view name) const {
+    [[nodiscard]] std::optional<std::string_view> header(std::string_view name) const {
         return headers.get(name);
     }
 };
@@ -64,8 +64,8 @@ struct response {
         headers.set(std::move(name), std::move(value));
     }
 
-    std::string serialize() const;
-    std::string serialize_chunked(size_t chunk_size = 4096) const;
+    [[nodiscard]] std::string serialize() const;
+    [[nodiscard]] std::string serialize_chunked(size_t chunk_size = 4096) const;
 
     static response ok(std::string body = "", std::string content_type = "text/plain");
     static response json(std::string body);
@@ -76,7 +76,7 @@ class parser {
 public:
     parser() = default;
 
-    enum class state {
+    enum class state : uint8_t {
         request_line,
         headers,
         body,
@@ -88,10 +88,10 @@ public:
 
     result<state> parse(std::span<const uint8_t> data);
 
-    bool is_complete() const noexcept { return state_ == state::complete; }
-    const request& get_request() const noexcept { return request_; }
+    [[nodiscard]] bool is_complete() const noexcept { return state_ == state::complete; }
+    [[nodiscard]] const request& get_request() const noexcept { return request_; }
     request&& take_request() { return std::move(request_); }
-    const std::string& buffer() const noexcept { return buffer_; }
+    [[nodiscard]] const std::string& buffer() const noexcept { return buffer_; }
 
 private:
     result<void> parse_request_line(std::string_view line);

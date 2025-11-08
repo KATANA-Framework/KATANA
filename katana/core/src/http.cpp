@@ -6,25 +6,25 @@
 namespace katana::http {
 
 method parse_method(std::string_view str) {
-    if (str == "GET") return method::GET;
-    if (str == "POST") return method::POST;
-    if (str == "PUT") return method::PUT;
-    if (str == "DELETE") return method::DELETE;
-    if (str == "PATCH") return method::PATCH;
-    if (str == "HEAD") return method::HEAD;
-    if (str == "OPTIONS") return method::OPTIONS;
-    return method::UNKNOWN;
+    if (str == "GET") return method::get;
+    if (str == "POST") return method::post;
+    if (str == "PUT") return method::put;
+    if (str == "DELETE") return method::del;
+    if (str == "PATCH") return method::patch;
+    if (str == "HEAD") return method::head;
+    if (str == "OPTIONS") return method::options;
+    return method::unknown;
 }
 
 std::string_view method_to_string(method m) {
     switch (m) {
-        case method::GET: return "GET";
-        case method::POST: return "POST";
-        case method::PUT: return "PUT";
-        case method::DELETE: return "DELETE";
-        case method::PATCH: return "PATCH";
-        case method::HEAD: return "HEAD";
-        case method::OPTIONS: return "OPTIONS";
+        case method::get: return "GET";
+        case method::post: return "POST";
+        case method::put: return "PUT";
+        case method::del: return "DELETE";
+        case method::patch: return "PATCH";
+        case method::head: return "HEAD";
+        case method::options: return "OPTIONS";
         default: return "UNKNOWN";
     }
 }

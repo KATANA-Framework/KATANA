@@ -47,7 +47,7 @@ public:
             return false;
         }
 
-        size_t slot_idx = slot_it->second;
+        size_t const slot_idx = slot_it->second;
         auto& entries = slots_[slot_idx].entries;
         auto it = std::find_if(entries.begin(), entries.end(),
             [id](const entry& e) { return e.id == id; });
