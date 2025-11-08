@@ -35,7 +35,7 @@ public:
             timeout = duration{1};
         }
 
-        size_t ticks = static_cast<size_t>((timeout.count() + TICK_MS - 1) / TICK_MS);
+        size_t ticks = (static_cast<size_t>(timeout.count()) + TICK_MS - 1) / TICK_MS;
         if (ticks == 0) {
             ticks = 1;
         }
@@ -94,7 +94,7 @@ public:
             return;
         }
 
-        size_t ticks = static_cast<size_t>(elapsed.count() / TICK_MS);
+        size_t ticks = static_cast<size_t>(elapsed.count()) / TICK_MS;
         last_tick_ += duration(static_cast<int64_t>(ticks) * static_cast<int64_t>(TICK_MS));
 
         for (size_t i = 0; i < ticks; ++i) {

@@ -57,6 +57,14 @@ public:
     [[nodiscard]] constexpr bool has_value() const noexcept { return storage_.index() == 0; }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return has_value(); }
 
+    constexpr T& operator*() & { return value(); }
+    constexpr const T& operator*() const& { return value(); }
+    constexpr T&& operator*() && { return std::move(*this).value(); }
+    constexpr const T&& operator*() const&& { return std::move(*this).value(); }
+
+    constexpr T* operator->() { return &value(); }
+    constexpr const T* operator->() const { return &value(); }
+
     constexpr T& value() & {
         if (!has_value()) throw std::logic_error("bad expected access");
         return std::get<0>(storage_);
