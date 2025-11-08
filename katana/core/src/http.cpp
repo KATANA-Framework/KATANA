@@ -10,6 +10,18 @@ namespace katana::http {
 
 namespace {
 
+// HTTP protocol constants
+constexpr size_t HEADER_SEPARATOR_LEN = 2;     // ": "
+constexpr size_t CRLF_LEN = 2;                  // "\r\n"
+constexpr size_t HTTP_VERSION_PREFIX_LEN = 9;   // "HTTP/1.1 "
+constexpr int HEX_BASE = 16;                    // Hexadecimal base for chunked encoding
+
+constexpr std::string_view CHUNKED_ENCODING_HEADER = "Transfer-Encoding: chunked\r\n\r\n";
+constexpr std::string_view CHUNKED_TERMINATOR = "0\r\n\r\n";
+constexpr std::string_view HTTP_VERSION_PREFIX = "HTTP/1.1 ";
+constexpr std::string_view HEADER_SEPARATOR = ": ";
+constexpr std::string_view CRLF = "\r\n";
+
 alignas(64) static const bool TOKEN_CHARS[256] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,1,0,1,1,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,
@@ -102,7 +114,7 @@ std::string response::serialize() const {
 
     size_t headers_size = 0;
     for (const auto& [name, value] : headers) {
-        headers_size += name.size() + 2 + value.size() + 2;
+        headers_size += name.size() + HEADER_SEPARATOR_LEN + value.size() + CRLF_LEN;
     }
 
     std::string result;
@@ -111,20 +123,20 @@ std::string response::serialize() const {
     char status_buf[16];
     auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
 
-    result.append("HTTP/1.1 ", 9);
+    result.append(HTTP_VERSION_PREFIX);
     result.append(status_buf, static_cast<size_t>(ptr - status_buf));
     result.push_back(' ');
     result.append(reason);
-    result.append("\r\n", 2);
+    result.append(CRLF);
 
     for (const auto& [name, value] : headers) {
         result.append(name);
-        result.append(": ", 2);
+        result.append(HEADER_SEPARATOR);
         result.append(value);
-        result.append("\r\n", 2);
+        result.append(CRLF);
     }
 
-    result.append("\r\n", 2);
+    result.append(CRLF);
     result.append(body);
 
     return result;
@@ -134,7 +146,7 @@ std::string response::serialize_chunked(size_t chunk_size) const {
     size_t headers_size = 0;
     for (const auto& [name, value] : headers) {
         if (name != "Content-Length") {
-            headers_size += name.size() + 2 + value.size() + 2;
+            headers_size += name.size() + HEADER_SEPARATOR_LEN + value.size() + CRLF_LEN;
         }
     }
 
@@ -144,37 +156,37 @@ std::string response::serialize_chunked(size_t chunk_size) const {
     char status_buf[16];
     auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
 
-    result.append("HTTP/1.1 ", 9);
+    result.append(HTTP_VERSION_PREFIX);
     result.append(status_buf, static_cast<size_t>(ptr - status_buf));
     result.push_back(' ');
     result.append(reason);
-    result.append("\r\n", 2);
+    result.append(CRLF);
 
     for (const auto& [name, value] : headers) {
         if (name != "Content-Length") {
             result.append(name);
-            result.append(": ", 2);
+            result.append(HEADER_SEPARATOR);
             result.append(value);
-            result.append("\r\n", 2);
+            result.append(CRLF);
         }
     }
 
-    result.append("Transfer-Encoding: chunked\r\n\r\n", 30);
+    result.append(CHUNKED_ENCODING_HEADER);
 
     size_t offset = 0;
     char chunk_size_buf[32];
     while (offset < body.size()) {
         size_t current_chunk = std::min(chunk_size, body.size() - offset);
         auto [chunk_ptr, chunk_ec] = std::to_chars(chunk_size_buf, chunk_size_buf + sizeof(chunk_size_buf),
-                                                     current_chunk, 16);
+                                                     current_chunk, HEX_BASE);
         result.append(chunk_size_buf, static_cast<size_t>(chunk_ptr - chunk_size_buf));
-        result.append("\r\n", 2);
+        result.append(CRLF);
         result.append(body.data() + offset, current_chunk);
-        result.append("\r\n", 2);
+        result.append(CRLF);
         offset += current_chunk;
     }
 
-    result.append("0\r\n\r\n", 5);
+    result.append(CHUNKED_TERMINATOR);
 
     return result;
 }

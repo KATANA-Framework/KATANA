@@ -115,6 +115,34 @@ inline std::string to_lower(std::string_view s) {
     return result;
 }
 
+// Case-insensitive hash functor for heterogeneous lookup (zero-allocation)
+struct ci_hash {
+    using is_transparent = void;  // Enable heterogeneous lookup
+
+    [[nodiscard]] size_t operator()(std::string_view sv) const noexcept {
+        // FNV-1a hash algorithm with case folding
+        size_t hash = 14695981039346656037ULL;
+        for (char c : sv) {
+            hash ^= static_cast<size_t>(std::tolower(static_cast<unsigned char>(c)));
+            hash *= 1099511628211ULL;
+        }
+        return hash;
+    }
+
+    [[nodiscard]] size_t operator()(const std::string& s) const noexcept {
+        return (*this)(std::string_view{s});
+    }
+};
+
+// Case-insensitive equality functor for heterogeneous lookup (zero-allocation)
+struct ci_equal_fn {
+    using is_transparent = void;  // Enable heterogeneous lookup
+
+    [[nodiscard]] bool operator()(std::string_view a, std::string_view b) const noexcept {
+        return http::ci_equal(a, b);
+    }
+};
+
 class headers_map {
 public:
     headers_map() = default;
@@ -136,8 +164,8 @@ public:
     }
 
     [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
-        std::string lower_key = to_lower(name);
-        auto it = headers_.find(lower_key);
+        // Zero-allocation lookup using heterogeneous search
+        auto it = headers_.find(name);
         if (it != headers_.end()) {
             return it->second;
         }
@@ -145,14 +173,17 @@ public:
     }
 
     [[nodiscard]] bool contains(std::string_view name) const noexcept {
-        std::string lower_key = to_lower(name);
-        return headers_.find(lower_key) != headers_.end();
+        // Zero-allocation lookup using heterogeneous search
+        return headers_.find(name) != headers_.end();
     }
 
     void remove(std::string_view name) {
-        std::string lower_key = to_lower(name);
-        headers_.erase(lower_key);
-        original_names_.erase(lower_key);
+        // Use heterogeneous lookup to find the entry
+        auto it = headers_.find(name);
+        if (it != headers_.end()) {
+            original_names_.erase(it->first);
+            headers_.erase(it);
+        }
     }
 
     void clear() noexcept {
@@ -161,9 +192,9 @@ public:
     }
 
     struct iterator {
-        using inner_iterator = std::unordered_map<std::string, std::string>::iterator;
+        using inner_iterator = std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>::iterator;
         inner_iterator it;
-        std::unordered_map<std::string, std::string>* original_names;
+        std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>* original_names;
 
         iterator& operator++() { ++it; return *this; }
         bool operator!=(const iterator& o) const { return it != o.it; }
@@ -174,9 +205,9 @@ public:
     };
 
     struct const_iterator {
-        using inner_iterator = std::unordered_map<std::string, std::string>::const_iterator;
+        using inner_iterator = std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>::const_iterator;
         inner_iterator it;
-        const std::unordered_map<std::string, std::string>* original_names;
+        const std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>* original_names;
 
         const_iterator& operator++() { ++it; return *this; }
         bool operator!=(const const_iterator& o) const { return it != o.it; }
@@ -195,8 +226,9 @@ public:
     [[nodiscard]] bool empty() const noexcept { return headers_.empty(); }
 
 private:
-    std::unordered_map<std::string, std::string> headers_;
-    std::unordered_map<std::string, std::string> original_names_;
+    // Use custom hash and equal functions for zero-allocation case-insensitive lookup
+    std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn> headers_;
+    std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn> original_names_;
 };
 
 } // namespace katana::http
