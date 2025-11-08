@@ -12,6 +12,8 @@ add_executable(unit_tests
     unit/test_reactor.cpp
     unit/test_reactor_pool.cpp
     unit/test_http.cpp
+    unit/test_http_headers.cpp
+    unit/test_io_buffer.cpp
     unit/test_wheel_timer.cpp
 )
 
