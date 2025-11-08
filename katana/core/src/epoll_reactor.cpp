@@ -507,6 +507,20 @@ void epoll_reactor::set_exception_handler(exception_handler handler) {
     exception_handler_ = std::move(handler);
 }
 
+uint64_t epoll_reactor::get_load_score() const noexcept {
+    size_t active_fds = 0;
+    for (const auto& state : fd_states_) {
+        if (state.callback) {
+            ++active_fds;
+        }
+    }
+
+    size_t pending_tasks = pending_tasks_.size();
+    size_t pending_timers_count = pending_timers_.size();
+
+    return active_fds * 100 + pending_tasks * 50 + pending_timers_count * 10;
+}
+
 void epoll_reactor::process_wheel_timer() {
     wheel_timer_.tick();
 }

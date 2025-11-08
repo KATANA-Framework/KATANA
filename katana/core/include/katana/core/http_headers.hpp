@@ -11,6 +11,9 @@
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
 #define KATANA_HAS_SSE2 1
+#if defined(__AVX2__)
+#define KATANA_HAS_AVX2 1
+#endif
 #endif
 
 namespace katana::http {
@@ -20,8 +23,40 @@ inline bool ci_char_equal(char a, char b) noexcept {
            std::tolower(static_cast<unsigned char>(b));
 }
 
+#ifdef KATANA_HAS_AVX2
+inline bool ci_equal_simd_avx2(std::string_view a, std::string_view b) noexcept {
+    if (a.size() != b.size()) {
+        return false;
+    }
+
+    size_t i = 0;
+    constexpr size_t vec_size = 32;
+
+    for (; i + vec_size <= a.size(); i += vec_size) {
+        __m256i va = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(a.data() + i));
+        __m256i vb = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(b.data() + i));
+
+        __m256i lower_a = _mm256_or_si256(va, _mm256_set1_epi8(0x20));
+        __m256i lower_b = _mm256_or_si256(vb, _mm256_set1_epi8(0x20));
+
+        __m256i cmp = _mm256_cmpeq_epi8(lower_a, lower_b);
+        if (_mm256_movemask_epi8(cmp) != static_cast<int>(0xFFFFFFFF)) {
+            return false;
+        }
+    }
+
+    for (; i < a.size(); ++i) {
+        if (!ci_char_equal(a[i], b[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+#endif
+
 #ifdef KATANA_HAS_SSE2
-inline bool ci_equal_simd(std::string_view a, std::string_view b) noexcept {
+inline bool ci_equal_simd_sse2(std::string_view a, std::string_view b) noexcept {
     if (a.size() != b.size()) {
         return false;
     }
@@ -53,9 +88,14 @@ inline bool ci_equal_simd(std::string_view a, std::string_view b) noexcept {
 #endif
 
 inline bool ci_equal(std::string_view a, std::string_view b) noexcept {
+#ifdef KATANA_HAS_AVX2
+    if (a.size() >= 32) {
+        return ci_equal_simd_avx2(a, b);
+    }
+#endif
 #ifdef KATANA_HAS_SSE2
     if (a.size() >= 16) {
-        return ci_equal_simd(a, b);
+        return ci_equal_simd_sse2(a, b);
     }
 #endif
     return a.size() == b.size() &&

@@ -27,6 +27,7 @@ private:
         std::atomic<bool> running{false};
         std::atomic<uint64_t> load_score{0};
         uint32_t core_id{0};
+        int32_t listener_fd{-1};
     };
 
 public:
@@ -105,10 +106,41 @@ public:
 
     [[nodiscard]] metrics_snapshot aggregate_metrics() const;
 
+    template<typename AcceptHandler>
+    result<void> start_listening(uint16_t port, AcceptHandler&& handler) {
+        for (auto& ctx : reactors_) {
+            auto listener_fd = create_listener_socket_reuseport(port);
+            if (listener_fd < 0) {
+                return std::unexpected(std::error_code(errno, std::system_category()));
+            }
+
+            ctx->listener_fd = listener_fd;
+
+            auto& reactor = *ctx->reactor;
+            auto res = reactor.register_fd(
+                listener_fd,
+                event_type::readable | event_type::edge_triggered,
+                [handler, listener_fd](event_type events) {
+                    if (has_flag(events, event_type::readable)) {
+                        handler(listener_fd);
+                    }
+                }
+            );
+
+            if (!res) {
+                close(listener_fd);
+                return res;
+            }
+        }
+        return {};
+    }
+
 private:
     size_t select_least_loaded() noexcept;
 
     void worker_thread(reactor_context* ctx);
+
+    static int32_t create_listener_socket_reuseport(uint16_t port);
 
     std::vector<std::unique_ptr<reactor_context>> reactors_;
     reactor_pool_config config_;

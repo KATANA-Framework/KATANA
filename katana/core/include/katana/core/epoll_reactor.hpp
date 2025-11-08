@@ -61,6 +61,8 @@ public:
 
     const reactor_metrics& metrics() const noexcept { return metrics_; }
 
+    [[nodiscard]] uint64_t get_load_score() const noexcept;
+
 private:
     using fd_wheel_timer = wheel_timer<2048, 8>;
 
