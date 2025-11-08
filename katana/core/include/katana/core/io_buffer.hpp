@@ -51,7 +51,8 @@ private:
     size_t read_pos_ = 0;
     size_t write_pos_ = 0;
 
-    static constexpr size_t COMPACT_THRESHOLD = 4096;
+    // Increased from 4KB to 16KB for better performance on streaming workloads
+    static constexpr size_t COMPACT_THRESHOLD = 16384;
 };
 
 class scatter_gather_read {
