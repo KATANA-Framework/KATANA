@@ -12,27 +12,29 @@ namespace katana {
 
 class monotonic_arena : public std::pmr::memory_resource {
 public:
-    static constexpr size_t DEFAULT_BLOCK_SIZE = 64 * 1024;  // 64KB default block size
+    static constexpr size_t DEFAULT_BLOCK_SIZE = 64UL * 1024UL;
 
     explicit monotonic_arena(size_t block_size = DEFAULT_BLOCK_SIZE);
     ~monotonic_arena() override;
 
     monotonic_arena(const monotonic_arena&) = delete;
     monotonic_arena& operator=(const monotonic_arena&) = delete;
+    monotonic_arena(monotonic_arena&&) = delete;
+    monotonic_arena& operator=(monotonic_arena&&) = delete;
 
     void reset() noexcept;
 
-    size_t bytes_allocated() const noexcept { return bytes_allocated_; }
-    size_t total_capacity() const noexcept { return total_capacity_; }
+    [[nodiscard]] size_t bytes_allocated() const noexcept { return bytes_allocated_; }
+    [[nodiscard]] size_t total_capacity() const noexcept { return total_capacity_; }
 
 protected:
     void* do_allocate(size_t bytes, size_t alignment) override;
     void do_deallocate(void* p, size_t bytes, size_t alignment) override;
-    bool do_is_equal(const memory_resource& other) const noexcept override;
+    [[nodiscard]] bool do_is_equal(const memory_resource& other) const noexcept override;
 
 private:
     struct block {
-        std::unique_ptr<uint8_t[]> data;
+        std::vector<uint8_t> data;
         size_t size;
         size_t used;
     };

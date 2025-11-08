@@ -5,7 +5,7 @@
 
 namespace katana {
 
-enum class event_type : uint32_t {
+enum class event_type : uint8_t {
     none = 0,
     readable = 1 << 0,
     writable = 1 << 1,
@@ -17,18 +17,18 @@ enum class event_type : uint32_t {
 
 constexpr event_type operator|(event_type lhs, event_type rhs) noexcept {
     return static_cast<event_type>(
-        static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs)
+        static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs)
     );
 }
 
 constexpr event_type operator&(event_type lhs, event_type rhs) noexcept {
     return static_cast<event_type>(
-        static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs)
+        static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs)
     );
 }
 
 constexpr bool has_flag(event_type value, event_type flag) noexcept {
-    return (static_cast<uint32_t>(value) & static_cast<uint32_t>(flag)) != 0;
+    return (static_cast<uint8_t>(value) & static_cast<uint8_t>(flag)) != 0;
 }
 
 using event_callback = std::function<void(event_type events)>;

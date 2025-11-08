@@ -24,11 +24,12 @@ public:
         }
     }
 
-    bool is_shutdown_requested() const noexcept {
+    [[nodiscard]] bool is_shutdown_requested() const noexcept {
         return shutdown_requested_.load(std::memory_order_acquire);
     }
 
-    bool is_deadline_exceeded(duration deadline = std::chrono::seconds(30)) const noexcept {
+    [[nodiscard]] bool
+    is_deadline_exceeded(duration deadline = std::chrono::seconds(30)) const noexcept {
         if (!is_shutdown_requested()) {
             return false;
         }
@@ -36,9 +37,7 @@ public:
         return elapsed >= deadline;
     }
 
-    time_point shutdown_time() const noexcept {
-        return shutdown_time_;
-    }
+    [[nodiscard]] time_point shutdown_time() const noexcept { return shutdown_time_; }
 
     void set_shutdown_callback(shutdown_callback cb) {
         callback_ = std::move(cb);

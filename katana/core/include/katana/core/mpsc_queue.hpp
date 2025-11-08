@@ -69,13 +69,11 @@ public:
         return value;
     }
 
-    bool empty() const {
+    [[nodiscard]] bool empty() const {
         return tail_->next.load(std::memory_order_acquire) == nullptr;
     }
 
-    size_t size() const {
-        return size_.load(std::memory_order_relaxed);
-    }
+    [[nodiscard]] size_t size() const { return size_.load(std::memory_order_relaxed); }
 
 private:
     void push_impl(T value) {

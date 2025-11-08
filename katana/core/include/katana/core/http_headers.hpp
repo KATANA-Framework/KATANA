@@ -37,7 +37,7 @@ public:
         headers_.emplace_back(std::move(name), std::move(value));
     }
 
-    std::optional<std::string_view> get(std::string_view name) const noexcept {
+    [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
         for (const auto& [n, v] : headers_) {
             if (ci_equal(n, name)) {
                 return v;
@@ -46,7 +46,7 @@ public:
         return std::nullopt;
     }
 
-    bool contains(std::string_view name) const noexcept {
+    [[nodiscard]] bool contains(std::string_view name) const noexcept {
         return get(name).has_value();
     }
 
@@ -66,11 +66,11 @@ public:
 
     auto begin() noexcept { return headers_.begin(); }
     auto end() noexcept { return headers_.end(); }
-    auto begin() const noexcept { return headers_.begin(); }
-    auto end() const noexcept { return headers_.end(); }
+    [[nodiscard]] auto begin() const noexcept { return headers_.begin(); }
+    [[nodiscard]] auto end() const noexcept { return headers_.end(); }
 
-    size_t size() const noexcept { return headers_.size(); }
-    bool empty() const noexcept { return headers_.empty(); }
+    [[nodiscard]] size_t size() const noexcept { return headers_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return headers_.empty(); }
 
 private:
     std::vector<std::pair<std::string, std::string>> headers_;
