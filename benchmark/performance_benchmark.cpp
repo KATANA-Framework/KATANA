@@ -215,53 +215,65 @@ benchmark_result benchmark_http_parser() {
     std::vector<double> latencies;
     latencies.reserve(num_operations);
 
-    const char* http_request =
+    const std::string http_request =
         "GET /api/v1/users?id=123&name=test HTTP/1.1\r\n"
         "Host: example.com\r\n"
         "User-Agent: Mozilla/5.0\r\n"
         "Accept: application/json\r\n"
         "Connection: keep-alive\r\n"
-        "Content-Length: 27\r\n"
+        "Content-Length: 24\r\n"
         "\r\n"
         "{\"key\":\"value\",\"num\":42}";
 
     auto start = steady_clock::now();
+    size_t successful_parses = 0;
 
     for (size_t i = 0; i < num_operations; ++i) {
         auto op_start = steady_clock::now();
 
         http::parser parser;
         auto data_span = std::span(
-            reinterpret_cast<const uint8_t*>(http_request),
-            std::strlen(http_request)
+            reinterpret_cast<const uint8_t*>(http_request.data()),
+            http_request.size()
         );
 
         auto parse_result = parser.parse(data_span);
 
         auto op_end = steady_clock::now();
 
-        if (!parse_result || !parser.is_complete()) {
-            std::cerr << "HTTP parse failed!\n";
-            break;
+        if (parse_result && *parse_result == http::parser::state::complete) {
+            ++successful_parses;
+            double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+            latencies.push_back(latency_us);
         }
-
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
-        latencies.push_back(latency_us);
     }
 
     auto end = steady_clock::now();
     auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
-    std::sort(latencies.begin(), latencies.end());
+    if (duration_ms == 0) {
+        duration_ms = 1;
+    }
+
+    if (!latencies.empty()) {
+        std::sort(latencies.begin(), latencies.end());
+    }
 
     benchmark_result result;
     result.name = "HTTP Parser (Complete Request)";
-    result.operations = num_operations;
+    result.operations = successful_parses;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
-    result.latency_p50 = latencies[num_operations / 2];
-    result.latency_p99 = latencies[num_operations * 99 / 100];
-    result.latency_p999 = latencies[num_operations * 999 / 1000];
+    result.throughput = (static_cast<double>(successful_parses) * 1000.0) / static_cast<double>(duration_ms);
+
+    if (!latencies.empty()) {
+        result.latency_p50 = latencies[latencies.size() / 2];
+        result.latency_p99 = latencies[latencies.size() * 99 / 100];
+        result.latency_p999 = latencies[latencies.size() * 999 / 1000];
+    } else {
+        result.latency_p50 = 0.0;
+        result.latency_p99 = 0.0;
+        result.latency_p999 = 0.0;
+    }
 
     return result;
 }
