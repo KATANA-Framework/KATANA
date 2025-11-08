@@ -251,8 +251,6 @@ void epoll_reactor::refresh_fd_timeout(int32_t fd) {
     auto it = fd_states_.find(fd);
     if (it != fd_states_.end() && it->second.has_timeout) {
         it->second.last_activity = std::chrono::steady_clock::now();
-        cancel_fd_timeout(it->second);
-        setup_fd_timeout(fd, it->second);
     }
 }
 
@@ -298,8 +296,6 @@ result<void> epoll_reactor::process_events(int32_t timeout_ms) {
 
             if (it->second.has_timeout) {
                 it->second.last_activity = std::chrono::steady_clock::now();
-                cancel_fd_timeout(it->second);
-                setup_fd_timeout(fd, it->second);
             }
 
             try {
@@ -352,7 +348,7 @@ int32_t epoll_reactor::calculate_timeout() const {
     }
 
     if (timers_.empty()) {
-        return 100;
+        return 1;
     }
 
     auto now = std::chrono::steady_clock::now();
@@ -389,6 +385,14 @@ void epoll_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
         [this, fd]() {
             auto it = fd_states_.find(fd);
             if (it != fd_states_.end()) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - it->second.last_activity);
+                if (elapsed < it->second.timeouts.idle_timeout) {
+                    cancel_fd_timeout(it->second);
+                    setup_fd_timeout(fd, it->second);
+                    return;
+                }
                 try {
                     epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
                     close(fd);
