@@ -89,7 +89,7 @@ benchmark_result benchmark_ring_buffer_concurrent() {
     std::vector<std::thread> consumers;
 
     for (int t = 0; t < num_threads; ++t) {
-        producers.emplace_back([&, t] {
+        producers.emplace_back([&] {
             for (size_t i = 0; i < num_operations / num_threads; ++i) {
                 while (!queue.try_push(static_cast<int>(i))) {
                     std::this_thread::yield();
