@@ -114,7 +114,7 @@ private:
 
     mutable int32_t cached_timeout_ = -1;
     mutable std::chrono::steady_clock::time_point timeout_cached_at_;
-    mutable bool timeout_dirty_ = true;
+    mutable std::atomic<bool> timeout_dirty_{true};
 };
 
 } // namespace katana

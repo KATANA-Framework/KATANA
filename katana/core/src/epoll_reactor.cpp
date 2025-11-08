@@ -347,7 +347,7 @@ bool epoll_reactor::schedule_after(
         return false;
     }
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
-    timeout_dirty_ = true;
+    timeout_dirty_.store(true, std::memory_order_relaxed);
 
     uint64_t val = 1;
     ssize_t ret;
@@ -390,14 +390,14 @@ result<void> epoll_reactor::process_events(int32_t timeout_ms) {
         if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
             fd_states_[static_cast<size_t>(fd)].callback) {
             event_type ev = from_epoll_events(events_buffer_[static_cast<size_t>(i)].events);
-            auto callback = fd_states_[static_cast<size_t>(fd)].callback;
+            event_callback callback_copy = fd_states_[static_cast<size_t>(fd)].callback;
 
-            if (!callback) {
+            if (!callback_copy) {
                 continue;
             }
 
             try {
-                callback(ev);
+                callback_copy(ev);
                 metrics_.fd_events_processed.fetch_add(1, std::memory_order_relaxed);
             } catch (...) {
                 handle_exception("fd_callback", std::current_exception(), fd);
@@ -442,13 +442,13 @@ void epoll_reactor::process_timers() {
 
 int32_t epoll_reactor::calculate_timeout() const {
     if (!pending_tasks_.empty()) {
-        timeout_dirty_ = true;
+        timeout_dirty_.store(true, std::memory_order_relaxed);
         return 0;
     }
 
     auto now = std::chrono::steady_clock::now();
 
-    if (!timeout_dirty_) {
+    if (!timeout_dirty_.load(std::memory_order_relaxed)) {
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - timeout_cached_at_);
         if (elapsed.count() < 5 && cached_timeout_ > 0) {
             return std::max(0, cached_timeout_ - static_cast<int32_t>(elapsed.count()));
@@ -460,7 +460,7 @@ int32_t epoll_reactor::calculate_timeout() const {
     if (!timers_.empty()) {
         auto deadline = timers_.top().deadline;
         if (deadline <= now) {
-            timeout_dirty_ = true;
+            timeout_dirty_.store(true, std::memory_order_relaxed);
             return 0;
         }
         auto delta = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
@@ -469,7 +469,7 @@ int32_t epoll_reactor::calculate_timeout() const {
 
     auto wheel_timeout = wheel_timer_.time_until_next_expiration(now);
     if (wheel_timeout == std::chrono::milliseconds::zero()) {
-        timeout_dirty_ = true;
+        timeout_dirty_.store(true, std::memory_order_relaxed);
         return 0;
     }
     if (wheel_timeout != std::chrono::milliseconds::max()) {
@@ -479,7 +479,7 @@ int32_t epoll_reactor::calculate_timeout() const {
     if (graceful_shutdown_.load(std::memory_order_relaxed)) {
         auto graceful_timeout = time_until_graceful_deadline(now);
         if (graceful_timeout.count() <= 0) {
-            timeout_dirty_ = true;
+            timeout_dirty_.store(true, std::memory_order_relaxed);
             return 0;
         }
         min_timeout = std::min(min_timeout, graceful_timeout);
@@ -498,7 +498,7 @@ int32_t epoll_reactor::calculate_timeout() const {
 
     cached_timeout_ = result;
     timeout_cached_at_ = now;
-    timeout_dirty_ = false;
+    timeout_dirty_.store(false, std::memory_order_relaxed);
 
     return result;
 }
@@ -568,7 +568,7 @@ void epoll_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
 
 void epoll_reactor::cancel_fd_timeout(fd_state& state) {
     if (state.timeout_id != 0) {
-        wheel_timer_.cancel(state.timeout_id);
+        (void)wheel_timer_.cancel(state.timeout_id);
         state.timeout_id = 0;
     }
     state.activity_timer = Timeout{};
