@@ -89,54 +89,66 @@ std::string response::serialize() const {
         return serialize_chunked();
     }
 
+    size_t headers_size = 0;
+    for (const auto& [name, value] : headers) {
+        headers_size += name.size() + 2 + value.size() + 2;
+    }
+
     std::string result;
-    result.reserve(256 + body.size());
+    result.reserve(32 + reason.size() + headers_size + body.size());
 
     char status_buf[16];
     auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
 
-    result += "HTTP/1.1 ";
+    result.append("HTTP/1.1 ", 9);
     result.append(status_buf, static_cast<size_t>(ptr - status_buf));
-    result += " ";
-    result += reason;
-    result += "\r\n";
+    result.push_back(' ');
+    result.append(reason);
+    result.append("\r\n", 2);
 
     for (const auto& [name, value] : headers) {
-        result += name;
-        result += ": ";
-        result += value;
-        result += "\r\n";
+        result.append(name);
+        result.append(": ", 2);
+        result.append(value);
+        result.append("\r\n", 2);
     }
 
-    result += "\r\n";
-    result += body;
+    result.append("\r\n", 2);
+    result.append(body);
 
     return result;
 }
 
 std::string response::serialize_chunked(size_t chunk_size) const {
+    size_t headers_size = 0;
+    for (const auto& [name, value] : headers) {
+        if (name != "Content-Length") {
+            headers_size += name.size() + 2 + value.size() + 2;
+        }
+    }
+
     std::string result;
-    result.reserve(512 + body.size());
+    result.reserve(64 + reason.size() + headers_size + body.size() + 32);
 
     char status_buf[16];
     auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
 
-    result += "HTTP/1.1 ";
+    result.append("HTTP/1.1 ", 9);
     result.append(status_buf, static_cast<size_t>(ptr - status_buf));
-    result += " ";
-    result += reason;
-    result += "\r\n";
+    result.push_back(' ');
+    result.append(reason);
+    result.append("\r\n", 2);
 
     for (const auto& [name, value] : headers) {
         if (name != "Content-Length") {
-            result += name;
-            result += ": ";
-            result += value;
-            result += "\r\n";
+            result.append(name);
+            result.append(": ", 2);
+            result.append(value);
+            result.append("\r\n", 2);
         }
     }
 
-    result += "Transfer-Encoding: chunked\r\n\r\n";
+    result.append("Transfer-Encoding: chunked\r\n\r\n", 30);
 
     size_t offset = 0;
     char chunk_size_buf[32];
@@ -145,13 +157,13 @@ std::string response::serialize_chunked(size_t chunk_size) const {
         auto [chunk_ptr, chunk_ec] = std::to_chars(chunk_size_buf, chunk_size_buf + sizeof(chunk_size_buf),
                                                      current_chunk, 16);
         result.append(chunk_size_buf, static_cast<size_t>(chunk_ptr - chunk_size_buf));
-        result += "\r\n";
+        result.append("\r\n", 2);
         result.append(body.data() + offset, current_chunk);
-        result += "\r\n";
+        result.append("\r\n", 2);
         offset += current_chunk;
     }
 
-    result += "0\r\n\r\n";
+    result.append("0\r\n\r\n", 5);
 
     return result;
 }
@@ -210,33 +222,22 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
     while (state_ != state::complete) {
         if (state_ == state::request_line || state_ == state::headers) {
-            // Strict CRLF search with character validation
             size_t pos = std::string::npos;
-            for (size_t i = parse_pos_; i + 1 < buffer_.size(); ++i) {
-                char c = buffer_[i];
+            const void* found = memmem(
+                buffer_.data() + parse_pos_,
+                buffer_.size() - parse_pos_,
+                "\r\n", 2
+            );
 
-                // Validate only printable ASCII and whitespace (reject null, high-bit chars)
-                if (c == '\0' || static_cast<unsigned char>(c) >= 0x80) {
-                    return std::unexpected(make_error_code(error_code::invalid_fd));
-                }
+            if (found) {
+                pos = static_cast<const char*>(found) - buffer_.data();
 
-                // Reject standalone LF (must have CR before it)
-                if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
-                    return std::unexpected(make_error_code(error_code::invalid_fd));
-                }
-
-                if (c == '\r' && buffer_[i + 1] == '\n') {
-                    pos = i;
-                    break;
-                }
-            }
-
-            // Check the last byte if buffer doesn't end with potential CRLF start
-            if (parse_pos_ < buffer_.size()) {
-                size_t last_idx = buffer_.size() - 1;
-                if (last_idx >= parse_pos_ && pos == std::string::npos) {
-                    char c = buffer_[last_idx];
-                    if (c == '\0' || static_cast<unsigned char>(c) >= 0x80) {
+                for (size_t i = parse_pos_; i <= pos; ++i) {
+                    unsigned char c = static_cast<unsigned char>(buffer_[i]);
+                    if (c == '\0' || c >= 0x80) {
+                        return std::unexpected(make_error_code(error_code::invalid_fd));
+                    }
+                    if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
                         return std::unexpected(make_error_code(error_code::invalid_fd));
                     }
                 }
@@ -320,13 +321,14 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 return state_;
             }
         } else if (state_ == state::chunk_size) {
-            // Optimized single-pass CRLF search
             size_t pos = std::string::npos;
-            for (size_t i = parse_pos_; i + 1 < buffer_.size(); ++i) {
-                if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
-                    pos = i;
-                    break;
-                }
+            const void* found = memmem(
+                buffer_.data() + parse_pos_,
+                buffer_.size() - parse_pos_,
+                "\r\n", 2
+            );
+            if (found) {
+                pos = static_cast<const char*>(found) - buffer_.data();
             }
 
             if (pos == std::string::npos) {
@@ -384,13 +386,14 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 return state_;
             }
         } else if (state_ == state::chunk_trailer) {
-            // Optimized single-pass CRLF search
             size_t pos = std::string::npos;
-            for (size_t i = parse_pos_; i + 1 < buffer_.size(); ++i) {
-                if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
-                    pos = i;
-                    break;
-                }
+            const void* found = memmem(
+                buffer_.data() + parse_pos_,
+                buffer_.size() - parse_pos_,
+                "\r\n", 2
+            );
+            if (found) {
+                pos = static_cast<const char*>(found) - buffer_.data();
             }
 
             if (pos == std::string::npos) {
