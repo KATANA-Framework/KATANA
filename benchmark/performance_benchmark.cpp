@@ -56,12 +56,12 @@ benchmark_result benchmark_ring_buffer_queue() {
         queue.try_pop(val);
         auto op_end = steady_clock::now();
 
-        double latency_us = duration_cast<nanoseconds>(op_end - op_start).count() / 1000.0;
+        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
     auto end = steady_clock::now();
-    uint64_t duration_ms = duration_cast<milliseconds>(end - start).count();
+    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
     std::sort(latencies.begin(), latencies.end());
 
@@ -69,7 +69,7 @@ benchmark_result benchmark_ring_buffer_queue() {
     result.name = "Ring Buffer Queue (Single Thread)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / duration_ms;
+    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
     result.latency_p50 = latencies[num_operations / 2];
     result.latency_p99 = latencies[num_operations * 99 / 100];
     result.latency_p999 = latencies[num_operations * 999 / 1000];
@@ -117,13 +117,13 @@ benchmark_result benchmark_ring_buffer_concurrent() {
     for (auto& t : consumers) t.join();
 
     auto end = steady_clock::now();
-    uint64_t duration_ms = duration_cast<milliseconds>(end - start).count();
+    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
     benchmark_result result;
     result.name = "Ring Buffer Queue (Concurrent 4x4)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / duration_ms;
+    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -144,16 +144,16 @@ benchmark_result benchmark_circular_buffer() {
 
     for (size_t i = 0; i < num_operations; ++i) {
         auto op_start = steady_clock::now();
-        buf.write(std::span(write_data));
-        buf.read(std::span(read_data));
+        [[maybe_unused]] auto write_count = buf.write(std::span(write_data));
+        [[maybe_unused]] auto read_count = buf.read(std::span(read_data));
         auto op_end = steady_clock::now();
 
-        double latency_us = duration_cast<nanoseconds>(op_end - op_start).count() / 1000.0;
+        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
     auto end = steady_clock::now();
-    uint64_t duration_ms = duration_cast<milliseconds>(end - start).count();
+    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
     std::sort(latencies.begin(), latencies.end());
 
@@ -161,7 +161,7 @@ benchmark_result benchmark_circular_buffer() {
     result.name = "Circular Buffer";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / duration_ms;
+    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
     result.latency_p50 = latencies[num_operations / 2];
     result.latency_p99 = latencies[num_operations * 99 / 100];
     result.latency_p999 = latencies[num_operations * 999 / 1000];
@@ -189,12 +189,12 @@ benchmark_result benchmark_simd_crlf_search() {
             std::cerr << "CRLF search failed!\n";
         }
 
-        double latency_us = duration_cast<nanoseconds>(op_end - op_start).count() / 1000.0;
+        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
     auto end = steady_clock::now();
-    uint64_t duration_ms = duration_cast<milliseconds>(end - start).count();
+    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
     std::sort(latencies.begin(), latencies.end());
 
@@ -202,7 +202,7 @@ benchmark_result benchmark_simd_crlf_search() {
     result.name = "SIMD CRLF Search (1.5KB buffer)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / duration_ms;
+    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
     result.latency_p50 = latencies[num_operations / 2];
     result.latency_p99 = latencies[num_operations * 99 / 100];
     result.latency_p999 = latencies[num_operations * 999 / 1000];
@@ -245,12 +245,12 @@ benchmark_result benchmark_http_parser() {
             break;
         }
 
-        double latency_us = duration_cast<nanoseconds>(op_end - op_start).count() / 1000.0;
+        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
     auto end = steady_clock::now();
-    uint64_t duration_ms = duration_cast<milliseconds>(end - start).count();
+    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
     std::sort(latencies.begin(), latencies.end());
 
@@ -258,7 +258,7 @@ benchmark_result benchmark_http_parser() {
     result.name = "HTTP Parser (Complete Request)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / duration_ms;
+    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
     result.latency_p50 = latencies[num_operations / 2];
     result.latency_p99 = latencies[num_operations * 99 / 100];
     result.latency_p999 = latencies[num_operations * 999 / 1000];
@@ -279,13 +279,13 @@ benchmark_result benchmark_memory_allocations() {
     }
 
     auto end = steady_clock::now();
-    uint64_t duration_ms = duration_cast<milliseconds>(end - start).count();
+    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
     benchmark_result result;
     result.name = "Memory Allocations (String Queue)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / duration_ms;
+    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;

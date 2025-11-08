@@ -10,9 +10,13 @@
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
+#ifndef KATANA_HAS_SSE2
 #define KATANA_HAS_SSE2 1
+#endif
 #if defined(__AVX2__)
+#ifndef KATANA_HAS_AVX2
 #define KATANA_HAS_AVX2 1
+#endif
 #endif
 #endif
 
