@@ -195,7 +195,6 @@ void handle_client(connection& conn) {
         total_requests.fetch_add(1, std::memory_order_relaxed);
 
         auto& req = conn.parser.get_request();
-        auto resp = http::response::ok("Hello, World!", "text/plain");
 
         bool should_close = false;
         auto connection_header = req.header("Connection");
@@ -211,15 +210,30 @@ void handle_client(connection& conn) {
             should_close = true;
         }
 
-        if (should_close) {
-            resp.set_header("Connection", "close");
-        } else {
-            resp.set_header("Connection", "keep-alive");
-            resp.set_header("Keep-Alive", "timeout=60, max=1000");
-        }
+        static const char* response_keepalive =
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/plain\r\n"
+            "Content-Length: 13\r\n"
+            "Connection: keep-alive\r\n"
+            "Keep-Alive: timeout=60, max=1000\r\n"
+            "\r\n"
+            "Hello, World!";
 
-        std::string serialized = resp.serialize();
-        conn.write_buffer.assign(serialized.begin(), serialized.end());
+        static const char* response_close =
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/plain\r\n"
+            "Content-Length: 13\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "Hello, World!";
+
+        const char* response = should_close ? response_close : response_keepalive;
+        size_t response_len = should_close ? 103 : 136;
+
+        conn.write_buffer.assign(
+            reinterpret_cast<const uint8_t*>(response),
+            reinterpret_cast<const uint8_t*>(response) + response_len
+        );
         conn.write_pos = 0;
 
         while (conn.write_pos < conn.write_buffer.size()) {
