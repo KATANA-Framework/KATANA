@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <unordered_map>
 #include <optional>
 #include <algorithm>
 #include <cctype>
@@ -19,6 +20,15 @@ inline bool ci_equal(std::string_view a, std::string_view b) noexcept {
            std::equal(a.begin(), a.end(), b.begin(), ci_char_equal);
 }
 
+inline std::string to_lower(std::string_view s) {
+    std::string result;
+    result.reserve(s.size());
+    for (char c : s) {
+        result.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    return result;
+}
+
 class headers_map {
 public:
     headers_map() = default;
@@ -28,52 +38,74 @@ public:
     headers_map& operator=(const headers_map&) = default;
 
     void set(std::string name, std::string value) {
-        for (auto& [n, v] : headers_) {
-            if (ci_equal(n, name)) {
-                v = std::move(value);
-                return;
-            }
-        }
-        headers_.emplace_back(std::move(name), std::move(value));
+        // Store with lowercase key for O(1) case-insensitive lookup
+        std::string lower_key = to_lower(name);
+        original_names_[lower_key] = std::move(name);
+        headers_[std::move(lower_key)] = std::move(value);
     }
 
     [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
-        for (const auto& [n, v] : headers_) {
-            if (ci_equal(n, name)) {
-                return v;
-            }
+        std::string lower_key = to_lower(name);
+        auto it = headers_.find(lower_key);
+        if (it != headers_.end()) {
+            return it->second;
         }
         return std::nullopt;
     }
 
     [[nodiscard]] bool contains(std::string_view name) const noexcept {
-        return get(name).has_value();
+        std::string lower_key = to_lower(name);
+        return headers_.find(lower_key) != headers_.end();
     }
 
     void remove(std::string_view name) {
-        headers_.erase(
-            std::remove_if(headers_.begin(), headers_.end(),
-                [name](const auto& pair) {
-                    return ci_equal(pair.first, name);
-                }),
-            headers_.end()
-        );
+        std::string lower_key = to_lower(name);
+        headers_.erase(lower_key);
+        original_names_.erase(lower_key);
     }
 
     void clear() noexcept {
         headers_.clear();
+        original_names_.clear();
     }
 
-    auto begin() noexcept { return headers_.begin(); }
-    auto end() noexcept { return headers_.end(); }
-    [[nodiscard]] auto begin() const noexcept { return headers_.begin(); }
-    [[nodiscard]] auto end() const noexcept { return headers_.end(); }
+    struct iterator {
+        using inner_iterator = std::unordered_map<std::string, std::string>::iterator;
+        inner_iterator it;
+        std::unordered_map<std::string, std::string>* original_names;
+
+        iterator& operator++() { ++it; return *this; }
+        bool operator!=(const iterator& o) const { return it != o.it; }
+        std::pair<const std::string&, std::string&> operator*() {
+            auto orig_it = original_names->find(it->first);
+            return {orig_it->second, it->second};
+        }
+    };
+
+    struct const_iterator {
+        using inner_iterator = std::unordered_map<std::string, std::string>::const_iterator;
+        inner_iterator it;
+        const std::unordered_map<std::string, std::string>* original_names;
+
+        const_iterator& operator++() { ++it; return *this; }
+        bool operator!=(const const_iterator& o) const { return it != o.it; }
+        std::pair<const std::string&, const std::string&> operator*() const {
+            auto orig_it = original_names->find(it->first);
+            return {orig_it->second, it->second};
+        }
+    };
+
+    iterator begin() noexcept { return {headers_.begin(), &original_names_}; }
+    iterator end() noexcept { return {headers_.end(), &original_names_}; }
+    const_iterator begin() const noexcept { return {headers_.begin(), &original_names_}; }
+    const_iterator end() const noexcept { return {headers_.end(), &original_names_}; }
 
     [[nodiscard]] size_t size() const noexcept { return headers_.size(); }
     [[nodiscard]] bool empty() const noexcept { return headers_.empty(); }
 
 private:
-    std::vector<std::pair<std::string, std::string>> headers_;
+    std::unordered_map<std::string, std::string> headers_;
+    std::unordered_map<std::string, std::string> original_names_;
 };
 
 } // namespace katana::http
