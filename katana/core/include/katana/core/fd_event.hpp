@@ -13,6 +13,7 @@ enum class event_type : uint8_t {
     error = 1 << 3,
     hup = 1 << 4,
     oneshot = 1 << 5,
+    timeout = 1 << 6,
 };
 
 constexpr event_type operator|(event_type lhs, event_type rhs) noexcept {
