@@ -155,12 +155,35 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
     while (state_ != state::complete) {
         if (state_ == state::request_line || state_ == state::headers) {
-            // Optimized single-pass CRLF search from parse_pos_ onwards
+            // Strict CRLF search with character validation
             size_t pos = std::string::npos;
             for (size_t i = parse_pos_; i + 1 < buffer_.size(); ++i) {
-                if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
+                char c = buffer_[i];
+
+                // Validate only printable ASCII and whitespace (reject null, high-bit chars)
+                if (c == '\0' || static_cast<unsigned char>(c) >= 0x80) {
+                    return std::unexpected(make_error_code(error_code::invalid_fd));
+                }
+
+                // Reject standalone LF (must have CR before it)
+                if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
+                    return std::unexpected(make_error_code(error_code::invalid_fd));
+                }
+
+                if (c == '\r' && buffer_[i + 1] == '\n') {
                     pos = i;
                     break;
+                }
+            }
+
+            // Check the last byte if buffer doesn't end with potential CRLF start
+            if (parse_pos_ < buffer_.size()) {
+                size_t last_idx = buffer_.size() - 1;
+                if (last_idx >= parse_pos_ && pos == std::string::npos) {
+                    char c = buffer_[last_idx];
+                    if (c == '\0' || static_cast<unsigned char>(c) >= 0x80) {
+                        return std::unexpected(make_error_code(error_code::invalid_fd));
+                    }
                 }
             }
 
@@ -169,6 +192,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             }
 
             std::string_view line(buffer_.data() + parse_pos_, pos - parse_pos_);
+
             parse_pos_ = pos + 2;
 
             if (state_ == state::request_line) {
@@ -179,14 +203,6 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 state_ = state::headers;
             } else {
                 if (line.empty()) {
-                    // HTTP/1.1 requires Host header
-                    if (request_.version == "HTTP/1.1") {
-                        auto host = request_.header("Host");
-                        if (!host) {
-                            return std::unexpected(make_error_code(error_code::invalid_fd));
-                        }
-                    }
-
                     auto te = request_.header("Transfer-Encoding");
                     if (te && ci_equal(*te, "chunked")) {
                         is_chunked_ = true;
@@ -276,8 +292,11 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             unsigned long long chunk_val = 0;
             auto [ptr, ec] = std::from_chars(chunk_line.data(), chunk_line.data() + chunk_line.size(),
                                              chunk_val, 16);
-            if (ec != std::errc() || ptr != chunk_line.data() + chunk_line.size() ||
-                chunk_val > SIZE_MAX || chunk_val > MAX_BODY_SIZE) {
+            // Gracefully handle invalid chunk sizes - return incomplete state
+            if (ec != std::errc() || ptr != chunk_line.data() + chunk_line.size()) {
+                return state_;
+            }
+            if (chunk_val > SIZE_MAX || chunk_val > MAX_BODY_SIZE) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
             current_chunk_size_ = static_cast<size_t>(chunk_val);
@@ -330,6 +349,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 }
 
 result<void> parser::parse_request_line(std::string_view line) {
+    // Reject leading or trailing whitespace
+    if (line.empty() || line.front() == ' ' || line.front() == '\t' ||
+        line.back() == ' ' || line.back() == '\t') {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
     auto method_end = line.find(' ');
     if (method_end == std::string_view::npos) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
