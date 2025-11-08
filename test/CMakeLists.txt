@@ -13,6 +13,9 @@ add_executable(unit_tests
     unit/test_reactor_pool.cpp
     unit/test_http.cpp
     unit/test_wheel_timer.cpp
+    unit/test_result.cpp
+    unit/test_io_buffer.cpp
+    unit/test_http_fuzzer_regression.cpp
 )
 
 target_link_libraries(unit_tests
