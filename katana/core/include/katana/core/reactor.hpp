@@ -19,7 +19,7 @@ struct exception_context {
     int32_t fd = -1;
 };
 
-using exception_handler = std::function<void(const exception_context&)>;
+using exception_handler = inplace_function<void(const exception_context&), 256>;
 
 struct timeout_config {
     std::chrono::milliseconds read_timeout{30000};

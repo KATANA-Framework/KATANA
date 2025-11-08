@@ -39,10 +39,7 @@ void io_buffer::commit(size_t bytes) {
 }
 
 std::span<const uint8_t> io_buffer::readable_span() const noexcept {
-    return std::span<const uint8_t>(
-        buffer_.data() + read_pos_,
-        write_pos_ - read_pos_
-    );
+    return std::span<const uint8_t>(buffer_.data() + read_pos_, write_pos_ - read_pos_);
 }
 
 void io_buffer::consume(size_t bytes) {
@@ -51,6 +48,8 @@ void io_buffer::consume(size_t bytes) {
     if (read_pos_ == write_pos_) {
         read_pos_ = 0;
         write_pos_ = 0;
+    } else {
+        compact_if_needed();
     }
 }
 
@@ -65,18 +64,24 @@ void io_buffer::reserve(size_t new_capacity) {
     }
 }
 
+void io_buffer::compact_if_needed() {
+    if (read_pos_ >= COMPACT_THRESHOLD && read_pos_ > size()) {
+        size_t data_size = write_pos_ - read_pos_;
+        if (data_size > 0) {
+            std::memmove(buffer_.data(), buffer_.data() + read_pos_, data_size);
+        }
+        read_pos_ = 0;
+        write_pos_ = data_size;
+    }
+}
+
 void io_buffer::ensure_writable(size_t bytes) {
     size_t current_size = buffer_.size();
     size_t available = current_size > write_pos_ ? current_size - write_pos_ : 0;
 
     if (available < bytes) {
-        if (read_pos_ > 0 && write_pos_ > read_pos_) {
-            size_t data_size = write_pos_ - read_pos_;
-            std::memmove(buffer_.data(), buffer_.data() + read_pos_, data_size);
-            read_pos_ = 0;
-            write_pos_ = data_size;
-            available = current_size > write_pos_ ? current_size - write_pos_ : 0;
-        }
+        compact_if_needed();
+        available = current_size > write_pos_ ? current_size - write_pos_ : 0;
 
         if (available < bytes) {
             size_t current_cap = buffer_.capacity();
