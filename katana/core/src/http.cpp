@@ -250,30 +250,24 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
     while (state_ != state::complete) {
         size_t old_parse_pos = parse_pos_;
-        result<state> next_state;
-
-        switch (state_) {
-            case state::request_line:
-                next_state = parse_request_line_state();
-                break;
-            case state::headers:
-                next_state = parse_headers_state();
-                break;
-            case state::body:
-                next_state = parse_body_state();
-                break;
-            case state::chunk_size:
-                next_state = parse_chunk_size_state();
-                break;
-            case state::chunk_data:
-                next_state = parse_chunk_data_state();
-                break;
-            case state::chunk_trailer:
-                next_state = parse_chunk_trailer_state();
-                break;
-            default:
-                return state_;
-        }
+        result<state> next_state = [&]() -> result<state> {
+            switch (state_) {
+                case state::request_line:
+                    return parse_request_line_state();
+                case state::headers:
+                    return parse_headers_state();
+                case state::body:
+                    return parse_body_state();
+                case state::chunk_size:
+                    return parse_chunk_size_state();
+                case state::chunk_data:
+                    return parse_chunk_data_state();
+                case state::chunk_trailer:
+                    return parse_chunk_trailer_state();
+                default:
+                    return state_;
+            }
+        }();
 
         if (!next_state) {
             return std::unexpected(next_state.error());
