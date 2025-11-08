@@ -73,18 +73,10 @@ size_t reactor_pool::select_least_loaded() noexcept {
     }
 
     size_t min_load_idx = 0;
-    uint64_t min_load = UINT64_MAX;
+    uint64_t min_load = reactors_[0]->load_score.load(std::memory_order_relaxed);
 
-    for (size_t i = 0; i < reactors_.size(); ++i) {
-        auto metrics = reactors_[i]->reactor->metrics().snapshot();
-
-        // Load score: pending tasks + active events + rejected tasks * 10
-        uint64_t load = (metrics.tasks_scheduled - metrics.tasks_executed) +
-                       metrics.fd_events_processed +
-                       (metrics.tasks_rejected * 10);
-
-        reactors_[i]->load_score.store(load, std::memory_order_relaxed);
-
+    for (size_t i = 1; i < reactors_.size(); ++i) {
+        uint64_t load = reactors_[i]->load_score.load(std::memory_order_relaxed);
         if (load < min_load) {
             min_load = load;
             min_load_idx = i;
