@@ -1,11 +1,12 @@
 #pragma once
 
 #include "inplace_function.hpp"
-#include <chrono>
-#include <vector>
-#include <unordered_map>
-#include <cstdint>
+#include <algorithm>
 #include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
 
 namespace katana {
 
@@ -28,7 +29,7 @@ public:
         size_t ticks = (static_cast<size_t>(timeout.count()) + TICK_MS - 1) / TICK_MS;
         if (ticks == 0) ticks = 1;
 
-        size_t slot_offset = std::min(ticks, WHEEL_SIZE - 1);
+        size_t slot_offset = ticks % WHEEL_SIZE;
         size_t target_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
 
         timeout_id id = next_id_++;
@@ -37,7 +38,7 @@ public:
         }
 
         slots_[target_slot].entry_ids.push_back(id);
-        entries_[id] = {std::move(cb), ticks, target_slot};
+        entries_[id] = {std::move(cb), ticks / WHEEL_SIZE, target_slot};
         return id;
     }
 
@@ -73,20 +74,22 @@ public:
             }
 
             auto& e = it->second;
-            if (e.remaining_ticks <= 1) {
+            if (e.remaining_ticks == 0) {
                 auto cb = std::move(e.callback);
                 entries_.erase(it);
                 cb();
             } else {
-                e.remaining_ticks--;
-                size_t slot_offset = std::min(e.remaining_ticks, WHEEL_SIZE - 1);
-                size_t new_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
-                e.slot_idx = new_slot;
-                slots_[new_slot].entry_ids.push_back(id);
+                --e.remaining_ticks;
             }
         }
 
-        current.entry_ids.clear();
+        current.entry_ids.erase(std::remove_if(current.entry_ids.begin(),
+                                               current.entry_ids.end(),
+                                               [this](timeout_id id) {
+                                                   auto it = entries_.find(id);
+                                                   return it == entries_.end();
+                                               }),
+                                current.entry_ids.end());
         current_slot_ = (current_slot_ + 1) % WHEEL_SIZE;
     }
 
