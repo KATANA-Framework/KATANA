@@ -87,6 +87,10 @@ private:
     void handle_exception(std::string_view location, std::exception_ptr ex, int32_t fd = -1) noexcept;
     void setup_fd_timeout(int32_t fd, fd_state& state);
     void cancel_fd_timeout(fd_state& state);
+    std::chrono::milliseconds fd_timeout_for(const fd_state& state) const;
+    result<void> ensure_fd_capacity(int32_t fd);
+    std::chrono::milliseconds time_until_next_wheel_tick(std::chrono::steady_clock::time_point now) const;
+    std::chrono::milliseconds time_until_graceful_deadline(std::chrono::steady_clock::time_point now) const;
 
     int32_t epoll_fd_;
     int32_t wakeup_fd_;

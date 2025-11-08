@@ -173,7 +173,7 @@ TEST(HttpFuzzerRegression, ChunkedEncodingInvalidSize) {
                                "xyz\r\n";
     auto data = as_bytes(invalid_chunk);
     auto result = p.parse(data);
-    EXPECT_TRUE(result.has_value());
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpFuzzerRegression, ChunkedEncodingNegativeSize) {
@@ -184,7 +184,7 @@ TEST(HttpFuzzerRegression, ChunkedEncodingNegativeSize) {
                                 "-5\r\n";
     auto data = as_bytes(negative_chunk);
     auto result = p.parse(data);
-    EXPECT_TRUE(result.has_value());
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpFuzzerRegression, URIWithNullByte) {
@@ -223,9 +223,7 @@ TEST(HttpFuzzerRegression, InvalidHTTPVersion) {
     std::string invalid_version = "GET / HTTP/99.99\r\n\r\n";
     auto data = as_bytes(invalid_version);
     auto result = p.parse(data);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, parser::state::complete);
-    EXPECT_EQ(p.get_request().version, "HTTP/99.99");
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpFuzzerRegression, MalformedHTTPVersion) {
@@ -233,7 +231,7 @@ TEST(HttpFuzzerRegression, MalformedHTTPVersion) {
     std::string malformed_version = "GET / HTTX/1.1\r\n\r\n";
     auto data = as_bytes(malformed_version);
     auto result = p.parse(data);
-    EXPECT_TRUE(result.has_value());
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpFuzzerRegression, CompleteRequestInMultipleChunks) {
