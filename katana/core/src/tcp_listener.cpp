@@ -13,11 +13,13 @@ tcp_listener::tcp_listener(uint16_t port, bool ipv6) {
     auto res = create_and_bind(port, ipv6);
     if (!res) {
         socket_ = tcp_socket{};
-        return;
+        throw std::system_error(res.error(), "failed to create and bind listener");
     }
 
     if (::listen(socket_.native_handle(), backlog_) < 0) {
+        auto err = errno;
         socket_ = tcp_socket{};
+        throw std::system_error(err, std::system_category(), "listen failed");
     }
 }
 
@@ -30,7 +32,9 @@ result<void> tcp_listener::create_and_bind(uint16_t port, bool ipv6) {
     socket_ = tcp_socket(fd);
 
     int opt = 1;
-    ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
 
     if (ipv6) {
         sockaddr_in6 addr{};
@@ -56,12 +60,13 @@ result<void> tcp_listener::create_and_bind(uint16_t port, bool ipv6) {
 }
 
 result<tcp_socket> tcp_listener::accept() {
-    int32_t fd = ::accept4(socket_.native_handle(), nullptr, nullptr,
-                          SOCK_NONBLOCK | SOCK_CLOEXEC);
+    int32_t fd;
+    do {
+        fd = ::accept4(socket_.native_handle(), nullptr, nullptr,
+                      SOCK_NONBLOCK | SOCK_CLOEXEC);
+    } while (fd < 0 && errno == EINTR);
+
     if (fd < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return std::unexpected(make_error_code(error_code::ok));
-        }
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 

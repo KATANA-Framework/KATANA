@@ -19,19 +19,24 @@ public:
     }
 
     void request_shutdown() noexcept {
-        if (!shutdown_requested_.exchange(true, std::memory_order_release)) {
-            shutdown_time_ = clock::now();
-        }
+        shutdown_requested_.store(true, std::memory_order_release);
     }
 
     [[nodiscard]] bool is_shutdown_requested() const noexcept {
         return shutdown_requested_.load(std::memory_order_acquire);
     }
 
+    void record_shutdown_time() noexcept {
+        shutdown_time_ = clock::now();
+    }
+
     [[nodiscard]] bool
-    is_deadline_exceeded(duration deadline = std::chrono::seconds(30)) const noexcept {
+    is_deadline_exceeded(duration deadline = std::chrono::seconds(30)) noexcept {
         if (!is_shutdown_requested()) {
             return false;
+        }
+        if (shutdown_time_ == time_point{}) {
+            shutdown_time_ = clock::now();
         }
         auto elapsed = clock::now() - shutdown_time_;
         return elapsed >= deadline;

@@ -89,12 +89,13 @@ private:
     void cancel_fd_timeout(fd_state& state);
 
     int32_t epoll_fd_;
+    int32_t wakeup_fd_;
     int32_t max_events_;
     std::atomic<bool> running_;
     std::atomic<bool> graceful_shutdown_;
     std::chrono::steady_clock::time_point graceful_shutdown_deadline_;
 
-    std::unordered_map<int, fd_state> fd_states_;
+    std::vector<fd_state> fd_states_;
     mpsc_queue<task_fn> pending_tasks_;
     std::priority_queue<timer_entry, std::vector<timer_entry>, std::greater<timer_entry>> timers_;
     mpsc_queue<timer_entry> pending_timers_;

@@ -10,12 +10,21 @@ namespace katana {
 
 result<void> system_limits::set_max_fds(uint64_t limit) {
 #ifdef __linux__
+    struct rlimit current_rl;
+    if (getrlimit(RLIMIT_NOFILE, &current_rl) != 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
     struct rlimit rl;
     rl.rlim_cur = limit;
-    rl.rlim_max = limit;
+    rl.rlim_max = std::max(limit, current_rl.rlim_max);
 
     if (setrlimit(RLIMIT_NOFILE, &rl) != 0) {
-        return std::unexpected(std::error_code(errno, std::system_category()));
+        rl.rlim_cur = std::min(limit, current_rl.rlim_max);
+        rl.rlim_max = current_rl.rlim_max;
+        if (setrlimit(RLIMIT_NOFILE, &rl) != 0) {
+            return std::unexpected(std::error_code(errno, std::system_category()));
+        }
     }
 
     return {};
