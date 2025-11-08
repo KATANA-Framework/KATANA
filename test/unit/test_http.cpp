@@ -343,3 +343,267 @@ TEST(HttpParser, RejectFoldingWithoutPriorHeader) {
 
     EXPECT_FALSE(result.has_value());
 }
+
+TEST(HttpParser, ChunkedEncodingSimple) {
+    parser p;
+
+    std::string request = "POST /data HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "Transfer-Encoding: chunked\r\n"
+                         "\r\n"
+                         "5\r\n"
+                         "hello\r\n"
+                         "6\r\n"
+                         "world!\r\n"
+                         "0\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+
+    const auto& req = p.get_request();
+    EXPECT_EQ(req.body, "helloworld!");
+}
+
+TEST(HttpParser, ChunkedEncodingIncremental) {
+    parser p;
+
+    std::string part1 = "POST /data HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: chunked\r\n\r\n";
+    std::string part2 = "3\r\nfoo\r\n";
+    std::string part3 = "3\r\nbar\r\n";
+    std::string part4 = "0\r\n\r\n";
+
+    auto data1 = as_bytes(part1);
+    auto result1 = p.parse(data1);
+    ASSERT_TRUE(result1.has_value());
+    EXPECT_EQ(*result1, parser::state::body);
+
+    auto data2 = as_bytes(part2);
+    auto result2 = p.parse(data2);
+    ASSERT_TRUE(result2.has_value());
+    EXPECT_EQ(*result2, parser::state::body);
+
+    auto data3 = as_bytes(part3);
+    auto result3 = p.parse(data3);
+    ASSERT_TRUE(result3.has_value());
+    EXPECT_EQ(*result3, parser::state::body);
+
+    auto data4 = as_bytes(part4);
+    auto result4 = p.parse(data4);
+    ASSERT_TRUE(result4.has_value());
+    EXPECT_EQ(*result4, parser::state::complete);
+
+    EXPECT_EQ(p.get_request().body, "foobar");
+}
+
+TEST(HttpParser, ChunkedEncodingWithTrailer) {
+    parser p;
+
+    std::string request = "POST /data HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "Transfer-Encoding: chunked\r\n"
+                         "\r\n"
+                         "4\r\n"
+                         "test\r\n"
+                         "0\r\n"
+                         "X-Trailer: value\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+    EXPECT_EQ(p.get_request().body, "test");
+}
+
+TEST(HttpParser, ExcessiveHeaderCount) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n";
+    for (int i = 0; i < 150; ++i) {
+        request += "X-Header-" + std::to_string(i) + ": value\r\n";
+    }
+    request += "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, ExcessivelyLongURI) {
+    parser p;
+
+    std::string long_uri(10000, 'a');
+    std::string request = "GET /" + long_uri + " HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, ExcessivelyLongHeader) {
+    parser p;
+
+    std::string long_value(100000, 'x');
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "X-Long-Header: " + long_value + "\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, MalformedRequestLineNoHTTP) {
+    parser p;
+
+    std::string request = "GET /path\r\n\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, MalformedRequestLineInvalidMethod) {
+    parser p;
+
+    std::string request = "INVALID@METHOD /path HTTP/1.1\r\n\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, MalformedRequestLineExtraSpaces) {
+    parser p;
+
+    std::string request = "GET  /path  HTTP/1.1\r\n\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, MalformedHeaderMissingColon) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "InvalidHeaderNoColon\r\n"
+                         "\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, MalformedHeaderInvalidCharacters) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "X-Header\x01\x02: value\r\n"
+                         "\r\n";
+    auto data = as_bytes(request);
+
+    auto result = p.parse(data);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(HttpParser, RecoveryAfterError) {
+    parser p;
+
+    std::string bad_request = "INVALID\r\n\r\n";
+    auto bad_data = as_bytes(bad_request);
+    auto bad_result = p.parse(bad_data);
+    EXPECT_FALSE(bad_result.has_value());
+
+    p = parser();
+
+    std::string good_request = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    auto good_data = as_bytes(good_request);
+    auto good_result = p.parse(good_data);
+    ASSERT_TRUE(good_result.has_value());
+    EXPECT_EQ(*good_result, parser::state::complete);
+}
+
+TEST(HttpParser, ContentLengthZero) {
+    parser p;
+
+    std::string request = "POST / HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "Content-Length: 0\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+    EXPECT_TRUE(p.get_request().body.empty());
+}
+
+TEST(HttpParser, LargeValidContentLength) {
+    parser p;
+
+    std::string body(1024 * 1024, 'x');
+    std::string request = "POST / HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "Content-Length: " + std::to_string(body.size()) + "\r\n"
+                         "\r\n" + body;
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+    EXPECT_EQ(p.get_request().body.size(), 1024 * 1024);
+}
+
+TEST(HttpParser, CaseInsensitiveHeaders) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "CoNtEnT-tYpE: text/plain\r\n"
+                         "HoSt: example.com\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+
+    const auto& req = p.get_request();
+    EXPECT_TRUE(req.header("content-type").has_value());
+    EXPECT_TRUE(req.header("HOST").has_value());
+    EXPECT_TRUE(req.header("Content-Type").has_value());
+}
+
+TEST(HttpParser, EmptyHeaderValue) {
+    parser p;
+
+    std::string request = "GET / HTTP/1.1\r\n"
+                         "Host: example.com\r\n"
+                         "X-Empty-Header:\r\n"
+                         "\r\n";
+
+    auto data = as_bytes(request);
+    auto result = p.parse(data);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+
+    const auto& req = p.get_request();
+    auto empty_header = req.header("X-Empty-Header");
+    EXPECT_TRUE(empty_header.has_value());
+    EXPECT_TRUE(empty_header->empty());
+}

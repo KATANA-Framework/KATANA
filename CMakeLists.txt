@@ -83,4 +83,7 @@ if(ENABLE_EXAMPLES)
 
     add_executable(raii_http_server examples/raii_http_server.cpp)
     target_link_libraries(raii_http_server katana_core)
+
+    add_executable(simple_rest_api examples/simple_rest_api.cpp)
+    target_link_libraries(simple_rest_api katana_core)
 endif()
