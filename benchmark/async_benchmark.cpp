@@ -138,13 +138,8 @@ int main(int argc, char* argv[]) {
 
         // Print progress
         if (total_responses % 10000 == 0 && total_responses > 0) {
-<<<<<<< Updated upstream
             auto progress_now = std::chrono::high_resolution_clock::now();
             double progress_elapsed = std::chrono::duration<double>(progress_now - start).count();
-=======
-           auto progress_time = std::chrono::high_resolution_clock::now();
-            double progress_elapsed = std::chrono::duration<double>(progress_time - start).count();
->>>>>>> Stashed changes
             double rps = static_cast<double>(total_responses) / progress_elapsed;
             std::cout << "\rProgress: " << total_responses << " / " << target_requests
                       << " (" << static_cast<int>(rps) << " req/s)" << std::flush;
