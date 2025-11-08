@@ -20,7 +20,16 @@ reactor_pool::reactor_pool(const reactor_pool_config& config)
 
     for (uint32_t i = 0; i < config_.reactor_count; ++i) {
         auto ctx = std::make_unique<reactor_context>();
-        ctx->reactor = std::make_unique<epoll_reactor>(config_.max_events_per_reactor);
+#if defined(KATANA_USE_IO_URING)
+        ctx->reactor = std::make_unique<reactor_impl>(
+            reactor_impl::DEFAULT_RING_SIZE,
+            reactor_impl::DEFAULT_MAX_PENDING_TASKS
+        );
+#elif defined(KATANA_USE_EPOLL)
+        ctx->reactor = std::make_unique<reactor_impl>(
+            config_.max_events_per_reactor
+        );
+#endif
         ctx->core_id = i;
         reactors_.push_back(std::move(ctx));
     }
@@ -60,7 +69,7 @@ void reactor_pool::wait() {
     }
 }
 
-epoll_reactor& reactor_pool::get_reactor(size_t index) {
+reactor_impl& reactor_pool::get_reactor(size_t index) {
     return *reactors_[index % reactors_.size()]->reactor;
 }
 

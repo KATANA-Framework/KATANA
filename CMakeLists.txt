@@ -7,6 +7,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(KATANA_POLL "epoll" CACHE STRING "I/O polling backend: epoll or io_uring")
+set_property(CACHE KATANA_POLL PROPERTY STRINGS "epoll" "io_uring")
+
 add_compile_options(
     -Wall
     -Wextra
@@ -40,8 +43,26 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "UBSan")
     add_link_options(-fsanitize=undefined)
 endif()
 
+if(KATANA_POLL STREQUAL "io_uring")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBURING REQUIRED liburing>=2.0)
+    set(REACTOR_SOURCE katana/core/src/io_uring_reactor.cpp)
+    set(REACTOR_LIBS ${LIBURING_LIBRARIES})
+    set(REACTOR_INCLUDE_DIRS ${LIBURING_INCLUDE_DIRS})
+    add_compile_definitions(KATANA_USE_IO_URING)
+    message(STATUS "Using io_uring backend")
+elseif(KATANA_POLL STREQUAL "epoll")
+    set(REACTOR_SOURCE katana/core/src/epoll_reactor.cpp)
+    set(REACTOR_LIBS "")
+    set(REACTOR_INCLUDE_DIRS "")
+    add_compile_definitions(KATANA_USE_EPOLL)
+    message(STATUS "Using epoll backend")
+else()
+    message(FATAL_ERROR "Invalid KATANA_POLL value: ${KATANA_POLL}. Must be 'epoll' or 'io_uring'")
+endif()
+
 add_library(katana_core STATIC
-    katana/core/src/epoll_reactor.cpp
+    ${REACTOR_SOURCE}
     katana/core/src/cpu_info.cpp
     katana/core/src/reactor_pool.cpp
     katana/core/src/io_buffer.cpp
@@ -56,7 +77,12 @@ add_library(katana_core STATIC
 
 target_include_directories(katana_core PUBLIC
     katana/core/include
+    ${REACTOR_INCLUDE_DIRS}
 )
+
+if(REACTOR_LIBS)
+    target_link_libraries(katana_core PUBLIC ${REACTOR_LIBS})
+endif()
 
 option(ENABLE_TESTING "Enable testing" ON)
 option(ENABLE_BENCHMARKS "Enable benchmarks" OFF)
