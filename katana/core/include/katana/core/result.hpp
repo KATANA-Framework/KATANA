@@ -24,7 +24,7 @@ public:
     constexpr explicit unexpected(const E& error) : error_(error) {}
     constexpr explicit unexpected(E&& error) : error_(std::move(error)) {}
 
-    constexpr const E& error() const& noexcept { return error_; }
+    [[nodiscard]] constexpr const E& error() const& noexcept { return error_; }
     constexpr E& error() & noexcept { return error_; }
     constexpr E&& error() && noexcept { return std::move(error_); }
 
@@ -151,7 +151,7 @@ public:
         if (!has_value_) throw std::logic_error("bad expected access");
     }
 
-    constexpr const E& error() const& {
+    [[nodiscard]] constexpr const E& error() const& {
         if (has_value_) throw std::logic_error("bad expected error access");
         return error_;
     }
@@ -231,24 +231,25 @@ enum class error_code : int {
 
 class error_category : public std::error_category {
 public:
-    const char* name() const noexcept override { return "katana"; }
+    [[nodiscard]] const char* name() const noexcept override { return "katana"; }
 
-    std::string message(int ev) const override {
-        switch (static_cast<error_code>(ev)) {
-            case error_code::ok: return "success";
-            case error_code::epoll_create_failed: return "epoll_create failed";
-            case error_code::epoll_ctl_failed: return "epoll_ctl failed";
-            case error_code::epoll_wait_failed: return "epoll_wait failed";
-            case error_code::invalid_fd: return "invalid file descriptor";
-            case error_code::reactor_stopped: return "reactor is stopped";
-            case error_code::timeout: return "operation timed out";
+    [[nodiscard]] std::string message(int ev) const override {
+        using ec = error_code;
+        switch (static_cast<ec>(ev)) {
+            case ec::ok: return "success";
+            case ec::epoll_create_failed: return "epoll_create failed";
+            case ec::epoll_ctl_failed: return "epoll_ctl failed";
+            case ec::epoll_wait_failed: return "epoll_wait failed";
+            case ec::invalid_fd: return "invalid file descriptor";
+            case ec::reactor_stopped: return "reactor is stopped";
+            case ec::timeout: return "operation timed out";
             default: return "unknown error";
         }
     }
 };
 
 inline const error_category& get_error_category() {
-    static error_category instance;
+    static error_category const instance;
     return instance;
 }
 

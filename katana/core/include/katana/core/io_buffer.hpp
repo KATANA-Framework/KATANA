@@ -33,12 +33,12 @@ public:
     std::span<uint8_t> writable_span(size_t size);
     void commit(size_t bytes);
 
-    std::span<const uint8_t> readable_span() const noexcept;
+    [[nodiscard]] std::span<const uint8_t> readable_span() const noexcept;
     void consume(size_t bytes);
 
-    size_t size() const noexcept { return write_pos_ - read_pos_; }
-    size_t capacity() const noexcept { return buffer_.size(); }
-    bool empty() const noexcept { return read_pos_ == write_pos_; }
+    [[nodiscard]] size_t size() const noexcept { return write_pos_ - read_pos_; }
+    [[nodiscard]] size_t capacity() const noexcept { return buffer_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return read_pos_ == write_pos_; }
 
     void clear() noexcept;
     void reserve(size_t new_capacity);
@@ -61,8 +61,8 @@ public:
 
     void add_buffer(std::span<uint8_t> buf);
 
-    const iovec* iov() const noexcept { return iovecs_.data(); }
-    size_t count() const noexcept { return iovecs_.size(); }
+    [[nodiscard]] const iovec* iov() const noexcept { return iovecs_.data(); }
+    [[nodiscard]] size_t count() const noexcept { return iovecs_.size(); }
 
     void clear() noexcept;
 
@@ -80,8 +80,8 @@ public:
 
     void add_buffer(std::span<const uint8_t> buf);
 
-    const iovec* iov() const noexcept { return iovecs_.data(); }
-    size_t count() const noexcept { return iovecs_.size(); }
+    [[nodiscard]] const iovec* iov() const noexcept { return iovecs_.data(); }
+    [[nodiscard]] size_t count() const noexcept { return iovecs_.size(); }
 
     void clear() noexcept;
 

@@ -35,12 +35,12 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
             continue;
         }
 
-        void* ptr = b.data.get() + b.used;
+        void* ptr = b.data.data() + b.used;
         size_t space = b.size - b.used;
         void* aligned_ptr = std::align(alignment, bytes, ptr, space);
 
         if (aligned_ptr && space >= bytes) {
-            std::ptrdiff_t padding_diff = static_cast<uint8_t*>(aligned_ptr) - (b.data.get() + b.used);
+            std::ptrdiff_t padding_diff = static_cast<uint8_t*>(aligned_ptr) - (b.data.data() + b.used);
             size_t padding = static_cast<size_t>(padding_diff);
             if (padding > SIZE_MAX - bytes || b.used > SIZE_MAX - (padding + bytes)) {
                 throw std::bad_alloc();
@@ -55,7 +55,7 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
     allocate_new_block(block_size);
 
     auto& b = blocks_.back();
-    void* ptr = b.data.get();
+    void* ptr = b.data.data();
     size_t space = b.size;
     void* aligned_ptr = std::align(alignment, bytes, ptr, space);
 
@@ -63,7 +63,7 @@ void* monotonic_arena::do_allocate(size_t bytes, size_t alignment) {
         throw std::bad_alloc();
     }
 
-    std::ptrdiff_t padding_diff = static_cast<uint8_t*>(aligned_ptr) - b.data.get();
+    std::ptrdiff_t padding_diff = static_cast<uint8_t*>(aligned_ptr) - b.data.data();
     size_t padding = static_cast<size_t>(padding_diff);
     if (padding > SIZE_MAX - bytes) {
         throw std::bad_alloc();
@@ -83,8 +83,7 @@ bool monotonic_arena::do_is_equal(const memory_resource& other) const noexcept {
 }
 
 void monotonic_arena::allocate_new_block(size_t min_size) {
-    auto data = std::make_unique<uint8_t[]>(min_size);
-    blocks_.push_back(block{std::move(data), min_size, 0});
+    blocks_.push_back(block{std::vector<uint8_t>(min_size), min_size, 0});
     total_capacity_ += min_size;
 }
 

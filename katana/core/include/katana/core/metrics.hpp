@@ -41,7 +41,7 @@ struct reactor_metrics {
         tasks_rejected.store(0, std::memory_order_relaxed);
     }
 
-    metrics_snapshot snapshot() const {
+    [[nodiscard]] metrics_snapshot snapshot() const {
         return metrics_snapshot{
             tasks_executed.load(std::memory_order_relaxed),
             tasks_scheduled.load(std::memory_order_relaxed),

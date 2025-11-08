@@ -8,8 +8,8 @@ namespace katana {
 
 struct limits_config {
     uint64_t max_fds = 65536;
-    uint64_t max_body_size = 10 * 1024 * 1024;  // 10MB
-    uint64_t max_header_size = 8 * 1024;         // 8KB
+    uint64_t max_body_size = 10ULL * 1024ULL * 1024ULL;
+    uint64_t max_header_size = 8ULL * 1024ULL;
 };
 
 class system_limits {

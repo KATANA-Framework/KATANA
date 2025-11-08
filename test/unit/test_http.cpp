@@ -15,7 +15,7 @@ TEST(HttpParser, ParseSimpleGetRequest) {
     EXPECT_EQ(*result, parser::state::complete);
 
     const auto& req = p.get_request();
-    EXPECT_EQ(req.http_method, method::GET);
+    EXPECT_EQ(req.http_method, method::get);
     EXPECT_EQ(req.uri, "/index.html");
     EXPECT_EQ(req.version, "HTTP/1.1");
     EXPECT_EQ(req.headers.size(), 1);
@@ -40,7 +40,7 @@ TEST(HttpParser, ParsePostRequestWithBody) {
     EXPECT_EQ(*result, parser::state::complete);
 
     const auto& req = p.get_request();
-    EXPECT_EQ(req.http_method, method::POST);
+    EXPECT_EQ(req.http_method, method::post);
     EXPECT_EQ(req.uri, "/api/data");
     EXPECT_EQ(req.body, "{\"key\":\"val\"}");
     EXPECT_EQ(req.header("Content-Type").value_or(""), "application/json");
@@ -53,13 +53,13 @@ TEST(HttpParser, ParseAllMethods) {
     };
 
     std::vector<test_case> cases = {
-        {"GET", method::GET},
-        {"POST", method::POST},
-        {"PUT", method::PUT},
-        {"DELETE", method::DELETE},
-        {"PATCH", method::PATCH},
-        {"HEAD", method::HEAD},
-        {"OPTIONS", method::OPTIONS},
+        {"GET", method::get},
+        {"POST", method::post},
+        {"PUT", method::put},
+        {"DELETE", method::del},
+        {"PATCH", method::patch},
+        {"HEAD", method::head},
+        {"OPTIONS", method::options},
     };
 
     for (const auto& tc : cases) {
@@ -120,7 +120,7 @@ TEST(HttpParser, ParseIncrementalData) {
     EXPECT_EQ(*result3, parser::state::complete);
 
     const auto& req = p.get_request();
-    EXPECT_EQ(req.http_method, method::GET);
+    EXPECT_EQ(req.http_method, method::get);
     EXPECT_EQ(req.uri, "/test");
 }
 
@@ -246,25 +246,25 @@ TEST(HttpResponse, CustomHeaders) {
 }
 
 TEST(HttpMethod, ParseMethod) {
-    EXPECT_EQ(parse_method("GET"), method::GET);
-    EXPECT_EQ(parse_method("POST"), method::POST);
-    EXPECT_EQ(parse_method("PUT"), method::PUT);
-    EXPECT_EQ(parse_method("DELETE"), method::DELETE);
-    EXPECT_EQ(parse_method("PATCH"), method::PATCH);
-    EXPECT_EQ(parse_method("HEAD"), method::HEAD);
-    EXPECT_EQ(parse_method("OPTIONS"), method::OPTIONS);
-    EXPECT_EQ(parse_method("INVALID"), method::UNKNOWN);
+    EXPECT_EQ(parse_method("GET"), method::get);
+    EXPECT_EQ(parse_method("POST"), method::post);
+    EXPECT_EQ(parse_method("PUT"), method::put);
+    EXPECT_EQ(parse_method("DELETE"), method::del);
+    EXPECT_EQ(parse_method("PATCH"), method::patch);
+    EXPECT_EQ(parse_method("HEAD"), method::head);
+    EXPECT_EQ(parse_method("OPTIONS"), method::options);
+    EXPECT_EQ(parse_method("INVALID"), method::unknown);
 }
 
 TEST(HttpMethod, MethodToString) {
-    EXPECT_EQ(method_to_string(method::GET), "GET");
-    EXPECT_EQ(method_to_string(method::POST), "POST");
-    EXPECT_EQ(method_to_string(method::PUT), "PUT");
-    EXPECT_EQ(method_to_string(method::DELETE), "DELETE");
-    EXPECT_EQ(method_to_string(method::PATCH), "PATCH");
-    EXPECT_EQ(method_to_string(method::HEAD), "HEAD");
-    EXPECT_EQ(method_to_string(method::OPTIONS), "OPTIONS");
-    EXPECT_EQ(method_to_string(method::UNKNOWN), "UNKNOWN");
+    EXPECT_EQ(method_to_string(method::get), "GET");
+    EXPECT_EQ(method_to_string(method::post), "POST");
+    EXPECT_EQ(method_to_string(method::put), "PUT");
+    EXPECT_EQ(method_to_string(method::del), "DELETE");
+    EXPECT_EQ(method_to_string(method::patch), "PATCH");
+    EXPECT_EQ(method_to_string(method::head), "HEAD");
+    EXPECT_EQ(method_to_string(method::options), "OPTIONS");
+    EXPECT_EQ(method_to_string(method::unknown), "UNKNOWN");
 }
 
 TEST(HttpParser, ParseMultilineHeaderFoldingSpace) {

@@ -84,8 +84,8 @@ public:
     void wait();
 
     epoll_reactor& get_reactor(size_t index);
-    size_t reactor_count() const noexcept { return reactors_.size(); }
-    size_t size() const noexcept { return reactors_.size(); }
+    [[nodiscard]] size_t reactor_count() const noexcept { return reactors_.size(); }
+    [[nodiscard]] size_t size() const noexcept { return reactors_.size(); }
 
     epoll_reactor& operator[](size_t index) { return get_reactor(index); }
     const epoll_reactor& operator[](size_t index) const {
@@ -94,12 +94,16 @@ public:
 
     iterator begin() { return iterator(reactors_.begin()); }
     iterator end() { return iterator(reactors_.end()); }
-    const_iterator begin() const { return const_iterator(const_cast<reactor_pool*>(this)->reactors_.begin()); }
-    const_iterator end() const { return const_iterator(const_cast<reactor_pool*>(this)->reactors_.end()); }
+    [[nodiscard]] const_iterator begin() const {
+        return const_iterator(const_cast<reactor_pool*>(this)->reactors_.begin());
+    }
+    [[nodiscard]] const_iterator end() const {
+        return const_iterator(const_cast<reactor_pool*>(this)->reactors_.end());
+    }
 
     size_t select_reactor() noexcept;
 
-    metrics_snapshot aggregate_metrics() const;
+    [[nodiscard]] metrics_snapshot aggregate_metrics() const;
 
 private:
     size_t select_least_loaded() noexcept;
