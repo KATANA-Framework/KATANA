@@ -106,7 +106,23 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < nfds; ++i) {
             auto* conn = static_cast<connection_state*>(events[static_cast<size_t>(i)].data.ptr);
 
-            if (events[static_cast<size_t>(i)].events & EPOLLOUT) {
+            // Handle received responses first
+            if (events[static_cast<size_t>(i)].events & EPOLLIN) {
+                while (true) {
+                    ssize_t received = recv(conn->fd, conn->buffer, sizeof(conn->buffer), MSG_DONTWAIT);
+                    if (received > 0) {
+                        conn->responses_received++;
+                        conn->waiting_for_response = false;
+                        total_responses++;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            // Try to send more requests after receiving responses (edge-triggered requires this)
+            if ((events[static_cast<size_t>(i)].events & EPOLLOUT) ||
+                (events[static_cast<size_t>(i)].events & EPOLLIN)) {
                 while (total_requests < target_requests && !conn->waiting_for_response) {
                     ssize_t sent = send(conn->fd, request, request_len, MSG_DONTWAIT);
                     if (sent > 0) {
@@ -118,22 +134,13 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-
-            if (events[static_cast<size_t>(i)].events & EPOLLIN) {
-                ssize_t received = recv(conn->fd, conn->buffer, sizeof(conn->buffer), MSG_DONTWAIT);
-                if (received > 0) {
-                    conn->responses_received++;
-                    conn->waiting_for_response = false;
-                    total_responses++;
-                }
-            }
         }
 
         // Print progress
         if (total_responses % 10000 == 0 && total_responses > 0) {
-            auto now = std::chrono::high_resolution_clock::now();
-            double elapsed = std::chrono::duration<double>(now - start).count();
-            double rps = static_cast<double>(total_responses) / elapsed;
+            auto progress_now = std::chrono::high_resolution_clock::now();
+            double progress_elapsed = std::chrono::duration<double>(progress_now - start).count();
+            double rps = static_cast<double>(total_responses) / progress_elapsed;
             std::cout << "\rProgress: " << total_responses << " / " << target_requests
                       << " (" << static_cast<int>(rps) << " req/s)" << std::flush;
         }
