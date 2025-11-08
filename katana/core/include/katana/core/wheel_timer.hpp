@@ -57,7 +57,7 @@ public:
         return make_id(handle);
     }
 
-    bool cancel(timeout_id id) {
+    [[nodiscard]] bool cancel(timeout_id id) {
         auto [index, generation] = decode_id(id);
         if (index >= entries_.size()) {
             return false;
@@ -76,6 +76,10 @@ public:
                           return h.index == index && h.generation == generation;
                       }),
                       handles.end());
+
+        if (handles.capacity() > handles.size() * 4 && handles.capacity() > 64) {
+            handles.shrink_to_fit();
+        }
 
         return true;
     }
