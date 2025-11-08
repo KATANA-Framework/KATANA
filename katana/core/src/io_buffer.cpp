@@ -62,9 +62,6 @@ void io_buffer::clear() noexcept {
 void io_buffer::reserve(size_t new_capacity) {
     if (new_capacity > buffer_.capacity()) {
         buffer_.reserve(new_capacity);
-        if (buffer_.size() < write_pos_) {
-            buffer_.resize(write_pos_);
-        }
     }
 }
 

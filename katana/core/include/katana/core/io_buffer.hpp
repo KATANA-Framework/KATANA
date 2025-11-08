@@ -37,7 +37,7 @@ public:
     void consume(size_t bytes);
 
     [[nodiscard]] size_t size() const noexcept { return write_pos_ - read_pos_; }
-    [[nodiscard]] size_t capacity() const noexcept { return buffer_.size(); }
+    [[nodiscard]] size_t capacity() const noexcept { return buffer_.capacity(); }
     [[nodiscard]] bool empty() const noexcept { return read_pos_ == write_pos_; }
 
     void clear() noexcept;

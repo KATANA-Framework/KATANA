@@ -185,9 +185,14 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                     } else {
                         auto cl = request_.header("Content-Length");
                         if (cl) {
+                            std::string_view cl_view = *cl;
+                            while (!cl_view.empty() && (cl_view.back() == ' ' || cl_view.back() == '\t')) {
+                                cl_view.remove_suffix(1);
+                            }
+
                             unsigned long long val = 0;
-                            auto [ptr, ec] = std::from_chars(cl->data(), cl->data() + cl->size(), val);
-                            if (ec != std::errc() || ptr != cl->data() + cl->size() ||
+                            auto [ptr, ec] = std::from_chars(cl_view.data(), cl_view.data() + cl_view.size(), val);
+                            if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() ||
                                 val > SIZE_MAX || val > MAX_BODY_SIZE) {
                                 return std::unexpected(make_error_code(error_code::invalid_fd));
                             }
@@ -242,6 +247,13 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             auto semicolon = chunk_line.find(';');
             if (semicolon != std::string_view::npos) {
                 chunk_line = chunk_line.substr(0, semicolon);
+            }
+
+            while (!chunk_line.empty() && (chunk_line.back() == ' ' || chunk_line.back() == '\t')) {
+                chunk_line.remove_suffix(1);
+            }
+            while (!chunk_line.empty() && (chunk_line.front() == ' ' || chunk_line.front() == '\t')) {
+                chunk_line.remove_prefix(1);
             }
 
             unsigned long long chunk_val = 0;
