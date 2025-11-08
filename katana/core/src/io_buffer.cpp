@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cerrno>
 #include <limits.h>
+#include <cassert>
 
 #ifdef __linux__
 #include <sys/uio.h>
@@ -65,7 +66,11 @@ void io_buffer::reserve(size_t new_capacity) {
 }
 
 void io_buffer::compact_if_needed() {
+    // Only compact if we've consumed a significant amount and fragmentation is high
     if (read_pos_ >= COMPACT_THRESHOLD && read_pos_ > size()) {
+        // Validate invariant: write_pos_ must be >= read_pos_ to prevent integer underflow
+        assert(write_pos_ >= read_pos_ && "Buffer invariant violated: write_pos_ < read_pos_");
+
         size_t data_size = write_pos_ - read_pos_;
         if (data_size > 0) {
             std::memmove(buffer_.data(), buffer_.data() + read_pos_, data_size);

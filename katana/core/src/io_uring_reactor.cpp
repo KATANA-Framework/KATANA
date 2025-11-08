@@ -1,4 +1,5 @@
 #include "katana/core/io_uring_reactor.hpp"
+#include "katana/core/scoped_fd.hpp"
 
 #include <poll.h>
 #include <sys/eventfd.h>
@@ -84,8 +85,9 @@ io_uring_reactor::io_uring_reactor(size_t ring_size, size_t max_pending_tasks)
         );
     }
 
-    wakeup_fd_ = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    if (wakeup_fd_ < 0) {
+    // Use RAII wrapper for exception safety - will auto-cleanup if construction fails
+    scoped_fd wakeup_fd(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
+    if (!wakeup_fd.is_valid()) {
         io_uring_queue_exit(&ring_);
         throw std::system_error(
             errno,
@@ -95,9 +97,12 @@ io_uring_reactor::io_uring_reactor(size_t ring_size, size_t max_pending_tasks)
     }
 
     fd_states_.reserve(65536);
+
+    // Everything succeeded, release ownership from RAII wrapper
+    wakeup_fd_ = wakeup_fd.release();
 }
 
-io_uring_reactor::~io_uring_reactor() {
+io_uring_reactor::~io_uring_reactor() noexcept {
     if (wakeup_fd_ >= 0) {
         close(wakeup_fd_);
     }

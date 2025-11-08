@@ -6,6 +6,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 namespace katana {
@@ -29,7 +30,10 @@ public:
     }
 
     timeout_id add(duration timeout, callback_fn cb) {
-        assert(cb && "Callback must be valid");
+        // Validate callback - use exception instead of assert for release builds
+        if (!cb) {
+            throw std::invalid_argument("wheel_timer::add: callback must be valid");
+        }
 
         if (timeout.count() <= 0) {
             timeout = duration{1};
