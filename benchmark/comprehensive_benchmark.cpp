@@ -154,39 +154,62 @@ std::pair<bool, int64_t> send_http_request(int32_t sockfd, const std::string& re
 }
 
 void core_performance_plaintext_throughput(benchmark_reporter& reporter, const char* host, uint16_t port) {
-    std::cout << "\n[1/30] Core Performance: Plaintext throughput...\n";
+    std::cout << "[1/30] Core Performance: Plaintext throughput...\n";
 
     std::vector<size_t> reactor_counts = {1, 2, 4, 8};
     const size_t requests_per_thread = 1000;
 
     for (size_t num_threads : reactor_counts) {
         std::atomic<size_t> total_requests{0};
+        std::atomic<size_t> active_threads{num_threads};
         std::atomic<bool> start_flag{false};
         std::vector<std::thread> threads;
 
         for (size_t i = 0; i < num_threads; ++i) {
-            threads.emplace_back([&]() {
+            threads.emplace_back([&, i]() {
                 while (!start_flag.load()) std::this_thread::yield();
 
                 int32_t sockfd = create_connection(host, port);
-                if (sockfd < 0) return;
+                if (sockfd < 0) {
+                    std::cerr << "  Thread " << i << " failed to connect\n";
+                    active_threads.fetch_sub(1);
+                    return;
+                }
 
                 std::string request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n";
+                size_t failures = 0;
                 for (size_t j = 0; j < requests_per_thread; ++j) {
                     auto [success, _] = send_http_request(sockfd, request);
-                    if (success) total_requests.fetch_add(1);
+                    if (success) {
+                        total_requests.fetch_add(1);
+                        failures = 0;
+                    } else {
+                        failures++;
+                        if (failures >= 5) break;
+                    }
                 }
                 close(sockfd);
+                active_threads.fetch_sub(1);
             });
         }
 
         auto start = std::chrono::high_resolution_clock::now();
         start_flag.store(true);
+
+        // Wait with timeout
+        auto timeout = std::chrono::seconds(30);
+        auto deadline = std::chrono::steady_clock::now() + timeout;
+        while (active_threads.load() > 0 && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
         for (auto& t : threads) t.join();
         auto end = std::chrono::high_resolution_clock::now();
 
         double duration_s = std::chrono::duration<double>(end - start).count();
         double rps = static_cast<double>(total_requests.load()) / duration_s;
+
+        std::cout << "  " << num_threads << " threads: " << static_cast<int>(rps) << " req/s\n";
 
         reporter.add("Core Performance",
                      "Plaintext throughput (" + std::to_string(num_threads) + " reactors)",
