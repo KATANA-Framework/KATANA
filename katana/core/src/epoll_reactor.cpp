@@ -85,7 +85,7 @@ epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
     }
 
     last_wheel_tick_ = std::chrono::steady_clock::now();
-    events_buffer_.resize(max_events_);
+    events_buffer_.resize(static_cast<size_t>(max_events_));
 }
 
 epoll_reactor::~epoll_reactor() {
@@ -279,7 +279,7 @@ bool epoll_reactor::schedule_after(
 }
 
 result<void> epoll_reactor::process_events(int32_t timeout_ms) {
-    events_buffer_.resize(max_events_);
+    events_buffer_.resize(static_cast<size_t>(max_events_));
 
     int32_t nfds = epoll_wait(epoll_fd_, events_buffer_.data(), max_events_, timeout_ms);
 
@@ -291,10 +291,10 @@ result<void> epoll_reactor::process_events(int32_t timeout_ms) {
     }
 
     for (int32_t i = 0; i < nfds; ++i) {
-        int32_t fd = events_buffer_[i].data.fd;
+        int32_t fd = events_buffer_[static_cast<size_t>(i)].data.fd;
         auto it = fd_states_.find(fd);
         if (it != fd_states_.end()) {
-            event_type ev = from_epoll_events(events_buffer_[i].events);
+            event_type ev = from_epoll_events(events_buffer_[static_cast<size_t>(i)].events);
 
             if (it->second.has_timeout) {
                 it->second.last_activity = std::chrono::steady_clock::now();
