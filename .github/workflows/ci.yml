@@ -37,6 +37,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        if [[ "${{ matrix.compiler.cc }}" == "gcc-13" && "${{ matrix.os }}" == "ubuntu-24.04" ]]; then
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+        fi
         if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
           sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} liburing-dev libc++-18-dev libc++abi-18-dev
         else
