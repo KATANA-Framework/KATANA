@@ -17,7 +17,12 @@ add_compile_options(
 )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_compile_options(-O3 -DNDEBUG)
+    add_compile_options(
+        -O3
+        -DNDEBUG
+        -march=native
+        -mtune=native
+    )
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-O0 -g)
