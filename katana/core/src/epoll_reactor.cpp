@@ -1,4 +1,5 @@
 #include "katana/core/epoll_reactor.hpp"
+#include "katana/core/scoped_fd.hpp"
 
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -79,8 +80,9 @@ epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
         std::cerr << "\n";
     })
 {
-    epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
-    if (epoll_fd_ < 0) {
+    // Use RAII wrappers for exception safety during construction
+    scoped_fd epoll_fd(epoll_create1(EPOLL_CLOEXEC));
+    if (!epoll_fd.is_valid()) {
         throw std::system_error(
             errno,
             std::system_category(),
@@ -88,9 +90,8 @@ epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
         );
     }
 
-    wakeup_fd_ = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    if (wakeup_fd_ < 0) {
-        close(epoll_fd_);
+    scoped_fd wakeup_fd(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
+    if (!wakeup_fd.is_valid()) {
         throw std::system_error(
             errno,
             std::system_category(),
@@ -100,10 +101,8 @@ epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
 
     epoll_event ev{};
     ev.events = EPOLLIN | EPOLLET;
-    ev.data.fd = wakeup_fd_;
-    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, wakeup_fd_, &ev) < 0) {
-        close(wakeup_fd_);
-        close(epoll_fd_);
+    ev.data.fd = wakeup_fd.get();
+    if (epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, wakeup_fd.get(), &ev) < 0) {
         throw std::system_error(
             errno,
             std::system_category(),
@@ -112,11 +111,14 @@ epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
     }
 
     fd_states_.reserve(65536);
-
     events_buffer_.resize(static_cast<size_t>(max_events_));
+
+    // Everything succeeded, release ownership from RAII wrappers
+    epoll_fd_ = epoll_fd.release();
+    wakeup_fd_ = wakeup_fd.release();
 }
 
-epoll_reactor::~epoll_reactor() {
+epoll_reactor::~epoll_reactor() noexcept {
     if (wakeup_fd_ >= 0) {
         close(wakeup_fd_);
     }
