@@ -129,9 +129,6 @@ result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
     ssize_t result = readv(fd, const_cast<iovec*>(sg.iov()), iov_count);
 
     if (result < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return 0;
-        }
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
@@ -149,9 +146,6 @@ result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
     ssize_t result = writev(fd, sg.iov(), iov_count);
 
     if (result < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return 0;
-        }
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 

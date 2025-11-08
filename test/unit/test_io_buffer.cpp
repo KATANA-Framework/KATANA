@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cstring>
+#include <cerrno>
 
 using namespace katana;
 
@@ -246,6 +247,46 @@ TEST(VectoredIO, PartialRead) {
     auto result = read_vectored(pipefd[0], sg);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(*result, 3);
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
+TEST(VectoredIO, ReadWouldBlockReturnsError) {
+    int pipefd[2];
+    ASSERT_EQ(pipe2(pipefd, O_NONBLOCK), 0);
+
+    scatter_gather_read sg;
+    std::vector<uint8_t> buffer(16);
+    sg.add_buffer(std::span<uint8_t>(buffer));
+
+    auto result = read_vectored(pipefd[0], sg);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().value(), EAGAIN);
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
+TEST(VectoredIO, WriteWouldBlockReturnsError) {
+    int pipefd[2];
+    ASSERT_EQ(pipe2(pipefd, O_NONBLOCK), 0);
+
+    scatter_gather_write sg;
+    std::vector<uint8_t> buffer(4096, 0x42);
+    sg.add_buffer(std::span<const uint8_t>(buffer));
+
+    size_t iterations = 0;
+    while (true) {
+        auto result = write_vectored(pipefd[1], sg);
+        if (!result) {
+            EXPECT_EQ(result.error().value(), EAGAIN);
+            break;
+        }
+
+        EXPECT_GT(*result, 0U);
+        ASSERT_LT(++iterations, 1024U);
+    }
 
     close(pipefd[0]);
     close(pipefd[1]);
