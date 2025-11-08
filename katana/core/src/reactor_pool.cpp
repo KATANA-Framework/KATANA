@@ -73,10 +73,10 @@ size_t reactor_pool::select_least_loaded() noexcept {
     }
 
     size_t min_load_idx = 0;
-    uint64_t min_load = reactors_[0]->load_score.load(std::memory_order_relaxed);
+    uint64_t min_load = reactors_[0]->reactor->metrics().snapshot().fd_events_processed;
 
     for (size_t i = 1; i < reactors_.size(); ++i) {
-        uint64_t load = reactors_[i]->load_score.load(std::memory_order_relaxed);
+        uint64_t load = reactors_[i]->reactor->metrics().snapshot().fd_events_processed;
         if (load < min_load) {
             min_load = load;
             min_load_idx = i;

@@ -193,8 +193,25 @@ response response::error(const problem_details& problem) {
 }
 
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
-    if (data.size() > MAX_BUFFER_SIZE || buffer_.size() > MAX_BUFFER_SIZE - data.size()) {
+    size_t max_safe_size = std::min(MAX_BUFFER_SIZE, buffer_.max_size());
+    if (data.size() > max_safe_size || buffer_.size() > max_safe_size - data.size()) [[unlikely]] {
         return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    if (state_ == state::request_line || state_ == state::headers) [[likely]] {
+        for (size_t i = 0; i < data.size(); ++i) {
+            uint8_t byte = data[i];
+            if (byte == 0 || byte >= 0x80) [[unlikely]] {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+            if (byte == '\n') [[unlikely]] {
+                size_t buf_pos = buffer_.size() + i;
+                if (buf_pos == 0 || (buf_pos > 0 &&
+                    (buf_pos - 1 < buffer_.size() ? buffer_[buf_pos - 1] : data[i - 1]) != '\r')) {
+                    return std::unexpected(make_error_code(error_code::invalid_fd));
+                }
+            }
+        }
     }
 
     buffer_.append(static_cast<const char*>(static_cast<const void*>(data.data())), data.size());
@@ -497,15 +514,12 @@ void parser::compact_buffer() {
         buffer_.clear();
         parse_pos_ = 0;
     } else if (parse_pos_ > COMPACT_THRESHOLD / 2) {
-        // Optimized: use memmove-based erase only when necessary
-        size_t remaining = buffer_.size() - parse_pos_;
-        if (remaining > 0) {
-            memmove(buffer_.data(), buffer_.data() + parse_pos_, remaining);
-            buffer_.resize(remaining);
-        } else {
-            buffer_.clear();
-        }
+        buffer_.erase(buffer_.begin(), buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_));
         parse_pos_ = 0;
+
+        if (buffer_.capacity() > buffer_.size() * 2 && buffer_.capacity() > 8192) {
+            buffer_.shrink_to_fit();
+        }
     }
 }
 

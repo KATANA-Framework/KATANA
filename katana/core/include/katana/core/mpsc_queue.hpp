@@ -92,7 +92,7 @@ private:
     alignas(64) std::atomic<node*> head_;
     alignas(64) node* tail_;
     alignas(64) std::atomic<size_t> size_{0};
-    const size_t max_size_;  // 0 means unlimited
+    alignas(64) const size_t max_size_;  // 0 means unlimited
 };
 
 } // namespace katana
