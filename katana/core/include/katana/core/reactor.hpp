@@ -31,35 +31,35 @@ class reactor {
 public:
     virtual ~reactor() = default;
 
-    virtual result<void> run() = 0;
+    [[nodiscard]] virtual result<void> run() = 0;
     virtual void stop() = 0;
     virtual void graceful_stop(std::chrono::milliseconds timeout = std::chrono::milliseconds(30000)) = 0;
 
-    virtual result<void> register_fd(
+    [[nodiscard]] virtual result<void> register_fd(
         int32_t fd,
         event_type events,
         event_callback callback
     ) = 0;
 
-    virtual result<void> register_fd_with_timeout(
+    [[nodiscard]] virtual result<void> register_fd_with_timeout(
         int32_t fd,
         event_type events,
         event_callback callback,
         const timeout_config& config
     ) = 0;
 
-    virtual result<void> modify_fd(
+    [[nodiscard]] virtual result<void> modify_fd(
         int32_t fd,
         event_type events
     ) = 0;
 
-    virtual result<void> unregister_fd(int32_t fd) = 0;
+    [[nodiscard]] virtual result<void> unregister_fd(int32_t fd) = 0;
 
     virtual void refresh_fd_timeout(int32_t fd) = 0;
 
-    virtual bool schedule(task_fn task) = 0;
+    [[nodiscard]] virtual bool schedule(task_fn task) = 0;
 
-    virtual bool schedule_after(
+    [[nodiscard]] virtual bool schedule_after(
         std::chrono::milliseconds delay,
         task_fn task
     ) = 0;

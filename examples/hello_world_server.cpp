@@ -89,6 +89,7 @@ struct connection {
     size_t requests_on_connection = 0;
     bool writing_response = false;
     bool should_close_after_write = false;
+    epoll_reactor* reactor = nullptr;
 
     connection()
         : arena(ARENA_BLOCK_SIZE)
@@ -101,6 +102,9 @@ struct connection {
     void safe_close() {
         int32_t expected_fd = fd.exchange(-1, std::memory_order_acq_rel);
         if (expected_fd >= 0) {
+            if (reactor) {
+                reactor->unregister_fd(expected_fd);
+            }
             close(expected_fd);
             active_connections.fetch_sub(1, std::memory_order_relaxed);
         }
@@ -315,6 +319,7 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
 
         size_t reactor_idx = pool.select_reactor();
         auto& r = pool.get_reactor(reactor_idx);
+        conn->reactor = &r;
 
         timeout_config timeouts{
             std::chrono::milliseconds(30000),
