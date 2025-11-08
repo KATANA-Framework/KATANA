@@ -36,74 +36,77 @@ public:
             next_id_ = 1;
         }
 
-        slots_[target_slot].entries.push_back({id, std::move(cb), ticks});
-        id_to_slot_[id] = target_slot;
+        slots_[target_slot].entry_ids.push_back(id);
+        entries_[id] = {std::move(cb), ticks, target_slot};
         return id;
     }
 
     bool cancel(timeout_id id) {
-        auto slot_it = id_to_slot_.find(id);
-        if (slot_it == id_to_slot_.end()) {
+        auto it = entries_.find(id);
+        if (it == entries_.end()) {
             return false;
         }
 
-        size_t const slot_idx = slot_it->second;
-        auto& entries = slots_[slot_idx].entries;
-        auto it = std::find_if(entries.begin(), entries.end(),
-            [id](const entry& e) { return e.id == id; });
+        size_t slot_idx = it->second.slot_idx;
+        auto& slot_ids = slots_[slot_idx].entry_ids;
 
-        if (it != entries.end()) {
-            entries.erase(it);
-            id_to_slot_.erase(slot_it);
-            return true;
+        // Mark as cancelled by removing from entries map
+        // The slot's entry_ids will be cleaned during tick()
+        entries_.erase(it);
+
+        // Optionally: eagerly remove from slot for better memory usage
+        auto slot_it = std::find(slot_ids.begin(), slot_ids.end(), id);
+        if (slot_it != slot_ids.end()) {
+            slot_ids.erase(slot_it);
         }
 
-        id_to_slot_.erase(slot_it);
-        return false;
+        return true;
     }
 
     void tick() {
         auto& current = slots_[current_slot_];
 
-        for (auto& e : current.entries) {
-            id_to_slot_.erase(e.id);
+        for (timeout_id id : current.entry_ids) {
+            auto it = entries_.find(id);
+            if (it == entries_.end()) {
+                continue;
+            }
 
+            auto& e = it->second;
             if (e.remaining_ticks <= 1) {
-                e.callback();
+                auto cb = std::move(e.callback);
+                entries_.erase(it);
+                cb();
             } else {
                 e.remaining_ticks--;
                 size_t slot_offset = std::min(e.remaining_ticks, WHEEL_SIZE - 1);
                 size_t new_slot = (current_slot_ + slot_offset) % WHEEL_SIZE;
-                id_to_slot_[e.id] = new_slot;
-                slots_[new_slot].entries.push_back(std::move(e));
+                e.slot_idx = new_slot;
+                slots_[new_slot].entry_ids.push_back(id);
             }
         }
 
-        current.entries.clear();
+        current.entry_ids.clear();
         current_slot_ = (current_slot_ + 1) % WHEEL_SIZE;
     }
 
     size_t pending_count() const {
-        size_t count = 0;
-        for (const auto& s : slots_) {
-            count += s.entries.size();
-        }
-        return count;
+        return entries_.size();
     }
 
 private:
     struct entry {
-        timeout_id id;
         callback_fn callback;
         size_t remaining_ticks;
+        size_t slot_idx;
     };
 
     struct slot {
-        std::vector<entry> entries;
+        std::vector<timeout_id> entry_ids;
     };
 
     std::vector<slot> slots_;
-    std::unordered_map<timeout_id, size_t> id_to_slot_;
+    std::unordered_map<timeout_id, entry> entries_;
     size_t current_slot_;
     timeout_id next_id_;
 };
