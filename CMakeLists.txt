@@ -17,8 +17,22 @@ add_compile_options(
 )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_compile_options(-O3 -DNDEBUG)
+    add_compile_options(
+        -O3
+        -DNDEBUG
+        -march=native
+        -mtune=native
+        -ffast-math
+        -funroll-loops
+        -finline-functions
+        -fomit-frame-pointer
+    )
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-flto=thin)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(-flto)
+    endif()
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-O0 -g)
 elseif(CMAKE_BUILD_TYPE STREQUAL "ASan")
