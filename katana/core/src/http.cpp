@@ -1,4 +1,5 @@
 #include "katana/core/http.hpp"
+#include "katana/core/simd_utils.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -250,14 +251,13 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
     while (state_ != state::complete) {
         if (state_ == state::request_line || state_ == state::headers) {
             size_t pos = std::string::npos;
-            const void* found = memmem(
+            const char* found = simd::find_crlf(
                 buffer_.data() + parse_pos_,
-                buffer_.size() - parse_pos_,
-                "\r\n", 2
+                buffer_.size() - parse_pos_
             );
 
             if (found) {
-                pos = static_cast<size_t>(static_cast<const char*>(found) - buffer_.data());
+                pos = static_cast<size_t>(found - buffer_.data());
 
                 for (size_t i = parse_pos_; i <= pos; ++i) {
                     unsigned char c = static_cast<unsigned char>(buffer_[i]);
@@ -274,7 +274,9 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 return state_;
             }
 
-            std::string_view line(buffer_.data() + parse_pos_, pos - parse_pos_);
+            const char* line_start = buffer_.data() + parse_pos_;
+            size_t line_len = pos - parse_pos_;
+            std::string_view line(line_start, line_len);
 
             parse_pos_ = pos + 2;
 
@@ -328,8 +330,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                         if (contains_invalid_header_value(folded_view)) {
                             return std::unexpected(make_error_code(error_code::invalid_fd));
                         }
-                        std::string new_value = std::string(*current_value) + " " + std::string(folded_view);
-                        request_.headers.set(last_header_name_, new_value);
+                        std::string new_value;
+                        new_value.reserve(current_value->size() + 1 + folded_view.size());
+                        new_value.append(*current_value);
+                        new_value.push_back(' ');
+                        new_value.append(folded_view);
+                        request_.headers.set(last_header_name_, std::move(new_value));
                     } else {
                         auto res = parse_header_line(line);
                         if (!res) {
@@ -341,7 +347,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         } else if (state_ == state::body) {
             size_t remaining = buffer_.size() - parse_pos_;
             if (remaining >= content_length_) {
-                request_.body = std::string(buffer_.data() + parse_pos_, content_length_);
+                request_.body.assign(buffer_.data() + parse_pos_, content_length_);
                 parse_pos_ += content_length_;
                 state_ = state::complete;
             } else {
@@ -349,13 +355,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             }
         } else if (state_ == state::chunk_size) {
             size_t pos = std::string::npos;
-            const void* found = memmem(
+            const char* found = simd::find_crlf(
                 buffer_.data() + parse_pos_,
-                buffer_.size() - parse_pos_,
-                "\r\n", 2
+                buffer_.size() - parse_pos_
             );
             if (found) {
-                pos = static_cast<size_t>(static_cast<const char*>(found) - buffer_.data());
+                pos = static_cast<size_t>(found - buffer_.data());
             }
 
             if (pos == std::string::npos) {
@@ -399,14 +404,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         } else if (state_ == state::chunk_data) {
             size_t remaining = buffer_.size() - parse_pos_;
             if (remaining >= current_chunk_size_ + 2) {
-                if (buffer_[parse_pos_ + current_chunk_size_] != '\r' ||
-                    buffer_[parse_pos_ + current_chunk_size_ + 1] != '\n') {
+                const char* chunk_start = buffer_.data() + parse_pos_;
+                if (chunk_start[current_chunk_size_] != '\r' ||
+                    chunk_start[current_chunk_size_ + 1] != '\n') {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
-                // Optimized: avoid substr temp copy, use insert directly
-                chunked_body_.insert(chunked_body_.end(),
-                    buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_),
-                    buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_ + current_chunk_size_));
+                chunked_body_.append(chunk_start, current_chunk_size_);
                 parse_pos_ += current_chunk_size_ + 2;
                 state_ = state::chunk_size;
             } else {
@@ -414,13 +417,12 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             }
         } else if (state_ == state::chunk_trailer) {
             size_t pos = std::string::npos;
-            const void* found = memmem(
+            const char* found = simd::find_crlf(
                 buffer_.data() + parse_pos_,
-                buffer_.size() - parse_pos_,
-                "\r\n", 2
+                buffer_.size() - parse_pos_
             );
             if (found) {
-                pos = static_cast<size_t>(static_cast<const char*>(found) - buffer_.data());
+                pos = static_cast<size_t>(found - buffer_.data());
             }
 
             if (pos == std::string::npos) {
