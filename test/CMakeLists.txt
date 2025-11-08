@@ -1,14 +1,7 @@
 include(FetchContent)
 
-FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.14.0
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
 add_executable(unit_tests
+    main.cpp
     unit/test_reactor.cpp
     unit/test_reactor_pool.cpp
     unit/test_http.cpp
@@ -20,20 +13,32 @@ add_executable(unit_tests
 
 target_link_libraries(unit_tests
     katana_core
-    GTest::gtest_main
     pthread
 )
 
+target_include_directories(unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_executable(integration_tests
+    main.cpp
     integration/test_http_server.cpp
 )
 
 target_link_libraries(integration_tests
     katana_core
-    GTest::gtest_main
     pthread
 )
 
-include(GoogleTest)
-gtest_discover_tests(unit_tests)
-gtest_discover_tests(integration_tests)
+target_include_directories(integration_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_custom_target(run_unit_tests
+    COMMAND unit_tests
+    DEPENDS unit_tests
+)
+
+add_custom_target(run_integration_tests
+    COMMAND integration_tests
+    DEPENDS integration_tests
+)
+
+add_test(NAME unit_tests COMMAND unit_tests)
+add_test(NAME integration_tests COMMAND integration_tests)
