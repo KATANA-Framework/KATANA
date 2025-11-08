@@ -119,6 +119,8 @@ public:
 
 private:
     struct slot {
+        slot() : sequence(0) {}
+
         alignas(64) std::atomic<size_t> sequence;
         alignas(alignof(T)) std::byte storage[sizeof(T)];
     };
