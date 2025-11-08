@@ -2,6 +2,10 @@
 #include "katana/core/cpu_info.hpp"
 
 #include <iostream>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <cerrno>
 
 namespace katana {
 
@@ -73,10 +77,10 @@ size_t reactor_pool::select_least_loaded() noexcept {
     }
 
     size_t min_load_idx = 0;
-    uint64_t min_load = reactors_[0]->reactor->metrics().snapshot().fd_events_processed;
+    uint64_t min_load = reactors_[0]->reactor->get_load_score();
 
     for (size_t i = 1; i < reactors_.size(); ++i) {
-        uint64_t load = reactors_[i]->reactor->metrics().snapshot().fd_events_processed;
+        uint64_t load = reactors_[i]->reactor->get_load_score();
         if (load < min_load) {
             min_load = load;
             min_load_idx = i;
@@ -106,6 +110,34 @@ void reactor_pool::worker_thread(reactor_context* ctx) {
     if (!result) {
         std::cerr << "[reactor_pool] Reactor error: " << result.error().message() << "\n";
     }
+}
+
+int32_t reactor_pool::create_listener_socket_reuseport(uint16_t port) {
+    int32_t fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    if (fd < 0) {
+        return -1;
+    }
+
+    int opt = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    if (bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+        close(fd);
+        return -1;
+    }
+
+    if (listen(fd, 1024) < 0) {
+        close(fd);
+        return -1;
+    }
+
+    return fd;
 }
 
 } // namespace katana
