@@ -1,5 +1,6 @@
 #include "katana/core/io_uring_reactor.hpp"
 
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <cerrno>
@@ -72,9 +73,9 @@ io_uring_reactor::io_uring_reactor(size_t ring_size, size_t max_pending_tasks)
 {
     io_uring_params params{};
     params.flags = IORING_SETUP_CQSIZE;
-    params.cq_entries = ring_size * 2;
+    params.cq_entries = static_cast<__u32>(ring_size * 2);
 
-    int ret = io_uring_queue_init_params(ring_size, &ring_, &params);
+    int ret = io_uring_queue_init_params(static_cast<unsigned int>(ring_size), &ring_, &params);
     if (ret < 0) {
         throw std::system_error(
             -ret,
@@ -378,7 +379,7 @@ result<void> io_uring_reactor::submit_poll_remove(int32_t fd) {
         return std::unexpected(make_error_code(error_code::reactor_stopped));
     }
 
-    io_uring_prep_poll_remove(sqe, reinterpret_cast<void*>(static_cast<uintptr_t>(fd)));
+    io_uring_prep_poll_remove(sqe, static_cast<__u64>(static_cast<uintptr_t>(fd)));
 
     int ret = io_uring_submit(&ring_);
     if (ret < 0) {
