@@ -109,7 +109,7 @@ private:
     size_t header_count_ = 0;
     bool is_chunked_ = false;
 
-    static constexpr size_t COMPACT_THRESHOLD = 4096;
+    static constexpr size_t COMPACT_THRESHOLD = 2048;
 };
 
 method parse_method(std::string_view str);

@@ -347,6 +347,7 @@ bool epoll_reactor::schedule_after(
         return false;
     }
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    timeout_dirty_ = true;
 
     uint64_t val = 1;
     ssize_t ret;
@@ -441,15 +442,25 @@ void epoll_reactor::process_timers() {
 
 int32_t epoll_reactor::calculate_timeout() const {
     if (!pending_tasks_.empty()) {
+        timeout_dirty_ = true;
         return 0;
     }
 
     auto now = std::chrono::steady_clock::now();
+
+    if (!timeout_dirty_) {
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - timeout_cached_at_);
+        if (elapsed.count() < 5 && cached_timeout_ > 0) {
+            return std::max(0, cached_timeout_ - static_cast<int32_t>(elapsed.count()));
+        }
+    }
+
     auto min_timeout = std::chrono::milliseconds::max();
 
     if (!timers_.empty()) {
         auto deadline = timers_.top().deadline;
         if (deadline <= now) {
+            timeout_dirty_ = true;
             return 0;
         }
         auto delta = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
@@ -458,6 +469,7 @@ int32_t epoll_reactor::calculate_timeout() const {
 
     auto wheel_timeout = wheel_timer_.time_until_next_expiration(now);
     if (wheel_timeout == std::chrono::milliseconds::zero()) {
+        timeout_dirty_ = true;
         return 0;
     }
     if (wheel_timeout != std::chrono::milliseconds::max()) {
@@ -467,21 +479,28 @@ int32_t epoll_reactor::calculate_timeout() const {
     if (graceful_shutdown_.load(std::memory_order_relaxed)) {
         auto graceful_timeout = time_until_graceful_deadline(now);
         if (graceful_timeout.count() <= 0) {
+            timeout_dirty_ = true;
             return 0;
         }
         min_timeout = std::min(min_timeout, graceful_timeout);
     }
 
+    int32_t result;
     if (min_timeout == std::chrono::milliseconds::max()) {
-        return -1;
+        result = -1;
+    } else {
+        auto clamped = std::min<int64_t>(
+            min_timeout.count(),
+            static_cast<int64_t>(std::numeric_limits<int32_t>::max())
+        );
+        result = static_cast<int32_t>(clamped);
     }
 
-    auto clamped = std::min<int64_t>(
-        min_timeout.count(),
-        static_cast<int64_t>(std::numeric_limits<int32_t>::max())
-    );
+    cached_timeout_ = result;
+    timeout_cached_at_ = now;
+    timeout_dirty_ = false;
 
-    return static_cast<int32_t>(clamped);
+    return result;
 }
 
 void epoll_reactor::set_exception_handler(exception_handler handler) {
