@@ -23,7 +23,7 @@ public:
         size_t ring_size = DEFAULT_RING_SIZE,
         size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS
     );
-    ~io_uring_reactor() override;
+    ~io_uring_reactor() noexcept override;
 
     io_uring_reactor(const io_uring_reactor&) = delete;
     io_uring_reactor& operator=(const io_uring_reactor&) = delete;

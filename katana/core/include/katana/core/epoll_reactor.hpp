@@ -19,7 +19,7 @@ public:
     static constexpr size_t DEFAULT_MAX_PENDING_TASKS = 10000;
 
     explicit epoll_reactor(int32_t max_events = 128, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
-    ~epoll_reactor() override;
+    ~epoll_reactor() noexcept override;
 
     epoll_reactor(const epoll_reactor&) = delete;
     epoll_reactor& operator=(const epoll_reactor&) = delete;
