@@ -290,6 +290,8 @@ void epoll_reactor::refresh_fd_timeout(int32_t fd) {
     if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
         fd_states_[static_cast<size_t>(fd)].has_timeout) {
         fd_states_[static_cast<size_t>(fd)].last_activity = std::chrono::steady_clock::now();
+        cancel_fd_timeout(fd_states_[static_cast<size_t>(fd)]);
+        setup_fd_timeout(fd, fd_states_[static_cast<size_t>(fd)]);
     }
 }
 
@@ -481,21 +483,11 @@ void epoll_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
         [this, fd]() {
             if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
                 fd_states_[static_cast<size_t>(fd)].callback) {
-                auto& entry = fd_states_[static_cast<size_t>(fd)];
-                auto now = std::chrono::steady_clock::now();
-                auto effective_timeout = fd_timeout_for(entry);
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    now - entry.last_activity);
-                auto tolerance = std::chrono::milliseconds(5);
-                if (elapsed + tolerance < effective_timeout) {
-                    cancel_fd_timeout(entry);
-                    setup_fd_timeout(fd, entry);
-                    return;
-                }
-
                 try {
-                    entry.callback(event_type::timeout);
-                    metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
+                    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+                    close(fd);
+                    fd_states_[static_cast<size_t>(fd)].callback(event_type::timeout);
+                    fd_states_[static_cast<size_t>(fd)] = fd_state{};
                 } catch (...) {
                     handle_exception("timeout_handler", std::current_exception(), fd);
                 }

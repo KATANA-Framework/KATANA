@@ -302,7 +302,7 @@ TEST_F(ReactorTest, RegisterFdWithTimeout) {
     bool timed_out = false;
 
     katana::timeout_config config;
-    config.read_timeout = std::chrono::milliseconds(100);
+    config.idle_timeout = std::chrono::milliseconds(100);
 
     auto result = reactor_->register_fd_with_timeout(
         pipefd[0],
@@ -341,7 +341,7 @@ TEST_F(ReactorTest, RefreshFdTimeout) {
     int refresh_count = 0;
 
     katana::timeout_config config;
-    config.read_timeout = std::chrono::milliseconds(100);
+    config.idle_timeout = std::chrono::milliseconds(1000);
 
     auto result = reactor_->register_fd_with_timeout(
         pipefd[0],
