@@ -116,6 +116,7 @@ result<void> io_uring_reactor::run() {
             uint64_t val;
             ssize_t ret = read(wakeup_fd_, &val, sizeof(val));
             (void)ret;
+            needs_wakeup_.store(true, std::memory_order_relaxed);
         }
     );
     if (!wakeup_res) {
@@ -214,6 +215,7 @@ result<void> io_uring_reactor::register_fd(
     state.has_timeout = false;
     state.registered = true;
 
+    active_fds_.fetch_add(1, std::memory_order_relaxed);
     return submit_poll_add(fd, events);
 }
 
@@ -249,6 +251,7 @@ result<void> io_uring_reactor::register_fd_with_timeout(
     }
 
     fd_states_[static_cast<size_t>(fd)] = std::move(state);
+    active_fds_.fetch_add(1, std::memory_order_relaxed);
     return {};
 }
 
@@ -292,6 +295,7 @@ result<void> io_uring_reactor::unregister_fd(int32_t fd) {
     }
 
     fd_states_[static_cast<size_t>(fd)] = fd_state{};
+    active_fds_.fetch_sub(1, std::memory_order_relaxed);
     return {};
 }
 
@@ -310,18 +314,22 @@ bool io_uring_reactor::schedule(task_fn task) {
         return false;
     }
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    pending_count_.fetch_add(1, std::memory_order_relaxed);
 
-    uint64_t val = 1;
-    ssize_t ret;
-    do {
-        ret = write(wakeup_fd_, &val, sizeof(val));
-    } while (ret < 0 && errno == EINTR);
+    bool expected = false;
+    if (needs_wakeup_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+        uint64_t val = 1;
+        ssize_t ret;
+        do {
+            ret = write(wakeup_fd_, &val, sizeof(val));
+        } while (ret < 0 && errno == EINTR);
 
-    if (ret < 0 && errno != EAGAIN) {
-        handle_exception(
-            "schedule_wakeup",
-            std::make_exception_ptr(std::system_error(errno, std::system_category(), "eventfd write failed"))
-        );
+        if (ret < 0 && errno != EAGAIN) {
+            handle_exception(
+                "schedule_wakeup",
+                std::make_exception_ptr(std::system_error(errno, std::system_category(), "eventfd write failed"))
+            );
+        }
     }
 
     return true;
@@ -462,7 +470,12 @@ result<void> io_uring_reactor::process_completions(int32_t timeout_ms) {
 }
 
 void io_uring_reactor::process_tasks() {
-    while (auto task = pending_tasks_.pop()) {
+    uint32_t to_process = pending_count_.exchange(0, std::memory_order_relaxed);
+    needs_wakeup_.store(false, std::memory_order_release);
+
+    for (uint32_t i = 0; i < to_process; ++i) {
+        auto task = pending_tasks_.pop();
+        if (!task) break;
         try {
             (*task)();
             metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
@@ -561,13 +574,7 @@ void io_uring_reactor::set_exception_handler(exception_handler handler) {
 }
 
 uint64_t io_uring_reactor::get_load_score() const noexcept {
-    size_t active_fds = 0;
-    for (const auto& state : fd_states_) {
-        if (state.callback) {
-            ++active_fds;
-        }
-    }
-
+    size_t active_fds = active_fds_.load(std::memory_order_relaxed);
     size_t pending_tasks = pending_tasks_.size();
     size_t pending_timers_count = pending_timers_.size();
 

@@ -2,7 +2,7 @@
 
 #include "reactor.hpp"
 #include "metrics.hpp"
-#include "mpsc_queue.hpp"
+#include "ring_buffer_queue.hpp"
 #include "wheel_timer.hpp"
 #include "timeout.hpp"
 
@@ -66,13 +66,19 @@ public:
 private:
     using fd_wheel_timer = wheel_timer<2048, 8>;
 
-    struct fd_state {
+    struct alignas(64) fd_state {
+        // Hot data - frequently accessed
         event_callback callback;
         event_type events;
-        timeout_config timeouts;
         fd_wheel_timer::timeout_id timeout_id = 0;
-        Timeout activity_timer;
         bool has_timeout = false;
+
+        // Cold data - rarely accessed
+        char padding1[64 - sizeof(event_callback) - sizeof(event_type) -
+                      sizeof(fd_wheel_timer::timeout_id) - sizeof(bool)];
+
+        timeout_config timeouts;
+        Timeout activity_timer;
     };
 
     struct timer_entry {
@@ -104,10 +110,13 @@ private:
     std::chrono::steady_clock::time_point graceful_shutdown_deadline_;
 
     std::vector<fd_state> fd_states_;
-    mpsc_queue<task_fn> pending_tasks_;
+    ring_buffer_queue<task_fn> pending_tasks_;
     std::priority_queue<timer_entry, std::vector<timer_entry>, std::greater<timer_entry>> timers_;
-    mpsc_queue<timer_entry> pending_timers_;
+    ring_buffer_queue<timer_entry> pending_timers_;
 
+    alignas(64) std::atomic<size_t> active_fds_{0};
+    alignas(64) std::atomic<bool> needs_wakeup_{false};
+    alignas(64) std::atomic<uint32_t> pending_count_{0};
     exception_handler exception_handler_;
     reactor_metrics metrics_;
 
