@@ -111,6 +111,10 @@ private:
 
     fd_wheel_timer wheel_timer_;
     std::vector<epoll_event> events_buffer_;
+
+    mutable int32_t cached_timeout_ = -1;
+    mutable std::chrono::steady_clock::time_point timeout_cached_at_;
+    mutable bool timeout_dirty_ = true;
 };
 
 } // namespace katana
