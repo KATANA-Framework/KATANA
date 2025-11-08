@@ -134,17 +134,20 @@ bool send_request(int32_t sockfd) {
 }
 
 void worker_thread(latency_tracker& tracker, const char* host, uint16_t port,
-                  size_t requests_per_thread, std::atomic<bool>& start_flag) {
+                  size_t requests_per_thread, std::atomic<bool>& start_flag,
+                  std::atomic<size_t>& active_threads) {
     while (!start_flag.load()) {
         std::this_thread::yield();
     }
 
     int32_t sockfd = create_connection(host, port);
     if (sockfd < 0) {
-        std::cerr << "Failed to connect\n";
+        std::cerr << "Thread failed to connect to " << host << ":" << port << "\n";
+        active_threads.fetch_sub(1);
         return;
     }
 
+    size_t consecutive_failures = 0;
     for (size_t i = 0; i < requests_per_thread; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         bool success = send_request(sockfd);
@@ -152,9 +155,24 @@ void worker_thread(latency_tracker& tracker, const char* host, uint16_t port,
 
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
         tracker.record(duration, success);
+
+        if (!success) {
+            consecutive_failures++;
+            if (consecutive_failures >= 10) {
+                std::cerr << "Thread stopping after 10 consecutive failures\n";
+                break;
+            }
+        } else {
+            consecutive_failures = 0;
+        }
+
+        if (i > 0 && i % 100 == 0) {
+            std::cout << "." << std::flush;
+        }
     }
 
     close(sockfd);
+    active_threads.fetch_sub(1);
 }
 
 int32_t main(int32_t argc, char* argv[]) {
@@ -177,21 +195,39 @@ int32_t main(int32_t argc, char* argv[]) {
     std::cout << "Total requests: " << total_requests << "\n";
     std::cout << "Threads: " << num_threads << "\n";
     std::cout << "Requests per thread: " << requests_per_thread << "\n";
+
+    std::cout << "\nTesting connection to server...\n";
+    int32_t test_fd = create_connection(host, port);
+    if (test_fd < 0) {
+        std::cerr << "ERROR: Cannot connect to server at " << host << ":" << port << "\n";
+        std::cerr << "Please start the server first.\n";
+        return 1;
+    }
+    close(test_fd);
+    std::cout << "Connection successful!\n";
+
     std::cout << "\nStarting benchmark...\n";
 
     latency_tracker tracker;
     std::vector<std::thread> threads;
     std::atomic<bool> start_flag{false};
+    std::atomic<size_t> active_threads{num_threads};
 
     for (size_t i = 0; i < num_threads; ++i) {
         threads.emplace_back(worker_thread, std::ref(tracker), host, port,
-                           requests_per_thread, std::ref(start_flag));
+                           requests_per_thread, std::ref(start_flag), std::ref(active_threads));
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     auto benchmark_start = std::chrono::high_resolution_clock::now();
     start_flag.store(true);
+
+    // Monitor active threads
+    while (active_threads.load() > 0) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << "\nActive threads: " << active_threads.load() << " / " << num_threads << std::flush;
+    }
 
     for (auto& t : threads) {
         t.join();
