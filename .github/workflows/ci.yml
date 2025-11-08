@@ -37,13 +37,13 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        if [[ "${{ matrix.compiler.cc }}" == "gcc-13" && "${{ matrix.os }}" == "ubuntu-24.04" ]]; then
+        if [[ "${{ matrix.compiler.cc }}" == "gcc-13" ]]; then
           sudo apt-get install -y software-properties-common
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
         fi
         if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
-          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} liburing-dev libc++-18-dev libc++abi-18-dev
+          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} clang-tools-18 liburing-dev libc++-18-dev libc++abi-18-dev
         else
           sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} liburing-dev
         fi
@@ -52,12 +52,14 @@ jobs:
       if: matrix.sanitizer == 'none'
       run: |
         if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
-            -DENABLE_TESTING=ON
+            -DENABLE_TESTING=ON \
+            ${SCAN_DEPS_FLAGS}
         else
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
@@ -71,6 +73,7 @@ jobs:
       if: matrix.sanitizer == 'asan'
       run: |
         if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
@@ -78,7 +81,8 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
             -DENABLE_TESTING=ON \
             -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
-            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
+            ${SCAN_DEPS_FLAGS}
         else
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
@@ -94,6 +98,7 @@ jobs:
       if: matrix.sanitizer == 'tsan'
       run: |
         if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
@@ -101,7 +106,8 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
             -DENABLE_TESTING=ON \
             -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
-            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
+            ${SCAN_DEPS_FLAGS}
         else
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
@@ -117,6 +123,7 @@ jobs:
       if: matrix.sanitizer == 'ubsan'
       run: |
         if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
@@ -124,7 +131,8 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
             -DENABLE_TESTING=ON \
             -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g" \
-            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined"
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined" \
+            ${SCAN_DEPS_FLAGS}
         else
           cmake -B ${{github.workspace}}/build \
             -G Ninja \
@@ -153,16 +161,18 @@ jobs:
     - name: Install Clang
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-18 cmake ninja-build liburing-dev libc++-18-dev libc++abi-18-dev
+        sudo apt-get install -y clang-18 clang-tools-18 cmake ninja-build liburing-dev libc++-18-dev libc++abi-18-dev
 
     - name: Build Fuzzers
       run: |
+        SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
         cmake -B ${{github.workspace}}/build \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_C_COMPILER=clang-18 \
           -DCMAKE_CXX_COMPILER=clang++-18 \
-          -DENABLE_FUZZING=ON
+          -DENABLE_FUZZING=ON \
+          ${SCAN_DEPS_FLAGS}
         cmake --build ${{github.workspace}}/build --target http_parser_fuzz
 
     - name: Run Fuzzers (short run)
