@@ -10,9 +10,7 @@ namespace katana::http {
 
 namespace {
 
-// HTTP protocol constants
-constexpr int HEX_BASE = 16;  // Hexadecimal base for chunked encoding
-
+constexpr int HEX_BASE = 16;
 constexpr std::string_view CHUNKED_ENCODING_HEADER = "Transfer-Encoding: chunked\r\n\r\n";
 constexpr std::string_view CHUNKED_TERMINATOR = "0\r\n\r\n";
 constexpr std::string_view HTTP_VERSION_PREFIX = "HTTP/1.1 ";
@@ -212,53 +210,105 @@ response response::error(const problem_details& problem) {
     return res;
 }
 
+size_t parser::available() const noexcept {
+    if (write_pos_ >= read_pos_) {
+        return write_pos_ - read_pos_;
+    }
+    return RING_BUFFER_SIZE - read_pos_ + write_pos_;
+}
+
+void parser::consume(size_t bytes) noexcept {
+    read_pos_ = (read_pos_ + bytes) % RING_BUFFER_SIZE;
+}
+
+std::string_view parser::get_linear_view(size_t start, size_t len) {
+    size_t abs_start = (read_pos_ + start) % RING_BUFFER_SIZE;
+
+    if (abs_start + len <= RING_BUFFER_SIZE) {
+        return std::string_view(reinterpret_cast<const char*>(&ring_buffer_[abs_start]), len);
+    }
+
+    linearization_buffer_.clear();
+    linearization_buffer_.reserve(len);
+
+    for (size_t i = 0; i < len; ++i) {
+        linearization_buffer_.push_back(static_cast<char>(ring_buffer_[(abs_start + i) % RING_BUFFER_SIZE]));
+    }
+
+    return linearization_buffer_;
+}
+
+const char* parser::find_crlf_in_buffer(size_t from_offset, size_t& out_pos) {
+    size_t avail = available();
+    if (from_offset >= avail || avail - from_offset < 2) {
+        return nullptr;
+    }
+
+    size_t search_len = avail - from_offset;
+    size_t abs_start = (read_pos_ + from_offset) % RING_BUFFER_SIZE;
+
+    if (abs_start + search_len <= RING_BUFFER_SIZE) {
+        const char* found = simd::find_crlf(
+            reinterpret_cast<const char*>(&ring_buffer_[abs_start]),
+            search_len
+        );
+        if (found) {
+            out_pos = from_offset + (found - reinterpret_cast<const char*>(&ring_buffer_[abs_start]));
+            return found;
+        }
+        return nullptr;
+    }
+
+    std::string_view view = get_linear_view(from_offset, search_len);
+    const char* found = simd::find_crlf(view.data(), view.size());
+    if (found) {
+        out_pos = from_offset + (found - view.data());
+        return found;
+    }
+    return nullptr;
+}
+
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
-    size_t max_safe_size = std::min(MAX_BUFFER_SIZE, buffer_.max_size());
-    if (data.size() > max_safe_size || buffer_.size() > max_safe_size - data.size()) [[unlikely]] {
+    if (data.empty()) {
+        return state_;
+    }
+
+    if (data.size() > MAX_BUFFER_SIZE) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    if (state_ == state::request_line || state_ == state::headers) [[likely]] {
-        for (size_t i = 0; i < data.size(); ++i) {
-            uint8_t byte = data[i];
-            if (byte == 0 || byte >= 0x80) [[unlikely]] {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-            if (byte == '\n') [[unlikely]] {
-                size_t buf_pos = buffer_.size() + i;
-                if (buf_pos == 0 || (buf_pos > 0 &&
-                    (buf_pos - 1 < buffer_.size() ? buffer_[buf_pos - 1] : data[i - 1]) != '\r')) {
-                    return std::unexpected(make_error_code(error_code::invalid_fd));
-                }
-            }
-        }
-    }
-
-    buffer_.append(static_cast<const char*>(static_cast<const void*>(data.data())), data.size());
-
-    if (state_ != state::body && state_ != state::chunk_data) {
-        if (buffer_.size() > MAX_HEADER_SIZE) {
-            auto header_end = buffer_.find("\r\n\r\n");
-            if (header_end == std::string::npos || header_end + 4 > MAX_HEADER_SIZE) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-        }
-
-        size_t crlf_pairs = 0;
-        for (size_t i = 0; i + 1 < buffer_.size(); ++i) {
-            if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
-                ++crlf_pairs;
-            }
-        }
-        if (crlf_pairs > MAX_HEADER_COUNT + 2) {
+    if (state_ == state::request_line || state_ == state::headers) {
+        if (!simd::validate_http_chars(reinterpret_cast<const char*>(data.data()), data.size())) {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
-    } else if (buffer_.size() > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
+        if (simd::has_bare_lf(reinterpret_cast<const char*>(data.data()), data.size(), last_char_was_cr_)) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
+        last_char_was_cr_ = (!data.empty() && data[data.size() - 1] == '\r');
+    } else if (state_ == state::body || state_ == state::chunk_data) {
+        last_char_was_cr_ = false;
+    }
+
+    size_t current_avail = available();
+    if (current_avail + data.size() > RING_BUFFER_SIZE) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    for (size_t i = 0; i < data.size(); ++i) {
+        ring_buffer_[write_pos_] = data[i];
+        write_pos_ = (write_pos_ + 1) % RING_BUFFER_SIZE;
+    }
+
+    size_t avail = available();
+    if (state_ != state::body && state_ != state::chunk_data) {
+        if (avail > MAX_HEADER_SIZE) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
     }
 
     while (state_ != state::complete) {
-        size_t old_parse_pos = parse_pos_;
+        size_t old_read_pos = read_pos_;
+
         result<state> next_state = [&]() -> result<state> {
             switch (state_) {
                 case state::request_line:
@@ -284,44 +334,22 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
         state_ = *next_state;
 
-        if (parse_pos_ == old_parse_pos && state_ != state::complete) {
-            if (parse_pos_ > COMPACT_THRESHOLD || buffer_.size() > MAX_HEADER_SIZE * 2) {
-                compact_buffer();
-            }
-            return state_;
+        if (read_pos_ == old_read_pos && state_ != state::complete) {
+            break;
         }
-    }
-
-    if (parse_pos_ > COMPACT_THRESHOLD || buffer_.size() > MAX_HEADER_SIZE * 2) {
-        compact_buffer();
     }
 
     return state_;
 }
 
 result<parser::state> parser::parse_request_line_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
-
-    if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
-        for (size_t i = parse_pos_; i <= pos; ++i) {
-            unsigned char c = static_cast<unsigned char>(buffer_[i]);
-            if (c == '\0' || c >= 0x80) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-            if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-        }
-    }
-
-    if (pos == std::string::npos) {
+    size_t crlf_pos = 0;
+    if (!find_crlf_in_buffer(0, crlf_pos)) {
         return state::request_line;
     }
 
-    std::string_view line(buffer_.data() + parse_pos_, pos - parse_pos_);
-    parse_pos_ = pos + 2;
+    std::string_view line = get_linear_view(0, crlf_pos);
+    consume(crlf_pos + 2);
 
     auto res = process_request_line(line);
     if (!res) {
@@ -332,28 +360,13 @@ result<parser::state> parser::parse_request_line_state() {
 }
 
 result<parser::state> parser::parse_headers_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
-
-    if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
-        for (size_t i = parse_pos_; i <= pos; ++i) {
-            unsigned char c = static_cast<unsigned char>(buffer_[i]);
-            if (c == '\0' || c >= 0x80) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-            if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-        }
-    }
-
-    if (pos == std::string::npos) {
+    size_t crlf_pos = 0;
+    if (!find_crlf_in_buffer(0, crlf_pos)) {
         return state::headers;
     }
 
-    std::string_view line(buffer_.data() + parse_pos_, pos - parse_pos_);
-    parse_pos_ = pos + 2;
+    std::string_view line = get_linear_view(0, crlf_pos);
+    consume(crlf_pos + 2);
 
     if (line.empty()) {
         auto te = request_.header("Transfer-Encoding");
@@ -415,28 +428,24 @@ result<parser::state> parser::parse_headers_state() {
 }
 
 result<parser::state> parser::parse_body_state() {
-    size_t remaining = buffer_.size() - parse_pos_;
-    if (remaining >= content_length_) {
-        request_.body.assign(buffer_.data() + parse_pos_, content_length_);
-        parse_pos_ += content_length_;
+    size_t avail = available();
+    if (avail >= content_length_) {
+        std::string_view body_view = get_linear_view(0, content_length_);
+        request_.body.assign(body_view.data(), content_length_);
+        consume(content_length_);
         return state::complete;
     }
     return state::body;
 }
 
 result<parser::state> parser::parse_chunk_size_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
-    if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
-    }
-
-    if (pos == std::string::npos) {
+    size_t crlf_pos = 0;
+    if (!find_crlf_in_buffer(0, crlf_pos)) {
         return state::chunk_size;
     }
 
-    std::string_view chunk_line(buffer_.data() + parse_pos_, pos - parse_pos_);
-    parse_pos_ = pos + 2;
+    std::string_view chunk_line = get_linear_view(0, crlf_pos);
+    consume(crlf_pos + 2);
 
     auto semicolon = chunk_line.find(';');
     if (semicolon != std::string_view::npos) {
@@ -467,37 +476,33 @@ result<parser::state> parser::parse_chunk_size_state() {
 }
 
 result<parser::state> parser::parse_chunk_data_state() {
-    size_t remaining = buffer_.size() - parse_pos_;
-    if (remaining >= current_chunk_size_ + 2) {
-        const char* chunk_start = buffer_.data() + parse_pos_;
-        if (chunk_start[current_chunk_size_] != '\r' || chunk_start[current_chunk_size_ + 1] != '\n') {
+    size_t avail = available();
+    if (avail >= current_chunk_size_ + 2) {
+        std::string_view chunk_data = get_linear_view(0, current_chunk_size_ + 2);
+
+        if (chunk_data[current_chunk_size_] != '\r' || chunk_data[current_chunk_size_ + 1] != '\n') {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
-        chunked_body_.append(chunk_start, current_chunk_size_);
-        parse_pos_ += current_chunk_size_ + 2;
+
+        chunked_body_.append(chunk_data.data(), current_chunk_size_);
+        consume(current_chunk_size_ + 2);
         return state::chunk_size;
     }
     return state::chunk_data;
 }
 
 result<parser::state> parser::parse_chunk_trailer_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
-    if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
-    }
-
-    if (pos == std::string::npos) {
+    size_t crlf_pos = 0;
+    if (!find_crlf_in_buffer(0, crlf_pos)) {
         return state::chunk_trailer;
     }
 
-    parse_pos_ = pos + 2;
+    consume(crlf_pos + 2);
     request_.body = chunked_body_;
     return state::complete;
 }
 
 result<void> parser::process_request_line(std::string_view line) {
-    // Reject leading or trailing whitespace
     if (line.empty() || line.front() == ' ' || line.front() == '\t' ||
         line.back() == ' ' || line.back() == '\t') {
         return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -545,13 +550,14 @@ result<void> parser::process_header_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    auto colon = line.find(':');
-    if (colon == std::string_view::npos) {
+    const char* colon_ptr = simd::find_char(line.data(), line.size(), ':');
+    if (!colon_ptr) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    auto name = line.substr(0, colon);
-    auto value = line.substr(colon + 1);
+    size_t colon_pos = colon_ptr - line.data();
+    auto name = line.substr(0, colon_pos);
+    auto value = line.substr(colon_pos + 1);
 
     if (name.empty()) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -573,20 +579,6 @@ result<void> parser::process_header_line(std::string_view line) {
     request_.headers.set_view(name, value);
     ++header_count_;
     return {};
-}
-
-void parser::compact_buffer() {
-    if (parse_pos_ >= buffer_.size()) {
-        buffer_.clear();
-        parse_pos_ = 0;
-    } else if (parse_pos_ > COMPACT_THRESHOLD / 2) {
-        buffer_.erase(buffer_.begin(), buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_));
-        parse_pos_ = 0;
-
-        if (buffer_.capacity() > buffer_.size() * 2 && buffer_.capacity() > 8192) {
-            buffer_.shrink_to_fit();
-        }
-    }
 }
 
 } // namespace katana::http

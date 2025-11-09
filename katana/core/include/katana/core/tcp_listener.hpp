@@ -12,14 +12,15 @@ class tcp_listener {
 public:
     tcp_listener() = default;
 
-    explicit tcp_listener(uint16_t port, bool ipv6 = false);
+    static result<tcp_listener> create(uint16_t port, bool ipv6 = false);
 
     tcp_listener(tcp_listener&& other) noexcept
-        : socket_(std::move(other.socket_)) {}
+        : socket_(std::move(other.socket_)), backlog_(other.backlog_) {}
 
     tcp_listener& operator=(tcp_listener&& other) noexcept {
         if (this != &other) {
             socket_ = std::move(other.socket_);
+            backlog_ = other.backlog_;
         }
         return *this;
     }
@@ -42,7 +43,8 @@ public:
     }
 
 private:
-    result<void> create_and_bind(uint16_t port, bool ipv6);
+    explicit tcp_listener(tcp_socket socket, int32_t backlog)
+        : socket_(std::move(socket)), backlog_(backlog) {}
 
     tcp_socket socket_;
     int32_t backlog_{1024};

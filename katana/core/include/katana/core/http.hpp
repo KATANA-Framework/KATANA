@@ -8,15 +8,15 @@
 #include <string_view>
 #include <optional>
 #include <span>
+#include <array>
 
 namespace katana::http {
 
-// Security limits for HTTP parsing
 constexpr size_t MAX_HEADER_SIZE = 8192UL;
 constexpr size_t MAX_BODY_SIZE = 10UL * 1024UL * 1024UL;
 constexpr size_t MAX_URI_LENGTH = 2048UL;
-constexpr size_t MAX_HEADER_COUNT = 100;  // Max number of headers
-constexpr size_t MAX_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;  // Total buffer limit
+constexpr size_t MAX_HEADER_COUNT = 100;
+constexpr size_t MAX_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;
 
 enum class method : uint8_t {
     get,
@@ -74,7 +74,7 @@ struct response {
 
 class parser {
 public:
-    parser() = default;
+    parser() : ring_buffer_(RING_BUFFER_SIZE) {}
 
     enum class state : uint8_t {
         request_line,
@@ -91,7 +91,6 @@ public:
     [[nodiscard]] bool is_complete() const noexcept { return state_ == state::complete; }
     [[nodiscard]] const request& get_request() const noexcept { return request_; }
     request&& take_request() { return std::move(request_); }
-    [[nodiscard]] const std::string& buffer() const noexcept { return buffer_; }
 
 private:
     result<state> parse_request_line_state();
@@ -103,20 +102,27 @@ private:
 
     result<void> process_request_line(std::string_view line);
     result<void> process_header_line(std::string_view line);
-    void compact_buffer();
+
+    [[nodiscard]] std::string_view get_linear_view(size_t start, size_t len);
+    void consume(size_t bytes) noexcept;
+    [[nodiscard]] size_t available() const noexcept;
+    [[nodiscard]] const char* find_crlf_in_buffer(size_t from_offset, size_t& out_pos);
 
     state state_ = state::request_line;
     request request_;
-    std::string buffer_;
     std::string chunked_body_;
     std::string last_header_name_;
-    size_t parse_pos_ = 0;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
     size_t header_count_ = 0;
     bool is_chunked_ = false;
 
-    static constexpr size_t COMPACT_THRESHOLD = 2048;
+    static constexpr size_t RING_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;
+    std::vector<uint8_t> ring_buffer_;
+    size_t read_pos_ = 0;
+    size_t write_pos_ = 0;
+    std::string linearization_buffer_;
+    bool last_char_was_cr_ = false;
 };
 
 method parse_method(std::string_view str);
