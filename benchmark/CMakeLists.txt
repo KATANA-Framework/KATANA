@@ -1,12 +1,12 @@
-add_executable(simple_benchmark simple_benchmark.cpp)
+add_executable(latency_benchmark simple_benchmark.cpp)
 
-target_compile_options(simple_benchmark
+target_compile_options(latency_benchmark
     PRIVATE
         -O3
         -march=native
 )
 
-target_link_libraries(simple_benchmark
+target_link_libraries(latency_benchmark
     PRIVATE
         katana_core
         pthread
