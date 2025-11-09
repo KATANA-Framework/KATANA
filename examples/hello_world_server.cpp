@@ -214,7 +214,7 @@ void handle_client(connection& conn) {
             should_close = true;
         }
 
-        static const char* response_keepalive =
+        constexpr std::string_view RESPONSE_KEEPALIVE =
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: text/plain\r\n"
             "Content-Length: 13\r\n"
@@ -223,7 +223,7 @@ void handle_client(connection& conn) {
             "\r\n"
             "Hello, World!";
 
-        static const char* response_close =
+        constexpr std::string_view RESPONSE_CLOSE =
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: text/plain\r\n"
             "Content-Length: 13\r\n"
@@ -231,12 +231,11 @@ void handle_client(connection& conn) {
             "\r\n"
             "Hello, World!";
 
-        const char* response = should_close ? response_close : response_keepalive;
-        size_t response_len = should_close ? 103 : 136;
+        const auto& response = should_close ? RESPONSE_CLOSE : RESPONSE_KEEPALIVE;
 
         conn.write_buffer.assign(
-            reinterpret_cast<const uint8_t*>(response),
-            reinterpret_cast<const uint8_t*>(response) + response_len
+            response.cbegin(),
+            response.cend()
         );
         conn.write_pos = 0;
 
