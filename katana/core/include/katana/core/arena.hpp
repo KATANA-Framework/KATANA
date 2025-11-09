@@ -2,7 +2,6 @@
 
 #include <memory_resource>
 #include <memory>
-#include <vector>
 #include <string_view>
 #include <string>
 #include <cstdint>
@@ -13,6 +12,7 @@ namespace katana {
 class monotonic_arena : public std::pmr::memory_resource {
 public:
     static constexpr size_t DEFAULT_BLOCK_SIZE = 64UL * 1024UL;
+    static constexpr size_t MAX_BLOCKS = 16;
 
     explicit monotonic_arena(size_t block_size = DEFAULT_BLOCK_SIZE);
     ~monotonic_arena() override;
@@ -34,14 +34,15 @@ protected:
 
 private:
     struct block {
-        std::vector<uint8_t> data;
+        uint8_t* data;
         size_t size;
         size_t used;
     };
 
     void allocate_new_block(size_t min_size);
 
-    std::vector<block> blocks_;
+    block blocks_[MAX_BLOCKS];
+    size_t block_count_ = 0;
     size_t block_size_;
     size_t bytes_allocated_ = 0;
     size_t total_capacity_ = 0;

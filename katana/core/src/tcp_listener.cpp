@@ -9,27 +9,13 @@
 
 namespace katana {
 
-tcp_listener::tcp_listener(uint16_t port, bool ipv6) {
-    auto res = create_and_bind(port, ipv6);
-    if (!res) {
-        socket_ = tcp_socket{};
-        throw std::system_error(res.error(), "failed to create and bind listener");
-    }
-
-    if (::listen(socket_.native_handle(), backlog_) < 0) {
-        auto err = errno;
-        socket_ = tcp_socket{};
-        throw std::system_error(err, std::system_category(), "listen failed");
-    }
-}
-
-result<void> tcp_listener::create_and_bind(uint16_t port, bool ipv6) {
+result<tcp_listener> tcp_listener::create(uint16_t port, bool ipv6) {
     int32_t fd = ::socket(ipv6 ? AF_INET6 : AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (fd < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
-    socket_ = tcp_socket(fd);
+    tcp_socket socket(fd);
 
     int opt = 1;
     if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
@@ -56,7 +42,12 @@ result<void> tcp_listener::create_and_bind(uint16_t port, bool ipv6) {
         }
     }
 
-    return {};
+    constexpr int32_t default_backlog = 1024;
+    if (::listen(fd, default_backlog) < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    return tcp_listener(std::move(socket), default_backlog);
 }
 
 result<tcp_socket> tcp_listener::accept() {
