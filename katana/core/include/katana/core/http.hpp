@@ -9,6 +9,7 @@
 #include <optional>
 #include <span>
 #include <array>
+#include <memory_resource>
 
 namespace katana::http {
 
@@ -31,12 +32,14 @@ enum class method : uint8_t {
 
 struct request {
     method http_method = method::unknown;
-    std::string uri;
-    std::string version;
+    std::pmr::string uri;
+    std::pmr::string version;
     headers_map headers;
-    std::string body;
+    std::pmr::string body;
 
-    request() = default;
+    explicit request(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
+        : uri(resource), version(resource), headers(resource), body(resource) {}
+
     request(request&&) noexcept = default;
     request& operator=(request&&) noexcept = default;
     request(const request&) = default;
@@ -61,7 +64,7 @@ struct response {
     response& operator=(const response&) = default;
 
     void set_header(std::string name, std::string value) {
-        headers.set(std::move(name), std::move(value));
+        headers.set(name, value);
     }
 
     [[nodiscard]] std::string serialize() const;
@@ -74,7 +77,12 @@ struct response {
 
 class parser {
 public:
-    parser() : ring_buffer_(RING_BUFFER_SIZE) {}
+    explicit parser(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
+        : request_(resource),
+          chunked_body_(resource),
+          last_header_name_(resource),
+          ring_buffer_(RING_BUFFER_SIZE, uint8_t{0}, resource),
+          linearization_buffer_(resource) {}
 
     enum class state : uint8_t {
         request_line,
@@ -110,18 +118,18 @@ private:
 
     state state_ = state::request_line;
     request request_;
-    std::string chunked_body_;
-    std::string last_header_name_;
+    std::pmr::string chunked_body_;
+    std::pmr::string last_header_name_;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
     size_t header_count_ = 0;
     bool is_chunked_ = false;
 
     static constexpr size_t RING_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;
-    std::vector<uint8_t> ring_buffer_;
+    std::pmr::vector<uint8_t> ring_buffer_;
     size_t read_pos_ = 0;
     size_t write_pos_ = 0;
-    std::string linearization_buffer_;
+    std::pmr::string linearization_buffer_;
     bool last_char_was_cr_ = false;
 };
 

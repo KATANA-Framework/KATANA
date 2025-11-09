@@ -253,7 +253,7 @@ const char* parser::find_crlf_in_buffer(size_t from_offset, size_t& out_pos) {
             search_len
         );
         if (found) {
-            out_pos = from_offset + (found - reinterpret_cast<const char*>(&ring_buffer_[abs_start]));
+            out_pos = from_offset + static_cast<size_t>(found - reinterpret_cast<const char*>(&ring_buffer_[abs_start]));
             return found;
         }
         return nullptr;
@@ -262,7 +262,7 @@ const char* parser::find_crlf_in_buffer(size_t from_offset, size_t& out_pos) {
     std::string_view view = get_linear_view(from_offset, search_len);
     const char* found = simd::find_crlf(view.data(), view.size());
     if (found) {
-        out_pos = from_offset + (found - view.data());
+        out_pos = from_offset + static_cast<size_t>(found - view.data());
         return found;
     }
     return nullptr;
@@ -297,13 +297,6 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
     for (size_t i = 0; i < data.size(); ++i) {
         ring_buffer_[write_pos_] = data[i];
         write_pos_ = (write_pos_ + 1) % RING_BUFFER_SIZE;
-    }
-
-    size_t avail = available();
-    if (state_ != state::body && state_ != state::chunk_data) {
-        if (avail > MAX_HEADER_SIZE) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
-        }
     }
 
     while (state_ != state::complete) {
@@ -345,7 +338,14 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 result<parser::state> parser::parse_request_line_state() {
     size_t crlf_pos = 0;
     if (!find_crlf_in_buffer(0, crlf_pos)) {
+        if (available() > MAX_HEADER_SIZE) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
         return state::request_line;
+    }
+
+    if (crlf_pos > MAX_URI_LENGTH + 20) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
     std::string_view line = get_linear_view(0, crlf_pos);
@@ -362,7 +362,15 @@ result<parser::state> parser::parse_request_line_state() {
 result<parser::state> parser::parse_headers_state() {
     size_t crlf_pos = 0;
     if (!find_crlf_in_buffer(0, crlf_pos)) {
+        if (available() > MAX_HEADER_SIZE) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
+        }
         return state::headers;
+    }
+
+    constexpr size_t MAX_HEADER_LINE_LENGTH = 8192;
+    if (crlf_pos > MAX_HEADER_LINE_LENGTH) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
     std::string_view line = get_linear_view(0, crlf_pos);
@@ -555,7 +563,7 @@ result<void> parser::process_header_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    size_t colon_pos = colon_ptr - line.data();
+    size_t colon_pos = static_cast<size_t>(colon_ptr - line.data());
     auto name = line.substr(0, colon_pos);
     auto value = line.substr(colon_pos + 1);
 

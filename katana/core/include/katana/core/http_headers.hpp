@@ -7,6 +7,7 @@
 #include <optional>
 #include <algorithm>
 #include <cctype>
+#include <memory_resource>
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -115,6 +116,15 @@ inline std::string to_lower(std::string_view s) {
     return result;
 }
 
+inline std::pmr::string to_lower_pmr(std::string_view s, std::pmr::memory_resource* resource) {
+    std::pmr::string result(resource);
+    result.reserve(s.size());
+    for (char c : s) {
+        result.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    return result;
+}
+
 // Case-insensitive hash functor for heterogeneous lookup (zero-allocation)
 struct ci_hash {
     using is_transparent = void;  // Enable heterogeneous lookup
@@ -145,22 +155,23 @@ struct ci_equal_fn {
 
 class headers_map {
 public:
-    headers_map() = default;
+    explicit headers_map(std::pmr::memory_resource* resource = std::pmr::get_default_resource())
+        : headers_(resource), original_names_(resource) {}
+
     headers_map(headers_map&&) noexcept = default;
     headers_map& operator=(headers_map&&) noexcept = default;
     headers_map(const headers_map&) = default;
     headers_map& operator=(const headers_map&) = default;
 
-    void set(std::string name, std::string value) {
-        std::string lower_key = to_lower(name);
-        original_names_[lower_key] = std::move(name);
-        headers_[std::move(lower_key)] = std::move(value);
+    void set(std::string_view name, std::string_view value) {
+        auto* resource = headers_.get_allocator().resource();
+        std::pmr::string lower_key = to_lower_pmr(name, resource);
+        original_names_[lower_key] = std::pmr::string(name, resource);
+        headers_[std::move(lower_key)] = std::pmr::string(value, resource);
     }
 
     void set_view(std::string_view name, std::string_view value) {
-        std::string lower_key = to_lower(name);
-        original_names_[lower_key] = std::string(name);
-        headers_[std::move(lower_key)] = std::string(value);
+        set(name, value);
     }
 
     [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
@@ -192,26 +203,26 @@ public:
     }
 
     struct iterator {
-        using inner_iterator = std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>::iterator;
+        using inner_iterator = std::pmr::unordered_map<std::pmr::string, std::pmr::string, ci_hash, ci_equal_fn>::iterator;
         inner_iterator it;
-        std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>* original_names;
+        std::pmr::unordered_map<std::pmr::string, std::pmr::string, ci_hash, ci_equal_fn>* original_names;
 
         iterator& operator++() { ++it; return *this; }
         bool operator!=(const iterator& o) const { return it != o.it; }
-        std::pair<const std::string&, std::string&> operator*() {
+        std::pair<const std::pmr::string&, std::pmr::string&> operator*() {
             auto orig_it = original_names->find(it->first);
             return {orig_it->second, it->second};
         }
     };
 
     struct const_iterator {
-        using inner_iterator = std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>::const_iterator;
+        using inner_iterator = std::pmr::unordered_map<std::pmr::string, std::pmr::string, ci_hash, ci_equal_fn>::const_iterator;
         inner_iterator it;
-        const std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>* original_names;
+        const std::pmr::unordered_map<std::pmr::string, std::pmr::string, ci_hash, ci_equal_fn>* original_names;
 
         const_iterator& operator++() { ++it; return *this; }
         bool operator!=(const const_iterator& o) const { return it != o.it; }
-        std::pair<const std::string&, const std::string&> operator*() const {
+        std::pair<const std::pmr::string&, const std::pmr::string&> operator*() const {
             auto orig_it = original_names->find(it->first);
             return {orig_it->second, it->second};
         }
@@ -226,9 +237,8 @@ public:
     [[nodiscard]] bool empty() const noexcept { return headers_.empty(); }
 
 private:
-    // Use custom hash and equal functions for zero-allocation case-insensitive lookup
-    std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn> headers_;
-    std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn> original_names_;
+    std::pmr::unordered_map<std::pmr::string, std::pmr::string, ci_hash, ci_equal_fn> headers_;
+    std::pmr::unordered_map<std::pmr::string, std::pmr::string, ci_hash, ci_equal_fn> original_names_;
 };
 
 } // namespace katana::http

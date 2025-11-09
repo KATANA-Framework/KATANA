@@ -125,13 +125,12 @@ inline const void* find_pattern(const void* haystack, size_t hlen,
 #ifdef KATANA_HAS_AVX2
 inline bool validate_http_chars_avx2(const char* data, size_t len) noexcept {
     const __m256i zero = _mm256_setzero_si256();
-    const __m256i threshold = _mm256_set1_epi8(static_cast<char>(0x80));
 
     size_t i = 0;
     for (; i + 32 <= len; i += 32) {
         __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i));
         __m256i is_zero = _mm256_cmpeq_epi8(chunk, zero);
-        __m256i is_high = _mm256_cmpgt_epi8(chunk, threshold);
+        __m256i is_high = _mm256_cmpgt_epi8(zero, chunk);
         __m256i invalid = _mm256_or_si256(is_zero, is_high);
 
         if (_mm256_movemask_epi8(invalid) != 0) {
@@ -153,13 +152,12 @@ inline bool validate_http_chars_avx2(const char* data, size_t len) noexcept {
 #ifdef KATANA_HAS_SSE2
 inline bool validate_http_chars_sse2(const char* data, size_t len) noexcept {
     const __m128i zero = _mm_setzero_si128();
-    const __m128i threshold = _mm_set1_epi8(static_cast<char>(0x7F));
 
     size_t i = 0;
     for (; i + 16 <= len; i += 16) {
         __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data + i));
         __m128i is_zero = _mm_cmpeq_epi8(chunk, zero);
-        __m128i is_high = _mm_cmpgt_epi8(chunk, threshold);
+        __m128i is_high = _mm_cmpgt_epi8(zero, chunk);
         __m128i invalid = _mm_or_si128(is_zero, is_high);
 
         if (_mm_movemask_epi8(invalid) != 0) {
