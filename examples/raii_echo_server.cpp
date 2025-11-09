@@ -101,12 +101,13 @@ int main(int argc, char* argv[]) {
         port = static_cast<uint16_t>(std::stoul(argv[1]));
     }
 
-    tcp_listener listener(port);
-    if (!listener) {
+    auto listener_result = tcp_listener::create(port);
+    if (!listener_result) {
         std::cerr << "Failed to create listener on port " << port << "\n";
         return 1;
     }
 
+    auto listener = std::move(listener_result.value());
     listener.set_reuseport(true);
 
     reactor_pool_config config;

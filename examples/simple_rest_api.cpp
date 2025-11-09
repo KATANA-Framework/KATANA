@@ -319,12 +319,13 @@ void accept_connection(reactor& r, tcp_listener& listener,
 }
 
 int main() {
-    tcp_listener listener(8080);
-    if (!listener) {
+    auto listener_result = tcp_listener::create(8080);
+    if (!listener_result) {
         std::cerr << "Failed to create listener on port 8080\n";
         return 1;
     }
 
+    auto listener = std::move(listener_result.value());
     listener.set_reuseport(true).set_backlog(1024);
 
     reactor_pool_config config;
