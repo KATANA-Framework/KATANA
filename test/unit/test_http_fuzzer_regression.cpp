@@ -4,10 +4,12 @@
 #include <vector>
 #include <string>
 
+using namespace katana;
 using namespace katana::http;
 
 TEST(HttpFuzzerRegression, EmptyInput) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::vector<uint8_t> empty;
     auto result = p.parse(std::span<const uint8_t>(empty.data(), empty.size()));
     EXPECT_TRUE(result.has_value());
@@ -15,7 +17,8 @@ TEST(HttpFuzzerRegression, EmptyInput) {
 }
 
 TEST(HttpFuzzerRegression, SingleByte) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::vector<uint8_t> data = {'G'};
     auto result = p.parse(std::span<const uint8_t>(data));
     EXPECT_TRUE(result.has_value());
@@ -23,7 +26,8 @@ TEST(HttpFuzzerRegression, SingleByte) {
 }
 
 TEST(HttpFuzzerRegression, IncompleteRequestLine) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string incomplete = "GET ";
     auto data = as_bytes(incomplete);
     auto result = p.parse(data);
@@ -32,7 +36,8 @@ TEST(HttpFuzzerRegression, IncompleteRequestLine) {
 }
 
 TEST(HttpFuzzerRegression, OnlyCRLF) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string crlf = "\r\n";
     auto data = as_bytes(crlf);
     auto result = p.parse(data);
@@ -40,7 +45,8 @@ TEST(HttpFuzzerRegression, OnlyCRLF) {
 }
 
 TEST(HttpFuzzerRegression, RepeatedCRLF) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string repeated = "\r\n\r\n\r\n";
     auto data = as_bytes(repeated);
     auto result = p.parse(data);
@@ -48,21 +54,24 @@ TEST(HttpFuzzerRegression, RepeatedCRLF) {
 }
 
 TEST(HttpFuzzerRegression, NullBytes) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::vector<uint8_t> null_data = {0, 0, 0, 0};
     auto result = p.parse(std::span<const uint8_t>(null_data));
     EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpFuzzerRegression, HighBitCharacters) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::vector<uint8_t> high_bits = {0xFF, 0xFE, 0xFD, 0xFC};
     auto result = p.parse(std::span<const uint8_t>(high_bits));
     EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpFuzzerRegression, VeryLongMethod) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string long_method(10000, 'A');
     long_method += " / HTTP/1.1\r\n\r\n";
     auto data = as_bytes(long_method);
@@ -71,7 +80,8 @@ TEST(HttpFuzzerRegression, VeryLongMethod) {
 }
 
 TEST(HttpFuzzerRegression, MissingSpaceBetweenMethodAndURI) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string no_space = "GET/path HTTP/1.1\r\n\r\n";
     auto data = as_bytes(no_space);
     auto result = p.parse(data);
@@ -79,7 +89,8 @@ TEST(HttpFuzzerRegression, MissingSpaceBetweenMethodAndURI) {
 }
 
 TEST(HttpFuzzerRegression, TabInsteadOfSpace) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string tab_request = "GET\t/path\tHTTP/1.1\r\n\r\n";
     auto data = as_bytes(tab_request);
     auto result = p.parse(data);
@@ -87,7 +98,8 @@ TEST(HttpFuzzerRegression, TabInsteadOfSpace) {
 }
 
 TEST(HttpFuzzerRegression, OnlyLFNoCarriageReturn) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string lf_only = "GET / HTTP/1.1\nHost: example.com\n\n";
     auto data = as_bytes(lf_only);
     auto result = p.parse(data);
@@ -95,7 +107,8 @@ TEST(HttpFuzzerRegression, OnlyLFNoCarriageReturn) {
 }
 
 TEST(HttpFuzzerRegression, MixedLineEndings) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string mixed = "GET / HTTP/1.1\r\nHost: example.com\n\r\n";
     auto data = as_bytes(mixed);
     auto result = p.parse(data);
@@ -103,7 +116,8 @@ TEST(HttpFuzzerRegression, MixedLineEndings) {
 }
 
 TEST(HttpFuzzerRegression, HeaderWithNoValue) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string no_value = "GET / HTTP/1.1\r\nHost:\r\n\r\n";
     auto data = as_bytes(no_value);
     auto result = p.parse(data);
@@ -112,7 +126,8 @@ TEST(HttpFuzzerRegression, HeaderWithNoValue) {
 }
 
 TEST(HttpFuzzerRegression, ColonInHeaderValue) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string colon_value = "GET / HTTP/1.1\r\nX-Header: value:with:colons\r\n\r\n";
     auto data = as_bytes(colon_value);
     auto result = p.parse(data);
@@ -122,7 +137,8 @@ TEST(HttpFuzzerRegression, ColonInHeaderValue) {
 }
 
 TEST(HttpFuzzerRegression, DuplicateHeaders) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string duplicate = "GET / HTTP/1.1\r\n"
                            "Host: first.com\r\n"
                            "Host: second.com\r\n"
@@ -134,7 +150,8 @@ TEST(HttpFuzzerRegression, DuplicateHeaders) {
 }
 
 TEST(HttpFuzzerRegression, ContentLengthMismatch) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string mismatch = "POST / HTTP/1.1\r\n"
                           "Content-Length: 100\r\n"
                           "\r\n"
@@ -146,7 +163,8 @@ TEST(HttpFuzzerRegression, ContentLengthMismatch) {
 }
 
 TEST(HttpFuzzerRegression, NegativeContentLength) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string negative = "POST / HTTP/1.1\r\n"
                           "Content-Length: -1\r\n"
                           "\r\n";
@@ -156,7 +174,8 @@ TEST(HttpFuzzerRegression, NegativeContentLength) {
 }
 
 TEST(HttpFuzzerRegression, HugeContentLength) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string huge = "POST / HTTP/1.1\r\n"
                       "Content-Length: 999999999999999\r\n"
                       "\r\n";
@@ -166,7 +185,8 @@ TEST(HttpFuzzerRegression, HugeContentLength) {
 }
 
 TEST(HttpFuzzerRegression, ChunkedEncodingInvalidSize) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string invalid_chunk = "POST / HTTP/1.1\r\n"
                                "Transfer-Encoding: chunked\r\n"
                                "\r\n"
@@ -177,7 +197,8 @@ TEST(HttpFuzzerRegression, ChunkedEncodingInvalidSize) {
 }
 
 TEST(HttpFuzzerRegression, ChunkedEncodingNegativeSize) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string negative_chunk = "POST / HTTP/1.1\r\n"
                                 "Transfer-Encoding: chunked\r\n"
                                 "\r\n"
@@ -188,14 +209,16 @@ TEST(HttpFuzzerRegression, ChunkedEncodingNegativeSize) {
 }
 
 TEST(HttpFuzzerRegression, URIWithNullByte) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::vector<uint8_t> uri_with_null = {'G', 'E', 'T', ' ', '/', 0, ' ', 'H', 'T', 'T', 'P', '/', '1', '.', '1', '\r', '\n', '\r', '\n'};
     auto result = p.parse(std::span<const uint8_t>(uri_with_null));
     EXPECT_FALSE(result.has_value());
 }
 
 TEST(HttpFuzzerRegression, HeaderNameWithNullByte) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::vector<uint8_t> header_with_null = {'G', 'E', 'T', ' ', '/', ' ', 'H', 'T', 'T', 'P', '/', '1', '.', '1', '\r', '\n',
                                              'X', 0, 'H', ':', ' ', 'v', 'a', 'l', '\r', '\n', '\r', '\n'};
     auto result = p.parse(std::span<const uint8_t>(header_with_null));
@@ -203,7 +226,8 @@ TEST(HttpFuzzerRegression, HeaderNameWithNullByte) {
 }
 
 TEST(HttpFuzzerRegression, TrailingSpacesInRequestLine) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string trailing = "GET / HTTP/1.1    \r\n\r\n";
     auto data = as_bytes(trailing);
     auto result = p.parse(data);
@@ -211,7 +235,8 @@ TEST(HttpFuzzerRegression, TrailingSpacesInRequestLine) {
 }
 
 TEST(HttpFuzzerRegression, LeadingSpacesInRequestLine) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string leading = "    GET / HTTP/1.1\r\n\r\n";
     auto data = as_bytes(leading);
     auto result = p.parse(data);
@@ -219,7 +244,8 @@ TEST(HttpFuzzerRegression, LeadingSpacesInRequestLine) {
 }
 
 TEST(HttpFuzzerRegression, InvalidHTTPVersion) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string invalid_version = "GET / HTTP/99.99\r\n\r\n";
     auto data = as_bytes(invalid_version);
     auto result = p.parse(data);
@@ -227,7 +253,8 @@ TEST(HttpFuzzerRegression, InvalidHTTPVersion) {
 }
 
 TEST(HttpFuzzerRegression, MalformedHTTPVersion) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string malformed_version = "GET / HTTX/1.1\r\n\r\n";
     auto data = as_bytes(malformed_version);
     auto result = p.parse(data);
@@ -235,7 +262,8 @@ TEST(HttpFuzzerRegression, MalformedHTTPVersion) {
 }
 
 TEST(HttpFuzzerRegression, CompleteRequestInMultipleChunks) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::vector<std::string> chunks = {
         "G",
@@ -262,7 +290,8 @@ TEST(HttpFuzzerRegression, CompleteRequestInMultipleChunks) {
 }
 
 TEST(HttpFuzzerRegression, ZeroLengthChunk) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
     std::string zero_chunk = "POST / HTTP/1.1\r\n"
                             "Transfer-Encoding: chunked\r\n"
                             "\r\n"
