@@ -2,6 +2,7 @@
 #include "katana/core/tcp_listener.hpp"
 #include "katana/core/tcp_socket.hpp"
 #include "katana/core/http.hpp"
+#include "katana/core/arena.hpp"
 #include "katana/core/io_buffer.hpp"
 #include "katana/core/fd_watch.hpp"
 #include "katana/core/shutdown.hpp"

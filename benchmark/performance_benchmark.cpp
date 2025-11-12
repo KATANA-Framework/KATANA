@@ -1,5 +1,6 @@
 #include "katana/core/ring_buffer_queue.hpp"
 #include "katana/core/circular_buffer.hpp"
+#include "katana/core/arena.hpp"
 #include "katana/core/simd_utils.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/reactor_pool.hpp"
@@ -231,7 +232,7 @@ benchmark_result benchmark_http_parser() {
     for (size_t i = 0; i < num_operations; ++i) {
         auto op_start = steady_clock::now();
 
-        monotonic_arena arena(8192);
+        monotonic_arena arena;
         http::parser parser(&arena);
         auto data_span = std::span(
             reinterpret_cast<const uint8_t*>(http_request.data()),

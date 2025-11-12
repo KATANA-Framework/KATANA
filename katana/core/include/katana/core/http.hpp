@@ -118,6 +118,8 @@ private:
     char* chunked_body_ = nullptr;
     size_t chunked_body_size_ = 0;
     field last_header_field_ = field::unknown;
+    const char* last_header_name_ = nullptr;
+    size_t last_header_name_len_ = 0;
     size_t parse_pos_ = 0;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;

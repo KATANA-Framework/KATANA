@@ -1,3 +1,4 @@
+#include "katana/core/arena.hpp"
 #include "katana/core/reactor_pool.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/arena.hpp"
@@ -55,7 +56,7 @@ TEST_F(HTTPServerTest, ChunkedEncoding) {
 }
 
 TEST_F(HTTPServerTest, ChunkedParsing) {
-    monotonic_arena arena(8192);
+    monotonic_arena arena;
     http::parser parser(&arena);
 
     std::string request_data =
@@ -80,7 +81,7 @@ TEST_F(HTTPServerTest, ChunkedParsing) {
 }
 
 TEST_F(HTTPServerTest, SizeLimits) {
-    monotonic_arena arena(8192);
+    monotonic_arena arena;
     http::parser parser(&arena);
 
     std::string huge_uri(3000, 'a');
@@ -94,9 +95,9 @@ TEST_F(HTTPServerTest, SizeLimits) {
 TEST_F(HTTPServerTest, ArenaAllocation) {
     monotonic_arena arena(4096);
 
-    arena_vector<uint8_t> buffer{arena_allocator<uint8_t>(&arena)};
-    buffer.resize(1024);
-
+    // Allocate using arena
+    void* buffer = arena.allocate(1024, 1);
+    EXPECT_NE(buffer, nullptr);
     EXPECT_GE(arena.bytes_allocated(), 1024);
 
     arena.reset();
