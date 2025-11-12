@@ -44,8 +44,8 @@ public:
 
     epoll_reactor(const epoll_reactor&) = delete;
     epoll_reactor& operator=(const epoll_reactor&) = delete;
-    epoll_reactor(epoll_reactor&&) noexcept = default;
-    epoll_reactor& operator=(epoll_reactor&&) noexcept = default;
+    epoll_reactor(epoll_reactor&&) = delete;
+    epoll_reactor& operator=(epoll_reactor&&) = delete;
 
     result<void> run();
     void stop();

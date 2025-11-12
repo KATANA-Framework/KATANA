@@ -48,8 +48,8 @@ public:
 
     io_uring_reactor(const io_uring_reactor&) = delete;
     io_uring_reactor& operator=(const io_uring_reactor&) = delete;
-    io_uring_reactor(io_uring_reactor&&) noexcept = default;
-    io_uring_reactor& operator=(io_uring_reactor&&) noexcept = default;
+    io_uring_reactor(io_uring_reactor&&) = delete;
+    io_uring_reactor& operator=(io_uring_reactor&&) = delete;
 
     result<void> run();
     void stop();
