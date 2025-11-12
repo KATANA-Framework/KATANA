@@ -155,10 +155,18 @@ private:
         size_t length;
     };
 
+    struct unknown_entry {
+        const char* name;
+        size_t name_length;
+        const char* value;
+        size_t value_length;
+    };
+
 public:
     explicit headers_map(monotonic_arena* arena = nullptr) noexcept
         : arena_(arena) {
         entries_.reserve(16);
+        unknown_entries_.reserve(4);
     }
 
     headers_map(headers_map&&) noexcept = default;
@@ -175,21 +183,62 @@ public:
         auto it = std::lower_bound(entries_.begin(), entries_.end(), f,
             [](const entry& e, field fld) { return e.field_id < fld; });
 
-        if (it != entries_.end() && it->field_id == f) {
-            if (arena_) {
-                it->value = arena_->allocate_string(value);
-                it->length = value.size();
-            }
+        const char* value_ptr;
+        if (arena_) {
+            value_ptr = arena_->allocate_string(value);
+            if (!value_ptr) return;  // Allocation failed
         } else {
-            if (arena_) {
-                entries_.insert(it, entry{f, arena_->allocate_string(value), value.size()});
-            }
+            owned_strings_.emplace_back(value);
+            value_ptr = owned_strings_.back().c_str();
+        }
+
+        if (it != entries_.end() && it->field_id == f) {
+            it->value = value_ptr;
+            it->length = value.size();
+        } else {
+            entries_.insert(it, entry{f, value_ptr, value.size()});
         }
     }
 
     void set_view(std::string_view name, std::string_view value) noexcept {
         field f = string_to_field(name);
-        set(f, value);
+
+        if (f == field::unknown) {
+            // Handle unknown/custom headers separately
+            const char* name_ptr;
+            const char* value_ptr;
+
+            if (arena_) {
+                name_ptr = arena_->allocate_string(name);
+                value_ptr = arena_->allocate_string(value);
+                if (!name_ptr || !value_ptr) return;  // Allocation failed
+            } else {
+                owned_strings_.emplace_back(name);
+                name_ptr = owned_strings_.back().c_str();
+                owned_strings_.emplace_back(value);
+                value_ptr = owned_strings_.back().c_str();
+            }
+
+            // Check if already exists (update existing)
+            for (auto& ue : unknown_entries_) {
+                if (ue.name_length == name.size() &&
+                    ci_equal(std::string_view(ue.name, ue.name_length), name)) {
+                    ue.value = value_ptr;
+                    ue.value_length = value.size();
+                    return;
+                }
+            }
+
+            // Add new unknown header
+            unknown_entries_.push_back(unknown_entry{
+                name_ptr,
+                name.size(),
+                value_ptr,
+                value.size()
+            });
+        } else {
+            set(f, value);
+        }
     }
 
     [[nodiscard]] std::optional<std::string_view> get(field f) const noexcept {
@@ -207,7 +256,20 @@ public:
     }
 
     [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
-        return get(string_to_field(name));
+        field f = string_to_field(name);
+
+        if (f == field::unknown) {
+            // Search in unknown headers
+            for (const auto& ue : unknown_entries_) {
+                if (ue.name_length == name.size() &&
+                    ci_equal(std::string_view(ue.name, ue.name_length), name)) {
+                    return std::string_view(ue.value, ue.value_length);
+                }
+            }
+            return std::nullopt;
+        }
+
+        return get(f);
     }
 
     [[nodiscard]] bool contains(field f) const noexcept {
@@ -222,7 +284,20 @@ public:
     }
 
     [[nodiscard]] bool contains(std::string_view name) const noexcept {
-        return contains(string_to_field(name));
+        field f = string_to_field(name);
+
+        if (f == field::unknown) {
+            // Search in unknown headers
+            for (const auto& ue : unknown_entries_) {
+                if (ue.name_length == name.size() &&
+                    ci_equal(std::string_view(ue.name, ue.name_length), name)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return contains(f);
     }
 
     void remove(field f) noexcept {
@@ -239,34 +314,82 @@ public:
     }
 
     void remove(std::string_view name) noexcept {
-        remove(string_to_field(name));
+        field f = string_to_field(name);
+
+        if (f == field::unknown) {
+            // Remove from unknown headers
+            auto it = unknown_entries_.begin();
+            while (it != unknown_entries_.end()) {
+                if (it->name_length == name.size() &&
+                    ci_equal(std::string_view(it->name, it->name_length), name)) {
+                    unknown_entries_.erase(it);
+                    return;
+                }
+                ++it;
+            }
+        } else {
+            remove(f);
+        }
     }
 
     void clear() noexcept {
         entries_.clear();
+        unknown_entries_.clear();
     }
 
     struct iterator {
-        using inner_iterator = std::vector<entry>::const_iterator;
-        inner_iterator iter;
+        const headers_map* map;
+        size_t index;
+        bool in_known;
 
-        iterator& operator++() { ++iter; return *this; }
-        bool operator!=(const iterator& other) const { return iter != other.iter; }
+        iterator& operator++() {
+            ++index;
+            if (in_known && index >= map->entries_.size()) {
+                in_known = false;
+                index = 0;
+            }
+            return *this;
+        }
+
+        bool operator!=(const iterator& other) const {
+            return in_known != other.in_known || index != other.index;
+        }
 
         std::pair<std::string_view, std::string_view> operator*() const {
-            return {field_to_string(iter->field_id), std::string_view(iter->value, iter->length)};
+            if (in_known) {
+                const auto& e = map->entries_[index];
+                return {field_to_string(e.field_id), std::string_view(e.value, e.length)};
+            } else {
+                const auto& ue = map->unknown_entries_[index];
+                return {std::string_view(ue.name, ue.name_length), std::string_view(ue.value, ue.value_length)};
+            }
         }
     };
 
-    iterator begin() const noexcept { return {entries_.begin()}; }
-    iterator end() const noexcept { return {entries_.end()}; }
+    iterator begin() const noexcept {
+        if (!entries_.empty()) {
+            return {this, 0, true};
+        } else if (!unknown_entries_.empty()) {
+            return {this, 0, false};
+        } else {
+            return {this, 0, false};
+        }
+    }
 
-    [[nodiscard]] size_t size() const noexcept { return entries_.size(); }
-    [[nodiscard]] bool empty() const noexcept { return entries_.empty(); }
+    iterator end() const noexcept {
+        return {this, unknown_entries_.size(), false};
+    }
+
+    [[nodiscard]] size_t size() const noexcept { return entries_.size() + unknown_entries_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return entries_.empty() && unknown_entries_.empty(); }
 
 private:
     monotonic_arena* arena_;
     std::vector<entry> entries_;
+    std::vector<unknown_entry> unknown_entries_;
+
+    // Heap storage for when arena is null (e.g., response objects)
+    std::vector<std::string> owned_strings_;
 };
 
 } // namespace katana::http
