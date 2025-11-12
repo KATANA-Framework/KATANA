@@ -78,7 +78,7 @@ benchmark_result benchmark_timer_cancel() {
     std::vector<double> latencies;
     latencies.reserve(num_operations);
 
-    std::vector<wheel_timer::timeout_id> ids;
+    std::vector<wheel_timer<>::timeout_id> ids;
     ids.reserve(num_operations);
 
     for (size_t i = 0; i < num_operations; ++i) {
