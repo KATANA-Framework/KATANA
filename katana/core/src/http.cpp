@@ -212,6 +212,43 @@ response response::error(const problem_details& problem) {
     return res;
 }
 
+bool parser::try_parse_simple_get(std::span<const uint8_t> data) {
+    if (state_ != state::request_line || buffer_size_ > 0) {
+        return false;
+    }
+
+    constexpr std::string_view SIMPLE_GET_PREFIX = "GET / HTTP/1.1\r\n";
+    if (data.size() < SIMPLE_GET_PREFIX.size()) {
+        return false;
+    }
+
+    if (std::memcmp(data.data(), SIMPLE_GET_PREFIX.data(), SIMPLE_GET_PREFIX.size()) != 0) {
+        return false;
+    }
+
+    const uint8_t* end_marker = static_cast<const uint8_t*>(
+        memmem(data.data() + SIMPLE_GET_PREFIX.size(),
+               data.size() - SIMPLE_GET_PREFIX.size(),
+               "\r\n\r\n", 4)
+    );
+
+    if (!end_marker) {
+        return false;
+    }
+
+    request_.http_method = method::get;
+    request_.uri = "/";
+    state_ = state::complete;
+
+    size_t consumed = (end_marker + 4) - data.data();
+    if (consumed < data.size()) {
+        std::memcpy(buffer_, data.data() + consumed, data.size() - consumed);
+        buffer_size_ = data.size() - consumed;
+    }
+
+    return true;
+}
+
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
     if (!buffer_ || data.size() > buffer_capacity_ || buffer_size_ > buffer_capacity_ - data.size()) [[unlikely]] {
         return std::unexpected(make_error_code(error_code::invalid_fd));

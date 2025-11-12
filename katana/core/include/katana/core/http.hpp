@@ -92,6 +92,7 @@ public:
     };
 
     [[nodiscard]] result<state> parse(std::span<const uint8_t> data);
+    [[nodiscard]] bool try_parse_simple_get(std::span<const uint8_t> data);
 
     [[nodiscard]] bool is_complete() const noexcept { return state_ == state::complete; }
     [[nodiscard]] const request& get_request() const noexcept { return request_; }
