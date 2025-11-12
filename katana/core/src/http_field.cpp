@@ -6,7 +6,7 @@ namespace katana::http {
 
 namespace detail {
 
-constexpr std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)> field_name_table = {{
+extern const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)> field_name_table = {{
     "unknown",
     "A-IM",
     "Accept",
@@ -392,7 +392,7 @@ inline bool case_insensitive_less(std::string_view a, std::string_view b) noexce
 }
 
 // Top 25 most common HTTP headers (linear search, ~22 ns)
-constexpr std::array<field_entry, 25> popular_headers = {{
+extern const std::array<field_entry, 25> popular_headers = {{
     {field_name_table[154], field::host, fnv1a_hash(field_name_table[154])},
     {field_name_table[335], field::user_agent, fnv1a_hash(field_name_table[335])},
     {field_name_table[12], field::accept, fnv1a_hash(field_name_table[12])},
@@ -460,7 +460,7 @@ constexpr std::array<field_entry, 342> create_rare_headers() {
     return result;
 }
 
-const std::array<field_entry, 342> rare_headers = create_rare_headers();
+extern const std::array<field_entry, 342> rare_headers = create_rare_headers();
 
 }
 

@@ -83,8 +83,8 @@ struct connection {
     std::atomic<int32_t> fd{-1};
     monotonic_arena arena;
     http::parser parser;
-    std::pmr::vector<uint8_t> read_buffer;
-    std::pmr::vector<uint8_t> write_buffer;
+    std::vector<uint8_t> read_buffer;
+    std::vector<uint8_t> write_buffer;
     size_t write_pos = 0;
     size_t requests_on_connection = 0;
     bool writing_response = false;
@@ -93,8 +93,7 @@ struct connection {
 
     connection()
         : arena(ARENA_BLOCK_SIZE)
-        , read_buffer(&arena)
-        , write_buffer(&arena)
+        , parser(&arena)
     {
         read_buffer.resize(BUFFER_SIZE);
     }
@@ -148,8 +147,8 @@ void handle_client(connection& conn) {
             return;
         }
 
-        conn.parser = http::parser();
         conn.arena.reset();
+        conn.parser = http::parser(&conn.arena);
         conn.write_pos = 0;
     }
 
@@ -205,9 +204,6 @@ void handle_client(connection& conn) {
         if (connection_header && (*connection_header == "close" ||
             ci_equal(*connection_header, "close"))) {
             should_close = true;
-        } else if (req.version == "HTTP/1.0") {
-            should_close = !connection_header ||
-                          !ci_equal(*connection_header, "keep-alive");
         }
 
         if (conn.requests_on_connection >= 1000) {
@@ -274,8 +270,8 @@ void handle_client(connection& conn) {
             return;
         }
 
-        conn.parser = http::parser();
         conn.arena.reset();
+        conn.parser = http::parser(&conn.arena);
         conn.write_pos = 0;
     }
 }
