@@ -1,12 +1,16 @@
 #pragma once
 
+#include "http_field.hpp"
+#include "arena.hpp"
+
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unordered_map>
+#include <array>
 #include <optional>
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -144,91 +148,125 @@ struct ci_equal_fn {
 };
 
 class headers_map {
+private:
+    struct entry {
+        field field_id;
+        const char* value;
+        size_t length;
+    };
+
 public:
-    headers_map() = default;
+    explicit headers_map(monotonic_arena* arena = nullptr) noexcept
+        : arena_(arena) {
+        entries_.reserve(16);
+    }
+
     headers_map(headers_map&&) noexcept = default;
     headers_map& operator=(headers_map&&) noexcept = default;
-    headers_map(const headers_map&) = default;
-    headers_map& operator=(const headers_map&) = default;
 
-    void set(std::string name, std::string value) {
-        std::string lower_key = to_lower(name);
-        original_names_[lower_key] = std::move(name);
-        headers_[std::move(lower_key)] = std::move(value);
+    headers_map(const headers_map&) = delete;
+    headers_map& operator=(const headers_map&) = delete;
+
+    void set(field f, std::string_view value) noexcept {
+        if (f == field::unknown || f >= field::MAX_FIELD_VALUE) {
+            return;
+        }
+
+        auto it = std::lower_bound(entries_.begin(), entries_.end(), f,
+            [](const entry& e, field fld) { return e.field_id < fld; });
+
+        if (it != entries_.end() && it->field_id == f) {
+            if (arena_) {
+                it->value = arena_->allocate_string(value);
+                it->length = value.size();
+            }
+        } else {
+            if (arena_) {
+                entries_.insert(it, entry{f, arena_->allocate_string(value), value.size()});
+            }
+        }
     }
 
-    void set_view(std::string_view name, std::string_view value) {
-        std::string lower_key = to_lower(name);
-        original_names_[lower_key] = std::string(name);
-        headers_[std::move(lower_key)] = std::string(value);
+    void set_view(std::string_view name, std::string_view value) noexcept {
+        field f = string_to_field(name);
+        set(f, value);
     }
 
-    [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
-        // Zero-allocation lookup using heterogeneous search
-        auto it = headers_.find(name);
-        if (it != headers_.end()) {
-            return it->second;
+    [[nodiscard]] std::optional<std::string_view> get(field f) const noexcept {
+        if (f == field::unknown || f >= field::MAX_FIELD_VALUE) {
+            return std::nullopt;
+        }
+
+        auto it = std::lower_bound(entries_.begin(), entries_.end(), f,
+            [](const entry& e, field fld) { return e.field_id < fld; });
+
+        if (it != entries_.end() && it->field_id == f) {
+            return std::string_view(it->value, it->length);
         }
         return std::nullopt;
     }
 
-    [[nodiscard]] bool contains(std::string_view name) const noexcept {
-        // Zero-allocation lookup using heterogeneous search
-        return headers_.find(name) != headers_.end();
+    [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
+        return get(string_to_field(name));
     }
 
-    void remove(std::string_view name) {
-        // Use heterogeneous lookup to find the entry
-        auto it = headers_.find(name);
-        if (it != headers_.end()) {
-            original_names_.erase(it->first);
-            headers_.erase(it);
+    [[nodiscard]] bool contains(field f) const noexcept {
+        if (f == field::unknown || f >= field::MAX_FIELD_VALUE) {
+            return false;
         }
+
+        auto it = std::lower_bound(entries_.begin(), entries_.end(), f,
+            [](const entry& e, field fld) { return e.field_id < fld; });
+
+        return it != entries_.end() && it->field_id == f;
+    }
+
+    [[nodiscard]] bool contains(std::string_view name) const noexcept {
+        return contains(string_to_field(name));
+    }
+
+    void remove(field f) noexcept {
+        if (f == field::unknown || f >= field::MAX_FIELD_VALUE) {
+            return;
+        }
+
+        auto it = std::lower_bound(entries_.begin(), entries_.end(), f,
+            [](const entry& e, field fld) { return e.field_id < fld; });
+
+        if (it != entries_.end() && it->field_id == f) {
+            entries_.erase(it);
+        }
+    }
+
+    void remove(std::string_view name) noexcept {
+        remove(string_to_field(name));
     }
 
     void clear() noexcept {
-        headers_.clear();
-        original_names_.clear();
+        entries_.clear();
     }
 
     struct iterator {
-        using inner_iterator = std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>::iterator;
-        inner_iterator it;
-        std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>* original_names;
+        using inner_iterator = std::vector<entry>::const_iterator;
+        inner_iterator iter;
 
-        iterator& operator++() { ++it; return *this; }
-        bool operator!=(const iterator& o) const { return it != o.it; }
-        std::pair<const std::string&, std::string&> operator*() {
-            auto orig_it = original_names->find(it->first);
-            return {orig_it->second, it->second};
+        iterator& operator++() { ++iter; return *this; }
+        bool operator!=(const iterator& other) const { return iter != other.iter; }
+
+        std::pair<std::string_view, std::string_view> operator*() const {
+            return {field_to_string(iter->field_id), std::string_view(iter->value, iter->length)};
         }
     };
 
-    struct const_iterator {
-        using inner_iterator = std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>::const_iterator;
-        inner_iterator it;
-        const std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn>* original_names;
+    iterator begin() const noexcept { return {entries_.begin()}; }
+    iterator end() const noexcept { return {entries_.end()}; }
 
-        const_iterator& operator++() { ++it; return *this; }
-        bool operator!=(const const_iterator& o) const { return it != o.it; }
-        std::pair<const std::string&, const std::string&> operator*() const {
-            auto orig_it = original_names->find(it->first);
-            return {orig_it->second, it->second};
-        }
-    };
-
-    iterator begin() noexcept { return {headers_.begin(), &original_names_}; }
-    iterator end() noexcept { return {headers_.end(), &original_names_}; }
-    const_iterator begin() const noexcept { return {headers_.begin(), &original_names_}; }
-    const_iterator end() const noexcept { return {headers_.end(), &original_names_}; }
-
-    [[nodiscard]] size_t size() const noexcept { return headers_.size(); }
-    [[nodiscard]] bool empty() const noexcept { return headers_.empty(); }
+    [[nodiscard]] size_t size() const noexcept { return entries_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return entries_.empty(); }
 
 private:
-    // Use custom hash and equal functions for zero-allocation case-insensitive lookup
-    std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn> headers_;
-    std::unordered_map<std::string, std::string, ci_hash, ci_equal_fn> original_names_;
+    monotonic_arena* arena_;
+    std::vector<entry> entries_;
 };
 
 } // namespace katana::http
