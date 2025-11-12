@@ -21,8 +21,8 @@ using namespace katana;
 using katana::http::ci_equal;
 
 constexpr uint16_t PORT = 8080;
-constexpr size_t BUFFER_SIZE = 4096;
-constexpr size_t ARENA_BLOCK_SIZE = 8192;
+constexpr size_t BUFFER_SIZE = 32768;
+constexpr size_t ARENA_BLOCK_SIZE = 32768;
 constexpr size_t MAX_CONNECTIONS = 10000;
 constexpr size_t MAX_ACCEPTS_PER_TICK = 10000;
 
@@ -106,12 +106,13 @@ struct connection {
     monotonic_arena arena;
     http::parser parser;
     fixed_ring_buffer<BUFFER_SIZE> read_buffer;
-    std::array<uint8_t, 256> write_buffer;
+    std::array<uint8_t, 65536> write_buffer;
     size_t write_len = 0;
     size_t write_pos = 0;
     size_t requests_on_connection = 0;
     bool writing_response = false;
     bool should_close_after_write = false;
+    bool writable_registered = false;
     epoll_reactor* reactor = nullptr;
 
     connection()
@@ -132,6 +133,66 @@ struct connection {
     }
 };
 
+void handle_write(connection& conn) {
+    int32_t fd_val = conn.fd.load(std::memory_order_relaxed);
+    if (fd_val < 0 || conn.write_pos >= conn.write_len) {
+        return;
+    }
+
+    set_tcp_cork(fd_val, true);
+
+    while (conn.write_pos < conn.write_len) {
+        scatter_gather_write sg_write;
+        sg_write.add_buffer(std::span<const uint8_t>(
+            conn.write_buffer.data() + conn.write_pos,
+            conn.write_len - conn.write_pos
+        ));
+
+        auto write_result = write_vectored(fd_val, sg_write);
+        if (!write_result) {
+            if (write_result.error().value() == EAGAIN ||
+                write_result.error().value() == EWOULDBLOCK) {
+                if (!conn.writable_registered && conn.reactor) {
+                    conn.reactor->modify_fd(fd_val, event_type::readable | event_type::writable | event_type::edge_triggered);
+                    conn.writable_registered = true;
+                }
+                return;
+            }
+            set_tcp_cork(fd_val, false);
+            conn.safe_close();
+            return;
+        }
+
+        size_t written = *write_result;
+        if (written == 0) {
+            if (!conn.writable_registered && conn.reactor) {
+                conn.reactor->modify_fd(fd_val, event_type::readable | event_type::writable | event_type::edge_triggered);
+                conn.writable_registered = true;
+            }
+            return;
+        }
+        conn.write_pos += written;
+    }
+
+    set_tcp_cork(fd_val, false);
+
+    if (conn.writable_registered && conn.reactor) {
+        conn.reactor->modify_fd(fd_val, event_type::readable | event_type::edge_triggered);
+        conn.writable_registered = false;
+    }
+
+    conn.writing_response = false;
+    if (conn.should_close_after_write) {
+        conn.safe_close();
+        return;
+    }
+
+    conn.arena.reset();
+    conn.parser = http::parser(&conn.arena);
+    conn.write_pos = 0;
+    conn.write_len = 0;
+}
+
 void handle_client(connection& conn) {
     int32_t fd_val = conn.fd.load(std::memory_order_relaxed);
     if (fd_val < 0) {
@@ -139,40 +200,10 @@ void handle_client(connection& conn) {
     }
 
     if (conn.writing_response) {
-        while (conn.write_pos < conn.write_len) {
-            scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_len - conn.write_pos
-            ));
-
-            auto write_result = write_vectored(fd_val, sg_write);
-            if (!write_result) {
-                if (write_result.error().value() == EAGAIN ||
-                    write_result.error().value() == EWOULDBLOCK) {
-                    return;
-                }
-                conn.safe_close();
-                return;
-            }
-
-            size_t written = *write_result;
-            if (written == 0) {
-                return;
-            }
-            conn.write_pos += written;
-        }
-
-        conn.writing_response = false;
-        if (conn.should_close_after_write) {
-            conn.safe_close();
+        handle_write(conn);
+        if (conn.writing_response) {
             return;
         }
-
-        conn.arena.reset();
-        conn.parser = http::parser(&conn.arena);
-        conn.write_pos = 0;
-        conn.write_len = 0;
     }
 
     while (true) {
@@ -247,44 +278,14 @@ void handle_client(connection& conn) {
         std::memcpy(conn.write_buffer.data(), response, response_len);
         conn.write_len = response_len;
         conn.write_pos = 0;
+        conn.writing_response = true;
+        conn.should_close_after_write = should_close;
 
-        while (conn.write_pos < conn.write_len) {
-            scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_len - conn.write_pos
-            ));
+        handle_write(conn);
 
-            auto write_result = write_vectored(fd_val, sg_write);
-            if (!write_result) {
-                if (write_result.error().value() == EAGAIN ||
-                    write_result.error().value() == EWOULDBLOCK) {
-                    conn.writing_response = true;
-                    conn.should_close_after_write = should_close;
-                    return;
-                }
-                conn.safe_close();
-                return;
-            }
-
-            size_t written = *write_result;
-            if (written == 0) {
-                conn.writing_response = true;
-                conn.should_close_after_write = should_close;
-                return;
-            }
-
-            conn.write_pos += written;
-        }
-
-        if (should_close) {
-            conn.safe_close();
+        if (conn.writing_response) {
             return;
         }
-
-        conn.arena.reset();
-        conn.parser = http::parser(&conn.arena);
-        conn.write_pos = 0;
     }
 }
 
@@ -341,10 +342,13 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
                 [conn, &r](event_type events) {
                     if (has_flag(events, event_type::readable)) {
                         handle_client(*conn);
-                        int32_t refresh_fd = conn->fd.load(std::memory_order_relaxed);
-                        if (refresh_fd >= 0) {
-                            r.refresh_fd_timeout(refresh_fd);
-                        }
+                    }
+                    if (has_flag(events, event_type::writable) && conn->writing_response) {
+                        handle_write(*conn);
+                    }
+                    int32_t refresh_fd = conn->fd.load(std::memory_order_relaxed);
+                    if (refresh_fd >= 0) {
+                        r.refresh_fd_timeout(refresh_fd);
                     }
                 },
                 timeouts

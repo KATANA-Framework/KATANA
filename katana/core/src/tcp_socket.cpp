@@ -11,7 +11,7 @@
 namespace katana {
 
 namespace {
-    constexpr size_t MIN_BUFFER_SIZE = 16384;
+    constexpr size_t MIN_BUFFER_SIZE = 65536;
 }
 
 result<std::span<uint8_t>> tcp_socket::read(std::span<uint8_t> buf) {
@@ -96,6 +96,19 @@ result<void> optimize_socket_buffers(int32_t fd, int32_t sndbuf_size, int32_t rc
     }
 
     if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    return {};
+}
+
+result<void> set_tcp_cork(int32_t fd, bool enable) noexcept {
+    if (fd < 0) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    int32_t cork = enable ? 1 : 0;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork)) < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 

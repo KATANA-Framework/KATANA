@@ -52,4 +52,6 @@ private:
 
 result<void> optimize_socket_buffers(int32_t fd, int32_t sndbuf_size = 256 * 1024, int32_t rcvbuf_size = 256 * 1024);
 
+result<void> set_tcp_cork(int32_t fd, bool enable) noexcept;
+
 } // namespace katana
