@@ -5,6 +5,8 @@
 #include "katana/core/shutdown.hpp"
 #include "katana/core/arena.hpp"
 #include "katana/core/io_buffer.hpp"
+#include "katana/core/tcp_socket.hpp"
+#include "katana/core/fixed_ring_buffer.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -83,8 +85,9 @@ struct connection {
     std::atomic<int32_t> fd{-1};
     monotonic_arena arena;
     http::parser parser;
-    std::vector<uint8_t> read_buffer;
-    std::vector<uint8_t> write_buffer;
+    fixed_ring_buffer<BUFFER_SIZE> read_buffer;
+    std::array<uint8_t, 256> write_buffer;
+    size_t write_len = 0;
     size_t write_pos = 0;
     size_t requests_on_connection = 0;
     bool writing_response = false;
@@ -95,7 +98,6 @@ struct connection {
         : arena(ARENA_BLOCK_SIZE)
         , parser(&arena)
     {
-        read_buffer.resize(BUFFER_SIZE);
     }
 
     void safe_close() {
@@ -117,11 +119,11 @@ void handle_client(connection& conn) {
     }
 
     if (conn.writing_response) {
-        while (conn.write_pos < conn.write_buffer.size()) {
+        while (conn.write_pos < conn.write_len) {
             scatter_gather_write sg_write;
             sg_write.add_buffer(std::span<const uint8_t>(
                 conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
+                conn.write_len - conn.write_pos
             ));
 
             auto write_result = write_vectored(fd_val, sg_write);
@@ -150,11 +152,18 @@ void handle_client(connection& conn) {
         conn.arena.reset();
         conn.parser = http::parser(&conn.arena);
         conn.write_pos = 0;
+        conn.write_len = 0;
     }
 
     while (true) {
+        auto writable = conn.read_buffer.writable_span();
+        if (writable.empty()) {
+            conn.safe_close();
+            return;
+        }
+
         scatter_gather_read sg_read;
-        sg_read.add_buffer(std::span<uint8_t>(conn.read_buffer.data(), conn.read_buffer.size()));
+        sg_read.add_buffer(writable);
 
         auto read_result = read_vectored(fd_val, sg_read);
         if (!read_result) {
@@ -170,7 +179,9 @@ void handle_client(connection& conn) {
             return;
         }
 
-        auto result = conn.parser.parse(std::span<const uint8_t>(conn.read_buffer.data(), n));
+        conn.read_buffer.commit_write(n);
+        auto readable = conn.read_buffer.readable_span();
+        auto result = conn.parser.parse(readable);
 
         if (!result) {
             auto resp = http::response::error(problem_details::bad_request("Invalid HTTP request"));
@@ -191,6 +202,7 @@ void handle_client(connection& conn) {
             continue;
         }
 
+        conn.read_buffer.consume(readable.size());
         ++conn.requests_on_connection;
         if (conn.requests_on_connection > 1) {
             keepalive_reuses.fetch_add(1, std::memory_order_relaxed);
@@ -229,17 +241,15 @@ void handle_client(connection& conn) {
         const char* response = should_close ? response_close : response_keepalive;
         size_t response_len = should_close ? 103 : 136;
 
-        conn.write_buffer.assign(
-            reinterpret_cast<const uint8_t*>(response),
-            reinterpret_cast<const uint8_t*>(response) + response_len
-        );
+        std::memcpy(conn.write_buffer.data(), response, response_len);
+        conn.write_len = response_len;
         conn.write_pos = 0;
 
-        while (conn.write_pos < conn.write_buffer.size()) {
+        while (conn.write_pos < conn.write_len) {
             scatter_gather_write sg_write;
             sg_write.add_buffer(std::span<const uint8_t>(
                 conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
+                conn.write_len - conn.write_pos
             ));
 
             auto write_result = write_vectored(fd_val, sg_write);
@@ -304,8 +314,7 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
 
         ++accepts_this_call;
 
-        int32_t nodelay = 1;
-        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+        (void)optimize_socket_buffers(client_fd);
 
         active_connections.fetch_add(1, std::memory_order_relaxed);
 

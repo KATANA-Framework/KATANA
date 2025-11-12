@@ -38,8 +38,9 @@ struct timeout_config {
 class epoll_reactor {
 public:
     static constexpr size_t DEFAULT_MAX_PENDING_TASKS = 10000;
+    static constexpr int32_t DEFAULT_MAX_EVENTS = 1024;
 
-    explicit epoll_reactor(int32_t max_events = 128, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
+    explicit epoll_reactor(int32_t max_events = DEFAULT_MAX_EVENTS, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
     ~epoll_reactor() noexcept;
 
     epoll_reactor(const epoll_reactor&) = delete;
@@ -88,6 +89,7 @@ public:
 
 private:
     using fd_wheel_timer = wheel_timer<2048, 8>;
+    using steady_time_point = std::chrono::steady_clock::time_point;
 
     struct alignas(64) fd_state {
         // Hot data - frequently accessed
@@ -115,15 +117,15 @@ private:
 
     result<void> process_events(int32_t timeout_ms);
     void process_tasks();
-    void process_timers();
-    void process_wheel_timer();
-    int32_t calculate_timeout() const;
+    void process_timers(steady_time_point now);
+    void process_wheel_timer(steady_time_point now);
+    int32_t calculate_timeout(steady_time_point now) const;
     void handle_exception(std::string_view location, std::exception_ptr ex, int32_t fd = -1) noexcept;
     void setup_fd_timeout(int32_t fd, fd_state& state);
     void cancel_fd_timeout(fd_state& state);
     std::chrono::milliseconds fd_timeout_for(const fd_state& state) const;
     result<void> ensure_fd_capacity(int32_t fd);
-    std::chrono::milliseconds time_until_graceful_deadline(std::chrono::steady_clock::time_point now) const;
+    std::chrono::milliseconds time_until_graceful_deadline(steady_time_point now) const;
 
     int32_t epoll_fd_;
     int32_t wakeup_fd_;
@@ -146,8 +148,9 @@ private:
     fd_wheel_timer wheel_timer_;
     std::vector<epoll_event> events_buffer_;
 
+    steady_time_point cached_now_;
     mutable int32_t cached_timeout_ = -1;
-    mutable std::chrono::steady_clock::time_point timeout_cached_at_;
+    mutable steady_time_point timeout_cached_at_;
     mutable std::atomic<bool> timeout_dirty_{true};
 };
 
