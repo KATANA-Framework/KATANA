@@ -203,20 +203,10 @@ jobs:
           -DENABLE_EXAMPLES=ON
         cmake --build ${{github.workspace}}/build --config Release -j$(nproc)
 
-    - name: Start test server
-      working-directory: ${{github.workspace}}/build
-      run: |
-        ./hello_world_server &
-        sleep 2
-
-    - name: Run Latency Benchmark
+    - name: Run Performance Benchmark
       working-directory: ${{github.workspace}}/build/benchmark
       run: |
-        ./latency_benchmark 10000 10
-
-    - name: Stop test server
-      run: |
-        killall hello_world_server || true
+        ./performance_benchmark
 
   static-analysis:
     runs-on: ubuntu-24.04
