@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <array>
 #include <vector>
 #include <string_view>
 #include <string>
@@ -15,6 +16,7 @@ class monotonic_arena {
 public:
     static constexpr size_t DEFAULT_BLOCK_SIZE = 64UL * 1024UL;
     static constexpr size_t MAX_ALIGNMENT = 64;
+    static constexpr size_t MAX_BLOCKS = 32;
 
     explicit monotonic_arena(size_t block_size = DEFAULT_BLOCK_SIZE) noexcept;
     ~monotonic_arena() noexcept;
@@ -61,13 +63,14 @@ private:
         block& operator=(block&& other) noexcept;
     };
 
-    [[nodiscard]] static size_t align_up(size_t n, size_t alignment) noexcept {
+    [[nodiscard]] static constexpr size_t align_up(size_t n, size_t alignment) noexcept {
         return (n + alignment - 1) & ~(alignment - 1);
     }
 
     [[nodiscard]] bool allocate_new_block(size_t min_size) noexcept;
 
-    std::vector<block> blocks_;
+    std::array<block, MAX_BLOCKS> blocks_;
+    size_t num_blocks_ = 0;
     size_t block_size_;
     size_t bytes_allocated_ = 0;
     size_t total_capacity_ = 0;
