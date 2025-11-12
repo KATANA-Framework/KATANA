@@ -3,6 +3,7 @@
 #include "result.hpp"
 #include "problem.hpp"
 #include "http_headers.hpp"
+#include "arena.hpp"
 
 #include <string>
 #include <string_view>
@@ -15,8 +16,8 @@ namespace katana::http {
 constexpr size_t MAX_HEADER_SIZE = 8192UL;
 constexpr size_t MAX_BODY_SIZE = 10UL * 1024UL * 1024UL;
 constexpr size_t MAX_URI_LENGTH = 2048UL;
-constexpr size_t MAX_HEADER_COUNT = 100;  // Max number of headers
-constexpr size_t MAX_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;  // Total buffer limit
+constexpr size_t MAX_HEADER_COUNT = 100;
+constexpr size_t MAX_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;
 
 enum class method : uint8_t {
     get,
@@ -31,16 +32,16 @@ enum class method : uint8_t {
 
 struct request {
     method http_method = method::unknown;
-    std::string uri;
-    std::string version;
+    std::string_view uri;
     headers_map headers;
-    std::string body;
+    std::string_view body;
 
     request() = default;
     request(request&&) noexcept = default;
     request& operator=(request&&) noexcept = default;
-    request(const request&) = default;
-    request& operator=(const request&) = default;
+
+    request(const request&) = delete;
+    request& operator=(const request&) = delete;
 
     [[nodiscard]] std::optional<std::string_view> header(std::string_view name) const {
         return headers.get(name);
@@ -54,14 +55,14 @@ struct response {
     std::string body;
     bool chunked = false;
 
-    response() = default;
+    response() : headers(nullptr) {}
     response(response&&) noexcept = default;
     response& operator=(response&&) noexcept = default;
-    response(const response&) = default;
-    response& operator=(const response&) = default;
+    response(const response&) = delete;
+    response& operator=(const response&) = delete;
 
-    void set_header(std::string name, std::string value) {
-        headers.set(std::move(name), std::move(value));
+    void set_header(std::string_view name, std::string_view value) {
+        headers.set_view(name, value);
     }
 
     [[nodiscard]] std::string serialize() const;
@@ -74,7 +75,11 @@ struct response {
 
 class parser {
 public:
-    parser() = default;
+    explicit parser(monotonic_arena* arena) noexcept
+        : arena_(arena), request_{} {
+        request_.headers = headers_map(arena);
+        buffer_ = static_cast<char*>(arena_->allocate(MAX_BUFFER_SIZE, 1));
+    }
 
     enum class state : uint8_t {
         request_line,
@@ -91,7 +96,6 @@ public:
     [[nodiscard]] bool is_complete() const noexcept { return state_ == state::complete; }
     [[nodiscard]] const request& get_request() const noexcept { return request_; }
     request&& take_request() { return std::move(request_); }
-    [[nodiscard]] const std::string& buffer() const noexcept { return buffer_; }
 
 private:
     result<state> parse_request_line_state();
@@ -105,11 +109,15 @@ private:
     result<void> process_header_line(std::string_view line);
     void compact_buffer();
 
+    monotonic_arena* arena_;
     state state_ = state::request_line;
     request request_;
-    std::string buffer_;
-    std::string chunked_body_;
-    std::string last_header_name_;
+    char* buffer_;
+    size_t buffer_size_ = 0;
+    size_t buffer_capacity_ = MAX_BUFFER_SIZE;
+    char* chunked_body_ = nullptr;
+    size_t chunked_body_size_ = 0;
+    field last_header_field_ = field::unknown;
     size_t parse_pos_ = 0;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
