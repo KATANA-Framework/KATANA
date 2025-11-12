@@ -51,10 +51,12 @@ monotonic_arena::~monotonic_arena() noexcept = default;
 
 monotonic_arena::monotonic_arena(monotonic_arena&& other) noexcept
     : blocks_(std::move(other.blocks_)),
+      num_blocks_(other.num_blocks_),
       block_size_(other.block_size_),
       bytes_allocated_(other.bytes_allocated_),
       total_capacity_(other.total_capacity_)
 {
+    other.num_blocks_ = 0;
     other.bytes_allocated_ = 0;
     other.total_capacity_ = 0;
 }
@@ -62,9 +64,11 @@ monotonic_arena::monotonic_arena(monotonic_arena&& other) noexcept
 monotonic_arena& monotonic_arena::operator=(monotonic_arena&& other) noexcept {
     if (this != &other) {
         blocks_ = std::move(other.blocks_);
+        num_blocks_ = other.num_blocks_;
         block_size_ = other.block_size_;
         bytes_allocated_ = other.bytes_allocated_;
         total_capacity_ = other.total_capacity_;
+        other.num_blocks_ = 0;
         other.bytes_allocated_ = 0;
         other.total_capacity_ = 0;
     }
@@ -72,8 +76,8 @@ monotonic_arena& monotonic_arena::operator=(monotonic_arena&& other) noexcept {
 }
 
 void monotonic_arena::reset() noexcept {
-    for (auto& b : blocks_) {
-        b.used = 0;
+    for (size_t i = 0; i < num_blocks_; ++i) {
+        blocks_[i].used = 0;
     }
     bytes_allocated_ = 0;
 }
@@ -87,7 +91,8 @@ void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
         return nullptr;
     }
 
-    for (auto& b : blocks_) {
+    for (size_t i = 0; i < num_blocks_; ++i) {
+        auto& b = blocks_[i];
         if (b.used >= b.size || !b.data) {
             continue;
         }
@@ -108,7 +113,7 @@ void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
         return nullptr;
     }
 
-    auto& b = blocks_.back();
+    auto& b = blocks_[num_blocks_ - 1];
     if (!b.data) {
         return nullptr;
     }
@@ -128,12 +133,17 @@ void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
 }
 
 bool monotonic_arena::allocate_new_block(size_t min_size) noexcept {
-    blocks_.emplace_back(min_size);
-    if (!blocks_.back().data) {
-        blocks_.pop_back();
+    if (num_blocks_ >= MAX_BLOCKS) {
         return false;
     }
+
+    blocks_[num_blocks_] = block(min_size);
+    if (!blocks_[num_blocks_].data) {
+        return false;
+    }
+
     total_capacity_ += min_size;
+    ++num_blocks_;
     return true;
 }
 

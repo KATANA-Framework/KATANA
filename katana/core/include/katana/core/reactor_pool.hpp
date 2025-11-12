@@ -116,8 +116,8 @@ public:
 
             ctx->listener_fd = listener_fd;
 
-            auto& reactor = *ctx->reactor;
-            auto res = reactor.register_fd(
+            auto& r = *ctx->reactor;
+            auto res = r.register_fd(
                 listener_fd,
                 event_type::readable | event_type::edge_triggered,
                 [handler, listener_fd](event_type events) {

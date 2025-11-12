@@ -162,11 +162,13 @@ private:
         size_t value_length;
     };
 
+    static constexpr size_t UNKNOWN_HEADERS_INLINE_SIZE = 8;
+
 public:
     explicit headers_map(monotonic_arena* arena = nullptr) noexcept
-        : arena_(arena) {
+        : arena_(arena), fallback_arena_(arena ? nullptr : &owned_arena_) {
         entries_.reserve(16);
-        unknown_entries_.reserve(4);
+        unknown_entries_.reserve(UNKNOWN_HEADERS_INLINE_SIZE);
     }
 
     headers_map(headers_map&&) noexcept = default;
@@ -183,14 +185,9 @@ public:
         auto it = std::lower_bound(entries_.begin(), entries_.end(), f,
             [](const entry& e, field fld) { return e.field_id < fld; });
 
-        const char* value_ptr;
-        if (arena_) {
-            value_ptr = arena_->allocate_string(value);
-            if (!value_ptr) return;  // Allocation failed
-        } else {
-            owned_strings_.emplace_back(value);
-            value_ptr = owned_strings_.back().c_str();
-        }
+        monotonic_arena* alloc = arena_ ? arena_ : fallback_arena_;
+        const char* value_ptr = alloc ? alloc->allocate_string(value) : nullptr;
+        if (!value_ptr) return;
 
         if (it != entries_.end() && it->field_id == f) {
             it->value = value_ptr;
@@ -204,22 +201,13 @@ public:
         field f = string_to_field(name);
 
         if (f == field::unknown) {
-            // Handle unknown/custom headers separately
-            const char* name_ptr;
-            const char* value_ptr;
+            monotonic_arena* alloc = arena_ ? arena_ : fallback_arena_;
+            if (!alloc) return;
 
-            if (arena_) {
-                name_ptr = arena_->allocate_string(name);
-                value_ptr = arena_->allocate_string(value);
-                if (!name_ptr || !value_ptr) return;  // Allocation failed
-            } else {
-                owned_strings_.emplace_back(name);
-                name_ptr = owned_strings_.back().c_str();
-                owned_strings_.emplace_back(value);
-                value_ptr = owned_strings_.back().c_str();
-            }
+            const char* name_ptr = alloc->allocate_string(name);
+            const char* value_ptr = alloc->allocate_string(value);
+            if (!name_ptr || !value_ptr) return;
 
-            // Check if already exists (update existing)
             for (auto& ue : unknown_entries_) {
                 if (ue.name_length == name.size() &&
                     ci_equal(std::string_view(ue.name, ue.name_length), name)) {
@@ -229,7 +217,6 @@ public:
                 }
             }
 
-            // Add new unknown header
             unknown_entries_.push_back(unknown_entry{
                 name_ptr,
                 name.size(),
@@ -385,11 +372,10 @@ public:
 
 private:
     monotonic_arena* arena_;
+    monotonic_arena* fallback_arena_;
+    monotonic_arena owned_arena_{4096};
     std::vector<entry> entries_;
     std::vector<unknown_entry> unknown_entries_;
-
-    // Heap storage for when arena is null (e.g., response objects)
-    std::vector<std::string> owned_strings_;
 };
 
 } // namespace katana::http
