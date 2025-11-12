@@ -231,7 +231,8 @@ benchmark_result benchmark_http_parser() {
     for (size_t i = 0; i < num_operations; ++i) {
         auto op_start = steady_clock::now();
 
-        http::parser parser;
+        monotonic_arena arena(8192);
+        http::parser parser(&arena);
         auto data_span = std::span(
             reinterpret_cast<const uint8_t*>(http_request.data()),
             http_request.size()
