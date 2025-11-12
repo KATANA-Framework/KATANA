@@ -7,6 +7,7 @@
 #include "katana/core/io_buffer.hpp"
 
 #include <iostream>
+#include <vector>
 #include <unordered_map>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -388,15 +389,19 @@ int32_t main() {
 
     reactor_pool pool;
 
-    std::unordered_map<epoll_reactor*, per_reactor_state> reactor_states;
+    // Per-reactor state: vector is indexed by reactor position, read-only after init
+    std::vector<per_reactor_state> reactor_states(pool.size());
+    std::unordered_map<epoll_reactor*, size_t> reactor_indices;
+
+    size_t idx = 0;
     for (auto& reactor : pool) {
-        reactor_states[&reactor] = per_reactor_state{};
+        reactor_indices[&reactor] = idx++;
     }
 
-    auto result = pool.start_listening(PORT, [&reactor_states](int32_t listener_fd, epoll_reactor& r) {
-        auto it = reactor_states.find(&r);
-        if (it != reactor_states.end()) {
-            accept_connections(r, it->second, listener_fd);
+    auto result = pool.start_listening(PORT, [&reactor_states, &reactor_indices](int32_t listener_fd, epoll_reactor& r) {
+        auto it = reactor_indices.find(&r);
+        if (it != reactor_indices.end()) {
+            accept_connections(r, reactor_states[it->second], listener_fd);
         }
     });
 
