@@ -4,6 +4,9 @@
 #include <cerrno>
 #include <system_error>
 #include <algorithm>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 namespace katana {
 
@@ -72,6 +75,31 @@ void tcp_socket::close() noexcept {
         ::close(fd_);
         fd_ = -1;
     }
+}
+
+result<void> tcp_socket::optimize_for_throughput() {
+    return optimize_socket_buffers(fd_);
+}
+
+result<void> optimize_socket_buffers(int32_t fd, int32_t sndbuf_size, int32_t rcvbuf_size) {
+    if (fd < 0) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    int32_t nodelay = 1;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay)) < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf_size, sizeof(sndbuf_size)) < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    return {};
 }
 
 } // namespace katana

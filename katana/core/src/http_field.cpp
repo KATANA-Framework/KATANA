@@ -473,21 +473,78 @@ const std::array<field_entry, 342>& get_rare_headers() noexcept {
 }
 
 field string_to_field(std::string_view name) noexcept {
-    if (name.empty()) {
+    if (name.size() < 2) {
         return field::unknown;
     }
 
-    uint32_t hash = detail::fnv1a_hash(name);
+    char c0 = (name[0] >= 'A' && name[0] <= 'Z') ? (name[0] + 32) : name[0];
+    char c1 = (name[1] >= 'A' && name[1] <= 'Z') ? (name[1] + 32) : name[1];
 
-    // Fast path: linear search in popular headers (95%+ of requests)
-    const auto& popular = detail::get_popular_headers();
-    for (const auto& entry : popular) {
-        if (entry.hash == hash && detail::case_insensitive_equal(entry.name, name)) {
-            return entry.value;
+    switch (c0) {
+    case 'h':
+        if (name.size() == 4 && detail::case_insensitive_equal(name, "Host")) return field::host;
+        break;
+    case 'u':
+        if (name.size() == 10 && detail::case_insensitive_equal(name, "User-Agent")) return field::user_agent;
+        break;
+    case 'a':
+        if (c1 == 'c') {
+            if (name.size() == 6 && detail::case_insensitive_equal(name, "Accept")) return field::accept;
+            if (name.size() == 15 && detail::case_insensitive_equal(name, "Accept-Encoding")) return field::accept_encoding;
+            if (name.size() == 15 && detail::case_insensitive_equal(name, "Accept-Language")) return field::accept_language;
+            if (detail::case_insensitive_equal(name, "Access-Control-Allow-Origin")) return field::access_control_allow_origin;
+        } else if (c1 == 'u') {
+            if (detail::case_insensitive_equal(name, "Authorization")) return field::authorization;
         }
+        break;
+    case 'c':
+        if (c1 == 'o') {
+            if (name.size() == 10 && detail::case_insensitive_equal(name, "Connection")) return field::connection;
+            if (name.size() == 12 && detail::case_insensitive_equal(name, "Content-Type")) return field::content_type;
+            if (name.size() == 14 && detail::case_insensitive_equal(name, "Content-Length")) return field::content_length;
+            if (name.size() == 17 && detail::case_insensitive_equal(name, "Content-Encoding")) return field::content_encoding;
+            if (detail::case_insensitive_equal(name, "Cookie")) return field::cookie;
+        } else if (c1 == 'a') {
+            if (detail::case_insensitive_equal(name, "Cache-Control")) return field::cache_control;
+        }
+        break;
+    case 'r':
+        if (detail::case_insensitive_equal(name, "Referer")) return field::referer;
+        break;
+    case 'o':
+        if (detail::case_insensitive_equal(name, "Origin")) return field::origin;
+        break;
+    case 'd':
+        if (detail::case_insensitive_equal(name, "Date")) return field::date;
+        break;
+    case 's':
+        if (c1 == 'e') {
+            if (name.size() == 6 && detail::case_insensitive_equal(name, "Server")) return field::server;
+            if (detail::case_insensitive_equal(name, "Set-Cookie")) return field::set_cookie;
+        }
+        break;
+    case 't':
+        if (detail::case_insensitive_equal(name, "Transfer-Encoding")) return field::transfer_encoding;
+        break;
+    case 'i':
+        if (name.size() == 17 && detail::case_insensitive_equal(name, "If-Modified-Since")) return field::if_modified_since;
+        if (name.size() == 13 && detail::case_insensitive_equal(name, "If-None-Match")) return field::if_none_match;
+        break;
+    case 'e':
+        if (c1 == 't') {
+            if (detail::case_insensitive_equal(name, "ETag")) return field::etag;
+        } else if (c1 == 'x') {
+            if (detail::case_insensitive_equal(name, "Expires")) return field::expires;
+        }
+        break;
+    case 'l':
+        if (detail::case_insensitive_equal(name, "Last-Modified")) return field::last_modified;
+        break;
+    case 'v':
+        if (detail::case_insensitive_equal(name, "Vary")) return field::vary;
+        break;
     }
 
-    // Slow path: binary search in rare headers (5% of requests)
     const auto& rare = detail::get_rare_headers();
     auto it = std::lower_bound(
         rare.begin(),

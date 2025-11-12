@@ -133,12 +133,14 @@ result<void> epoll_reactor::run() {
     }
 
     while (running_.load(std::memory_order_relaxed)) {
-        process_wheel_timer();
-        process_timers();
+        cached_now_ = std::chrono::steady_clock::now();
+
+        process_wheel_timer(cached_now_);
+        process_timers(cached_now_);
         process_tasks();
 
         if (graceful_shutdown_.load(std::memory_order_relaxed)) {
-            auto now = std::chrono::steady_clock::now();
+            auto now = cached_now_;
             bool has_active_fds = false;
             for (const auto& state : fd_states_) {
                 if (state.callback) {
@@ -169,7 +171,7 @@ result<void> epoll_reactor::run() {
             }
         }
 
-        int timeout_ms = calculate_timeout();
+        int timeout_ms = calculate_timeout(cached_now_);
         auto res = process_events(timeout_ms);
         if (!res) {
             running_ = false;
@@ -435,12 +437,10 @@ void epoll_reactor::process_tasks() {
     }
 }
 
-void epoll_reactor::process_timers() {
+void epoll_reactor::process_timers(steady_time_point now) {
     while (auto timer = pending_timers_.pop()) {
         timers_.push(std::move(*timer));
     }
-
-    auto now = std::chrono::steady_clock::now();
 
     while (!timers_.empty() && timers_.top().deadline <= now) {
         auto task = std::move(timers_.top().task);
@@ -456,13 +456,11 @@ void epoll_reactor::process_timers() {
     }
 }
 
-int32_t epoll_reactor::calculate_timeout() const {
+int32_t epoll_reactor::calculate_timeout(steady_time_point now) const {
     if (!pending_tasks_.empty()) {
         timeout_dirty_.store(true, std::memory_order_relaxed);
         return 0;
     }
-
-    auto now = std::chrono::steady_clock::now();
 
     if (!timeout_dirty_.load(std::memory_order_relaxed)) {
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - timeout_cached_at_);
@@ -531,7 +529,8 @@ uint64_t epoll_reactor::get_load_score() const noexcept {
     return active_fds * 100 + pending_tasks * 50 + pending_timers_count * 10;
 }
 
-void epoll_reactor::process_wheel_timer() {
+void epoll_reactor::process_wheel_timer(steady_time_point now) {
+    (void)now;
     wheel_timer_.tick();
 }
 

@@ -8,6 +8,7 @@
 
 #ifdef __linux__
 #include <sys/uio.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #endif
 
@@ -161,5 +162,73 @@ result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
     return std::unexpected(make_error_code(error_code::ok));
 #endif
 }
+
+#ifdef __linux__
+result<size_t> write_batch(std::span<int32_t> fds, std::span<scatter_gather_write> sgs) {
+    if (fds.size() != sgs.size() || fds.empty()) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    constexpr size_t MAX_BATCH = 256;
+    size_t batch_size = std::min(fds.size(), MAX_BATCH);
+
+    struct mmsghdr msgs[MAX_BATCH];
+    std::memset(msgs, 0, sizeof(msgs));
+
+    for (size_t i = 0; i < batch_size; ++i) {
+        msgs[i].msg_hdr.msg_iov = const_cast<iovec*>(sgs[i].iov());
+        msgs[i].msg_hdr.msg_iovlen = std::min<size_t>(sgs[i].count(), IOV_MAX);
+    }
+
+    int sent = sendmmsg(fds[0], msgs, static_cast<unsigned int>(batch_size), MSG_DONTWAIT);
+
+    if (sent < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    size_t total_bytes = 0;
+    for (int i = 0; i < sent; ++i) {
+        total_bytes += msgs[i].msg_len;
+    }
+
+    return total_bytes;
+}
+
+result<size_t> read_batch(std::span<int32_t> fds, std::span<scatter_gather_read> sgs) {
+    if (fds.size() != sgs.size() || fds.empty()) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    constexpr size_t MAX_BATCH = 256;
+    size_t batch_size = std::min(fds.size(), MAX_BATCH);
+
+    struct mmsghdr msgs[MAX_BATCH];
+    std::memset(msgs, 0, sizeof(msgs));
+
+    for (size_t i = 0; i < batch_size; ++i) {
+        msgs[i].msg_hdr.msg_iov = const_cast<iovec*>(sgs[i].iov());
+        msgs[i].msg_hdr.msg_iovlen = std::min<size_t>(sgs[i].count(), IOV_MAX);
+    }
+
+    int received = recvmmsg(fds[0], msgs, static_cast<unsigned int>(batch_size), MSG_DONTWAIT, nullptr);
+
+    if (received < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    size_t total_bytes = 0;
+    for (int i = 0; i < received; ++i) {
+        total_bytes += msgs[i].msg_len;
+    }
+
+    return total_bytes;
+}
+#endif
 
 } // namespace katana
