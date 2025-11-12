@@ -5,6 +5,7 @@
 #include "katana/core/io_buffer.hpp"
 #include "katana/core/fd_watch.hpp"
 #include "katana/core/shutdown.hpp"
+#include "katana/core/arena.hpp"
 
 #include <iostream>
 #include <memory>
@@ -217,6 +218,7 @@ struct connection_state {
     tcp_socket socket;
     io_buffer read_buffer;
     io_buffer write_buffer;
+    monotonic_arena arena;
     parser http_parser;
     std::unique_ptr<fd_watch> watch;
 
@@ -224,6 +226,8 @@ struct connection_state {
         : socket(std::move(sock))
         , read_buffer(8192)
         , write_buffer(8192)
+        , arena(8192)
+        , http_parser(&arena)
     {}
 };
 

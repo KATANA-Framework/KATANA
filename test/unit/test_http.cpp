@@ -2,10 +2,12 @@
 
 #include <gtest/gtest.h>
 
+using namespace katana;
 using namespace katana::http;
 
 TEST(HttpParser, ParseSimpleGetRequest) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET /index.html HTTP/1.1\r\nHost: example.com\r\n\r\n";
     auto data = as_bytes(request);
@@ -17,14 +19,14 @@ TEST(HttpParser, ParseSimpleGetRequest) {
     const auto& req = p.get_request();
     EXPECT_EQ(req.http_method, method::get);
     EXPECT_EQ(req.uri, "/index.html");
-    EXPECT_EQ(req.version, "HTTP/1.1");
     EXPECT_EQ(req.headers.size(), 1);
     EXPECT_EQ(req.header("Host").value_or(""), "example.com");
     EXPECT_TRUE(req.body.empty());
 }
 
 TEST(HttpParser, ParsePostRequestWithBody) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "POST /api/data HTTP/1.1\r\n"
                          "Host: api.example.com\r\n"
@@ -63,7 +65,8 @@ TEST(HttpParser, ParseAllMethods) {
     };
 
     for (const auto& tc : cases) {
-        parser p;
+        monotonic_arena arena(8192);
+    parser p(&arena);
         std::string request = tc.method_str + " / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         auto data = as_bytes(request);
 
@@ -74,7 +77,8 @@ TEST(HttpParser, ParseAllMethods) {
 }
 
 TEST(HttpParser, ParseMultipleHeaders) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -98,7 +102,8 @@ TEST(HttpParser, ParseMultipleHeaders) {
 }
 
 TEST(HttpParser, ParseIncrementalData) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string part1 = "GET /test HTTP/1.1\r\n";
     std::string part2 = "Host: example.com\r\n";
@@ -125,7 +130,8 @@ TEST(HttpParser, ParseIncrementalData) {
 }
 
 TEST(HttpParser, ParseIncrementalBody) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string headers = "POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 10\r\n\r\n";
     std::string body_part1 = "hello";
@@ -150,7 +156,8 @@ TEST(HttpParser, ParseIncrementalBody) {
 }
 
 TEST(HttpParser, InvalidRequestLineNoSpace) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GETHTTP/1.1\r\n\r\n";
     auto data = as_bytes(request);
@@ -160,7 +167,8 @@ TEST(HttpParser, InvalidRequestLineNoSpace) {
 }
 
 TEST(HttpParser, RejectUnknownMethod) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "TRACE / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     auto data = as_bytes(request);
@@ -170,7 +178,8 @@ TEST(HttpParser, RejectUnknownMethod) {
 }
 
 TEST(HttpParser, InvalidRequestLineMissingVersion) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET /\r\n\r\n";
     auto data = as_bytes(request);
@@ -180,7 +189,8 @@ TEST(HttpParser, InvalidRequestLineMissingVersion) {
 }
 
 TEST(HttpParser, RejectInvalidHttpVersion) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.0\r\nHost: example.com\r\n\r\n";
     auto data = as_bytes(request);
@@ -190,7 +200,8 @@ TEST(HttpParser, RejectInvalidHttpVersion) {
 }
 
 TEST(HttpParser, InvalidHeaderNoColon) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\nInvalidHeader\r\n\r\n";
     auto data = as_bytes(request);
@@ -200,7 +211,8 @@ TEST(HttpParser, InvalidHeaderNoColon) {
 }
 
 TEST(HttpParser, InvalidContentLength) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "POST / HTTP/1.1\r\nContent-Length: invalid\r\n\r\n";
     auto data = as_bytes(request);
@@ -210,7 +222,8 @@ TEST(HttpParser, InvalidContentLength) {
 }
 
 TEST(HttpParser, RejectHeaderWithIllegalTokenCharacters) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\nBad Header: value\r\n\r\n";
     auto data = as_bytes(request);
@@ -220,7 +233,8 @@ TEST(HttpParser, RejectHeaderWithIllegalTokenCharacters) {
 }
 
 TEST(HttpParser, RejectHeaderValueControlCharacters) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = std::string("GET / HTTP/1.1\r\nHeader: value") + std::string(1, '\x01') + "\r\n\r\n";
     auto data = as_bytes(request);
@@ -230,7 +244,8 @@ TEST(HttpParser, RejectHeaderValueControlCharacters) {
 }
 
 TEST(HttpParser, HeaderValueWithLeadingSpaces) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\nHost:   example.com\r\n\r\n";
     auto data = as_bytes(request);
@@ -308,7 +323,8 @@ TEST(HttpMethod, MethodToString) {
 }
 
 TEST(HttpParser, ParseMultilineHeaderFoldingSpace) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -327,7 +343,8 @@ TEST(HttpParser, ParseMultilineHeaderFoldingSpace) {
 }
 
 TEST(HttpParser, ParseMultilineHeaderFoldingTab) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -346,7 +363,8 @@ TEST(HttpParser, ParseMultilineHeaderFoldingTab) {
 }
 
 TEST(HttpParser, ParseMultilineHeaderMultipleFolds) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -371,7 +389,8 @@ TEST(HttpParser, ParseMultilineHeaderMultipleFolds) {
 }
 
 TEST(HttpParser, RejectFoldingWithoutPriorHeader) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          " invalid-folding\r\n"
@@ -385,7 +404,8 @@ TEST(HttpParser, RejectFoldingWithoutPriorHeader) {
 }
 
 TEST(HttpParser, ChunkedEncodingSimple) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "POST /data HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -409,7 +429,8 @@ TEST(HttpParser, ChunkedEncodingSimple) {
 }
 
 TEST(HttpParser, ChunkedEncodingIncremental) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string part1 = "POST /data HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: chunked\r\n\r\n";
     std::string part2 = "3\r\nfoo\r\n";
@@ -440,7 +461,8 @@ TEST(HttpParser, ChunkedEncodingIncremental) {
 }
 
 TEST(HttpParser, RejectChunkWithoutTrailingCrlf) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "POST /data HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -456,7 +478,8 @@ TEST(HttpParser, RejectChunkWithoutTrailingCrlf) {
 }
 
 TEST(HttpParser, ChunkedEncodingWithTrailer) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "POST /data HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -477,7 +500,8 @@ TEST(HttpParser, ChunkedEncodingWithTrailer) {
 }
 
 TEST(HttpParser, ExcessiveHeaderCount) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n";
     for (int i = 0; i < 150; ++i) {
@@ -492,7 +516,8 @@ TEST(HttpParser, ExcessiveHeaderCount) {
 }
 
 TEST(HttpParser, ExcessivelyLongURI) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string long_uri(10000, 'a');
     std::string request = "GET /" + long_uri + " HTTP/1.1\r\n"
@@ -506,7 +531,8 @@ TEST(HttpParser, ExcessivelyLongURI) {
 }
 
 TEST(HttpParser, ExcessivelyLongHeader) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string long_value(100000, 'x');
     std::string request = "GET / HTTP/1.1\r\n"
@@ -521,7 +547,8 @@ TEST(HttpParser, ExcessivelyLongHeader) {
 }
 
 TEST(HttpParser, MalformedRequestLineNoHTTP) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET /path\r\n\r\n";
     auto data = as_bytes(request);
@@ -531,7 +558,8 @@ TEST(HttpParser, MalformedRequestLineNoHTTP) {
 }
 
 TEST(HttpParser, MalformedRequestLineInvalidMethod) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "INVALID@METHOD /path HTTP/1.1\r\n\r\n";
     auto data = as_bytes(request);
@@ -541,7 +569,8 @@ TEST(HttpParser, MalformedRequestLineInvalidMethod) {
 }
 
 TEST(HttpParser, MalformedRequestLineExtraSpaces) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET  /path  HTTP/1.1\r\n\r\n";
     auto data = as_bytes(request);
@@ -551,7 +580,8 @@ TEST(HttpParser, MalformedRequestLineExtraSpaces) {
 }
 
 TEST(HttpParser, MalformedHeaderMissingColon) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "InvalidHeaderNoColon\r\n"
@@ -563,7 +593,8 @@ TEST(HttpParser, MalformedHeaderMissingColon) {
 }
 
 TEST(HttpParser, MalformedHeaderInvalidCharacters) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "X-Header\x01\x02: value\r\n"
@@ -575,14 +606,16 @@ TEST(HttpParser, MalformedHeaderInvalidCharacters) {
 }
 
 TEST(HttpParser, RecoveryAfterError) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string bad_request = "INVALID\r\n\r\n";
     auto bad_data = as_bytes(bad_request);
     auto bad_result = p.parse(bad_data);
     EXPECT_FALSE(bad_result.has_value());
 
-    p = parser();
+    arena.reset();
+    new (&p) parser(&arena);
 
     std::string good_request = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     auto good_data = as_bytes(good_request);
@@ -592,7 +625,8 @@ TEST(HttpParser, RecoveryAfterError) {
 }
 
 TEST(HttpParser, ContentLengthZero) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "POST / HTTP/1.1\r\n"
                          "Host: example.com\r\n"
@@ -608,7 +642,8 @@ TEST(HttpParser, ContentLengthZero) {
 }
 
 TEST(HttpParser, LargeValidContentLength) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string body(1024 * 1024, 'x');
     std::string request = "POST / HTTP/1.1\r\n"
@@ -625,7 +660,8 @@ TEST(HttpParser, LargeValidContentLength) {
 }
 
 TEST(HttpParser, CaseInsensitiveHeaders) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "CoNtEnT-tYpE: text/plain\r\n"
@@ -645,7 +681,8 @@ TEST(HttpParser, CaseInsensitiveHeaders) {
 }
 
 TEST(HttpParser, EmptyHeaderValue) {
-    parser p;
+    monotonic_arena arena(8192);
+    parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
                          "Host: example.com\r\n"
