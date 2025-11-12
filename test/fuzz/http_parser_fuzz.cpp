@@ -1,4 +1,5 @@
 #include "katana/core/http.hpp"
+#include "katana/core/arena.hpp"
 #include <cstdint>
 #include <cstddef>
 #include <span>
@@ -8,7 +9,8 @@ extern "C" int32_t LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         return 0;
     }
 
-    katana::http::parser p;
+    katana::monotonic_arena arena;
+    katana::http::parser p(&arena);
 
     try {
         auto result = p.parse(std::span<const uint8_t>(data, size));

@@ -1,6 +1,8 @@
 #pragma once
 
-#include "reactor.hpp"
+#include "result.hpp"
+#include "fd_event.hpp"
+#include "inplace_function.hpp"
 #include "metrics.hpp"
 #include "ring_buffer_queue.hpp"
 #include "wheel_timer.hpp"
@@ -11,53 +13,74 @@
 #include <unordered_map>
 #include <vector>
 #include <queue>
+#include <chrono>
+#include <exception>
+#include <string_view>
 
 namespace katana {
 
-class epoll_reactor : public reactor {
+using task_fn = inplace_function<void(), 128>;
+
+struct exception_context {
+    std::string_view location;
+    std::exception_ptr exception;
+    int32_t fd = -1;
+};
+
+using exception_handler = inplace_function<void(const exception_context&), 256>;
+
+struct timeout_config {
+    std::chrono::milliseconds read_timeout{30000};
+    std::chrono::milliseconds write_timeout{30000};
+    std::chrono::milliseconds idle_timeout{60000};
+};
+
+class epoll_reactor {
 public:
     static constexpr size_t DEFAULT_MAX_PENDING_TASKS = 10000;
 
     explicit epoll_reactor(int32_t max_events = 128, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
-    ~epoll_reactor() noexcept override;
+    ~epoll_reactor() noexcept;
 
     epoll_reactor(const epoll_reactor&) = delete;
     epoll_reactor& operator=(const epoll_reactor&) = delete;
+    epoll_reactor(epoll_reactor&&) = delete;
+    epoll_reactor& operator=(epoll_reactor&&) = delete;
 
-    result<void> run() override;
-    void stop() override;
-    void graceful_stop(std::chrono::milliseconds timeout) override;
+    result<void> run();
+    void stop();
+    void graceful_stop(std::chrono::milliseconds timeout);
 
     result<void> register_fd(
         int32_t fd,
         event_type events,
         event_callback callback
-    ) override;
+    );
 
     result<void> register_fd_with_timeout(
         int32_t fd,
         event_type events,
         event_callback callback,
         const timeout_config& config
-    ) override;
+    );
 
     result<void> modify_fd(
         int32_t fd,
         event_type events
-    ) override;
+    );
 
-    result<void> unregister_fd(int32_t fd) override;
+    result<void> unregister_fd(int32_t fd);
 
-    void refresh_fd_timeout(int32_t fd) override;
+    void refresh_fd_timeout(int32_t fd);
 
-    bool schedule(task_fn task) override;
+    bool schedule(task_fn task);
 
     bool schedule_after(
         std::chrono::milliseconds delay,
         task_fn task
-    ) override;
+    );
 
-    void set_exception_handler(exception_handler handler) override;
+    void set_exception_handler(exception_handler handler);
 
     const reactor_metrics& metrics() const noexcept { return metrics_; }
 
