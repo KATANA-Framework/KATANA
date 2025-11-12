@@ -6,6 +6,7 @@
 #include "katana/core/io_buffer.hpp"
 #include "katana/core/fd_watch.hpp"
 #include "katana/core/shutdown.hpp"
+#include "katana/core/arena.hpp"
 
 #include <iostream>
 #include <memory>

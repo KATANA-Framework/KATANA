@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 
+using namespace katana;
 using namespace katana::http;
 using katana::monotonic_arena;
 

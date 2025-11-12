@@ -201,8 +201,7 @@ void handle_client(connection& conn) {
 
         bool should_close = false;
         auto connection_header = req.header("Connection");
-        if (connection_header && (*connection_header == "close" ||
-            ci_equal(*connection_header, "close"))) {
+        if (connection_header && ci_equal(*connection_header, "close")) {
             should_close = true;
         }
 

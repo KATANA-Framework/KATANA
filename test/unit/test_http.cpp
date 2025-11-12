@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+using namespace katana;
 using namespace katana::http;
 using katana::monotonic_arena;
 
