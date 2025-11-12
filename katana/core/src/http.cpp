@@ -213,8 +213,7 @@ response response::error(const problem_details& problem) {
 }
 
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
-    size_t max_safe_size = std::min(MAX_BUFFER_SIZE, buffer_.max_size());
-    if (data.size() > max_safe_size || buffer_.size() > max_safe_size - data.size()) [[unlikely]] {
+    if (!buffer_ || data.size() > buffer_capacity_ || buffer_size_ > buffer_capacity_ - data.size()) [[unlikely]] {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
@@ -225,27 +224,28 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
             if (byte == '\n') [[unlikely]] {
-                size_t buf_pos = buffer_.size() + i;
+                size_t buf_pos = buffer_size_ + i;
                 if (buf_pos == 0 || (buf_pos > 0 &&
-                    (buf_pos - 1 < buffer_.size() ? buffer_[buf_pos - 1] : data[i - 1]) != '\r')) {
+                    (buf_pos - 1 < buffer_size_ ? buffer_[buf_pos - 1] : data[i - 1]) != '\r')) {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
             }
         }
     }
 
-    buffer_.append(static_cast<const char*>(static_cast<const void*>(data.data())), data.size());
+    std::memcpy(buffer_ + buffer_size_, data.data(), data.size());
+    buffer_size_ += data.size();
 
     if (state_ != state::body && state_ != state::chunk_data) {
-        if (buffer_.size() > MAX_HEADER_SIZE) {
-            auto header_end = buffer_.find("\r\n\r\n");
-            if (header_end == std::string::npos || header_end + 4 > MAX_HEADER_SIZE) {
+        if (buffer_size_ > MAX_HEADER_SIZE) {
+            const char* header_end = std::strstr(buffer_, "\r\n\r\n");
+            if (!header_end || static_cast<size_t>(header_end - buffer_) + 4 > MAX_HEADER_SIZE) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
         }
 
         size_t crlf_pairs = 0;
-        for (size_t i = 0; i + 1 < buffer_.size(); ++i) {
+        for (size_t i = 0; i + 1 < buffer_size_; ++i) {
             if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
                 ++crlf_pairs;
             }
@@ -253,7 +253,7 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         if (crlf_pairs > MAX_HEADER_COUNT + 2) {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
-    } else if (buffer_.size() > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
+    } else if (buffer_size_ > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
@@ -285,14 +285,14 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         state_ = *next_state;
 
         if (parse_pos_ == old_parse_pos && state_ != state::complete) {
-            if (parse_pos_ > COMPACT_THRESHOLD || buffer_.size() > MAX_HEADER_SIZE * 2) {
+            if (parse_pos_ > COMPACT_THRESHOLD || buffer_size_ > MAX_HEADER_SIZE * 2) {
                 compact_buffer();
             }
             return state_;
         }
     }
 
-    if (parse_pos_ > COMPACT_THRESHOLD || buffer_.size() > MAX_HEADER_SIZE * 2) {
+    if (parse_pos_ > COMPACT_THRESHOLD || buffer_size_ > MAX_HEADER_SIZE * 2) {
         compact_buffer();
     }
 
@@ -300,11 +300,10 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 }
 
 result<parser::state> parser::parse_request_line_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
+    const char* found = simd::find_crlf(buffer_ + parse_pos_, buffer_size_ - parse_pos_);
 
     if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
+        size_t pos = static_cast<size_t>(found - buffer_);
         for (size_t i = parse_pos_; i <= pos; ++i) {
             unsigned char c = static_cast<unsigned char>(buffer_[i]);
             if (c == '\0' || c >= 0x80) {
@@ -314,110 +313,111 @@ result<parser::state> parser::parse_request_line_state() {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
         }
-    }
 
-    if (pos == std::string::npos) {
-        return state::request_line;
-    }
+        std::string_view line(buffer_ + parse_pos_, pos - parse_pos_);
+        parse_pos_ = pos + 2;
 
-    std::string_view line(buffer_.data() + parse_pos_, pos - parse_pos_);
-    parse_pos_ = pos + 2;
-
-    auto res = process_request_line(line);
-    if (!res) {
-        return std::unexpected(res.error());
-    }
-
-    return state::headers;
-}
-
-result<parser::state> parser::parse_headers_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
-
-    if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
-        for (size_t i = parse_pos_; i <= pos; ++i) {
-            unsigned char c = static_cast<unsigned char>(buffer_[i]);
-            if (c == '\0' || c >= 0x80) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-            if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-        }
-    }
-
-    if (pos == std::string::npos) {
-        return state::headers;
-    }
-
-    std::string_view line(buffer_.data() + parse_pos_, pos - parse_pos_);
-    parse_pos_ = pos + 2;
-
-    if (line.empty()) {
-        auto te = request_.header("Transfer-Encoding");
-        if (te && ci_equal(*te, "chunked")) {
-            is_chunked_ = true;
-            return state::chunk_size;
-        }
-
-        auto cl = request_.header("Content-Length");
-        if (cl) {
-            std::string_view cl_view = *cl;
-            while (!cl_view.empty() && (cl_view.back() == ' ' || cl_view.back() == '\t')) {
-                cl_view.remove_suffix(1);
-            }
-
-            unsigned long long val = 0;
-            auto [ptr, ec] = std::from_chars(cl_view.data(), cl_view.data() + cl_view.size(), val);
-            if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() ||
-                val > SIZE_MAX || val > MAX_BODY_SIZE) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-            content_length_ = static_cast<size_t>(val);
-            return state::body;
-        }
-
-        return state::complete;
-    }
-
-    if (line.front() == ' ' || line.front() == '\t') {
-        if (last_header_name_.empty()) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
-        }
-        auto current_value = request_.header(last_header_name_);
-        if (!current_value) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
-        }
-        auto folded_view = std::string_view(line);
-        while (!folded_view.empty() && (folded_view.front() == ' ' || folded_view.front() == '\t')) {
-            folded_view.remove_prefix(1);
-        }
-        folded_view = trim_ows(folded_view);
-        if (contains_invalid_header_value(folded_view)) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
-        }
-        std::string new_value;
-        new_value.reserve(current_value->size() + 1 + folded_view.size());
-        new_value.append(*current_value);
-        new_value.push_back(' ');
-        new_value.append(folded_view);
-        request_.headers.set(last_header_name_, std::move(new_value));
-    } else {
-        auto res = process_header_line(line);
+        auto res = process_request_line(line);
         if (!res) {
             return std::unexpected(res.error());
         }
+
+        return state::headers;
+    }
+
+    return state::request_line;
+}
+
+result<parser::state> parser::parse_headers_state() {
+    const char* found = simd::find_crlf(buffer_ + parse_pos_, buffer_size_ - parse_pos_);
+
+    if (found) {
+        size_t pos = static_cast<size_t>(found - buffer_);
+        for (size_t i = parse_pos_; i <= pos; ++i) {
+            unsigned char c = static_cast<unsigned char>(buffer_[i]);
+            if (c == '\0' || c >= 0x80) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+            if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+        }
+
+        std::string_view line(buffer_ + parse_pos_, pos - parse_pos_);
+        parse_pos_ = pos + 2;
+
+        if (line.empty()) {
+            auto te = request_.headers.get(field::transfer_encoding);
+            if (te && ci_equal(*te, "chunked")) {
+                is_chunked_ = true;
+                return state::chunk_size;
+            }
+
+            auto cl = request_.headers.get(field::content_length);
+            if (cl) {
+                std::string_view cl_view = *cl;
+                while (!cl_view.empty() && (cl_view.back() == ' ' || cl_view.back() == '\t')) {
+                    cl_view.remove_suffix(1);
+                }
+
+                unsigned long long val = 0;
+                auto [ptr, ec] = std::from_chars(cl_view.data(), cl_view.data() + cl_view.size(), val);
+                if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() ||
+                    val > SIZE_MAX || val > MAX_BODY_SIZE) {
+                    return std::unexpected(make_error_code(error_code::invalid_fd));
+                }
+                content_length_ = static_cast<size_t>(val);
+                return state::body;
+            }
+
+            return state::complete;
+        }
+
+        if (line.front() == ' ' || line.front() == '\t') {
+            if (last_header_field_ == field::unknown) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+            auto current_value = request_.headers.get(last_header_field_);
+            if (!current_value) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+            // Header folding - allocate combined value in arena
+            auto folded_view = std::string_view(line);
+            while (!folded_view.empty() && (folded_view.front() == ' ' || folded_view.front() == '\t')) {
+                folded_view.remove_prefix(1);
+            }
+            folded_view = trim_ows(folded_view);
+            if (contains_invalid_header_value(folded_view)) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+
+            size_t total_len = current_value->size() + 1 + folded_view.size();
+            char* combined = static_cast<char*>(arena_->allocate(total_len + 1, 1));
+            if (combined) {
+                std::memcpy(combined, current_value->data(), current_value->size());
+                combined[current_value->size()] = ' ';
+                std::memcpy(combined + current_value->size() + 1, folded_view.data(), folded_view.size());
+                combined[total_len] = '\0';
+                request_.headers.set(last_header_field_, std::string_view(combined, total_len));
+            }
+        } else {
+            auto res = process_header_line(line);
+            if (!res) {
+                return std::unexpected(res.error());
+            }
+        }
+
+        return state::headers;
     }
 
     return state::headers;
 }
 
 result<parser::state> parser::parse_body_state() {
-    size_t remaining = buffer_.size() - parse_pos_;
+    size_t remaining = buffer_size_ - parse_pos_;
     if (remaining >= content_length_) {
-        request_.body.assign(buffer_.data() + parse_pos_, content_length_);
+        char* body_ptr = arena_->allocate_string(std::string_view(buffer_ + parse_pos_, content_length_));
+        request_.body = std::string_view(body_ptr, content_length_);
         parse_pos_ += content_length_;
         return state::complete;
     }
@@ -425,17 +425,13 @@ result<parser::state> parser::parse_body_state() {
 }
 
 result<parser::state> parser::parse_chunk_size_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
-    if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
-    }
-
-    if (pos == std::string::npos) {
+    const char* found = simd::find_crlf(buffer_ + parse_pos_, buffer_size_ - parse_pos_);
+    if (!found) {
         return state::chunk_size;
     }
 
-    std::string_view chunk_line(buffer_.data() + parse_pos_, pos - parse_pos_);
+    size_t pos = static_cast<size_t>(found - buffer_);
+    std::string_view chunk_line(buffer_ + parse_pos_, pos - parse_pos_);
     parse_pos_ = pos + 2;
 
     auto semicolon = chunk_line.find(';');
@@ -459,7 +455,7 @@ result<parser::state> parser::parse_chunk_size_state() {
         return state::chunk_trailer;
     }
 
-    if (current_chunk_size_ > MAX_BODY_SIZE || chunked_body_.size() > MAX_BODY_SIZE - current_chunk_size_) {
+    if (current_chunk_size_ > MAX_BODY_SIZE || chunked_body_size_ > MAX_BODY_SIZE - current_chunk_size_) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
@@ -467,13 +463,22 @@ result<parser::state> parser::parse_chunk_size_state() {
 }
 
 result<parser::state> parser::parse_chunk_data_state() {
-    size_t remaining = buffer_.size() - parse_pos_;
+    size_t remaining = buffer_size_ - parse_pos_;
     if (remaining >= current_chunk_size_ + 2) {
-        const char* chunk_start = buffer_.data() + parse_pos_;
+        const char* chunk_start = buffer_ + parse_pos_;
         if (chunk_start[current_chunk_size_] != '\r' || chunk_start[current_chunk_size_ + 1] != '\n') {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
-        chunked_body_.append(chunk_start, current_chunk_size_);
+
+        if (!chunked_body_) {
+            chunked_body_ = static_cast<char*>(arena_->allocate(MAX_BODY_SIZE, 1));
+            if (!chunked_body_) {
+                return std::unexpected(make_error_code(error_code::invalid_fd));
+            }
+        }
+
+        std::memcpy(chunked_body_ + chunked_body_size_, chunk_start, current_chunk_size_);
+        chunked_body_size_ += current_chunk_size_;
         parse_pos_ += current_chunk_size_ + 2;
         return state::chunk_size;
     }
@@ -481,23 +486,18 @@ result<parser::state> parser::parse_chunk_data_state() {
 }
 
 result<parser::state> parser::parse_chunk_trailer_state() {
-    size_t pos = std::string::npos;
-    const char* found = simd::find_crlf(buffer_.data() + parse_pos_, buffer_.size() - parse_pos_);
-    if (found) {
-        pos = static_cast<size_t>(found - buffer_.data());
-    }
-
-    if (pos == std::string::npos) {
+    const char* found = simd::find_crlf(buffer_ + parse_pos_, buffer_size_ - parse_pos_);
+    if (!found) {
         return state::chunk_trailer;
     }
 
+    size_t pos = static_cast<size_t>(found - buffer_);
     parse_pos_ = pos + 2;
-    request_.body = chunked_body_;
+    request_.body = std::string_view(chunked_body_, chunked_body_size_);
     return state::complete;
 }
 
 result<void> parser::process_request_line(std::string_view line) {
-    // Reject leading or trailing whitespace
     if (line.empty() || line.front() == ' ' || line.front() == '\t' ||
         line.back() == ' ' || line.back() == '\t') {
         return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -529,13 +529,13 @@ result<void> parser::process_request_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    request_.uri = std::string(uri);
+    char* uri_ptr = arena_->allocate_string(uri);
+    request_.uri = std::string_view(uri_ptr, uri.size());
 
     auto version = line.substr(uri_end + 1);
     if (version != "HTTP/1.1") {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
-    request_.version = std::string(version);
 
     return {};
 }
@@ -569,23 +569,20 @@ result<void> parser::process_header_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    last_header_name_ = std::string(name);
+    last_header_field_ = string_to_field(name);
     request_.headers.set_view(name, value);
     ++header_count_;
     return {};
 }
 
 void parser::compact_buffer() {
-    if (parse_pos_ >= buffer_.size()) {
-        buffer_.clear();
+    if (parse_pos_ >= buffer_size_) {
+        buffer_size_ = 0;
         parse_pos_ = 0;
     } else if (parse_pos_ > COMPACT_THRESHOLD / 2) {
-        buffer_.erase(buffer_.begin(), buffer_.begin() + static_cast<std::string::difference_type>(parse_pos_));
+        std::memmove(buffer_, buffer_ + parse_pos_, buffer_size_ - parse_pos_);
+        buffer_size_ -= parse_pos_;
         parse_pos_ = 0;
-
-        if (buffer_.capacity() > buffer_.size() * 2 && buffer_.capacity() > 8192) {
-            buffer_.shrink_to_fit();
-        }
     }
 }
 

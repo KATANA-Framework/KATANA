@@ -1,45 +1,71 @@
 #pragma once
 
-#include <memory_resource>
 #include <memory>
 #include <vector>
 #include <string_view>
 #include <string>
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
+#include <bit>
 
 namespace katana {
 
-class monotonic_arena : public std::pmr::memory_resource {
+class monotonic_arena {
 public:
     static constexpr size_t DEFAULT_BLOCK_SIZE = 64UL * 1024UL;
+    static constexpr size_t MAX_ALIGNMENT = 64;
 
-    explicit monotonic_arena(size_t block_size = DEFAULT_BLOCK_SIZE);
-    ~monotonic_arena() override;
+    explicit monotonic_arena(size_t block_size = DEFAULT_BLOCK_SIZE) noexcept;
+    ~monotonic_arena() noexcept;
 
     monotonic_arena(const monotonic_arena&) = delete;
     monotonic_arena& operator=(const monotonic_arena&) = delete;
-    monotonic_arena(monotonic_arena&&) = delete;
-    monotonic_arena& operator=(monotonic_arena&&) = delete;
+    monotonic_arena(monotonic_arena&&) noexcept;
+    monotonic_arena& operator=(monotonic_arena&&) noexcept;
+
+    [[nodiscard]] void* allocate(size_t bytes, size_t alignment = alignof(std::max_align_t)) noexcept;
+
+    template<typename T>
+    [[nodiscard]] T* allocate_array(size_t count) noexcept {
+        return static_cast<T*>(allocate(sizeof(T) * count, alignof(T)));
+    }
+
+    [[nodiscard]] char* allocate_string(std::string_view str) noexcept {
+        char* ptr = static_cast<char*>(allocate(str.size() + 1, 1));
+        if (ptr) {
+            std::memcpy(ptr, str.data(), str.size());
+            ptr[str.size()] = '\0';
+        }
+        return ptr;
+    }
 
     void reset() noexcept;
 
     [[nodiscard]] size_t bytes_allocated() const noexcept { return bytes_allocated_; }
     [[nodiscard]] size_t total_capacity() const noexcept { return total_capacity_; }
 
-protected:
-    void* do_allocate(size_t bytes, size_t alignment) override;
-    void do_deallocate(void* p, size_t bytes, size_t alignment) override;
-    [[nodiscard]] bool do_is_equal(const memory_resource& other) const noexcept override;
-
 private:
     struct block {
-        std::vector<uint8_t> data;
+        uint8_t* data;
         size_t size;
         size_t used;
+
+        block() noexcept : data(nullptr), size(0), used(0) {}
+        block(size_t s) noexcept;
+        ~block() noexcept;
+
+        block(const block&) = delete;
+        block& operator=(const block&) = delete;
+        block(block&& other) noexcept;
+        block& operator=(block&& other) noexcept;
     };
 
-    void allocate_new_block(size_t min_size);
+    [[nodiscard]] static size_t align_up(size_t n, size_t alignment) noexcept {
+        return (n + alignment - 1) & ~(alignment - 1);
+    }
+
+    [[nodiscard]] bool allocate_new_block(size_t min_size) noexcept;
 
     std::vector<block> blocks_;
     size_t block_size_;
@@ -47,12 +73,43 @@ private:
     size_t total_capacity_ = 0;
 };
 
-template <typename T>
-using pmr_vector = std::pmr::vector<T>;
+template<typename T>
+class arena_allocator {
+public:
+    using value_type = T;
+    using size_type = size_t;
+    using difference_type = ptrdiff_t;
 
-template <typename T>
-using pmr_string = std::pmr::basic_string<T>;
+    explicit arena_allocator(monotonic_arena* arena) noexcept : arena_(arena) {}
 
-using pmr_string_view = std::string_view;
+    template<typename U>
+    arena_allocator(const arena_allocator<U>& other) noexcept : arena_(other.arena_) {}
+
+    [[nodiscard]] T* allocate(size_t n) {
+        return static_cast<T*>(arena_->allocate(n * sizeof(T), alignof(T)));
+    }
+
+    void deallocate(T*, size_t) noexcept {}
+
+    template<typename U>
+    bool operator==(const arena_allocator<U>& other) const noexcept {
+        return arena_ == other.arena_;
+    }
+
+    template<typename U>
+    bool operator!=(const arena_allocator<U>& other) const noexcept {
+        return arena_ != other.arena_;
+    }
+
+    monotonic_arena* arena_;
+};
+
+template<typename T>
+using arena_vector = std::vector<T, arena_allocator<T>>;
+
+template<typename CharT = char>
+using arena_string = std::basic_string<CharT, std::char_traits<CharT>, arena_allocator<CharT>>;
+
+using arena_string_view = std::string_view;
 
 } // namespace katana
