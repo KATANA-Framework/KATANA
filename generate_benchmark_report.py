@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+
+import subprocess
+import re
+import sys
+import time
+import signal
+from datetime import datetime
+from pathlib import Path
+
+class BenchmarkCollector:
+    def __init__(self):
+        self.results = {}
+        self.build_dir = Path(__file__).parent / "build"
+        self.server_proc = None
+
+    def start_server(self):
+        server_path = self.build_dir / "hello_world_server"
+        if not server_path.exists():
+            print(f"Warning: hello_world_server not found at {server_path}")
+            return False
+
+        try:
+            self.server_proc = subprocess.Popen([str(server_path)],
+                                                stdout=subprocess.DEVNULL,
+                                                stderr=subprocess.DEVNULL)
+            time.sleep(2)
+
+            if self.server_proc.poll() is not None:
+                print("Error: Server failed to start")
+                return False
+
+            return True
+        except Exception as e:
+            print(f"Error starting server: {e}")
+            return False
+
+    def stop_server(self):
+        if self.server_proc:
+            try:
+                self.server_proc.send_signal(signal.SIGINT)
+                self.server_proc.wait(timeout=5)
+            except:
+                self.server_proc.kill()
+            self.server_proc = None
+
+    def run_benchmark(self, name, needs_server=False):
+        bench_path = self.build_dir / "benchmark" / name
+        if not bench_path.exists():
+            print(f"Warning: {name} not found, skipping...")
+            return None
+
+        if needs_server and not self.start_server():
+            print(f"Cannot run {name}: server failed to start")
+            return None
+
+        try:
+            result = subprocess.run([str(bench_path)], capture_output=True, text=True, timeout=300)
+            output = result.stdout
+        except subprocess.TimeoutExpired:
+            print(f"Error: {name} timed out")
+            output = None
+        except Exception as e:
+            print(f"Error running {name}: {e}")
+            output = None
+        finally:
+            if needs_server:
+                self.stop_server()
+
+        return output
+
+    def parse_standard_benchmark(self, output, category):
+        sections = re.split(r'\n===\s+(.+?)\s+===\n', output)
+
+        for i in range(1, len(sections), 2):
+            if i + 1 < len(sections):
+                bench_name = sections[i].strip()
+                data = sections[i + 1]
+
+                metrics = {}
+
+                ops_match = re.search(r'Operations:\s+([\d.]+)', data)
+                if ops_match:
+                    metrics['Operations'] = (float(ops_match.group(1)), 'ops')
+
+                dur_match = re.search(r'Duration:\s+([\d.]+)\s+ms', data)
+                if dur_match:
+                    metrics['Duration'] = (float(dur_match.group(1)), 'ms')
+
+                thr_match = re.search(r'Throughput:\s+([\d.]+)\s+ops/sec', data)
+                if thr_match:
+                    metrics['Throughput'] = (float(thr_match.group(1)), 'ops/sec')
+
+                lat_p50 = re.search(r'Latency p50:\s+([\d.]+)\s+us', data)
+                if lat_p50:
+                    metrics['Latency p50'] = (float(lat_p50.group(1)), 'us')
+
+                lat_p99 = re.search(r'Latency p99:\s+([\d.]+)\s+us', data)
+                if lat_p99:
+                    metrics['Latency p99'] = (float(lat_p99.group(1)), 'us')
+
+                lat_p999 = re.search(r'Latency p999:\s+([\d.]+)\s+us', data)
+                if lat_p999:
+                    metrics['Latency p999'] = (float(lat_p999.group(1)), 'us')
+
+                if category not in self.results:
+                    self.results[category] = {}
+                self.results[category][bench_name] = metrics
+
+    def parse_simple_benchmark(self, output):
+        sections = re.split(r'\n===\s+(.+?)\s+===\n', output)
+
+        for i in range(1, len(sections), 2):
+            if i + 1 < len(sections):
+                category = sections[i].strip()
+                data = sections[i + 1]
+
+                if category not in self.results:
+                    self.results[category] = {}
+
+                lines = data.strip().split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if not line or line.startswith('==='):
+                        continue
+
+                    parts = line.rsplit(maxsplit=2)
+                    if len(parts) < 3:
+                        continue
+
+                    metric_name = ' '.join(parts[:-2]).strip()
+                    try:
+                        value = float(parts[-2])
+                        unit = parts[-1]
+
+                        if metric_name and metric_name not in self.results[category]:
+                            self.results[category][metric_name] = (value, unit)
+                    except (ValueError, IndexError):
+                        continue
+
+    def generate_markdown(self, output_path):
+        with open(output_path, 'w') as f:
+            f.write("# KATANA Framework - Comprehensive Benchmark Results\n\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write("This report includes results from all benchmark suites.\n\n")
+
+            f.write("## Table of Contents\n\n")
+            for category in sorted(self.results.keys()):
+                f.write(f"- [{category}](#{category.lower().replace(' ', '-')})\n")
+            f.write("\n---\n\n")
+
+            for category in sorted(self.results.keys()):
+                f.write(f"## {category}\n\n")
+                f.write("| Benchmark | Value | Unit |\n")
+                f.write("|-----------|-------|------|\n")
+
+                for bench_name in sorted(self.results[category].keys()):
+                    metrics = self.results[category][bench_name]
+
+                    if isinstance(metrics, dict):
+                        for metric, (value, unit) in sorted(metrics.items()):
+                            display_name = f"{bench_name} - {metric}"
+                            f.write(f"| {display_name} | {value:.3f} | {unit} |\n")
+                    else:
+                        value, unit = metrics
+                        f.write(f"| {bench_name} | {value:.3f} | {unit} |\n")
+
+                f.write("\n")
+
+def main():
+    collector = BenchmarkCollector()
+
+    benchmarks = [
+        ("simple_benchmark", "HTTP Server", collector.parse_simple_benchmark, True),
+        ("performance_benchmark", "Core Performance", collector.parse_standard_benchmark, False),
+        ("mpsc_benchmark", "MPSC Queue", collector.parse_standard_benchmark, False),
+        ("timer_benchmark", "Timer System", collector.parse_standard_benchmark, False),
+        ("headers_benchmark", "HTTP Headers", collector.parse_standard_benchmark, False),
+        ("io_buffer_benchmark", "IO Buffer", collector.parse_standard_benchmark, False),
+    ]
+
+    print("Running all benchmarks...\n")
+
+    for bench_name, category, parser, needs_server in benchmarks:
+        print(f"Running {bench_name}...")
+        output = collector.run_benchmark(bench_name, needs_server=needs_server)
+
+        if output:
+            if parser == collector.parse_simple_benchmark:
+                parser(output)
+            else:
+                parser(output, category)
+            print(f"✓ {bench_name} completed\n")
+        else:
+            print(f"✗ {bench_name} failed\n")
+
+    output_file = Path(__file__).parent / "BENCHMARK_RESULTS.md"
+    collector.generate_markdown(output_file)
+
+    print(f"\nReport generated: {output_file}")
+    print(f"Total categories: {len(collector.results)}")
+
+if __name__ == "__main__":
+    main()
