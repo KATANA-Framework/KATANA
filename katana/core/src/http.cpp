@@ -258,11 +258,16 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             last_consumed_ = to_copy;
         }
 
-        if (header_size_ > MAX_HEADER_SIZE) {
+        if (header_size_ >= MAX_HEADER_SIZE) {
             const char* header_end = find_header_end();
             if (!header_end || static_cast<size_t>(header_end - header_buffer_.data()) + 4 > MAX_HEADER_SIZE) {
+                last_consumed_ = data.size();
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
+        }
+
+        if (to_copy == 0 && data.size() > 0) {
+            last_consumed_ = data.size();
         }
 
         size_t crlf_pairs = 0;

@@ -7,6 +7,7 @@
 #include "katana/core/io_buffer.hpp"
 
 #include <iostream>
+#include <unordered_map>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -47,7 +48,9 @@ struct rate_limiter {
     }
 };
 
-static rate_limiter accept_limiter;
+struct per_reactor_state {
+    rate_limiter limiter;
+};
 
 struct connection {
     std::atomic<int32_t> fd{-1};
@@ -216,7 +219,6 @@ void handle_client(connection& conn) {
             conn.write_buffer.append(std::string_view(response_400, sizeof(response_400) - 1));
             conn.writing_response = true;
             conn.should_close_after_write = true;
-            conn.safe_close();
             return;
         }
 
@@ -309,16 +311,15 @@ void handle_client(connection& conn) {
     }
 }
 
-void accept_connections(reactor_pool& pool, size_t reactor_idx, int32_t listener_fd) {
+void accept_connections(epoll_reactor& r, per_reactor_state& state, int32_t listener_fd) {
     size_t accepts_this_call = 0;
-    auto& r = pool.get_reactor(reactor_idx);
 
     while (accepts_this_call < MAX_ACCEPTS_PER_TICK) {
         if (active_connections.load(std::memory_order_relaxed) >= MAX_CONNECTIONS) {
             return;
         }
 
-        if (!accept_limiter.should_accept()) {
+        if (!state.limiter.should_accept()) {
             return;
         }
 
@@ -387,23 +388,16 @@ int32_t main() {
 
     reactor_pool pool;
 
-    auto result = pool.start_listening(PORT, [&pool](int32_t listener_fd) {
-        size_t reactor_idx = 0;
-        for (size_t i = 0; i < pool.reactor_count(); ++i) {
-            if (&pool.get_reactor(i) == &pool.get_reactor(reactor_idx)) {
-                reactor_idx = i;
-                break;
-            }
-        }
+    std::unordered_map<epoll_reactor*, per_reactor_state> reactor_states;
+    for (auto& reactor : pool) {
+        reactor_states[&reactor] = per_reactor_state{};
+    }
 
-        for (auto& reactor : pool) {
-            if (&reactor == &pool.get_reactor(reactor_idx)) {
-                break;
-            }
-            ++reactor_idx;
+    auto result = pool.start_listening(PORT, [&reactor_states](int32_t listener_fd, epoll_reactor& r) {
+        auto it = reactor_states.find(&r);
+        if (it != reactor_states.end()) {
+            accept_connections(r, it->second, listener_fd);
         }
-
-        accept_connections(pool, reactor_idx, listener_fd);
     });
 
     if (!result) {

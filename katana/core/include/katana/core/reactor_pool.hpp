@@ -120,9 +120,9 @@ public:
             auto res = r.register_fd(
                 listener_fd,
                 event_type::readable | event_type::edge_triggered,
-                [handler, listener_fd](event_type events) {
+                [handler, listener_fd, &r](event_type events) {
                     if (has_flag(events, event_type::readable)) {
-                        handler(listener_fd);
+                        handler(listener_fd, r);
                     }
                 }
             );
