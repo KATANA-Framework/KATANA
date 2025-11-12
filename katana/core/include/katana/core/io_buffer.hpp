@@ -96,9 +96,4 @@ private:
 result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg);
 result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg);
 
-#ifdef __linux__
-result<size_t> write_batch(std::span<int32_t> fds, std::span<scatter_gather_write> sgs);
-result<size_t> read_batch(std::span<int32_t> fds, std::span<scatter_gather_read> sgs);
-#endif
-
 } // namespace katana
