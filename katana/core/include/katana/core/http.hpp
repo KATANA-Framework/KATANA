@@ -78,7 +78,7 @@ public:
     explicit parser(monotonic_arena* arena) noexcept
         : arena_(arena), request_{} {
         request_.headers = headers_map(arena);
-        buffer_ = static_cast<char*>(arena_->allocate(MAX_BUFFER_SIZE, 1));
+        header_buffer_.reserve(MAX_HEADER_SIZE);
     }
 
     enum class state : uint8_t {
@@ -97,6 +97,9 @@ public:
     [[nodiscard]] const request& get_request() const noexcept { return request_; }
     request&& take_request() { return std::move(request_); }
 
+    [[nodiscard]] size_t bytes_consumed() const noexcept { return last_consumed_; }
+    void reset(monotonic_arena* arena) noexcept;
+
 private:
     result<state> parse_request_line_state();
     result<state> parse_headers_state();
@@ -107,16 +110,20 @@ private:
 
     result<void> process_request_line(std::string_view line);
     result<void> process_header_line(std::string_view line);
-    void compact_buffer();
+    void compact_header_buffer();
+    const char* find_header_end() const noexcept;
 
     monotonic_arena* arena_;
     state state_ = state::request_line;
     request request_;
-    char* buffer_;
-    size_t buffer_size_ = 0;
-    size_t buffer_capacity_ = MAX_BUFFER_SIZE;
-    char* chunked_body_ = nullptr;
-    size_t chunked_body_size_ = 0;
+
+    std::vector<char> header_buffer_;
+    size_t header_size_ = 0;
+
+    char* body_buffer_ = nullptr;
+    size_t body_size_ = 0;
+    size_t body_capacity_ = 0;
+
     field last_header_field_ = field::unknown;
     const char* last_header_name_ = nullptr;
     size_t last_header_name_len_ = 0;
@@ -124,6 +131,7 @@ private:
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
     size_t header_count_ = 0;
+    size_t last_consumed_ = 0;
     bool is_chunked_ = false;
 
     static constexpr size_t COMPACT_THRESHOLD = 2048;

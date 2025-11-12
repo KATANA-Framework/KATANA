@@ -43,6 +43,7 @@ public:
     }
 
     void reset() noexcept;
+    void shrink_to(size_t target_total_capacity) noexcept;
 
     [[nodiscard]] size_t bytes_allocated() const noexcept { return bytes_allocated_; }
     [[nodiscard]] size_t total_capacity() const noexcept { return total_capacity_; }

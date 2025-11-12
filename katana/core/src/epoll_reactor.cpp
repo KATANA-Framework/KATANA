@@ -54,7 +54,7 @@ constexpr event_type from_epoll_events(uint32_t events) noexcept {
 
 } // namespace
 
-epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
+epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks, size_t arena_budget_bytes)
     : epoll_fd_(-1)
     , wakeup_fd_(-1)
     , max_events_(max_events)
@@ -79,6 +79,7 @@ epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
         }
         std::cerr << "\n";
     })
+    , arena_pool_(arena_budget_bytes)
 {
     // Use RAII wrappers for exception safety during construction
     scoped_fd epoll_fd(epoll_create1(EPOLL_CLOEXEC));

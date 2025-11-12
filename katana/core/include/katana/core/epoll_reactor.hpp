@@ -7,6 +7,7 @@
 #include "ring_buffer_queue.hpp"
 #include "wheel_timer.hpp"
 #include "timeout.hpp"
+#include "arena_pool.hpp"
 
 #include <sys/epoll.h>
 #include <atomic>
@@ -38,8 +39,13 @@ struct timeout_config {
 class epoll_reactor {
 public:
     static constexpr size_t DEFAULT_MAX_PENDING_TASKS = 10000;
+    static constexpr size_t DEFAULT_ARENA_BUDGET_BYTES = 64 * 1024 * 1024;
 
-    explicit epoll_reactor(int32_t max_events = 128, size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
+    explicit epoll_reactor(
+        int32_t max_events = 128,
+        size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS,
+        size_t arena_budget_bytes = DEFAULT_ARENA_BUDGET_BYTES
+    );
     ~epoll_reactor() noexcept;
 
     epoll_reactor(const epoll_reactor&) = delete;
@@ -83,6 +89,7 @@ public:
     void set_exception_handler(exception_handler handler);
 
     const reactor_metrics& metrics() const noexcept { return metrics_; }
+    bounded_arena_pool& arena_pool() noexcept { return arena_pool_; }
 
     [[nodiscard]] uint64_t get_load_score() const noexcept;
 
@@ -142,6 +149,7 @@ private:
     alignas(64) std::atomic<uint32_t> pending_count_{0};
     exception_handler exception_handler_;
     reactor_metrics metrics_;
+    bounded_arena_pool arena_pool_;
 
     fd_wheel_timer wheel_timer_;
     std::vector<epoll_event> events_buffer_;

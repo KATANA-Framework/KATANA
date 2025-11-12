@@ -84,6 +84,19 @@ void monotonic_arena::reset() noexcept {
     bytes_allocated_ = 0;
 }
 
+void monotonic_arena::shrink_to(size_t target_total_capacity) noexcept {
+    if (num_blocks_ == 0 || total_capacity_ <= target_total_capacity) {
+        return;
+    }
+
+    while (num_blocks_ > 1 && total_capacity_ > target_total_capacity) {
+        auto& last_block = blocks_[num_blocks_ - 1];
+        total_capacity_ -= last_block.size;
+        blocks_[num_blocks_ - 1] = block();
+        --num_blocks_;
+    }
+}
+
 void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
     if (bytes == 0) {
         return nullptr;

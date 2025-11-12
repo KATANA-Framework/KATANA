@@ -8,6 +8,7 @@
 
 #ifdef __linux__
 #include <sys/uio.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #endif
 
@@ -55,6 +56,13 @@ void io_buffer::consume(size_t bytes) {
 }
 
 void io_buffer::clear() noexcept {
+    read_pos_ = 0;
+    write_pos_ = 0;
+}
+
+void io_buffer::release() noexcept {
+    buffer_.clear();
+    buffer_.shrink_to_fit();
     read_pos_ = 0;
     write_pos_ = 0;
 }
@@ -145,8 +153,36 @@ result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 #endif
 }
 
-result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
+result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg, write_flags flags) {
 #ifdef __linux__
+    int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
+
+    msghdr msg{};
+    msg.msg_iov    = const_cast<iovec*>(sg.iov());
+    msg.msg_iovlen = static_cast<size_t>(iov_count);
+    msg.msg_name = nullptr;
+    msg.msg_namelen = 0;
+    msg.msg_control = nullptr;
+    msg.msg_controllen = 0;
+    msg.msg_flags = 0;
+
+    int msg_flags = 0;
+    if (has_flag(flags, write_flags::more_data)) {
+        msg_flags |= MSG_MORE;
+    }
+
+    ssize_t res;
+    do {
+        res = ::sendmsg(fd, &msg, msg_flags);
+    } while (res < 0 && errno == EINTR);
+
+    if (res < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    return static_cast<size_t>(res);
+#else
+    (void)flags;
     int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
     ssize_t result = writev(fd, sg.iov(), iov_count);
 
@@ -155,10 +191,6 @@ result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
     }
 
     return static_cast<size_t>(result);
-#else
-    (void)fd;
-    (void)sg;
-    return std::unexpected(make_error_code(error_code::ok));
 #endif
 }
 

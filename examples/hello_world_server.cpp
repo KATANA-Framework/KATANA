@@ -3,7 +3,7 @@
 #include "katana/core/http_headers.hpp"
 #include "katana/core/system_limits.hpp"
 #include "katana/core/shutdown.hpp"
-#include "katana/core/arena.hpp"
+#include "katana/core/arena_pool.hpp"
 #include "katana/core/io_buffer.hpp"
 
 #include <iostream>
@@ -19,8 +19,6 @@ using namespace katana;
 using katana::http::ci_equal;
 
 constexpr uint16_t PORT = 8080;
-constexpr size_t BUFFER_SIZE = 4096;
-constexpr size_t ARENA_BLOCK_SIZE = 8192;
 constexpr size_t MAX_CONNECTIONS = 10000;
 constexpr size_t MAX_ACCEPTS_PER_TICK = 10000;
 
@@ -51,51 +49,55 @@ struct rate_limiter {
 
 static rate_limiter accept_limiter;
 
-int32_t create_listener() {
-    int32_t sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-    if (sockfd < 0) {
-        return -1;
-    }
-
-    int32_t opt = 1;
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
-
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(PORT);
-
-    if (bind(sockfd, static_cast<sockaddr*>(static_cast<void*>(&addr)), sizeof(addr)) < 0) {
-        close(sockfd);
-        return -1;
-    }
-
-    if (listen(sockfd, 1024) < 0) {
-        close(sockfd);
-        return -1;
-    }
-
-    return sockfd;
-}
-
 struct connection {
     std::atomic<int32_t> fd{-1};
-    monotonic_arena arena;
+
+    io_buffer read_buffer;
+    io_buffer write_buffer;
+
     http::parser parser;
-    std::vector<uint8_t> read_buffer;
-    std::vector<uint8_t> write_buffer;
-    size_t write_pos = 0;
+    bounded_arena_pool::scoped_arena arena_guard;
+    monotonic_arena* request_arena = nullptr;
+
     size_t requests_on_connection = 0;
+    bool has_active_request = false;
     bool writing_response = false;
     bool should_close_after_write = false;
+    bool corked = false;
+
     epoll_reactor* reactor = nullptr;
 
-    connection()
-        : arena(ARENA_BLOCK_SIZE)
-        , parser(&arena)
+    connection(epoll_reactor* r)
+        : parser(nullptr)
+        , reactor(r)
     {
-        read_buffer.resize(BUFFER_SIZE);
+        read_buffer.reserve(4096);
+    }
+
+    void start_response() {
+#ifdef __linux__
+        if (!corked) {
+            int flag = 1;
+            int32_t fd_val = fd.load(std::memory_order_relaxed);
+            if (fd_val >= 0) {
+                ::setsockopt(fd_val, IPPROTO_TCP, TCP_CORK, &flag, sizeof(flag));
+                corked = true;
+            }
+        }
+#endif
+    }
+
+    void finish_response() {
+#ifdef __linux__
+        if (corked) {
+            int flag = 0;
+            int32_t fd_val = fd.load(std::memory_order_relaxed);
+            if (fd_val >= 0) {
+                ::setsockopt(fd_val, IPPROTO_TCP, TCP_CORK, &flag, sizeof(flag));
+                corked = false;
+            }
+        }
+#endif
     }
 
     void safe_close() {
@@ -117,12 +119,10 @@ void handle_client(connection& conn) {
     }
 
     if (conn.writing_response) {
-        while (conn.write_pos < conn.write_buffer.size()) {
+        auto write_span = conn.write_buffer.readable_span();
+        if (!write_span.empty()) {
             scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
-            ));
+            sg_write.add_buffer(write_span);
 
             auto write_result = write_vectored(fd_val, sg_write);
             if (!write_result) {
@@ -138,27 +138,34 @@ void handle_client(connection& conn) {
             if (written == 0) {
                 return;
             }
-            conn.write_pos += written;
+            conn.write_buffer.consume(written);
         }
 
-        conn.writing_response = false;
-        if (conn.should_close_after_write) {
-            conn.safe_close();
-            return;
-        }
+        if (conn.write_buffer.empty()) {
+            conn.finish_response();
+            conn.writing_response = false;
 
-        conn.arena.reset();
-        conn.parser = http::parser(&conn.arena);
-        conn.write_pos = 0;
+            if (conn.should_close_after_write) {
+                conn.safe_close();
+                return;
+            }
+
+            conn.has_active_request = false;
+            conn.arena_guard = bounded_arena_pool::scoped_arena();
+            conn.request_arena = nullptr;
+        }
+        return;
     }
 
     while (true) {
+        auto writable = conn.read_buffer.writable_span(4096);
         scatter_gather_read sg_read;
-        sg_read.add_buffer(std::span<uint8_t>(conn.read_buffer.data(), conn.read_buffer.size()));
+        sg_read.add_buffer(writable);
 
         auto read_result = read_vectored(fd_val, sg_read);
         if (!read_result) {
-            if (read_result.error().value() != EAGAIN && read_result.error().value() != EWOULDBLOCK) {
+            if (read_result.error().value() != EAGAIN &&
+                read_result.error().value() != EWOULDBLOCK) {
                 conn.safe_close();
             }
             return;
@@ -170,22 +177,50 @@ void handle_client(connection& conn) {
             return;
         }
 
-        auto result = conn.parser.parse(std::span<const uint8_t>(conn.read_buffer.data(), n));
+        conn.read_buffer.commit(n);
 
-        if (!result) {
-            auto resp = http::response::error(problem_details::bad_request("Invalid HTTP request"));
-            std::string serialized = resp.serialize();
+        if (!conn.has_active_request) {
+            conn.arena_guard = conn.reactor->arena_pool().acquire_scoped();
+            if (!conn.arena_guard.get()) {
+                static const char response_503[] =
+                    "HTTP/1.1 503 Service Unavailable\r\n"
+                    "Content-Type: text/plain\r\n"
+                    "Content-Length: 21\r\n"
+                    "Connection: close\r\n"
+                    "\r\n"
+                    "Service Unavailable\n";
 
-            scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                reinterpret_cast<const uint8_t*>(serialized.data()),
-                serialized.size()
-            ));
+                conn.write_buffer.append(std::string_view(response_503, sizeof(response_503) - 1));
+                conn.writing_response = true;
+                conn.should_close_after_write = true;
+                return;
+            }
 
-            write_vectored(fd_val, sg_write);
+            conn.request_arena = conn.arena_guard.get();
+            conn.parser.reset(conn.request_arena);
+            conn.has_active_request = true;
+        }
+
+        auto parse_span = conn.read_buffer.readable_span();
+        auto parse_result = conn.parser.parse(parse_span);
+
+        if (!parse_result) {
+            static const char response_400[] =
+                "HTTP/1.1 400 Bad Request\r\n"
+                "Content-Type: text/plain\r\n"
+                "Content-Length: 12\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+                "Bad Request\n";
+
+            conn.write_buffer.append(std::string_view(response_400, sizeof(response_400) - 1));
+            conn.writing_response = true;
+            conn.should_close_after_write = true;
             conn.safe_close();
             return;
         }
+
+        conn.read_buffer.consume(conn.parser.bytes_consumed());
 
         if (!conn.parser.is_complete()) {
             continue;
@@ -229,54 +264,54 @@ void handle_client(connection& conn) {
         const char* response = should_close ? response_close : response_keepalive;
         size_t response_len = should_close ? 103 : 136;
 
-        conn.write_buffer.assign(
-            reinterpret_cast<const uint8_t*>(response),
-            reinterpret_cast<const uint8_t*>(response) + response_len
-        );
-        conn.write_pos = 0;
+        conn.write_buffer.clear();
+        conn.write_buffer.append(std::string_view(response, response_len));
 
-        while (conn.write_pos < conn.write_buffer.size()) {
-            scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
-            ));
+        conn.has_active_request = false;
+        conn.arena_guard = bounded_arena_pool::scoped_arena();
+        conn.request_arena = nullptr;
 
-            auto write_result = write_vectored(fd_val, sg_write);
-            if (!write_result) {
-                if (write_result.error().value() == EAGAIN ||
-                    write_result.error().value() == EWOULDBLOCK) {
-                    conn.writing_response = true;
-                    conn.should_close_after_write = should_close;
-                    return;
-                }
-                conn.safe_close();
-                return;
-            }
+        conn.start_response();
 
-            size_t written = *write_result;
-            if (written == 0) {
+        auto write_span = conn.write_buffer.readable_span();
+        scatter_gather_write sg_write;
+        sg_write.add_buffer(write_span);
+
+        auto write_result = write_vectored(fd_val, sg_write);
+        if (!write_result) {
+            if (write_result.error().value() == EAGAIN ||
+                write_result.error().value() == EWOULDBLOCK) {
                 conn.writing_response = true;
                 conn.should_close_after_write = should_close;
                 return;
             }
-
-            conn.write_pos += written;
-        }
-
-        if (should_close) {
             conn.safe_close();
             return;
         }
 
-        conn.arena.reset();
-        conn.parser = http::parser(&conn.arena);
-        conn.write_pos = 0;
+        size_t written = *write_result;
+        if (written > 0) {
+            conn.write_buffer.consume(written);
+        }
+
+        if (conn.write_buffer.empty()) {
+            conn.finish_response();
+
+            if (should_close) {
+                conn.safe_close();
+                return;
+            }
+        } else {
+            conn.writing_response = true;
+            conn.should_close_after_write = should_close;
+            return;
+        }
     }
 }
 
-void accept_connections(reactor_pool& pool, int32_t listener_fd) {
+void accept_connections(reactor_pool& pool, size_t reactor_idx, int32_t listener_fd) {
     size_t accepts_this_call = 0;
+    auto& r = pool.get_reactor(reactor_idx);
 
     while (accepts_this_call < MAX_ACCEPTS_PER_TICK) {
         if (active_connections.load(std::memory_order_relaxed) >= MAX_CONNECTIONS) {
@@ -309,12 +344,8 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
 
         active_connections.fetch_add(1, std::memory_order_relaxed);
 
-        auto conn = std::make_shared<connection>();
+        auto conn = std::make_shared<connection>(&r);
         conn->fd.store(client_fd, std::memory_order_relaxed);
-
-        size_t reactor_idx = pool.select_reactor();
-        auto& r = pool.get_reactor(reactor_idx);
-        conn->reactor = &r;
 
         timeout_config timeouts{
             std::chrono::milliseconds(30000),
@@ -352,32 +383,31 @@ int32_t main() {
         std::cerr << "Failed to set max FDs: " << limits_result.error().message() << "\n";
     }
 
-    int32_t listener_fd = create_listener();
-    if (listener_fd < 0) {
-        std::cerr << "Failed to create listener socket\n";
-        return 1;
-    }
-
     std::cout << "Starting hello-world server on port " << PORT << "\n";
 
     reactor_pool pool;
 
-    size_t main_reactor_idx = pool.select_reactor();
-    auto& main_reactor = pool.get_reactor(main_reactor_idx);
-
-    auto result = main_reactor.register_fd(
-        listener_fd,
-        event_type::readable | event_type::edge_triggered,
-        [&pool, listener_fd](event_type events) {
-            if (has_flag(events, event_type::readable)) {
-                accept_connections(pool, listener_fd);
+    auto result = pool.start_listening(PORT, [&pool](int32_t listener_fd) {
+        size_t reactor_idx = 0;
+        for (size_t i = 0; i < pool.reactor_count(); ++i) {
+            if (&pool.get_reactor(i) == &pool.get_reactor(reactor_idx)) {
+                reactor_idx = i;
+                break;
             }
         }
-    );
+
+        for (auto& reactor : pool) {
+            if (&reactor == &pool.get_reactor(reactor_idx)) {
+                break;
+            }
+            ++reactor_idx;
+        }
+
+        accept_connections(pool, reactor_idx, listener_fd);
+    });
 
     if (!result) {
-        std::cerr << "Failed to register listener: " << result.error().message() << "\n";
-        close(listener_fd);
+        std::cerr << "Failed to start listening: " << result.error().message() << "\n";
         return 1;
     }
 
@@ -388,10 +418,9 @@ int32_t main() {
         pool.graceful_stop(std::chrono::milliseconds(30000));
     });
 
-    std::cout << "Server running. Press Ctrl+C to stop.\n";
+    std::cout << "Server running with SO_REUSEPORT per-reactor. Press Ctrl+C to stop.\n";
 
     pool.wait();
-    close(listener_fd);
 
     std::cout << "\nServer stopped\n";
 
