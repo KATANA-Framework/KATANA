@@ -22,7 +22,6 @@ extern "C" int32_t LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             // Access request fields to ensure no crashes
             [[maybe_unused]] auto method = req.http_method;
             [[maybe_unused]] const auto& uri = req.uri;
-            [[maybe_unused]] const auto& version = req.version;
             [[maybe_unused]] const auto& body = req.body;
 
             // Try to get various headers
