@@ -55,7 +55,7 @@ struct response {
     std::string body;
     bool chunked = false;
 
-    response() : headers(nullptr) {}
+    response() = default;
     response(response&&) noexcept = default;
     response& operator=(response&&) noexcept = default;
     response(const response&) = delete;
