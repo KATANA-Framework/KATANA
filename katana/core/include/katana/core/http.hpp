@@ -130,6 +130,7 @@ private:
     size_t parse_pos_ = 0;
     size_t content_length_ = 0;
     size_t current_chunk_size_ = 0;
+    size_t chunk_start_offset_ = 0;
     size_t header_count_ = 0;
     size_t last_consumed_ = 0;
     bool is_chunked_ = false;

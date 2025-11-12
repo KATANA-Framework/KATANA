@@ -390,6 +390,16 @@ result<parser::state> parser::parse_headers_state() {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
                 body_capacity_ = MAX_BODY_SIZE;
+
+                // Copy any remaining data from header_buffer to body for chunk parsing
+                if (parse_pos_ < header_size_) {
+                    size_t remaining = header_size_ - parse_pos_;
+                    if (remaining > 0) {
+                        // Keep remaining data in header_buffer for chunk size parsing
+                        // parse_pos_ will be used to continue parsing
+                    }
+                }
+
                 return state::chunk_size;
             }
 
@@ -414,6 +424,17 @@ result<parser::state> parser::parse_headers_state() {
                         return std::unexpected(make_error_code(error_code::invalid_fd));
                     }
                     body_capacity_ = content_length_;
+
+                    // Copy any body data that arrived with headers
+                    if (parse_pos_ < header_size_) {
+                        size_t to_copy = std::min(header_size_ - parse_pos_, content_length_);
+                        if (to_copy > 0) {
+                            std::memcpy(body_buffer_, header_buffer_.data() + parse_pos_, to_copy);
+                            body_size_ = to_copy;
+                            parse_pos_ += to_copy;
+                        }
+                    }
+
                     return state::body;
                 }
             }
@@ -517,15 +538,32 @@ result<parser::state> parser::parse_chunk_size_state() {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
+    // Remember where this chunk starts in the body buffer
+    chunk_start_offset_ = body_size_;
+
+    // Copy any chunk data that arrived with headers
+    if (parse_pos_ < header_size_ && body_buffer_) {
+        size_t chunk_bytes_needed = current_chunk_size_ + 2;
+        size_t chunk_bytes_have = body_size_ - chunk_start_offset_;
+        size_t to_copy = std::min(header_size_ - parse_pos_, chunk_bytes_needed - chunk_bytes_have);
+        if (to_copy > 0) {
+            std::memcpy(body_buffer_ + body_size_, header_buffer_.data() + parse_pos_, to_copy);
+            body_size_ += to_copy;
+            parse_pos_ += to_copy;
+        }
+    }
+
     return state::chunk_data;
 }
 
 result<parser::state> parser::parse_chunk_data_state() {
-    if (body_size_ >= current_chunk_size_ + 2) {
+    size_t chunk_bytes_received = body_size_ - chunk_start_offset_;
+    if (chunk_bytes_received >= current_chunk_size_ + 2) {
         if (body_buffer_[body_size_ - 2] != '\r' || body_buffer_[body_size_ - 1] != '\n') {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
 
+        // Remove trailing CRLF, keeping only chunk data
         body_size_ -= 2;
         return state::chunk_size;
     }
@@ -652,6 +690,7 @@ void parser::reset(monotonic_arena* arena) noexcept {
     parse_pos_ = 0;
     content_length_ = 0;
     current_chunk_size_ = 0;
+    chunk_start_offset_ = 0;
     header_count_ = 0;
     last_consumed_ = 0;
     is_chunked_ = false;
