@@ -10,7 +10,9 @@ namespace katana {
 monotonic_arena::block::block(size_t s) noexcept
     : data(nullptr), size(s), used(0)
 {
-    data = static_cast<uint8_t*>(std::aligned_alloc(64, s));
+    constexpr size_t alignment = 64;
+    size_t aligned_size = (s + alignment - 1) & ~(alignment - 1);
+    data = static_cast<uint8_t*>(std::aligned_alloc(alignment, aligned_size));
 }
 
 monotonic_arena::block::~block() noexcept {
