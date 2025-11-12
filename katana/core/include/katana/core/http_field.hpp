@@ -387,8 +387,9 @@ constexpr uint32_t fnv1a_hash(std::string_view str) noexcept {
     return hash;
 }
 
-extern const std::array<field_entry, static_cast<size_t>(field::MAX_FIELD_VALUE)> field_lookup_table;
 extern const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)> field_name_table;
+extern const std::array<field_entry, 25> popular_headers;
+extern const std::array<field_entry, 342> rare_headers;
 }
 
 } // namespace katana::http
