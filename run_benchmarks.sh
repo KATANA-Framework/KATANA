@@ -25,62 +25,28 @@ fi
 cd "${BUILD_DIR}"
 
 echo -e "${GREEN}[1/3] Configuring build system...${NC}"
-cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_BENCHMARKS=ON ..
+cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_BENCHMARKS=ON -DENABLE_EXAMPLES=ON ..
 
 echo -e "${GREEN}[2/3] Building benchmarks...${NC}"
-cmake --build . --target simple_benchmark performance_benchmark mpsc_benchmark timer_benchmark headers_benchmark io_buffer_benchmark -j$(nproc)
+cmake --build . --target simple_benchmark performance_benchmark mpsc_benchmark timer_benchmark headers_benchmark io_buffer_benchmark hello_world_server -j$(nproc)
 
 mkdir -p "${RESULTS_DIR}"
 
-echo -e "${GREEN}[3/3] Running benchmarks...${NC}"
+echo -e "${GREEN}[3/3] Running all benchmarks and generating report...${NC}"
 echo ""
 
-BENCHMARKS=(
-    "performance_benchmark"
-    "mpsc_benchmark"
-    "timer_benchmark"
-    "headers_benchmark"
-    "io_buffer_benchmark"
-)
+cd "${SCRIPT_DIR}"
 
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-SUMMARY_FILE="${RESULTS_DIR}/summary_${TIMESTAMP}.txt"
+if [ -f "generate_benchmark_report.py" ]; then
+    python3 generate_benchmark_report.py
 
-echo "KATANA Framework - Benchmark Results" > "${SUMMARY_FILE}"
-echo "Generated: $(date '+%Y-%m-%d %H:%M:%S')" >> "${SUMMARY_FILE}"
-echo "" >> "${SUMMARY_FILE}"
-
-for bench in "${BENCHMARKS[@]}"; do
-    if [ -f "./benchmark/${bench}" ]; then
-        echo -e "${BLUE}Running ${bench}...${NC}"
-        OUTPUT_FILE="${RESULTS_DIR}/${bench}_${TIMESTAMP}.txt"
-
-        ./benchmark/${bench} | tee "${OUTPUT_FILE}"
-
-        echo "" >> "${SUMMARY_FILE}"
-        echo "=== ${bench} ===" >> "${SUMMARY_FILE}"
-        grep -E "(Operations:|Throughput:|Latency)" "${OUTPUT_FILE}" >> "${SUMMARY_FILE}" || true
-        echo ""
-    else
-        echo -e "${RED}Warning: ${bench} not found, skipping...${NC}"
-    fi
-done
-
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}All benchmarks completed!${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo ""
-echo -e "Results saved to: ${YELLOW}${RESULTS_DIR}${NC}"
-echo -e "Summary: ${YELLOW}${SUMMARY_FILE}${NC}"
-echo ""
-
-if [ -f "./benchmark/simple_benchmark" ]; then
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}HTTP Server Benchmark Available${NC}"
-    echo -e "${BLUE}========================================${NC}"
     echo ""
-    echo -e "To run the HTTP server benchmark:"
-    echo -e "  1. Start the server: ${YELLOW}./build/examples/hello_world_server${NC}"
-    echo -e "  2. In another terminal: ${YELLOW}./build/benchmark/simple_benchmark${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}All benchmarks completed!${NC}"
+    echo -e "${GREEN}========================================${NC}"
     echo ""
+    echo -e "Comprehensive report: ${YELLOW}BENCHMARK_RESULTS.md${NC}"
+else
+    echo -e "${RED}Error: generate_benchmark_report.py not found${NC}"
+    exit 1
 fi

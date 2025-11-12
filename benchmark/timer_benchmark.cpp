@@ -89,7 +89,7 @@ benchmark_result benchmark_timer_cancel() {
 
     for (size_t i = 0; i < num_operations; ++i) {
         auto op_start = steady_clock::now();
-        timer.cancel(ids[i]);
+        (void)timer.cancel(ids[i]);
         auto op_end = steady_clock::now();
 
         double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
