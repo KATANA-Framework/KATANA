@@ -374,13 +374,22 @@ result<parser::state> parser::parse_headers_state() {
         }
 
         if (line.front() == ' ' || line.front() == '\t') {
-            if (last_header_field_ == field::unknown) {
+            if (!last_header_name_) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
-            auto current_value = request_.headers.get(last_header_field_);
+
+            // Get current value using either field enum or name
+            std::optional<std::string_view> current_value;
+            if (last_header_field_ != field::unknown) {
+                current_value = request_.headers.get(last_header_field_);
+            } else {
+                current_value = request_.headers.get(std::string_view(last_header_name_, last_header_name_len_));
+            }
+
             if (!current_value) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
+
             // Header folding - allocate combined value in arena
             auto folded_view = std::string_view(line);
             while (!folded_view.empty() && (folded_view.front() == ' ' || folded_view.front() == '\t')) {
@@ -398,7 +407,14 @@ result<parser::state> parser::parse_headers_state() {
                 combined[current_value->size()] = ' ';
                 std::memcpy(combined + current_value->size() + 1, folded_view.data(), folded_view.size());
                 combined[total_len] = '\0';
-                request_.headers.set(last_header_field_, std::string_view(combined, total_len));
+
+                // Set using either field enum or name
+                if (last_header_field_ != field::unknown) {
+                    request_.headers.set(last_header_field_, std::string_view(combined, total_len));
+                } else {
+                    request_.headers.set_view(std::string_view(last_header_name_, last_header_name_len_),
+                                             std::string_view(combined, total_len));
+                }
             }
         } else {
             auto res = process_header_line(line);
@@ -570,6 +586,8 @@ result<void> parser::process_header_line(std::string_view line) {
     }
 
     last_header_field_ = string_to_field(name);
+    last_header_name_ = arena_->allocate_string(name);
+    last_header_name_len_ = name.size();
     request_.headers.set_view(name, value);
     ++header_count_;
     return {};

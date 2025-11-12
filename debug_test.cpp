@@ -7,6 +7,15 @@ using namespace katana;
 using namespace katana::http;
 
 int main() {
+    // Test array initialization
+    const auto& popular = http::detail::get_popular_headers();
+    std::cout << "Popular headers size: " << popular.size() << "\n";
+    if (popular.size() > 0) {
+        std::cout << "First popular header: " << popular[0].name << " = " << static_cast<int>(popular[0].value) << "\n";
+        std::cout << "Content-Length should be at index 6: " << popular[6].name << " = " << static_cast<int>(popular[6].value) << "\n";
+    }
+    std::cout << "\n";
+
     // Test string_to_field
     auto cl_field = string_to_field("Content-Length");
     std::cout << "string_to_field('Content-Length') = " << static_cast<int>(cl_field) << "\n";

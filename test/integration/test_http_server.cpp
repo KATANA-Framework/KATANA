@@ -95,9 +95,9 @@ TEST_F(HTTPServerTest, SizeLimits) {
 TEST_F(HTTPServerTest, ArenaAllocation) {
     monotonic_arena arena(4096);
 
-    std::vector<uint8_t> buffer;
-    buffer.resize(1024);
-
+    // Allocate using arena
+    void* buffer = arena.allocate(1024, 1);
+    EXPECT_NE(buffer, nullptr);
     EXPECT_GE(arena.bytes_allocated(), 1024);
 
     arena.reset();

@@ -6,7 +6,8 @@ namespace katana::http {
 
 namespace detail {
 
-extern const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)> field_name_table = {{
+const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)>& get_field_name_table() noexcept {
+    static const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)> table = {{
     "unknown",
     "A-IM",
     "Accept",
@@ -365,6 +366,8 @@ extern const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_V
     "X400-Trace",
     "Xref"
 }};
+    return table;
+}
 
 inline bool case_insensitive_equal(std::string_view a, std::string_view b) noexcept {
     if (a.size() != b.size()) {
@@ -392,75 +395,80 @@ inline bool case_insensitive_less(std::string_view a, std::string_view b) noexce
 }
 
 // Top 25 most common HTTP headers (linear search, ~22 ns)
-extern const std::array<field_entry, 25> popular_headers = {{
-    {field_name_table[154], field::host, fnv1a_hash(field_name_table[154])},
-    {field_name_table[335], field::user_agent, fnv1a_hash(field_name_table[335])},
-    {field_name_table[12], field::accept, fnv1a_hash(field_name_table[12])},
-    {field_name_table[16], field::accept_encoding, fnv1a_hash(field_name_table[16])},
-    {field_name_table[18], field::accept_language, fnv1a_hash(field_name_table[18])},
-    {field_name_table[88], field::content_type, fnv1a_hash(field_name_table[88])},
-    {field_name_table[80], field::content_length, fnv1a_hash(field_name_table[80])},
-    {field_name_table[69], field::connection, fnv1a_hash(field_name_table[69])},
-    {field_name_table[61], field::cache_control, fnv1a_hash(field_name_table[61])},
-    {field_name_table[93], field::cookie, fnv1a_hash(field_name_table[93])},
-    {field_name_table[49], field::authorization, fnv1a_hash(field_name_table[49])},
-    {field_name_table[266], field::referer, fnv1a_hash(field_name_table[266])},
-    {field_name_table[225], field::origin, fnv1a_hash(field_name_table[225])},
-    {field_name_table[97], field::date, fnv1a_hash(field_name_table[97])},
-    {field_name_table[300], field::server, fnv1a_hash(field_name_table[300])},
-    {field_name_table[301], field::set_cookie, fnv1a_hash(field_name_table[301])},
-    {field_name_table[325], field::transfer_encoding, fnv1a_hash(field_name_table[325])},
-    {field_name_table[158], field::if_modified_since, fnv1a_hash(field_name_table[158])},
-    {field_name_table[159], field::if_none_match, fnv1a_hash(field_name_table[159])},
-    {field_name_table[143], field::etag, fnv1a_hash(field_name_table[143])},
-    {field_name_table[145], field::expires, fnv1a_hash(field_name_table[145])},
-    {field_name_table[174], field::last_modified, fnv1a_hash(field_name_table[174])},
-    {field_name_table[337], field::vary, fnv1a_hash(field_name_table[337])},
-    {field_name_table[26], field::access_control_allow_origin, fnv1a_hash(field_name_table[26])},
-    {field_name_table[75], field::content_encoding, fnv1a_hash(field_name_table[75])}
+const std::array<field_entry, 25>& get_popular_headers() noexcept {
+    static const std::array<field_entry, 25> headers = {{
+        {"Host", field::host, fnv1a_hash("Host")},
+        {"User-Agent", field::user_agent, fnv1a_hash("User-Agent")},
+        {"Accept", field::accept, fnv1a_hash("Accept")},
+        {"Accept-Encoding", field::accept_encoding, fnv1a_hash("Accept-Encoding")},
+        {"Accept-Language", field::accept_language, fnv1a_hash("Accept-Language")},
+        {"Content-Type", field::content_type, fnv1a_hash("Content-Type")},
+        {"Content-Length", field::content_length, fnv1a_hash("Content-Length")},
+        {"Connection", field::connection, fnv1a_hash("Connection")},
+        {"Cache-Control", field::cache_control, fnv1a_hash("Cache-Control")},
+        {"Cookie", field::cookie, fnv1a_hash("Cookie")},
+        {"Authorization", field::authorization, fnv1a_hash("Authorization")},
+        {"Referer", field::referer, fnv1a_hash("Referer")},
+        {"Origin", field::origin, fnv1a_hash("Origin")},
+        {"Date", field::date, fnv1a_hash("Date")},
+        {"Server", field::server, fnv1a_hash("Server")},
+        {"Set-Cookie", field::set_cookie, fnv1a_hash("Set-Cookie")},
+        {"Transfer-Encoding", field::transfer_encoding, fnv1a_hash("Transfer-Encoding")},
+        {"If-Modified-Since", field::if_modified_since, fnv1a_hash("If-Modified-Since")},
+        {"If-None-Match", field::if_none_match, fnv1a_hash("If-None-Match")},
+        {"ETag", field::etag, fnv1a_hash("ETag")},
+        {"Expires", field::expires, fnv1a_hash("Expires")},
+        {"Last-Modified", field::last_modified, fnv1a_hash("Last-Modified")},
+        {"Vary", field::vary, fnv1a_hash("Vary")},
+        {"Access-Control-Allow-Origin", field::access_control_allow_origin, fnv1a_hash("Access-Control-Allow-Origin")},
+        {"Content-Encoding", field::content_encoding, fnv1a_hash("Content-Encoding")}
 }};
-
-// Rare headers sorted alphabetically for binary search (log₂342 = 9 comparisons, ~64 ns)
-constexpr std::array<field_entry, 342> create_rare_headers() {
-    std::array<field_entry, 342> result{};
-    size_t idx = 0;
-
-    for (size_t i = 0; i < field_name_table.size(); ++i) {
-        field fld = static_cast<field>(i);
-
-        // Skip popular headers
-        if (fld == field::host || fld == field::user_agent || fld == field::accept ||
-            fld == field::accept_encoding || fld == field::accept_language ||
-            fld == field::content_type || fld == field::content_length ||
-            fld == field::connection || fld == field::cache_control ||
-            fld == field::cookie || fld == field::authorization ||
-            fld == field::referer || fld == field::origin || fld == field::date ||
-            fld == field::server || fld == field::set_cookie ||
-            fld == field::transfer_encoding || fld == field::if_modified_since ||
-            fld == field::if_none_match || fld == field::etag || fld == field::expires ||
-            fld == field::last_modified || fld == field::vary ||
-            fld == field::access_control_allow_origin || fld == field::content_encoding) {
-            continue;
-        }
-
-        result[idx++] = {field_name_table[i], fld, fnv1a_hash(field_name_table[i])};
-    }
-
-    // Bubble sort (constexpr compatible)
-    for (size_t i = 0; i < result.size(); ++i) {
-        for (size_t j = i + 1; j < result.size(); ++j) {
-            if (case_insensitive_less(result[j].name, result[i].name)) {
-                auto tmp = result[i];
-                result[i] = result[j];
-                result[j] = tmp;
-            }
-        }
-    }
-
-    return result;
+    return headers;
 }
 
-extern const std::array<field_entry, 342> rare_headers = create_rare_headers();
+// Rare headers sorted alphabetically for binary search (log₂342 = 9 comparisons, ~64 ns)
+const std::array<field_entry, 342>& get_rare_headers() noexcept {
+    static const auto headers = []() {
+        std::array<field_entry, 342> result{};
+        size_t idx = 0;
+        const auto& table = get_field_name_table();
+
+        for (size_t i = 0; i < table.size(); ++i) {
+            field fld = static_cast<field>(i);
+
+            // Skip popular headers
+            if (fld == field::host || fld == field::user_agent || fld == field::accept ||
+                fld == field::accept_encoding || fld == field::accept_language ||
+                fld == field::content_type || fld == field::content_length ||
+                fld == field::connection || fld == field::cache_control ||
+                fld == field::cookie || fld == field::authorization ||
+                fld == field::referer || fld == field::origin || fld == field::date ||
+                fld == field::server || fld == field::set_cookie ||
+                fld == field::transfer_encoding || fld == field::if_modified_since ||
+                fld == field::if_none_match || fld == field::etag || fld == field::expires ||
+                fld == field::last_modified || fld == field::vary ||
+                fld == field::access_control_allow_origin || fld == field::content_encoding) {
+                continue;
+            }
+
+            result[idx++] = {table[i], fld, fnv1a_hash(table[i])};
+        }
+
+        // Bubble sort
+        for (size_t i = 0; i < result.size(); ++i) {
+            for (size_t j = i + 1; j < result.size(); ++j) {
+                if (case_insensitive_less(result[j].name, result[i].name)) {
+                    auto tmp = result[i];
+                    result[i] = result[j];
+                    result[j] = tmp;
+                }
+            }
+        }
+
+        return result;
+    }();
+    return headers;
+}
 
 }
 
@@ -472,23 +480,25 @@ field string_to_field(std::string_view name) noexcept {
     uint32_t hash = detail::fnv1a_hash(name);
 
     // Fast path: linear search in popular headers (95%+ of requests)
-    for (const auto& entry : detail::popular_headers) {
+    const auto& popular = detail::get_popular_headers();
+    for (const auto& entry : popular) {
         if (entry.hash == hash && detail::case_insensitive_equal(entry.name, name)) {
             return entry.value;
         }
     }
 
     // Slow path: binary search in rare headers (5% of requests)
+    const auto& rare = detail::get_rare_headers();
     auto it = std::lower_bound(
-        detail::rare_headers.begin(),
-        detail::rare_headers.end(),
+        rare.begin(),
+        rare.end(),
         name,
         [](const detail::field_entry& entry, std::string_view n) {
             return detail::case_insensitive_less(entry.name, n);
         }
     );
 
-    if (it != detail::rare_headers.end() && detail::case_insensitive_equal(it->name, name)) {
+    if (it != rare.end() && detail::case_insensitive_equal(it->name, name)) {
         return it->value;
     }
 
@@ -497,8 +507,9 @@ field string_to_field(std::string_view name) noexcept {
 
 std::string_view field_to_string(field f) noexcept {
     auto idx = static_cast<size_t>(f);
-    if (idx < detail::field_name_table.size()) {
-        return detail::field_name_table[idx];
+    const auto& table = detail::get_field_name_table();
+    if (idx < table.size()) {
+        return table[idx];
     }
     return "unknown";
 }
