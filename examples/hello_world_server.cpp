@@ -30,6 +30,26 @@ static std::atomic<size_t> active_connections{0};
 static std::atomic<size_t> total_requests{0};
 static std::atomic<size_t> keepalive_reuses{0};
 
+alignas(64) static constexpr char RESPONSE_KEEPALIVE[] =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/plain\r\n"
+    "Content-Length: 13\r\n"
+    "Connection: keep-alive\r\n"
+    "Keep-Alive: timeout=60, max=1000\r\n"
+    "\r\n"
+    "Hello, World!";
+
+alignas(64) static constexpr char RESPONSE_CLOSE[] =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/plain\r\n"
+    "Content-Length: 13\r\n"
+    "Connection: close\r\n"
+    "\r\n"
+    "Hello, World!";
+
+static constexpr size_t RESPONSE_KEEPALIVE_LEN = sizeof(RESPONSE_KEEPALIVE) - 1;
+static constexpr size_t RESPONSE_CLOSE_LEN = sizeof(RESPONSE_CLOSE) - 1;
+
 struct rate_limiter {
     std::chrono::steady_clock::time_point last_reset;
     size_t accepts_this_period{0};
@@ -221,25 +241,8 @@ void handle_client(connection& conn) {
             should_close = true;
         }
 
-        static const char* response_keepalive =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 13\r\n"
-            "Connection: keep-alive\r\n"
-            "Keep-Alive: timeout=60, max=1000\r\n"
-            "\r\n"
-            "Hello, World!";
-
-        static const char* response_close =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 13\r\n"
-            "Connection: close\r\n"
-            "\r\n"
-            "Hello, World!";
-
-        const char* response = should_close ? response_close : response_keepalive;
-        size_t response_len = should_close ? 103 : 136;
+        const char* response = should_close ? RESPONSE_CLOSE : RESPONSE_KEEPALIVE;
+        size_t response_len = should_close ? RESPONSE_CLOSE_LEN : RESPONSE_KEEPALIVE_LEN;
 
         std::memcpy(conn.write_buffer.data(), response, response_len);
         conn.write_len = response_len;
