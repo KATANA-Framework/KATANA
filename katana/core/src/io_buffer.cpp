@@ -154,35 +154,38 @@ result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 }
 
 result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg, write_flags flags) {
-#ifdef __linux__
-    int msg_flags = 0;
-    if (has_flag(flags, write_flags::more_data)) {
-        msg_flags |= MSG_MORE;
-    }
-
-    struct msghdr msg = {};
-    msg.msg_iov = const_cast<iovec*>(sg.iov());
-    msg.msg_iovlen = std::min<size_t>(sg.count(), IOV_MAX);
-
-    ssize_t result = sendmsg(fd, &msg, msg_flags);
-
-    if (result < 0) {
-        return std::unexpected(std::error_code(errno, std::system_category()));
-    }
-
-    return static_cast<size_t>(result);
-#else
-    // Fallback for non-Linux
-    (void)flags;
     int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
-    ssize_t result = writev(fd, sg.iov(), iov_count);
+    ssize_t result = -1;
+
+#ifdef __linux__
+    // Try sendmsg with MSG_MORE for sockets if requested
+    if (has_flag(flags, write_flags::more_data)) {
+        int msg_flags = MSG_MORE;
+        struct msghdr msg = {};
+        msg.msg_iov = const_cast<iovec*>(sg.iov());
+        msg.msg_iovlen = iov_count;
+
+        result = sendmsg(fd, &msg, msg_flags);
+
+        // If sendmsg fails with ENOTSOCK, fall back to writev
+        if (result < 0 && errno == ENOTSOCK) {
+            result = writev(fd, sg.iov(), iov_count);
+        }
+    } else {
+        // No flags specified, use standard writev
+        result = writev(fd, sg.iov(), iov_count);
+    }
+#else
+    // Non-Linux platforms always use writev
+    (void)flags;
+    result = writev(fd, sg.iov(), iov_count);
+#endif
 
     if (result < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
     return static_cast<size_t>(result);
-#endif
 }
 
 } // namespace katana
