@@ -233,7 +233,7 @@ const char* parser::find_header_end() const noexcept {
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
     last_consumed_ = 0;
 
-    if (state_ == state::request_line || state_ == state::headers) [[likely]] {
+    if (state_ == state::request_line || state_ == state::headers || state_ == state::chunk_size || state_ == state::chunk_trailer) [[likely]] {
         for (size_t i = 0; i < data.size(); ++i) {
             uint8_t byte = data[i];
             if (byte == 0 || byte >= 0x80) [[unlikely]] {
@@ -294,6 +294,8 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
     while (state_ != state::complete) {
         size_t old_parse_pos = parse_pos_;
+        state old_state = state_;
+
         result<state> next_state = [&]() -> result<state> {
             switch (state_) {
                 case state::request_line:
@@ -319,7 +321,87 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
 
         state_ = *next_state;
 
-        if (parse_pos_ == old_parse_pos && state_ != state::complete) {
+        // If we transitioned from headers to body/chunk_size, copy remaining data
+        bool copied_more_data = false;
+        if ((old_state == state::headers || old_state == state::request_line) &&
+            (state_ == state::body || state_ == state::chunk_size) && body_buffer_) {
+
+            // First, copy any data that arrived with headers in header_buffer
+            if (parse_pos_ < header_size_) {
+                if (state_ == state::body) {
+                    size_t to_copy = std::min(header_size_ - parse_pos_, body_capacity_ - body_size_);
+                    if (to_copy > 0) {
+                        std::memcpy(body_buffer_ + body_size_, header_buffer_.data() + parse_pos_, to_copy);
+                        body_size_ += to_copy;
+                        parse_pos_ += to_copy;
+                        copied_more_data = true;
+                    }
+                }
+                // For chunk_size, data stays in header_buffer
+            }
+
+            // Then, copy any remaining data from original span that didn't fit in header_buffer
+            if (last_consumed_ < data.size()) {
+                size_t remaining_offset = last_consumed_;
+                size_t remaining_size = data.size() - remaining_offset;
+
+                if (state_ == state::body) {
+                    size_t to_copy = std::min(remaining_size, body_capacity_ - body_size_);
+                    if (to_copy > 0) {
+                        std::memcpy(body_buffer_ + body_size_, data.data() + remaining_offset, to_copy);
+                        body_size_ += to_copy;
+                        last_consumed_ += to_copy;
+                        copied_more_data = true;
+                    }
+                } else if (state_ == state::chunk_size) {
+                    // For chunked, keep in header_buffer for chunk size parsing
+                    size_t to_copy = std::min(remaining_size, MAX_HEADER_SIZE - header_size_);
+                    if (to_copy > 0) {
+                        if (header_buffer_.size() < header_size_ + to_copy) {
+                            header_buffer_.resize(header_size_ + to_copy);
+                        }
+                        std::memcpy(header_buffer_.data() + header_size_, data.data() + remaining_offset, to_copy);
+                        header_size_ += to_copy;
+                        last_consumed_ += to_copy;
+                        copied_more_data = true;
+                    }
+                }
+            }
+        }
+
+        // Also handle chunk_size -> chunk_data transition
+        if (old_state == state::chunk_size && state_ == state::chunk_data && body_buffer_) {
+            size_t chunk_bytes_needed = current_chunk_size_ + 2;
+
+            // First copy from header_buffer if chunk data arrived with chunk size line
+            if (parse_pos_ < header_size_) {
+                size_t to_copy = std::min(header_size_ - parse_pos_, chunk_bytes_needed);
+                if (to_copy > 0 && body_size_ + to_copy <= body_capacity_) {
+                    std::memcpy(body_buffer_ + body_size_, header_buffer_.data() + parse_pos_, to_copy);
+                    body_size_ += to_copy;
+                    parse_pos_ += to_copy;
+                    copied_more_data = true;
+                }
+            }
+
+            // Then copy from original data
+            if (last_consumed_ < data.size()) {
+                size_t remaining_offset = last_consumed_;
+                size_t remaining_size = data.size() - remaining_offset;
+                size_t chunk_bytes_have = body_size_ - chunk_start_offset_;
+                size_t to_copy = std::min(remaining_size, chunk_bytes_needed - chunk_bytes_have);
+
+                if (to_copy > 0 && body_size_ + to_copy <= body_capacity_) {
+                    std::memcpy(body_buffer_ + body_size_, data.data() + remaining_offset, to_copy);
+                    body_size_ += to_copy;
+                    last_consumed_ += to_copy;
+                    copied_more_data = true;
+                }
+            }
+        }
+
+        // Don't exit early if we just copied more data or state changed - continue parsing
+        if (parse_pos_ == old_parse_pos && old_state == state_ && state_ != state::complete && !copied_more_data) {
             if (parse_pos_ > COMPACT_THRESHOLD && (state_ == state::request_line || state_ == state::headers)) {
                 compact_header_buffer();
             }
@@ -390,16 +472,6 @@ result<parser::state> parser::parse_headers_state() {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
                 body_capacity_ = MAX_BODY_SIZE;
-
-                // Copy any remaining data from header_buffer to body for chunk parsing
-                if (parse_pos_ < header_size_) {
-                    size_t remaining = header_size_ - parse_pos_;
-                    if (remaining > 0) {
-                        // Keep remaining data in header_buffer for chunk size parsing
-                        // parse_pos_ will be used to continue parsing
-                    }
-                }
-
                 return state::chunk_size;
             }
 
@@ -424,17 +496,6 @@ result<parser::state> parser::parse_headers_state() {
                         return std::unexpected(make_error_code(error_code::invalid_fd));
                     }
                     body_capacity_ = content_length_;
-
-                    // Copy any body data that arrived with headers
-                    if (parse_pos_ < header_size_) {
-                        size_t to_copy = std::min(header_size_ - parse_pos_, content_length_);
-                        if (to_copy > 0) {
-                            std::memcpy(body_buffer_, header_buffer_.data() + parse_pos_, to_copy);
-                            body_size_ = to_copy;
-                            parse_pos_ += to_copy;
-                        }
-                    }
-
                     return state::body;
                 }
             }
@@ -540,19 +601,6 @@ result<parser::state> parser::parse_chunk_size_state() {
 
     // Remember where this chunk starts in the body buffer
     chunk_start_offset_ = body_size_;
-
-    // Copy any chunk data that arrived with headers
-    if (parse_pos_ < header_size_ && body_buffer_) {
-        size_t chunk_bytes_needed = current_chunk_size_ + 2;
-        size_t chunk_bytes_have = body_size_ - chunk_start_offset_;
-        size_t to_copy = std::min(header_size_ - parse_pos_, chunk_bytes_needed - chunk_bytes_have);
-        if (to_copy > 0) {
-            std::memcpy(body_buffer_ + body_size_, header_buffer_.data() + parse_pos_, to_copy);
-            body_size_ += to_copy;
-            parse_pos_ += to_copy;
-        }
-    }
-
     return state::chunk_data;
 }
 

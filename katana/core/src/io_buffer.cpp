@@ -154,44 +154,48 @@ result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 }
 
 result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg, write_flags flags) {
-#ifdef __linux__
     int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
 
-    msghdr msg{};
-    msg.msg_iov    = const_cast<iovec*>(sg.iov());
-    msg.msg_iovlen = static_cast<size_t>(iov_count);
-    msg.msg_name = nullptr;
-    msg.msg_namelen = 0;
-    msg.msg_control = nullptr;
-    msg.msg_controllen = 0;
-    msg.msg_flags = 0;
-
-    int msg_flags = 0;
+#ifdef __linux__
+    // Try sendmsg first for socket support with MSG_MORE
     if (has_flag(flags, write_flags::more_data)) {
-        msg_flags |= MSG_MORE;
+        msghdr msg{};
+        msg.msg_iov    = const_cast<iovec*>(sg.iov());
+        msg.msg_iovlen = static_cast<size_t>(iov_count);
+        msg.msg_name = nullptr;
+        msg.msg_namelen = 0;
+        msg.msg_control = nullptr;
+        msg.msg_controllen = 0;
+        msg.msg_flags = 0;
+
+        ssize_t res;
+        do {
+            res = ::sendmsg(fd, &msg, MSG_MORE);
+        } while (res < 0 && errno == EINTR);
+
+        // sendmsg works for sockets; fallback to writev for pipes/files
+        if (res >= 0 || errno != ENOTSOCK) {
+            if (res < 0) {
+                return std::unexpected(std::error_code(errno, std::system_category()));
+            }
+            return static_cast<size_t>(res);
+        }
     }
-
-    ssize_t res;
-    do {
-        res = ::sendmsg(fd, &msg, msg_flags);
-    } while (res < 0 && errno == EINTR);
-
-    if (res < 0) {
-        return std::unexpected(std::error_code(errno, std::system_category()));
-    }
-
-    return static_cast<size_t>(res);
 #else
     (void)flags;
-    int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
-    ssize_t result = writev(fd, sg.iov(), iov_count);
+#endif
+
+    // Fallback to writev for non-sockets or when MSG_MORE not needed
+    ssize_t result;
+    do {
+        result = writev(fd, sg.iov(), iov_count);
+    } while (result < 0 && errno == EINTR);
 
     if (result < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
     return static_cast<size_t>(result);
-#endif
 }
 
 } // namespace katana
