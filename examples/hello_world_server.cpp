@@ -6,6 +6,7 @@
 #include "katana/core/arena.hpp"
 #include "katana/core/io_buffer.hpp"
 #include "katana/core/compiler_hints.hpp"
+#include "katana/core/socket_opts.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -283,8 +284,8 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
 
         ++accepts_this_call;
 
-        int32_t nodelay = 1;
-        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+        // Apply low-latency socket optimizations
+        socket_opts::apply_low_latency(client_fd);
 
         active_connections.fetch_add(1, std::memory_order_relaxed);
 

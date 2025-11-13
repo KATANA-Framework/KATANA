@@ -10,6 +10,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(KATANA_POLL "epoll" CACHE STRING "I/O polling backend: epoll or io_uring")
 set_property(CACHE KATANA_POLL PROPERTY STRINGS "epoll" "io_uring")
 
+option(KATANA_USE_JEMALLOC "Use jemalloc allocator for better performance" OFF)
+
 add_compile_options(
     -Wall
     -Wextra
@@ -84,6 +86,24 @@ target_include_directories(katana_core PUBLIC
 
 if(REACTOR_LIBS)
     target_link_libraries(katana_core PUBLIC ${REACTOR_LIBS})
+endif()
+
+# Jemalloc integration for performance
+if(KATANA_USE_JEMALLOC)
+    find_package(PkgConfig)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(JEMALLOC jemalloc)
+        if(JEMALLOC_FOUND)
+            message(STATUS "Using jemalloc allocator")
+            target_link_libraries(katana_core PUBLIC ${JEMALLOC_LIBRARIES})
+            target_include_directories(katana_core PUBLIC ${JEMALLOC_INCLUDE_DIRS})
+            target_compile_definitions(katana_core PUBLIC KATANA_HAS_JEMALLOC=1)
+        else()
+            message(WARNING "jemalloc requested but not found, using system allocator")
+        endif()
+    else()
+        message(WARNING "PkgConfig not found, cannot locate jemalloc")
+    endif()
 endif()
 
 option(ENABLE_TESTING "Enable testing" ON)
