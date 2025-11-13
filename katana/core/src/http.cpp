@@ -430,10 +430,17 @@ result<parser::state> parser::parse_headers_state() {
 }
 
 result<parser::state> parser::parse_body_state() {
+    if (content_length_ == 0) {
+        return state::complete;
+    }
+
     size_t remaining = buffer_size_ - parse_pos_;
     if (remaining >= content_length_) {
-        char* body_ptr = arena_->allocate_string(std::string_view(buffer_ + parse_pos_, content_length_));
-        request_.body = std::string_view(body_ptr, content_length_);
+        std::string_view body_view(buffer_ + parse_pos_, content_length_);
+        char* body_ptr = arena_->allocate_string(body_view);
+        if (body_ptr) {
+            request_.body = std::string_view(body_ptr, content_length_);
+        }
         parse_pos_ += content_length_;
         return state::complete;
     }
@@ -493,8 +500,10 @@ result<parser::state> parser::parse_chunk_data_state() {
             }
         }
 
-        std::memcpy(chunked_body_ + chunked_body_size_, chunk_start, current_chunk_size_);
-        chunked_body_size_ += current_chunk_size_;
+        if (current_chunk_size_ > 0) {
+            std::memcpy(chunked_body_ + chunked_body_size_, chunk_start, current_chunk_size_);
+            chunked_body_size_ += current_chunk_size_;
+        }
         parse_pos_ += current_chunk_size_ + 2;
         return state::chunk_size;
     }
