@@ -5,6 +5,7 @@
 #include "katana/core/shutdown.hpp"
 #include "katana/core/arena.hpp"
 #include "katana/core/io_buffer.hpp"
+#include "katana/core/compiler_hints.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -201,33 +202,23 @@ void handle_client(connection& conn) {
             should_close = true;
         }
 
-        if (conn.requests_on_connection >= 1000) {
+        if (UNLIKELY(conn.requests_on_connection >= 1000)) {
             should_close = true;
         }
 
-        static const char* response_keepalive =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 13\r\n"
-            "Connection: keep-alive\r\n"
-            "Keep-Alive: timeout=60, max=1000\r\n"
-            "\r\n"
-            "Hello, World!";
+        static constexpr std::string_view response_keepalive =
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n"
+            "Connection: keep-alive\r\nKeep-Alive: timeout=60, max=1000\r\n\r\nHello, World!";
 
-        static const char* response_close =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 13\r\n"
-            "Connection: close\r\n"
-            "\r\n"
-            "Hello, World!";
+        static constexpr std::string_view response_close =
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n"
+            "Connection: close\r\n\r\nHello, World!";
 
-        const char* response = should_close ? response_close : response_keepalive;
-        size_t response_len = should_close ? 103 : 136;
+        std::string_view response = LIKELY(!should_close) ? response_keepalive : response_close;
 
         // SERIALIZATION BARRIER: Copy response to heap buffer
         conn.write_buffer.clear();
-        conn.write_buffer.append(std::string_view(response, response_len));
+        conn.write_buffer.append(response);
 
         // arena_guard destroyed here - arena returned to pool
 
@@ -237,7 +228,7 @@ void handle_client(connection& conn) {
         sg_write.add_buffer(readable);
 
         auto write_result = write_vectored(fd_val, sg_write);
-        if (!write_result) {
+        if (UNLIKELY(!write_result)) {
             if (write_result.error().value() == EAGAIN || write_result.error().value() == EWOULDBLOCK) {
                 conn.writing_response = true;
                 conn.should_close_after_write = should_close;
@@ -250,13 +241,13 @@ void handle_client(connection& conn) {
         size_t written = *write_result;
         conn.write_buffer.consume(written);
 
-        if (!conn.write_buffer.empty()) {
+        if (UNLIKELY(!conn.write_buffer.empty())) {
             conn.writing_response = true;
             conn.should_close_after_write = should_close;
             return;
         }
 
-        if (should_close) {
+        if (UNLIKELY(should_close)) {
             conn.safe_close();
             return;
         }

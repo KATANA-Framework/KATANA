@@ -119,11 +119,30 @@ inline std::string to_lower(std::string_view s) {
     return result;
 }
 
+// Perfect hash for standard HTTP headers (O(1) lookup)
+constexpr uint32_t header_perfect_hash(std::string_view name) noexcept {
+    if (name.empty() || name.size() > 32) return 0xFFFFFFFF;
+
+    // Simple perfect hash based on length and first/last char
+    uint32_t hash = static_cast<uint32_t>(name.size());
+    hash = (hash << 5) | (std::tolower(static_cast<unsigned char>(name[0])) & 0x1F);
+    hash = (hash << 5) | (std::tolower(static_cast<unsigned char>(name[name.size() - 1])) & 0x1F);
+    return hash % 64; // Small hash table for common headers
+}
+
 // Case-insensitive hash functor for heterogeneous lookup (zero-allocation)
 struct ci_hash {
     using is_transparent = void;  // Enable heterogeneous lookup
 
     [[nodiscard]] size_t operator()(std::string_view sv) const noexcept {
+        // Try perfect hash first for common headers
+        if (sv.size() <= 32) {
+            uint32_t ph = header_perfect_hash(sv);
+            if (ph < 64) {
+                return static_cast<size_t>(ph);
+            }
+        }
+
         // FNV-1a hash algorithm with case folding
         size_t hash = 14695981039346656037ULL;
         for (char c : sv) {

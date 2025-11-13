@@ -109,11 +109,20 @@ void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
             continue;
         }
 
+        // Prefetch next block's data for better cache utilization
+        if (i + 1 < num_blocks_ && blocks_[i + 1].data) {
+            PREFETCH_READ(blocks_[i + 1].data);
+        }
+
         uintptr_t current = reinterpret_cast<uintptr_t>(b.data + b.used);
         uintptr_t aligned = align_up(current, alignment);
         size_t padding = aligned - current;
 
         if (LIKELY(b.used + padding + bytes <= b.size)) {
+            // Prefetch the next cache line we'll likely use
+            if (b.used + padding + bytes + 64 < b.size) {
+                PREFETCH_WRITE(b.data + b.used + padding + bytes + 64);
+            }
             b.used += padding + bytes;
             bytes_allocated_ += bytes;
             return reinterpret_cast<void*>(aligned);
