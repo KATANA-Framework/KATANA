@@ -41,6 +41,7 @@ public:
     [[nodiscard]] bool empty() const noexcept { return read_pos_ == write_pos_; }
 
     void clear() noexcept;
+    void release() noexcept;
     void reserve(size_t new_capacity);
 
 private:
@@ -93,7 +94,16 @@ private:
     std::vector<iovec> iovecs_;
 };
 
+enum class write_flags : int {
+    none      = 0,
+    more_data = 1,
+};
+
+inline bool has_flag(write_flags value, write_flags flag) noexcept {
+    return (static_cast<int>(value) & static_cast<int>(flag)) != 0;
+}
+
 result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg);
-result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg);
+result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg, write_flags flags = write_flags::none);
 
 } // namespace katana

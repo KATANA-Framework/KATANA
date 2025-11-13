@@ -8,6 +8,7 @@
 
 #ifdef __linux__
 #include <sys/uio.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #endif
 
@@ -55,6 +56,13 @@ void io_buffer::consume(size_t bytes) {
 }
 
 void io_buffer::clear() noexcept {
+    read_pos_ = 0;
+    write_pos_ = 0;
+}
+
+void io_buffer::release() noexcept {
+    buffer_.clear();
+    buffer_.shrink_to_fit();
     read_pos_ = 0;
     write_pos_ = 0;
 }
@@ -145,21 +153,49 @@ result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 #endif
 }
 
-result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
-#ifdef __linux__
+result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg, write_flags flags) {
     int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
-    ssize_t result = writev(fd, sg.iov(), iov_count);
+
+#ifdef __linux__
+    // Try sendmsg first for socket support with MSG_MORE
+    if (has_flag(flags, write_flags::more_data)) {
+        msghdr msg{};
+        msg.msg_iov    = const_cast<iovec*>(sg.iov());
+        msg.msg_iovlen = static_cast<size_t>(iov_count);
+        msg.msg_name = nullptr;
+        msg.msg_namelen = 0;
+        msg.msg_control = nullptr;
+        msg.msg_controllen = 0;
+        msg.msg_flags = 0;
+
+        ssize_t res;
+        do {
+            res = ::sendmsg(fd, &msg, MSG_MORE);
+        } while (res < 0 && errno == EINTR);
+
+        // sendmsg works for sockets; fallback to writev for pipes/files
+        if (res >= 0 || errno != ENOTSOCK) {
+            if (res < 0) {
+                return std::unexpected(std::error_code(errno, std::system_category()));
+            }
+            return static_cast<size_t>(res);
+        }
+    }
+#else
+    (void)flags;
+#endif
+
+    // Fallback to writev for non-sockets or when MSG_MORE not needed
+    ssize_t result;
+    do {
+        result = writev(fd, sg.iov(), iov_count);
+    } while (result < 0 && errno == EINTR);
 
     if (result < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
     return static_cast<size_t>(result);
-#else
-    (void)fd;
-    (void)sg;
-    return std::unexpected(make_error_code(error_code::ok));
-#endif
 }
 
 } // namespace katana
