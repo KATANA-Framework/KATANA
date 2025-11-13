@@ -1,4 +1,5 @@
 #include "katana/core/arena.hpp"
+#include "katana/core/compiler_hints.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -94,17 +95,17 @@ void monotonic_arena::shrink_to(size_t target_size) noexcept {
 }
 
 void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
-    if (bytes == 0) {
+    if (UNLIKELY(bytes == 0)) {
         return nullptr;
     }
 
-    if (alignment == 0 || (alignment & (alignment - 1)) != 0 || alignment > MAX_ALIGNMENT) {
+    if (UNLIKELY(alignment == 0 || (alignment & (alignment - 1)) != 0 || alignment > MAX_ALIGNMENT)) {
         return nullptr;
     }
 
     for (size_t i = 0; i < num_blocks_; ++i) {
         auto& b = blocks_[i];
-        if (b.used >= b.size || !b.data) {
+        if (UNLIKELY(b.used >= b.size || !b.data)) {
             continue;
         }
 
@@ -112,7 +113,7 @@ void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
         uintptr_t aligned = align_up(current, alignment);
         size_t padding = aligned - current;
 
-        if (b.used + padding + bytes <= b.size) {
+        if (LIKELY(b.used + padding + bytes <= b.size)) {
             b.used += padding + bytes;
             bytes_allocated_ += bytes;
             return reinterpret_cast<void*>(aligned);
@@ -120,12 +121,12 @@ void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
     }
 
     size_t block_size = std::max(block_size_, bytes + MAX_ALIGNMENT);
-    if (!allocate_new_block(block_size)) {
+    if (UNLIKELY(!allocate_new_block(block_size))) {
         return nullptr;
     }
 
     auto& b = blocks_[num_blocks_ - 1];
-    if (!b.data) {
+    if (UNLIKELY(!b.data)) {
         return nullptr;
     }
 
