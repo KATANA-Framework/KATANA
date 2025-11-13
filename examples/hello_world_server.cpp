@@ -81,21 +81,15 @@ int32_t create_listener() {
 
 struct connection {
     std::atomic<int32_t> fd{-1};
-    monotonic_arena arena;
-    http::parser parser;
-    std::vector<uint8_t> read_buffer;
-    std::vector<uint8_t> write_buffer;
-    size_t write_pos = 0;
+    io_buffer read_buffer;
+    io_buffer write_buffer;
     size_t requests_on_connection = 0;
     bool writing_response = false;
     bool should_close_after_write = false;
     epoll_reactor* reactor = nullptr;
 
-    connection()
-        : arena(ARENA_BLOCK_SIZE)
-        , parser(&arena)
-    {
-        read_buffer.resize(BUFFER_SIZE);
+    connection() {
+        read_buffer.reserve(BUFFER_SIZE);
     }
 
     void safe_close() {
@@ -117,44 +111,36 @@ void handle_client(connection& conn) {
     }
 
     if (conn.writing_response) {
-        while (conn.write_pos < conn.write_buffer.size()) {
-            scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
-            ));
+        auto readable = conn.write_buffer.readable_span();
+        scatter_gather_write sg_write;
+        sg_write.add_buffer(readable);
 
-            auto write_result = write_vectored(fd_val, sg_write);
-            if (!write_result) {
-                if (write_result.error().value() == EAGAIN ||
-                    write_result.error().value() == EWOULDBLOCK) {
-                    return;
-                }
+        auto write_result = write_vectored(fd_val, sg_write);
+        if (!write_result) {
+            if (write_result.error().value() != EAGAIN && write_result.error().value() != EWOULDBLOCK) {
                 conn.safe_close();
-                return;
             }
-
-            size_t written = *write_result;
-            if (written == 0) {
-                return;
-            }
-            conn.write_pos += written;
-        }
-
-        conn.writing_response = false;
-        if (conn.should_close_after_write) {
-            conn.safe_close();
             return;
         }
 
-        conn.arena.reset();
-        conn.parser = http::parser(&conn.arena);
-        conn.write_pos = 0;
+        size_t written = *write_result;
+        conn.write_buffer.consume(written);
+
+        if (conn.write_buffer.empty()) {
+            conn.writing_response = false;
+            if (conn.should_close_after_write) {
+                conn.safe_close();
+                return;
+            }
+        } else {
+            return;
+        }
     }
 
     while (true) {
+        auto writable = conn.read_buffer.writable_span(BUFFER_SIZE);
         scatter_gather_read sg_read;
-        sg_read.add_buffer(std::span<uint8_t>(conn.read_buffer.data(), conn.read_buffer.size()));
+        sg_read.add_buffer(writable);
 
         auto read_result = read_vectored(fd_val, sg_read);
         if (!read_result) {
@@ -170,26 +156,36 @@ void handle_client(connection& conn) {
             return;
         }
 
-        auto result = conn.parser.parse(std::span<const uint8_t>(conn.read_buffer.data(), n));
+        conn.read_buffer.commit(n);
 
-        if (!result) {
-            auto resp = http::response::error(problem_details::bad_request("Invalid HTTP request"));
-            std::string serialized = resp.serialize();
-
-            scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                reinterpret_cast<const uint8_t*>(serialized.data()),
-                serialized.size()
-            ));
-
-            write_vectored(fd_val, sg_write);
-            conn.safe_close();
+        // Acquire arena for parsing this request
+        auto arena_guard = conn.reactor->arena_pool().acquire_scoped();
+        if (!arena_guard) {
+            conn.write_buffer.clear();
+            conn.write_buffer.append("HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n");
+            conn.writing_response = true;
+            conn.should_close_after_write = true;
             return;
         }
 
-        if (!conn.parser.is_complete()) {
-            continue;
+        http::parser parser(arena_guard.get());
+        auto parse_result = parser.parse(conn.read_buffer.readable_span());
+
+        if (!parse_result) {
+            conn.write_buffer.clear();
+            conn.write_buffer.append("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+            conn.read_buffer.clear();
+            conn.writing_response = true;
+            conn.should_close_after_write = true;
+            return;
         }
+
+        if (!parser.is_complete()) {
+            return;
+        }
+
+        // Request complete, consume bytes
+        conn.read_buffer.consume(conn.read_buffer.size());
 
         ++conn.requests_on_connection;
         if (conn.requests_on_connection > 1) {
@@ -197,7 +193,7 @@ void handle_client(connection& conn) {
         }
         total_requests.fetch_add(1, std::memory_order_relaxed);
 
-        auto& req = conn.parser.get_request();
+        auto& req = parser.get_request();
 
         bool should_close = false;
         auto connection_header = req.header("Connection");
@@ -229,49 +225,41 @@ void handle_client(connection& conn) {
         const char* response = should_close ? response_close : response_keepalive;
         size_t response_len = should_close ? 103 : 136;
 
-        conn.write_buffer.assign(
-            reinterpret_cast<const uint8_t*>(response),
-            reinterpret_cast<const uint8_t*>(response) + response_len
-        );
-        conn.write_pos = 0;
+        // SERIALIZATION BARRIER: Copy response to heap buffer
+        conn.write_buffer.clear();
+        conn.write_buffer.append(std::string_view(response, response_len));
 
-        while (conn.write_pos < conn.write_buffer.size()) {
-            scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
-            ));
+        // arena_guard destroyed here - arena returned to pool
 
-            auto write_result = write_vectored(fd_val, sg_write);
-            if (!write_result) {
-                if (write_result.error().value() == EAGAIN ||
-                    write_result.error().value() == EWOULDBLOCK) {
-                    conn.writing_response = true;
-                    conn.should_close_after_write = should_close;
-                    return;
-                }
-                conn.safe_close();
-                return;
-            }
+        // Try to write immediately
+        auto readable = conn.write_buffer.readable_span();
+        scatter_gather_write sg_write;
+        sg_write.add_buffer(readable);
 
-            size_t written = *write_result;
-            if (written == 0) {
+        auto write_result = write_vectored(fd_val, sg_write);
+        if (!write_result) {
+            if (write_result.error().value() == EAGAIN || write_result.error().value() == EWOULDBLOCK) {
                 conn.writing_response = true;
                 conn.should_close_after_write = should_close;
                 return;
             }
+            conn.safe_close();
+            return;
+        }
 
-            conn.write_pos += written;
+        size_t written = *write_result;
+        conn.write_buffer.consume(written);
+
+        if (!conn.write_buffer.empty()) {
+            conn.writing_response = true;
+            conn.should_close_after_write = should_close;
+            return;
         }
 
         if (should_close) {
             conn.safe_close();
             return;
         }
-
-        conn.arena.reset();
-        conn.parser = http::parser(&conn.arena);
-        conn.write_pos = 0;
     }
 }
 

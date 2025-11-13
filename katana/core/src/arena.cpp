@@ -84,6 +84,15 @@ void monotonic_arena::reset() noexcept {
     bytes_allocated_ = 0;
 }
 
+void monotonic_arena::shrink_to(size_t target_size) noexcept {
+    while (num_blocks_ > 1 && total_capacity_ > target_size) {
+        size_t last_idx = num_blocks_ - 1;
+        total_capacity_ -= blocks_[last_idx].size;
+        blocks_[last_idx] = block(); // Move-assign empty block (destructor frees memory)
+        --num_blocks_;
+    }
+}
+
 void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
     if (bytes == 0) {
         return nullptr;

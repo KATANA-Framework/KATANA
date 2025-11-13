@@ -43,6 +43,9 @@ public:
     void clear() noexcept;
     void reserve(size_t new_capacity);
 
+    // Release all memory (for idle connections)
+    void release() noexcept;
+
 private:
     void ensure_writable(size_t bytes);
     void compact_if_needed();
@@ -93,7 +96,20 @@ private:
     std::vector<iovec> iovecs_;
 };
 
+enum class write_flags : int {
+    none = 0,
+    more_data = 1  // MSG_MORE hint: more data coming
+};
+
+constexpr write_flags operator|(write_flags a, write_flags b) noexcept {
+    return static_cast<write_flags>(static_cast<int>(a) | static_cast<int>(b));
+}
+
+constexpr bool has_flag(write_flags value, write_flags flag) noexcept {
+    return (static_cast<int>(value) & static_cast<int>(flag)) != 0;
+}
+
 result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg);
-result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg);
+result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg, write_flags flags = write_flags::none);
 
 } // namespace katana
