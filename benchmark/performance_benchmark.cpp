@@ -92,9 +92,7 @@ benchmark_result benchmark_ring_buffer_concurrent() {
     for (int t = 0; t < num_threads; ++t) {
         producers.emplace_back([&] {
             for (size_t i = 0; i < num_operations / num_threads; ++i) {
-                while (!queue.try_push(static_cast<int>(i))) {
-                    std::this_thread::yield();
-                }
+                queue.push_wait(static_cast<int>(i));
                 total_ops.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -105,11 +103,8 @@ benchmark_result benchmark_ring_buffer_concurrent() {
             size_t consumed = 0;
             while (consumed < num_operations / num_threads) {
                 int val;
-                if (queue.try_pop(val)) {
-                    ++consumed;
-                } else {
-                    std::this_thread::yield();
-                }
+                queue.pop_wait(val);
+                ++consumed;
             }
         });
     }

@@ -1,0 +1,1118 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="502" onload="init(evt)" viewBox="0 0 1200 502" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+		if (currentSearchTerm === null) return;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="502.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="24" >Flame Graph</text>
+<text id="details" x="10.00" y="485" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="24" >Search</text>
+<text id="ignorecase" x="1174.00" y="24" >ic</text>
+<text id="matched" x="1090.00" y="485" > </text>
+<g id="frames">
+<g >
+<title>__munmap (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="229" width="20.6" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="1146.99" y="239.5" ></text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::cpu_relax (106,751,632 samples, 2.13%)</title><rect x="356.1" y="245" width="25.1" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="359.10" y="255.5" >k..</text>
+</g>
+<g >
+<title>_compound_head (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="53" width="20.6" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="1146.99" y="63.5" ></text>
+</g>
+<g >
+<title>futex_unqueue (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="213" width="0.4" height="15.0" fill="rgb(245,185,44)" rx="2" ry="2" />
+<text  x="1111.78" y="223.5" ></text>
+</g>
+<g >
+<title>futex_wait_queue (440,580 samples, 0.01%)</title><rect x="659.6" y="69" width="0.1" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="662.57" y="79.5" ></text>
+</g>
+<g >
+<title>katana::http::headers_map::entry* std::__miter_base&lt;katana::http::headers_map::entry*&gt; (52,339,831 samples, 1.04%)</title><rect x="1164.6" y="405" width="12.4" height="15.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="1167.65" y="415.5" ></text>
+</g>
+<g >
+<title>v9fs_issue_read (160,687,082 samples, 3.20%)</title><rect x="10.3" y="149" width="37.8" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="13.27" y="159.5" >v9f..</text>
+</g>
+<g >
+<title>katana::monotonic_arena::block::block (51,332,583 samples, 1.02%)</title><rect x="1076.8" y="309" width="12.0" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1079.76" y="319.5" ></text>
+</g>
+<g >
+<title>katana::http::parser::parse (1,286,066,744 samples, 25.63%)</title><rect x="762.9" y="341" width="302.4" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="765.92" y="351.5" >katana::http::parser::parse</text>
+</g>
+<g >
+<title>__libc_start_main (1,946,823,977 samples, 38.79%)</title><rect x="706.9" y="405" width="457.7" height="15.0" fill="rgb(236,142,34)" rx="2" ry="2" />
+<text  x="709.91" y="415.5" >__libc_start_main</text>
+</g>
+<g >
+<title>std::__atomic_base&lt;unsigned long&gt;::compare_exchange_weak (427,651,267 samples, 8.52%)</title><rect x="558.9" y="229" width="100.5" height="15.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="561.86" y="239.5" >std::__atomi..</text>
+</g>
+<g >
+<title>std::__atomic_base&lt;unsigned long&gt;::compare_exchange_weak (1,004,241,195 samples, 20.01%)</title><rect x="120.0" y="229" width="236.1" height="15.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="122.99" y="239.5" >std::__atomic_base&lt;unsigned lon..</text>
+</g>
+<g >
+<title>std::vector&lt;double, std::allocator&lt;double&gt; &gt;::~vector (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="341" width="20.6" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="1146.99" y="351.5" ></text>
+</g>
+<g >
+<title>katana::http::detail::fnv1a_hash (49,047,150 samples, 0.98%)</title><rect x="970.0" y="261" width="11.6" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="973.04" y="271.5" ></text>
+</g>
+<g >
+<title>in_lock_functions (1,426,626 samples, 0.03%)</title><rect x="1177.7" y="341" width="0.3" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="1180.71" y="351.5" ></text>
+</g>
+<g >
+<title>do_syscall_64 (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="197" width="20.6" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="1146.99" y="207.5" ></text>
+</g>
+<g >
+<title>entry_SYSCALL_64_after_hwframe (1,148,334 samples, 0.02%)</title><rect x="659.4" y="165" width="0.3" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="662.41" y="175.5" ></text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::cpu_relax (104,230,428 samples, 2.08%)</title><rect x="95.5" y="229" width="24.5" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="98.48" y="239.5" >k..</text>
+</g>
+<g >
+<title>katana::http::parser::parse (1,033,601,065 samples, 20.60%)</title><rect x="786.7" y="325" width="243.0" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="789.67" y="335.5" >katana::http::parser::parse</text>
+</g>
+<g >
+<title>_mm_pause (106,751,632 samples, 2.13%)</title><rect x="356.1" y="229" width="25.1" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="359.10" y="239.5" >_..</text>
+</g>
+<g >
+<title>ret_from_fork_asm (6,029,510 samples, 0.12%)</title><rect x="1177.0" y="421" width="1.4" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1179.96" y="431.5" ></text>
+</g>
+<g >
+<title>katana::http::headers_map::set (159,353,237 samples, 3.18%)</title><rect x="882.2" y="261" width="37.4" height="15.0" fill="rgb(249,203,48)" rx="2" ry="2" />
+<text  x="885.16" y="271.5" >kat..</text>
+</g>
+<g >
+<title>preempt_count_add (498,040 samples, 0.01%)</title><rect x="1178.0" y="341" width="0.2" height="15.0" fill="rgb(253,222,53)" rx="2" ry="2" />
+<text  x="1181.05" y="351.5" ></text>
+</g>
+<g >
+<title>__do_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="261" width="37.8" height="15.0" fill="rgb(221,74,17)" rx="2" ry="2" />
+<text  x="13.27" y="271.5" >__d..</text>
+</g>
+<g >
+<title>katana::http::detail::case_insensitive_equal (147,050,778 samples, 2.93%)</title><rect x="919.6" y="245" width="34.6" height="15.0" fill="rgb(230,117,28)" rx="2" ry="2" />
+<text  x="922.63" y="255.5" >ka..</text>
+</g>
+<g >
+<title>do_futex (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="229" width="0.4" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1111.78" y="239.5" ></text>
+</g>
+<g >
+<title>clock_gettime (238,205,137 samples, 4.75%)</title><rect x="706.9" y="325" width="56.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="709.91" y="335.5" >clock..</text>
+</g>
+<g >
+<title>std::_Vector_base&lt;double, std::allocator&lt;double&gt; &gt;::~_Vector_base (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="325" width="20.6" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="1146.99" y="335.5" ></text>
+</g>
+<g >
+<title>std::iterator_traits&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; &gt;::difference_type std::__distance&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; &gt; (49,033,192 samples, 0.98%)</title><rect x="896.6" y="197" width="11.5" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="899.58" y="207.5" ></text>
+</g>
+<g >
+<title>do_user_addr_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="325" width="37.8" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="13.27" y="335.5" >do_..</text>
+</g>
+<g >
+<title>std::__is_constant_evaluated (49,451,376 samples, 0.99%)</title><rect x="1178.4" y="405" width="11.6" height="15.0" fill="rgb(234,137,32)" rx="2" ry="2" />
+<text  x="1181.37" y="415.5" ></text>
+</g>
+<g >
+<title>std::thread::_State_impl&lt;std::thread::_Invoker&lt;std::tuple&lt;benchmark_ring_buffer_concurrent (200,889,421 samples, 4.00%)</title><rect x="659.7" y="293" width="47.2" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="662.68" y="303.5" >std:..</text>
+</g>
+<g >
+<title>std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;::find (57,029,768 samples, 1.14%)</title><rect x="981.6" y="277" width="13.4" height="15.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="984.57" y="287.5" ></text>
+</g>
+<g >
+<title>do_syscall_64 (1,146,201 samples, 0.02%)</title><rect x="10.0" y="405" width="0.3" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="13.00" y="415.5" ></text>
+</g>
+<g >
+<title>__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; std::lower_bound&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;, katana::http::field, katana::http::headers_map::set (159,353,237 samples, 3.18%)</title><rect x="882.2" y="245" width="37.4" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="885.16" y="255.5" >__g..</text>
+</g>
+<g >
+<title>__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;::difference_type __gnu_cxx::operator-&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; (49,033,192 samples, 0.98%)</title><rect x="896.6" y="181" width="11.5" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="899.58" y="191.5" ></text>
+</g>
+<g >
+<title>katana::http::parser::parse_request_line_state (98,515,808 samples, 1.96%)</title><rect x="1006.5" y="309" width="23.2" height="15.0" fill="rgb(220,70,16)" rx="2" ry="2" />
+<text  x="1009.53" y="319.5" >k..</text>
+</g>
+<g >
+<title>unmap_single_vma (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="69" width="20.6" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="1146.99" y="79.5" ></text>
+</g>
+<g >
+<title>__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry const*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; std::lower_bound&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry const*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;, katana::http::field, katana::http::headers_map::get (49,814,545 samples, 0.99%)</title><rect x="798.1" y="277" width="11.7" height="15.0" fill="rgb(249,205,49)" rx="2" ry="2" />
+<text  x="801.08" y="287.5" ></text>
+</g>
+<g >
+<title>__schedule (440,580 samples, 0.01%)</title><rect x="659.6" y="37" width="0.1" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="662.57" y="47.5" ></text>
+</g>
+<g >
+<title>do_vmi_align_munmap (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="117" width="20.6" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="1146.99" y="127.5" ></text>
+</g>
+<g >
+<title>[libc.so.6] (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="405" width="658.8" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="51.05" y="415.5" >[libc.so.6]</text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::try_push (1,183,228,725 samples, 23.58%)</title><rect x="381.2" y="261" width="278.2" height="15.0" fill="rgb(222,79,19)" rx="2" ry="2" />
+<text  x="384.20" y="271.5" >katana::ring_buffer_queue&lt;int&gt;::try_p..</text>
+</g>
+<g >
+<title>__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;::base (49,033,192 samples, 0.98%)</title><rect x="896.6" y="165" width="11.5" height="15.0" fill="rgb(246,190,45)" rx="2" ry="2" />
+<text  x="899.58" y="175.5" ></text>
+</g>
+<g >
+<title>entry_SYSCALL_64_after_hwframe (1,146,201 samples, 0.02%)</title><rect x="10.0" y="421" width="0.3" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="13.00" y="431.5" ></text>
+</g>
+<g >
+<title>cfree (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="245" width="20.6" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="1146.99" y="255.5" ></text>
+</g>
+<g >
+<title>std::__atomic_base&lt;unsigned long&gt;::wait (1,148,334 samples, 0.02%)</title><rect x="659.4" y="261" width="0.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="662.41" y="271.5" ></text>
+</g>
+<g >
+<title>schedule_tail (4,434,509 samples, 0.09%)</title><rect x="1177.3" y="389" width="1.1" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="1180.33" y="399.5" ></text>
+</g>
+<g >
+<title>katana::http::headers_map::get (49,814,545 samples, 0.99%)</title><rect x="798.1" y="293" width="11.7" height="15.0" fill="rgb(226,100,23)" rx="2" ry="2" />
+<text  x="801.08" y="303.5" ></text>
+</g>
+<g >
+<title>std::chrono::_V2::steady_clock::now (238,205,137 samples, 4.75%)</title><rect x="706.9" y="341" width="56.0" height="15.0" fill="rgb(249,203,48)" rx="2" ry="2" />
+<text  x="709.91" y="351.5" >std::..</text>
+</g>
+<g >
+<title>[libc.so.6] (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="309" width="0.4" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="1111.78" y="319.5" ></text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::try_pop (1,310,194,539 samples, 26.11%)</title><rect x="48.1" y="261" width="308.0" height="15.0" fill="rgb(252,217,52)" rx="2" ry="2" />
+<text  x="51.05" y="271.5" >katana::ring_buffer_queue&lt;int&gt;::try_pop</text>
+</g>
+<g >
+<title>x64_sys_call (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="181" width="20.6" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="1146.99" y="191.5" ></text>
+</g>
+<g >
+<title>std::allocator_traits&lt;std::allocator&lt;double&gt; &gt;::deallocate (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="293" width="20.6" height="15.0" fill="rgb(236,143,34)" rx="2" ry="2" />
+<text  x="1146.99" y="303.5" ></text>
+</g>
+<g >
+<title>std::__new_allocator&lt;double&gt;::deallocate (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="261" width="20.6" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="1146.99" y="271.5" ></text>
+</g>
+<g >
+<title>netfs_begin_read (160,687,082 samples, 3.20%)</title><rect x="10.3" y="165" width="37.8" height="15.0" fill="rgb(220,72,17)" rx="2" ry="2" />
+<text  x="13.27" y="175.5" >net..</text>
+</g>
+<g >
+<title>__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;::operator++ (61,331,412 samples, 1.22%)</title><rect x="882.2" y="213" width="14.4" height="15.0" fill="rgb(236,146,35)" rx="2" ry="2" />
+<text  x="885.16" y="223.5" ></text>
+</g>
+<g >
+<title>[libc.so.6] (1,946,823,977 samples, 38.79%)</title><rect x="706.9" y="389" width="457.7" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="709.91" y="399.5" >[libc.so.6]</text>
+</g>
+<g >
+<title>_M_run (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="373" width="658.8" height="15.0" fill="rgb(235,142,34)" rx="2" ry="2" />
+<text  x="51.05" y="383.5" >_M_run</text>
+</g>
+<g >
+<title>__x64_sys_execve (1,146,201 samples, 0.02%)</title><rect x="10.0" y="373" width="0.3" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="13.00" y="383.5" ></text>
+</g>
+<g >
+<title>std::__detail::__extent_storage&lt;18446744073709551615ul&gt;::_M_extent (102,698,311 samples, 2.05%)</title><rect x="1041.2" y="309" width="24.1" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="1044.15" y="319.5" >s..</text>
+</g>
+<g >
+<title>std::_Vector_base&lt;double, std::allocator&lt;double&gt; &gt;::_M_deallocate (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="309" width="20.6" height="15.0" fill="rgb(240,162,38)" rx="2" ry="2" />
+<text  x="1146.99" y="319.5" ></text>
+</g>
+<g >
+<title>x64_sys_call (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="261" width="0.4" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="1111.78" y="271.5" ></text>
+</g>
+<g >
+<title>__invoke&lt;benchmark_ring_buffer_concurrent (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="325" width="658.8" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="51.05" y="335.5" >__invoke&lt;benchmark_ring_buffer_concurrent</text>
+</g>
+<g >
+<title>katana::monotonic_arena::operator= (48,738,753 samples, 0.97%)</title><rect x="1065.3" y="309" width="11.5" height="15.0" fill="rgb(220,73,17)" rx="2" ry="2" />
+<text  x="1068.30" y="319.5" ></text>
+</g>
+<g >
+<title>all (5,018,690,628 samples, 100%)</title><rect x="10.0" y="453" width="1180.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="463.5" ></text>
+</g>
+<g >
+<title>void std::__atomic_wait_address_v&lt;unsigned long, std::__atomic_base&lt;unsigned long&gt;::wait (1,148,334 samples, 0.02%)</title><rect x="659.4" y="245" width="0.3" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="662.41" y="255.5" ></text>
+</g>
+<g >
+<title>katana::http::headers_map::operator= (48,738,753 samples, 0.97%)</title><rect x="1065.3" y="325" width="11.5" height="15.0" fill="rgb(241,165,39)" rx="2" ry="2" />
+<text  x="1068.30" y="335.5" ></text>
+</g>
+<g >
+<title>katana::http::(anonymous namespace)::contains_invalid_header_value (49,153,908 samples, 0.98%)</title><rect x="821.3" y="277" width="11.6" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="824.31" y="287.5" ></text>
+</g>
+<g >
+<title>__vdso_clock_gettime (148,079,457 samples, 2.95%)</title><rect x="1109.2" y="309" width="34.8" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1112.17" y="319.5" >__..</text>
+</g>
+<g >
+<title>filemap_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="245" width="37.8" height="15.0" fill="rgb(219,68,16)" rx="2" ry="2" />
+<text  x="13.27" y="255.5" >fil..</text>
+</g>
+<g >
+<title>std::iterator_traits&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; &gt;::difference_type std::distance&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; &gt; (49,033,192 samples, 0.98%)</title><rect x="896.6" y="213" width="11.5" height="15.0" fill="rgb(222,79,18)" rx="2" ry="2" />
+<text  x="899.58" y="223.5" ></text>
+</g>
+<g >
+<title>katana::http::parser::parser (48,738,753 samples, 0.97%)</title><rect x="1065.3" y="341" width="11.5" height="15.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="1068.30" y="351.5" ></text>
+</g>
+<g >
+<title>std::span&lt;unsigned char const, 18446744073709551615ul&gt;::size (151,440,001 samples, 3.02%)</title><rect x="1029.7" y="325" width="35.6" height="15.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="1032.69" y="335.5" >std..</text>
+</g>
+<g >
+<title>calculate_sigpending (1,924,666 samples, 0.04%)</title><rect x="1177.7" y="373" width="0.5" height="15.0" fill="rgb(241,167,39)" rx="2" ry="2" />
+<text  x="1180.71" y="383.5" ></text>
+</g>
+<g >
+<title>katana::monotonic_arena::block::operator= (48,738,753 samples, 0.97%)</title><rect x="1065.3" y="277" width="11.5" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="1068.30" y="287.5" ></text>
+</g>
+<g >
+<title>netfs_readahead (160,687,082 samples, 3.20%)</title><rect x="10.3" y="181" width="37.8" height="15.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="13.27" y="191.5" >net..</text>
+</g>
+<g >
+<title>do_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="277" width="37.8" height="15.0" fill="rgb(248,200,47)" rx="2" ry="2" />
+<text  x="13.27" y="287.5" >do_..</text>
+</g>
+<g >
+<title>katana::http::headers_map::set_view (373,765,327 samples, 7.45%)</title><rect x="882.2" y="277" width="87.8" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="885.16" y="287.5" >katana::ht..</text>
+</g>
+<g >
+<title>syscall (1,148,334 samples, 0.02%)</title><rect x="659.4" y="181" width="0.3" height="15.0" fill="rgb(234,136,32)" rx="2" ry="2" />
+<text  x="662.41" y="191.5" ></text>
+</g>
+<g >
+<title>ret_from_fork (6,029,510 samples, 0.12%)</title><rect x="1177.0" y="405" width="1.4" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="1179.96" y="415.5" ></text>
+</g>
+<g >
+<title>do_syscall_64 (1,148,334 samples, 0.02%)</title><rect x="659.4" y="149" width="0.3" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="662.41" y="159.5" ></text>
+</g>
+<g >
+<title>__vdso_clock_gettime (238,205,137 samples, 4.75%)</title><rect x="706.9" y="309" width="56.0" height="15.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="709.91" y="319.5" >__vds..</text>
+</g>
+<g >
+<title>exc_page_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="341" width="37.8" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="13.27" y="351.5" >exc..</text>
+</g>
+<g >
+<title>__invoke_impl&lt;void, benchmark_ring_buffer_concurrent (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="309" width="658.8" height="15.0" fill="rgb(234,133,31)" rx="2" ry="2" />
+<text  x="51.05" y="319.5" >__invoke_impl&lt;void, benchmark_ring_buffer_concurrent</text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::adaptive_pause (341,801,320 samples, 6.81%)</title><rect x="478.5" y="245" width="80.4" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="481.49" y="255.5" >katana::r..</text>
+</g>
+<g >
+<title>benchmark_circular_buffer (238,205,137 samples, 4.75%)</title><rect x="706.9" y="357" width="56.0" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="709.91" y="367.5" >bench..</text>
+</g>
+<g >
+<title>entry_SYSCALL_64_after_hwframe (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="293" width="0.4" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1111.78" y="303.5" ></text>
+</g>
+<g >
+<title>p9_client_read_once (160,687,082 samples, 3.20%)</title><rect x="10.3" y="117" width="37.8" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="13.27" y="127.5" >p9_..</text>
+</g>
+<g >
+<title>benchmark_ring_buffer_concurrent (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="357" width="0.4" height="15.0" fill="rgb(222,81,19)" rx="2" ry="2" />
+<text  x="1111.78" y="367.5" ></text>
+</g>
+<g >
+<title>katana::http::(anonymous namespace)::contains_invalid_uri_char (48,872,077 samples, 0.97%)</title><rect x="1006.5" y="277" width="11.5" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1009.53" y="287.5" ></text>
+</g>
+<g >
+<title>katana::http::parser::process_header_line (836,737,998 samples, 16.67%)</title><rect x="809.8" y="293" width="196.7" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="812.79" y="303.5" >katana::http::parser::pro..</text>
+</g>
+<g >
+<title>katana::http::string_to_field (214,412,090 samples, 4.27%)</title><rect x="919.6" y="261" width="50.4" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="922.63" y="271.5" >katan..</text>
+</g>
+<g >
+<title>_start (1,946,823,977 samples, 38.79%)</title><rect x="706.9" y="421" width="457.7" height="15.0" fill="rgb(245,185,44)" rx="2" ry="2" />
+<text  x="709.91" y="431.5" >_start</text>
+</g>
+<g >
+<title>std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;::back (209,666,639 samples, 4.18%)</title><rect x="832.9" y="261" width="49.3" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="835.86" y="271.5" >std:..</text>
+</g>
+<g >
+<title>operator (2,601,323,230 samples, 51.83%)</title><rect x="48.1" y="293" width="611.6" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="51.05" y="303.5" >operator</text>
+</g>
+<g >
+<title>x64_sys_call (1,146,201 samples, 0.02%)</title><rect x="10.0" y="389" width="0.3" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="13.00" y="399.5" ></text>
+</g>
+<g >
+<title>perf-exec (1,146,201 samples, 0.02%)</title><rect x="10.0" y="437" width="0.3" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="13.00" y="447.5" ></text>
+</g>
+<g >
+<title>void std::__detail::__platform_wait&lt;int&gt; (1,148,334 samples, 0.02%)</title><rect x="659.4" y="197" width="0.3" height="15.0" fill="rgb(234,136,32)" rx="2" ry="2" />
+<text  x="662.41" y="207.5" ></text>
+</g>
+<g >
+<title>void std::advance&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;, long&gt; (48,988,633 samples, 0.98%)</title><rect x="908.1" y="213" width="11.5" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="911.11" y="223.5" ></text>
+</g>
+<g >
+<title>__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; std::__lower_bound&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;, katana::http::field, __gnu_cxx::__ops::_Iter_comp_val&lt;katana::http::headers_map::set (159,353,237 samples, 3.18%)</title><rect x="882.2" y="229" width="37.4" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="885.16" y="239.5" >__g..</text>
+</g>
+<g >
+<title>performance_ben (5,017,544,427 samples, 99.98%)</title><rect x="10.3" y="437" width="1179.7" height="15.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="13.27" y="447.5" >performance_ben</text>
+</g>
+<g >
+<title>void std::__detail::__waiter&lt;std::integral_constant&lt;bool, true&gt; &gt;::_M_do_wait_v&lt;unsigned long, std::__atomic_base&lt;unsigned long&gt;::wait (1,148,334 samples, 0.02%)</title><rect x="659.4" y="229" width="0.3" height="15.0" fill="rgb(246,191,45)" rx="2" ry="2" />
+<text  x="662.41" y="239.5" ></text>
+</g>
+<g >
+<title>std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;::operator[] (49,451,376 samples, 0.99%)</title><rect x="1178.4" y="421" width="11.6" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="1181.37" y="431.5" ></text>
+</g>
+<g >
+<title>__x64_sys_futex (1,148,334 samples, 0.02%)</title><rect x="659.4" y="117" width="0.3" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="662.41" y="127.5" ></text>
+</g>
+<g >
+<title>_M_invoke&lt;0&gt; (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="341" width="658.8" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="51.05" y="351.5" >_M_invoke&lt;0&gt;</text>
+</g>
+<g >
+<title>katana::http::parser::parse_headers_state (935,085,257 samples, 18.63%)</title><rect x="786.7" y="309" width="219.8" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="789.67" y="319.5" >katana::http::parser::parse_h..</text>
+</g>
+<g >
+<title>calculate_sigpending (1,595,001 samples, 0.03%)</title><rect x="1177.0" y="389" width="0.3" height="15.0" fill="rgb(241,167,39)" rx="2" ry="2" />
+<text  x="1179.96" y="399.5" ></text>
+</g>
+<g >
+<title>[ld-linux-x86-64.so.2] (160,687,082 samples, 3.20%)</title><rect x="10.3" y="405" width="37.8" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="13.27" y="415.5" >[ld..</text>
+</g>
+<g >
+<title>[ld-linux-x86-64.so.2] (160,687,082 samples, 3.20%)</title><rect x="10.3" y="373" width="37.8" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="13.27" y="383.5" >[ld..</text>
+</g>
+<g >
+<title>handle_mm_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="309" width="37.8" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="13.27" y="319.5" >han..</text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::push_wait (1,291,128,691 samples, 25.73%)</title><rect x="356.1" y="277" width="303.6" height="15.0" fill="rgb(216,54,12)" rx="2" ry="2" />
+<text  x="359.10" y="287.5" >katana::ring_buffer_queue&lt;int&gt;::push_wait</text>
+</g>
+<g >
+<title>katana::http::string_to_field (49,047,150 samples, 0.98%)</title><rect x="970.0" y="277" width="11.6" height="15.0" fill="rgb(229,114,27)" rx="2" ry="2" />
+<text  x="973.04" y="287.5" ></text>
+</g>
+<g >
+<title>benchmark_http_parser (1,470,996,145 samples, 29.31%)</title><rect x="762.9" y="357" width="345.9" height="15.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="765.92" y="367.5" >benchmark_http_parser</text>
+</g>
+<g >
+<title>p9_client_read (160,687,082 samples, 3.20%)</title><rect x="10.3" y="133" width="37.8" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="13.27" y="143.5" >p9_..</text>
+</g>
+<g >
+<title>do_vmi_munmap (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="133" width="20.6" height="15.0" fill="rgb(253,223,53)" rx="2" ry="2" />
+<text  x="1146.99" y="143.5" ></text>
+</g>
+<g >
+<title>std::thread::join (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="341" width="0.4" height="15.0" fill="rgb(253,222,53)" rx="2" ry="2" />
+<text  x="1111.78" y="351.5" ></text>
+</g>
+<g >
+<title>_raw_spin_lock_irq (1,924,666 samples, 0.04%)</title><rect x="1177.7" y="357" width="0.5" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="1180.71" y="367.5" ></text>
+</g>
+<g >
+<title>std::__atomic_base&lt;unsigned long&gt;::compare_exchange_weak (427,651,267 samples, 8.52%)</title><rect x="558.9" y="245" width="100.5" height="15.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="561.86" y="255.5" >std::__atomi..</text>
+</g>
+<g >
+<title>do_syscall_64 (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="277" width="0.4" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="1111.78" y="287.5" ></text>
+</g>
+<g >
+<title>__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry const*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt; std::__lower_bound&lt;__gnu_cxx::__normal_iterator&lt;katana::http::headers_map::entry const*, std::vector&lt;katana::http::headers_map::entry, std::allocator&lt;katana::http::headers_map::entry&gt; &gt; &gt;, katana::http::field, __gnu_cxx::__ops::_Iter_comp_val&lt;katana::http::headers_map::get (49,814,545 samples, 0.99%)</title><rect x="798.1" y="261" width="11.7" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="801.08" y="271.5" ></text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::adaptive_pause (104,230,428 samples, 2.08%)</title><rect x="95.5" y="245" width="24.5" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="98.48" y="255.5" >k..</text>
+</g>
+<g >
+<title>schedule (440,580 samples, 0.01%)</title><rect x="659.6" y="53" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="662.57" y="63.5" ></text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::adaptive_pause (106,751,632 samples, 2.13%)</title><rect x="356.1" y="261" width="25.1" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="359.10" y="271.5" >k..</text>
+</g>
+<g >
+<title>[ld-linux-x86-64.so.2] (160,687,082 samples, 3.20%)</title><rect x="10.3" y="389" width="37.8" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="13.27" y="399.5" >[ld..</text>
+</g>
+<g >
+<title>katana::http::headers_map::entry* std::move_backward&lt;katana::http::headers_map::entry*, katana::http::headers_map::entry*&gt; (52,339,831 samples, 1.04%)</title><rect x="1164.6" y="421" width="12.4" height="15.0" fill="rgb(208,15,3)" rx="2" ry="2" />
+<text  x="1167.65" y="431.5" ></text>
+</g>
+<g >
+<title>std::__atomic_base&lt;unsigned long&gt;::compare_exchange_weak (1,004,241,195 samples, 20.01%)</title><rect x="120.0" y="245" width="236.1" height="15.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="122.99" y="255.5" >std::__atomic_base&lt;unsigned lon..</text>
+</g>
+<g >
+<title>unmap_region.constprop.0 (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="101" width="20.6" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="1146.99" y="111.5" ></text>
+</g>
+<g >
+<title>__x64_sys_futex (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="245" width="0.4" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1111.78" y="255.5" ></text>
+</g>
+<g >
+<title>load_elf_binary (1,146,201 samples, 0.02%)</title><rect x="10.0" y="325" width="0.3" height="15.0" fill="rgb(223,83,20)" rx="2" ry="2" />
+<text  x="13.00" y="335.5" ></text>
+</g>
+<g >
+<title>[libstdc++.so.6.0.33] (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="389" width="658.8" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="51.05" y="399.5" >[libstdc++.so.6.0.33]</text>
+</g>
+<g >
+<title>benchmark_ring_buffer_queue (235,959,539 samples, 4.70%)</title><rect x="1109.2" y="357" width="55.4" height="15.0" fill="rgb(223,87,20)" rx="2" ry="2" />
+<text  x="1112.17" y="367.5" >bench..</text>
+</g>
+<g >
+<title>[ld-linux-x86-64.so.2] (160,687,082 samples, 3.20%)</title><rect x="10.3" y="421" width="37.8" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="13.27" y="431.5" >[ld..</text>
+</g>
+<g >
+<title>std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;::operator[] (48,966,284 samples, 0.98%)</title><rect x="942.7" y="229" width="11.5" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="945.69" y="239.5" ></text>
+</g>
+<g >
+<title>entry_SYSCALL_64_after_hwframe (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="213" width="20.6" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1146.99" y="223.5" ></text>
+</g>
+<g >
+<title>page_cache_ra_unbounded (160,687,082 samples, 3.20%)</title><rect x="10.3" y="213" width="37.8" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="13.27" y="223.5" >pag..</text>
+</g>
+<g >
+<title>std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;::basic_string_view (49,643,731 samples, 0.99%)</title><rect x="1018.0" y="277" width="11.7" height="15.0" fill="rgb(210,25,6)" rx="2" ry="2" />
+<text  x="1021.02" y="287.5" ></text>
+</g>
+<g >
+<title>katana::ring_buffer_queue&lt;int&gt;::pop_wait (1,310,194,539 samples, 26.11%)</title><rect x="48.1" y="277" width="308.0" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="51.05" y="287.5" >katana::ring_buffer_queue&lt;int&gt;::pop_wait</text>
+</g>
+<g >
+<title>_copy_to_iter (160,687,082 samples, 3.20%)</title><rect x="10.3" y="101" width="37.8" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="13.27" y="111.5" >_co..</text>
+</g>
+<g >
+<title>x64_sys_call (1,148,334 samples, 0.02%)</title><rect x="659.4" y="133" width="0.3" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="662.41" y="143.5" ></text>
+</g>
+<g >
+<title>__x64_sys_munmap (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="165" width="20.6" height="15.0" fill="rgb(206,7,1)" rx="2" ry="2" />
+<text  x="1146.99" y="175.5" ></text>
+</g>
+<g >
+<title>do_futex (1,148,334 samples, 0.02%)</title><rect x="659.4" y="101" width="0.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="662.41" y="111.5" ></text>
+</g>
+<g >
+<title>katana::http::detail::fnv1a_hash (67,361,312 samples, 1.34%)</title><rect x="954.2" y="245" width="15.8" height="15.0" fill="rgb(238,153,36)" rx="2" ry="2" />
+<text  x="957.20" y="255.5" ></text>
+</g>
+<g >
+<title>do_execveat_common.isra.0 (1,146,201 samples, 0.02%)</title><rect x="10.0" y="357" width="0.3" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="13.00" y="367.5" ></text>
+</g>
+<g >
+<title>katana::monotonic_arena::monotonic_arena (51,332,583 samples, 1.02%)</title><rect x="1076.8" y="341" width="12.0" height="15.0" fill="rgb(213,41,9)" rx="2" ry="2" />
+<text  x="1079.76" y="351.5" ></text>
+</g>
+<g >
+<title>read_pages (160,687,082 samples, 3.20%)</title><rect x="10.3" y="197" width="37.8" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="13.27" y="207.5" >rea..</text>
+</g>
+<g >
+<title>std::chrono::_V2::steady_clock::now (84,858,065 samples, 1.69%)</title><rect x="1088.8" y="341" width="20.0" height="15.0" fill="rgb(249,203,48)" rx="2" ry="2" />
+<text  x="1091.83" y="351.5" ></text>
+</g>
+<g >
+<title>katana::http::(anonymous namespace)::trim_ows (209,666,639 samples, 4.18%)</title><rect x="832.9" y="277" width="49.3" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="835.86" y="287.5" >kata..</text>
+</g>
+<g >
+<title>bprm_execve (1,146,201 samples, 0.02%)</title><rect x="10.0" y="341" width="0.3" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="13.00" y="351.5" ></text>
+</g>
+<g >
+<title>asm_exc_page_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="357" width="37.8" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="13.27" y="367.5" >asm..</text>
+</g>
+<g >
+<title>[libc.so.6] (1,663,156 samples, 0.03%)</title><rect x="1108.8" y="325" width="0.4" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="1111.78" y="335.5" ></text>
+</g>
+<g >
+<title>perf_iterate_ctx (1,146,201 samples, 0.02%)</title><rect x="10.0" y="293" width="0.3" height="15.0" fill="rgb(205,4,0)" rx="2" ry="2" />
+<text  x="13.00" y="303.5" ></text>
+</g>
+<g >
+<title>std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;::substr (49,106,245 samples, 0.98%)</title><rect x="995.0" y="277" width="11.5" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="997.98" y="287.5" ></text>
+</g>
+<g >
+<title>[libc.so.6] (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="421" width="658.8" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="51.05" y="431.5" >[libc.so.6]</text>
+</g>
+<g >
+<title>std::allocator&lt;double&gt;::deallocate (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="277" width="20.6" height="15.0" fill="rgb(223,83,20)" rx="2" ry="2" />
+<text  x="1146.99" y="287.5" ></text>
+</g>
+<g >
+<title>__handle_mm_fault (160,687,082 samples, 3.20%)</title><rect x="10.3" y="293" width="37.8" height="15.0" fill="rgb(207,9,2)" rx="2" ry="2" />
+<text  x="13.27" y="303.5" >__h..</text>
+</g>
+<g >
+<title>page_cache_ra_order (160,687,082 samples, 3.20%)</title><rect x="10.3" y="229" width="37.8" height="15.0" fill="rgb(223,83,20)" rx="2" ry="2" />
+<text  x="13.27" y="239.5" >pag..</text>
+</g>
+<g >
+<title>operator (2,802,212,651 samples, 55.84%)</title><rect x="48.1" y="357" width="658.8" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="51.05" y="367.5" >operator</text>
+</g>
+<g >
+<title>std::basic_string_view&lt;char, std::char_traits&lt;char&gt; &gt;::size (49,106,245 samples, 0.98%)</title><rect x="995.0" y="261" width="11.5" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="997.98" y="271.5" ></text>
+</g>
+<g >
+<title>std::array&lt;katana::monotonic_arena::block, 32ul&gt;::array (51,332,583 samples, 1.02%)</title><rect x="1076.8" y="325" width="12.0" height="15.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="1079.76" y="335.5" ></text>
+</g>
+<g >
+<title>__vm_munmap (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="149" width="20.6" height="15.0" fill="rgb(231,121,28)" rx="2" ry="2" />
+<text  x="1146.99" y="159.5" ></text>
+</g>
+<g >
+<title>std::array&lt;katana::monotonic_arena::block, 32ul&gt;::operator= (48,738,753 samples, 0.97%)</title><rect x="1065.3" y="293" width="11.5" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="1068.30" y="303.5" ></text>
+</g>
+<g >
+<title>clock_gettime (148,079,457 samples, 2.95%)</title><rect x="1109.2" y="325" width="34.8" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="1112.17" y="335.5" >cl..</text>
+</g>
+<g >
+<title>std::__detail::__waiter_pool::_M_do_wait (1,148,334 samples, 0.02%)</title><rect x="659.4" y="213" width="0.3" height="15.0" fill="rgb(216,54,13)" rx="2" ry="2" />
+<text  x="662.41" y="223.5" ></text>
+</g>
+<g >
+<title>std::chrono::_V2::steady_clock::now (148,079,457 samples, 2.95%)</title><rect x="1109.2" y="341" width="34.8" height="15.0" fill="rgb(249,203,48)" rx="2" ry="2" />
+<text  x="1112.17" y="351.5" >st..</text>
+</g>
+<g >
+<title>begin_new_exec (1,146,201 samples, 0.02%)</title><rect x="10.0" y="309" width="0.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="13.00" y="319.5" ></text>
+</g>
+<g >
+<title>unmap_vmas (87,880,082 samples, 1.75%)</title><rect x="1144.0" y="85" width="20.6" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="1146.99" y="95.5" ></text>
+</g>
+<g >
+<title>main (1,946,823,977 samples, 38.79%)</title><rect x="706.9" y="373" width="457.7" height="15.0" fill="rgb(243,179,42)" rx="2" ry="2" />
+<text  x="709.91" y="383.5" >main</text>
+</g>
+<g >
+<title>futex_wait (1,148,334 samples, 0.02%)</title><rect x="659.4" y="85" width="0.3" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="662.41" y="95.5" ></text>
+</g>
+<g >
+<title>finish_task_switch.isra.0 (886,798 samples, 0.02%)</title><rect x="1178.2" y="373" width="0.2" height="15.0" fill="rgb(246,189,45)" rx="2" ry="2" />
+<text  x="1181.16" y="383.5" ></text>
+</g>
+<g >
+<title>katana::http::parser::process_request_line (98,515,808 samples, 1.96%)</title><rect x="1006.5" y="293" width="23.2" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="1009.53" y="303.5" >k..</text>
+</g>
+</g>
+</svg>

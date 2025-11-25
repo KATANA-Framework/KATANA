@@ -1,0 +1,16 @@
+# ninja log v5
+3353	4204	1764027727051167400	libkatana_core.a	beedc8848b629a71
+108	4300	1764027727142899100	benchmark/CMakeFiles/performance_benchmark.dir/performance_benchmark.cpp.o	ce1cf56d5906cb5e
+823	1909	1764026504515489100	CMakeFiles/katana_core.dir/katana/core/src/tcp_socket.cpp.o	b6563b191506a1b1
+91	1317	1764026503906694500	CMakeFiles/katana_core.dir/katana/core/src/problem.cpp.o	bbfb00b1e55f929c
+103	2774	1764027725448545400	CMakeFiles/katana_core.dir/katana/core/src/reactor_pool.cpp.o	d9f92012e2721b87
+4307	4658	1764027727550096700	benchmark/performance_benchmark	f8eda73d7c986ae4
+99	2182	1764026504814658000	CMakeFiles/katana_core.dir/katana/core/src/shutdown.cpp.o	d4df9a5e98284221
+105	2104	1764027724700130700	CMakeFiles/katana_core.dir/katana/core/src/http.cpp.o	15a4a0d937dee2e7
+859	1821	1764026504419693300	CMakeFiles/katana_core.dir/katana/core/src/tcp_listener.cpp.o	68861346d7897afe
+90	1296	1764026503872404900	CMakeFiles/katana_core.dir/katana/core/src/arena.cpp.o	4eb93411be336bea
+81	1182	1764026503767338500	CMakeFiles/katana_core.dir/katana/core/src/cpu_info.cpp.o	a9e3e112c0b17021
+95	849	1764026503354368600	CMakeFiles/katana_core.dir/katana/core/src/http_field.cpp.o	fc930afa3c01a441
+96	769	1764026503354368600	CMakeFiles/katana_core.dir/katana/core/src/system_limits.cpp.o	9b7e01019be1462a
+100	3347	1764027726086021600	CMakeFiles/katana_core.dir/katana/core/src/epoll_reactor.cpp.o	744749cb02f2335a
+87	1282	1764026503871898400	CMakeFiles/katana_core.dir/katana/core/src/io_buffer.cpp.o	76bf34a2b563157c

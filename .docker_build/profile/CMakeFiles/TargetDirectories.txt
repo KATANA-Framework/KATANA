@@ -1,0 +1,12 @@
+/workspace/.docker_build/profile/CMakeFiles/katana_core.dir
+/workspace/.docker_build/profile/CMakeFiles/debug_test.dir
+/workspace/.docker_build/profile/CMakeFiles/edit_cache.dir
+/workspace/.docker_build/profile/CMakeFiles/rebuild_cache.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/simple_benchmark.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/performance_benchmark.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/mpsc_benchmark.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/timer_benchmark.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/headers_benchmark.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/io_buffer_benchmark.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/edit_cache.dir
+/workspace/.docker_build/profile/benchmark/CMakeFiles/rebuild_cache.dir

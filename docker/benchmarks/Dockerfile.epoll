@@ -1,0 +1,55 @@
+FROM ubuntu:24.04 AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    pkg-config \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/katana
+COPY . .
+
+# Ensure a clean build directory (in case repo includes a cached build/).
+RUN rm -rf build
+
+RUN cmake -S . -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_TESTING=ON \
+    -DENABLE_BENCHMARKS=ON \
+    -DENABLE_EXAMPLES=ON \
+    -DKATANA_POLL=epoll
+
+RUN cmake --build build --target all -j"$(nproc)"
+
+# Fail fast during image build if unit tests are red.
+RUN ctest --test-dir build --output-on-failure -j"$(nproc)"
+
+FROM ubuntu:24.04 AS runner
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    KATANA_POLL=epoll \
+    LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8
+
+RUN apt-get update && apt-get install -y \
+    cmake \
+    python3 \
+    libstdc++6 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/katana
+
+# Copy only what is needed to run tests and benchmarks.
+COPY --from=build /opt/katana/build ./build
+COPY --from=build /opt/katana/generate_benchmark_report.py .
+
+# Entry point drives tests + benchmarks + report generation.
+COPY docker/benchmarks/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
