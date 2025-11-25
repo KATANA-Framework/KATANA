@@ -149,7 +149,8 @@ class BenchmarkCollector:
                 f.write(f"- [{category}](#{category.lower().replace(' ', '-')})\n")
             f.write("\n---\n\n")
 
-            for category in sorted(self.results.keys()):
+            categories = sorted(self.results.keys())
+            for i, category in enumerate(categories):
                 f.write(f"## {category}\n\n")
                 f.write("| Benchmark | Value | Unit |\n")
                 f.write("|-----------|-------|------|\n")
@@ -165,7 +166,8 @@ class BenchmarkCollector:
                         value, unit = metrics
                         f.write(f"| {bench_name} | {value:.3f} | {unit} |\n")
 
-                f.write("\n")
+                if i < len(categories) - 1:
+                    f.write("\n")
 
 def main():
     collector = BenchmarkCollector()
