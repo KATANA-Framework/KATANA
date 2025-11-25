@@ -1,37 +1,50 @@
-name: Benchmarks and README Sync
+name: Benchmark Results Sync
 
 on:
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * *"
+  push:
+    paths:
+      - 'BENCHMARK_RESULTS.md'
+    branches: [ main ]
 
 permissions:
   contents: write
 
-env:
-  BENCH_IMAGE: katana-bench
-  BENCH_DOCKERFILE: docker/benchmarks/Dockerfile
-
 jobs:
-  benchmarks:
+  sync-benchmark-results:
+    name: Sync Benchmark Results to README
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Build benchmark image (if Dockerfile exists)
-        if: hashFiles(env.BENCH_DOCKERFILE) != ''
-        run: docker build -t "$BENCH_IMAGE" -f "$BENCH_DOCKERFILE" .
-
-      - name: Run benchmarks
-        run: docker run --rm -v "$PWD":/workspace "$BENCH_IMAGE"
+      - name: Check if BENCHMARK_RESULTS.md exists
+        id: check_file
+        run: |
+          if [ -f "BENCHMARK_RESULTS.md" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_RESULTS.md found"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_RESULTS.md not found"
+          fi
 
       - name: Update README from benchmark results
-        run: python3 scripts/update_readme_from_bench.py
+        if: steps.check_file.outputs.exists == 'true'
+        run: |
+          if [ -f "scripts/update_readme_from_bench.py" ]; then
+            python3 scripts/update_readme_from_bench.py
+          else
+            echo "Warning: scripts/update_readme_from_bench.py not found, skipping README update"
+          fi
 
       - name: Commit and push changes
+        if: steps.check_file.outputs.exists == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -42,6 +55,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md BENCHMARK_RESULTS.md
-          git commit -m "chore: refresh benchmarks and README"
+          git add README.md
+          git commit -m "chore: sync README with benchmark results"
           git push

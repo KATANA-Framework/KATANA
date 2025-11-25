@@ -1,0 +1,191 @@
+name: Pull Request CI
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  BUILD_TYPE: Debug
+
+jobs:
+  quick-test:
+    name: Quick Test (${{ matrix.compiler.cxx }}, ${{ matrix.sanitizer }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { cc: gcc-13, cxx: g++-13 }
+          - { cc: clang-18, cxx: clang++-18 }
+        sanitizer: [none, asan, ubsan]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Cache CMake build
+      uses: actions/cache@v4
+      with:
+        path: |
+          build
+          ~/.cache/ccache
+        key: ${{ runner.os }}-${{ matrix.compiler.cxx }}-${{ matrix.sanitizer }}-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.compiler.cxx }}-${{ matrix.sanitizer }}-
+          ${{ runner.os }}-${{ matrix.compiler.cxx }}-
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        if [[ "${{ matrix.compiler.cc }}" == "gcc-13" ]]; then
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+        fi
+        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} \
+            clang-tools-18 liburing-dev libc++-18-dev libc++abi-18-dev ccache
+        else
+          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} \
+            liburing-dev ccache
+        fi
+
+    - name: Configure CMake
+      run: |
+        # Set sanitizer flags
+        SANITIZER_FLAGS=""
+        LINKER_FLAGS=""
+        case "${{ matrix.sanitizer }}" in
+          asan)
+            SANITIZER_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g"
+            LINKER_FLAGS="-fsanitize=address"
+            ;;
+          ubsan)
+            SANITIZER_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g"
+            LINKER_FLAGS="-fsanitize=undefined"
+            ;;
+        esac
+
+        # Set clang scan-deps flags if using clang
+        SCAN_DEPS_FLAGS=""
+        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
+          SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
+        fi
+
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+          -DCMAKE_CXX_FLAGS="$SANITIZER_FLAGS" \
+          -DCMAKE_EXE_LINKER_FLAGS="$LINKER_FLAGS" \
+          -DENABLE_TESTING=ON \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          ${SCAN_DEPS_FLAGS}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config Debug -j$(nproc)
+
+    - name: Run Unit Tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C Debug --output-on-failure --verbose -R "^test_"
+
+  fuzzing:
+    name: Fuzzing (short)
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Cache Fuzzer build
+      uses: actions/cache@v4
+      with:
+        path: build
+        key: ${{ runner.os }}-fuzz-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-fuzz-
+
+    - name: Install Clang
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-18 clang-tools-18 cmake ninja-build liburing-dev \
+          libc++-18-dev libc++abi-18-dev ccache
+
+    - name: Build Fuzzers
+      run: |
+        SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=clang-18 \
+          -DCMAKE_CXX_COMPILER=clang++-18 \
+          -DENABLE_FUZZING=ON \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          ${SCAN_DEPS_FLAGS}
+        cmake --build ${{github.workspace}}/build --target http_parser_fuzz
+
+    - name: Run Fuzzers (short run)
+      working-directory: ${{github.workspace}}/build/test/fuzz
+      run: ./http_parser_fuzz -max_total_time=60 -max_len=8192
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy-18 cppcheck ninja-build
+
+    - name: Configure (compile commands for analyzers)
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DENABLE_TESTING=ON
+
+    - name: Run clang-tidy
+      run: |
+        find katana/core/src katana/core/include -name '*.cpp' -o -name '*.hpp' | \
+          xargs clang-tidy-18 -p build --warnings-as-errors=* || true
+
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --inconclusive --std=c++23 \
+          --suppress=missingInclude \
+          -I katana/core/include \
+          katana/core/src examples
+
+  lint:
+    name: Linting
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install pre-commit
+      run: pip install --no-cache-dir pre-commit
+
+    - name: Run pre-commit
+      run: pre-commit run --all-files
+
+  dependency-review:
+    name: Dependency Security Scan
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        fail-on-severity: moderate

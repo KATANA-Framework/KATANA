@@ -1,0 +1,82 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  coverage:
+    name: Generate Coverage Report
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          g++-13 \
+          liburing-dev \
+          lcov
+
+    - name: Configure CMake with coverage
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=gcc-13 \
+          -DCMAKE_CXX_COMPILER=g++-13 \
+          -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+          -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+          -DENABLE_TESTING=ON
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build -j$(nproc)
+
+    - name: Run tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest --output-on-failure --verbose
+
+    - name: Generate coverage report
+      run: |
+        # Capture coverage data
+        lcov --directory build --capture --output-file coverage.info
+
+        # Remove external dependencies and test code from coverage
+        lcov --remove coverage.info \
+          '/usr/*' \
+          '*/test/*' \
+          '*/build/_deps/*' \
+          '*/build/CMakeFiles/*' \
+          --output-file coverage.info
+
+        # List coverage data for debugging
+        lcov --list coverage.info
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.info
+        flags: unittests
+        name: codecov-katana
+        fail_ci_if_error: false
+        verbose: true
+
+    - name: Generate HTML coverage report
+      run: |
+        genhtml coverage.info --output-directory coverage_html
+        echo "Coverage report generated in coverage_html/"
+
+    - name: Upload HTML coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-html
+        path: coverage_html/
+        retention-days: 30
