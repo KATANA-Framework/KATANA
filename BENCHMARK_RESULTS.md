@@ -191,4 +191,3 @@ This report includes results from all benchmark suites.
 | Wheel Timer (Tick Operations) - Latency p999 | 0.037 | us |
 | Wheel Timer (Tick Operations) - Operations | 50000.000 | ops |
 | Wheel Timer (Tick Operations) - Throughput | 16666666.670 | ops/sec |
-

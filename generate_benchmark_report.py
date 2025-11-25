@@ -134,7 +134,7 @@ class BenchmarkCollector:
 
                     try:
                         value = float(parts[-2])
-                        unit = parts[-1]
+                        unit = parts[-1].strip().replace("\\", "")
 
                         if metric_name and metric_name not in self.results[category]:
                             self.results[category][metric_name] = (value, unit)
@@ -164,6 +164,7 @@ class BenchmarkCollector:
                     if isinstance(metrics, dict):
                         for metric, (value, unit) in sorted(metrics.items()):
                             display_name = f"{bench_name} - {metric}"
+                            unit = unit.strip().replace("\\", "")
                             f.write(f"| {display_name} | {value:.3f} | {unit} |\n")
                     else:
                         value, unit = metrics
