@@ -129,6 +129,9 @@ class BenchmarkCollector:
                         continue
 
                     metric_name = ' '.join(parts[:-2]).strip()
+                    if not metric_name or metric_name in {"|", ":"}:
+                        continue
+
                     try:
                         value = float(parts[-2])
                         unit = parts[-1]
