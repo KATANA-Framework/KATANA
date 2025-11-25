@@ -1,10 +1,10 @@
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
-#include <optional>
 #include <unordered_map>
-#include <cstdint>
 
 namespace katana {
 

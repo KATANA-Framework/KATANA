@@ -1,8 +1,8 @@
 #include "katana/core/simd_utils.hpp"
 
 #include <catch2/catch_test_macros.hpp>
-#include <string>
 #include <cstring>
+#include <string>
 
 using namespace katana::simd;
 
@@ -83,8 +83,8 @@ TEST_CASE("find_pattern tests", "[simd_utils]") {
         const char* haystack = "hello world hello";
         const char* needle = "world";
 
-        const void* result = find_pattern(haystack, std::strlen(haystack),
-                                           needle, std::strlen(needle));
+        const void* result =
+            find_pattern(haystack, std::strlen(haystack), needle, std::strlen(needle));
         REQUIRE(result != nullptr);
         REQUIRE(result == haystack + 6);
     }
@@ -93,8 +93,8 @@ TEST_CASE("find_pattern tests", "[simd_utils]") {
         const char* haystack = "hello world";
         const char* needle = "xyz";
 
-        const void* result = find_pattern(haystack, std::strlen(haystack),
-                                           needle, std::strlen(needle));
+        const void* result =
+            find_pattern(haystack, std::strlen(haystack), needle, std::strlen(needle));
         REQUIRE(result == nullptr);
     }
 

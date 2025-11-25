@@ -19,7 +19,8 @@
 namespace katana::simd {
 
 inline const char* find_crlf_scalar(const char* data, size_t len) noexcept {
-    if (len < 2) return nullptr;
+    if (len < 2)
+        return nullptr;
 
     for (size_t i = 0; i <= len - 2; ++i) {
         if (data[i] == '\r' && data[i + 1] == '\n') {
@@ -31,7 +32,8 @@ inline const char* find_crlf_scalar(const char* data, size_t len) noexcept {
 
 #ifdef KATANA_HAS_AVX2
 inline const char* find_crlf_avx2(const char* data, size_t len) noexcept {
-    if (len < 2) return nullptr;
+    if (len < 2)
+        return nullptr;
 
     const __m256i cr = _mm256_set1_epi8('\r');
     const __m256i lf = _mm256_set1_epi8('\n');
@@ -60,7 +62,8 @@ inline const char* find_crlf_avx2(const char* data, size_t len) noexcept {
 
 #ifdef KATANA_HAS_SSE2
 inline const char* find_crlf_sse2(const char* data, size_t len) noexcept {
-    if (len < 2) return nullptr;
+    if (len < 2)
+        return nullptr;
 
     const __m128i cr = _mm_set1_epi8('\r');
     const __m128i lf = _mm_set1_epi8('\n');
@@ -97,9 +100,10 @@ inline const char* find_crlf(const char* data, size_t len) noexcept {
 #endif
 }
 
-inline const void* find_pattern(const void* haystack, size_t hlen,
-                                 const void* needle, size_t nlen) noexcept {
-    if (nlen == 0 || hlen < nlen) return nullptr;
+inline const void*
+find_pattern(const void* haystack, size_t hlen, const void* needle, size_t nlen) noexcept {
+    if (nlen == 0 || hlen < nlen)
+        return nullptr;
     if (nlen == 2) {
         const char* n = static_cast<const char*>(needle);
         if (n[0] == '\r' && n[1] == '\n') {

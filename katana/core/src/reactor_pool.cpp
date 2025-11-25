@@ -1,17 +1,15 @@
 #include "katana/core/reactor_pool.hpp"
 #include "katana/core/cpu_info.hpp"
 
-#include <iostream>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
 #include <cerrno>
+#include <iostream>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 namespace katana {
 
-reactor_pool::reactor_pool(const reactor_pool_config& config)
-    : config_(config)
-{
+reactor_pool::reactor_pool(const reactor_pool_config& config) : config_(config) {
     if (config_.reactor_count == 0) {
         config_.reactor_count = cpu_info::core_count();
     }
@@ -21,14 +19,10 @@ reactor_pool::reactor_pool(const reactor_pool_config& config)
     for (uint32_t i = 0; i < config_.reactor_count; ++i) {
         auto ctx = std::make_unique<reactor_context>();
 #if defined(KATANA_USE_IO_URING)
-        ctx->reactor = std::make_unique<reactor_impl>(
-            reactor_impl::DEFAULT_RING_SIZE,
-            reactor_impl::DEFAULT_MAX_PENDING_TASKS
-        );
+        ctx->reactor = std::make_unique<reactor_impl>(reactor_impl::DEFAULT_RING_SIZE,
+                                                      reactor_impl::DEFAULT_MAX_PENDING_TASKS);
 #elif defined(KATANA_USE_EPOLL)
-        ctx->reactor = std::make_unique<reactor_impl>(
-            config_.max_events_per_reactor
-        );
+        ctx->reactor = std::make_unique<reactor_impl>(config_.max_events_per_reactor);
 #endif
         ctx->core_id = i;
         reactors_.push_back(std::move(ctx));
@@ -110,8 +104,8 @@ metrics_snapshot reactor_pool::aggregate_metrics() const {
 void reactor_pool::worker_thread(reactor_context* ctx) {
     if (config_.enable_thread_pinning) {
         if (!cpu_info::pin_thread_to_core(ctx->core_id)) {
-            std::cerr << "[reactor_pool] Warning: Failed to pin thread to core "
-                      << ctx->core_id << "\n";
+            std::cerr << "[reactor_pool] Warning: Failed to pin thread to core " << ctx->core_id
+                      << "\n";
         }
     }
 

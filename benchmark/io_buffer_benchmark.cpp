@@ -1,11 +1,11 @@
 #include "katana/core/io_buffer.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <vector>
-#include <iomanip>
-#include <algorithm>
-#include <cstring>
 
 using namespace std::chrono;
 using namespace katana;
@@ -24,15 +24,15 @@ void print_result(const benchmark_result& result) {
     std::cout << "\n=== " << result.name << " ===\n";
     std::cout << "Operations: " << result.operations << "\n";
     std::cout << "Duration: " << result.duration_ms << " ms\n";
-    std::cout << "Throughput: " << std::fixed << std::setprecision(2)
-              << result.throughput << " ops/sec\n";
+    std::cout << "Throughput: " << std::fixed << std::setprecision(2) << result.throughput
+              << " ops/sec\n";
     if (result.latency_p50 > 0.0) {
-        std::cout << "Latency p50: " << std::fixed << std::setprecision(3)
-                  << result.latency_p50 << " us\n";
-        std::cout << "Latency p99: " << std::fixed << std::setprecision(3)
-                  << result.latency_p99 << " us\n";
-        std::cout << "Latency p999: " << std::fixed << std::setprecision(3)
-                  << result.latency_p999 << " us\n";
+        std::cout << "Latency p50: " << std::fixed << std::setprecision(3) << result.latency_p50
+                  << " us\n";
+        std::cout << "Latency p99: " << std::fixed << std::setprecision(3) << result.latency_p99
+                  << " us\n";
+        std::cout << "Latency p999: " << std::fixed << std::setprecision(3) << result.latency_p999
+                  << " us\n";
     }
 }
 
@@ -53,7 +53,8 @@ benchmark_result benchmark_buffer_append_small() {
 
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -91,7 +92,8 @@ benchmark_result benchmark_buffer_append_large() {
 
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -131,7 +133,8 @@ benchmark_result benchmark_buffer_read_write() {
 
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -169,7 +172,8 @@ benchmark_result benchmark_buffer_writable_commit() {
 
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -211,7 +215,8 @@ benchmark_result benchmark_scatter_gather() {
 
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -264,9 +269,8 @@ int main() {
     std::cout << "========================================\n";
 
     for (const auto& result : results) {
-        std::cout << std::left << std::setw(40) << result.name << ": "
-                  << std::fixed << std::setprecision(0) << result.throughput
-                  << " ops/sec\n";
+        std::cout << std::left << std::setw(40) << result.name << ": " << std::fixed
+                  << std::setprecision(0) << result.throughput << " ops/sec\n";
     }
 
     std::cout << "\nAll benchmarks completed successfully!\n";

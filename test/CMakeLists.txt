@@ -9,6 +9,8 @@ add_executable(unit_tests
     unit/test_result.cpp
     unit/test_io_buffer.cpp
     unit/test_http_fuzzer_regression.cpp
+    unit/test_virtual_event_loop.cpp
+    unit/test_http_handler_harness.cpp
 )
 
 target_link_libraries(unit_tests
@@ -21,6 +23,7 @@ target_include_directories(unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(integration_tests
     main.cpp
     integration/test_http_server.cpp
+    integration/test_fixture_load.cpp
 )
 
 target_link_libraries(integration_tests

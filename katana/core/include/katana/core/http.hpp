@@ -1,14 +1,14 @@
 #pragma once
 
-#include "result.hpp"
-#include "problem.hpp"
-#include "http_headers.hpp"
 #include "arena.hpp"
+#include "http_headers.hpp"
+#include "problem.hpp"
+#include "result.hpp"
 
-#include <string>
-#include <string_view>
 #include <optional>
 #include <span>
+#include <string>
+#include <string_view>
 
 namespace katana::http {
 
@@ -19,16 +19,7 @@ constexpr size_t MAX_URI_LENGTH = 2048UL;
 constexpr size_t MAX_HEADER_COUNT = 100;
 constexpr size_t MAX_BUFFER_SIZE = MAX_HEADER_SIZE + MAX_BODY_SIZE;
 
-enum class method : uint8_t {
-    get,
-    post,
-    put,
-    del,
-    patch,
-    head,
-    options,
-    unknown
-};
+enum class method : uint8_t { get, post, put, del, patch, head, options, unknown };
 
 struct request {
     method http_method = method::unknown;
@@ -75,8 +66,7 @@ struct response {
 
 class parser {
 public:
-    explicit parser(monotonic_arena* arena) noexcept
-        : arena_(arena), request_{} {
+    explicit parser(monotonic_arena* arena) noexcept : arena_(arena), request_{} {
         request_.headers = headers_map(arena);
         buffer_ = static_cast<char*>(arena_->allocate(MAX_BUFFER_SIZE, 1));
     }
@@ -134,9 +124,7 @@ std::string_view method_to_string(method m);
 
 inline std::span<const uint8_t> as_bytes(std::string_view sv) noexcept {
     return std::span<const uint8_t>(
-        static_cast<const uint8_t*>(static_cast<const void*>(sv.data())),
-        sv.size()
-    );
+        static_cast<const uint8_t*>(static_cast<const void*>(sv.data())), sv.size());
 }
 
 } // namespace katana::http

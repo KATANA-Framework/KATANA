@@ -1,10 +1,10 @@
 #pragma once
 
-#include <vector>
-#include <span>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <algorithm>
+#include <span>
+#include <vector>
 
 namespace katana {
 
@@ -25,7 +25,8 @@ public:
         size_t available = capacity() - size();
         size_t to_write = std::min(data.size(), available);
 
-        if (to_write == 0) return 0;
+        if (to_write == 0)
+            return 0;
 
         size_t tail_pos = tail_ & mask_;
         size_t first_part = std::min(to_write, buffer_.size() - tail_pos);
@@ -44,7 +45,8 @@ public:
         size_t available = size();
         size_t to_read = std::min(data.size(), available);
 
-        if (to_read == 0) return 0;
+        if (to_read == 0)
+            return 0;
 
         size_t head_pos = head_ & mask_;
         size_t first_part = std::min(to_read, buffer_.size() - head_pos);
@@ -60,7 +62,8 @@ public:
     }
 
     [[nodiscard]] std::span<const uint8_t> peek() const noexcept {
-        if (empty()) return {};
+        if (empty())
+            return {};
 
         size_t available = size();
         size_t head_pos = head_ & mask_;
@@ -69,21 +72,13 @@ public:
         return std::span<const uint8_t>(&buffer_[head_pos], contiguous);
     }
 
-    void consume(size_t bytes) noexcept {
-        head_ += std::min(bytes, size());
-    }
+    void consume(size_t bytes) noexcept { head_ += std::min(bytes, size()); }
 
-    [[nodiscard]] size_t size() const noexcept {
-        return tail_ - head_;
-    }
+    [[nodiscard]] size_t size() const noexcept { return tail_ - head_; }
 
-    [[nodiscard]] size_t capacity() const noexcept {
-        return buffer_.size();
-    }
+    [[nodiscard]] size_t capacity() const noexcept { return buffer_.size(); }
 
-    [[nodiscard]] bool empty() const noexcept {
-        return head_ == tail_;
-    }
+    [[nodiscard]] bool empty() const noexcept { return head_ == tail_; }
 
     void clear() noexcept {
         head_ = 0;
@@ -91,7 +86,8 @@ public:
     }
 
     void reserve(size_t new_capacity) {
-        if (new_capacity <= capacity()) return;
+        if (new_capacity <= capacity())
+            return;
 
         size_t actual_capacity = next_power_of_two(new_capacity);
         std::vector<uint8_t> new_buffer(actual_capacity);
@@ -115,7 +111,8 @@ public:
 
 private:
     static size_t next_power_of_two(size_t n) {
-        if (n == 0) return 1;
+        if (n == 0)
+            return 1;
         --n;
         n |= n >> 1;
         n |= n >> 2;

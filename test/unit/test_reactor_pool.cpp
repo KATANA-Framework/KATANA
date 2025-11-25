@@ -1,8 +1,8 @@
-#include "katana/core/reactor_pool.hpp"
 #include "katana/core/cpu_info.hpp"
+#include "katana/core/reactor_pool.hpp"
 
-#include <gtest/gtest.h>
 #include <atomic>
+#include <gtest/gtest.h>
 
 TEST(ReactorPoolTest, CreatePool) {
     katana::reactor_pool_config config;
@@ -29,9 +29,7 @@ TEST(ReactorPoolTest, StartStop) {
 
     for (size_t i = 0; i < pool.reactor_count(); ++i) {
         auto& reactor = pool.get_reactor(i);
-        reactor.schedule([&counter]() {
-            counter.fetch_add(1, std::memory_order_relaxed);
-        });
+        reactor.schedule([&counter]() { counter.fetch_add(1, std::memory_order_relaxed); });
     }
 
     pool.start();
@@ -97,12 +95,8 @@ TEST(ReactorPoolTest, IsolatedState) {
     auto& reactor1 = pool.get_reactor(1);
 
     for (int i = 0; i < 10; ++i) {
-        reactor0.schedule([&counter0]() {
-            counter0.fetch_add(1, std::memory_order_relaxed);
-        });
-        reactor1.schedule([&counter1]() {
-            counter1.fetch_add(1, std::memory_order_relaxed);
-        });
+        reactor0.schedule([&counter0]() { counter0.fetch_add(1, std::memory_order_relaxed); });
+        reactor1.schedule([&counter1]() { counter1.fetch_add(1, std::memory_order_relaxed); });
     }
 
     pool.start();

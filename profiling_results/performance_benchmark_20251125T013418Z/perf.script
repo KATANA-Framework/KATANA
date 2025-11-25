@@ -1,4 +1,4 @@
-perf-exec  201888 124434.219912:          1 cycles:P: 
+perf-exec  201888 124434.219912:          1 cycles:P:
 	ffffffffb3332361 perf_iterate_ctx+0x11 ([kernel.kallsyms])
 	ffffffffb33429c0 perf_event_exec+0x2e0 ([kernel.kallsyms])
 	ffffffffb3458582 begin_new_exec+0x6b2 ([kernel.kallsyms])
@@ -10,7 +10,7 @@ perf-exec  201888 124434.219912:          1 cycles:P:
 	ffffffffb40785aa do_syscall_64+0x5a ([kernel.kallsyms])
 	ffffffffb4200134 entry_SYSCALL_64_after_hwframe+0x78 ([kernel.kallsyms])
 
-perf-exec  201888 124434.219937:          1 cycles:P: 
+perf-exec  201888 124434.219937:          1 cycles:P:
 	ffffffffb3332361 perf_iterate_ctx+0x11 ([kernel.kallsyms])
 	ffffffffb33429c0 perf_event_exec+0x2e0 ([kernel.kallsyms])
 	ffffffffb3458582 begin_new_exec+0x6b2 ([kernel.kallsyms])
@@ -22,7 +22,7 @@ perf-exec  201888 124434.219937:          1 cycles:P:
 	ffffffffb40785aa do_syscall_64+0x5a ([kernel.kallsyms])
 	ffffffffb4200134 entry_SYSCALL_64_after_hwframe+0x78 ([kernel.kallsyms])
 
-perf-exec  201888 124434.219946:         58 cycles:P: 
+perf-exec  201888 124434.219946:         58 cycles:P:
 	ffffffffb3332361 perf_iterate_ctx+0x11 ([kernel.kallsyms])
 	ffffffffb33429c0 perf_event_exec+0x2e0 ([kernel.kallsyms])
 	ffffffffb3458582 begin_new_exec+0x6b2 ([kernel.kallsyms])
@@ -34,7 +34,7 @@ perf-exec  201888 124434.219946:         58 cycles:P:
 	ffffffffb40785aa do_syscall_64+0x5a ([kernel.kallsyms])
 	ffffffffb4200134 entry_SYSCALL_64_after_hwframe+0x78 ([kernel.kallsyms])
 
-perf-exec  201888 124434.219953:       7495 cycles:P: 
+perf-exec  201888 124434.219953:       7495 cycles:P:
 	ffffffffb3332361 perf_iterate_ctx+0x11 ([kernel.kallsyms])
 	ffffffffb33429c0 perf_event_exec+0x2e0 ([kernel.kallsyms])
 	ffffffffb3458582 begin_new_exec+0x6b2 ([kernel.kallsyms])
@@ -46,7 +46,7 @@ perf-exec  201888 124434.219953:       7495 cycles:P:
 	ffffffffb40785aa do_syscall_64+0x5a ([kernel.kallsyms])
 	ffffffffb4200134 entry_SYSCALL_64_after_hwframe+0x78 ([kernel.kallsyms])
 
-perf-exec  201888 124434.219962:    1015663 cycles:P: 
+perf-exec  201888 124434.219962:    1015663 cycles:P:
 	ffffffffb3332361 perf_iterate_ctx+0x11 ([kernel.kallsyms])
 	ffffffffb33429c0 perf_event_exec+0x2e0 ([kernel.kallsyms])
 	ffffffffb3458582 begin_new_exec+0x6b2 ([kernel.kallsyms])
@@ -58,7 +58,7 @@ perf-exec  201888 124434.219962:    1015663 cycles:P:
 	ffffffffb40785aa do_syscall_64+0x5a ([kernel.kallsyms])
 	ffffffffb4200134 entry_SYSCALL_64_after_hwframe+0x78 ([kernel.kallsyms])
 
-performance_ben  201888 124434.220546:  143125038 cycles:P: 
+performance_ben  201888 124434.220546:  143125038 cycles:P:
 	ffffffffb407edae check_preemption_disabled+0x3e ([kernel.kallsyms])
 	ffffffffb407ee9b debug_smp_processor_id+0x1b ([kernel.kallsyms])
 	ffffffffb34305c1 try_charge_memcg+0xa1 ([kernel.kallsyms])
@@ -81,7 +81,7 @@ performance_ben  201888 124434.220546:  143125038 cycles:P:
 	    72b1e32ad75d [unknown] (/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
 	    72b1e32ac547 [unknown] (/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
 
-performance_ben  201888 124434.253886:  179184977 cycles:P: 
+performance_ben  201888 124434.253886:  179184977 cycles:P:
 	    57e620a073b1 std::vector<double, std::allocator<double> >::push_back(double const&)+0x211 (inlined)
 	    57e620a073b1 benchmark_ring_buffer_queue()+0x211 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a05b55 main+0x95 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -89,152 +89,152 @@ performance_ben  201888 124434.253886:  179184977 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201890 124434.295089:          1 cycles:P: 
+performance_ben  201890 124434.295089:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295141:          1 cycles:P: 
+performance_ben  201890 124434.295141:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295150:         27 cycles:P: 
+performance_ben  201890 124434.295150:         27 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295162:       2474 cycles:P: 
+performance_ben  201890 124434.295162:       2474 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295173:     276876 cycles:P: 
+performance_ben  201890 124434.295173:     276876 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201891 124434.295187:          1 cycles:P: 
+performance_ben  201891 124434.295187:          1 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201891 124434.295216:          1 cycles:P: 
+performance_ben  201891 124434.295216:          1 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201891 124434.295226:         50 cycles:P: 
+performance_ben  201891 124434.295226:         50 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201891 124434.295238:       4414 cycles:P: 
+performance_ben  201891 124434.295238:       4414 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201891 124434.295252:     469385 cycles:P: 
+performance_ben  201891 124434.295252:     469385 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201892 124434.295275:          1 cycles:P: 
+performance_ben  201892 124434.295275:          1 cycles:P:
 	ffffffffb315f909 schedule_tail+0x39 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201892 124434.295288:          1 cycles:P: 
+performance_ben  201892 124434.295288:          1 cycles:P:
 	ffffffffb315f909 schedule_tail+0x39 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201892 124434.295299:         86 cycles:P: 
+performance_ben  201892 124434.295299:         86 cycles:P:
 	ffffffffb315f909 schedule_tail+0x39 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201892 124434.295310:       9805 cycles:P: 
+performance_ben  201892 124434.295310:       9805 cycles:P:
 	ffffffffb315f909 schedule_tail+0x39 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201892 124434.295321:    1165594 cycles:P: 
+performance_ben  201892 124434.295321:    1165594 cycles:P:
 	ffffffffb315f909 schedule_tail+0x39 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201893 124434.295401:          1 cycles:P: 
+performance_ben  201893 124434.295401:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201893 124434.295426:          1 cycles:P: 
+performance_ben  201893 124434.295426:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201893 124434.295435:         60 cycles:P: 
+performance_ben  201893 124434.295435:         60 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201893 124434.295448:       5485 cycles:P: 
+performance_ben  201893 124434.295448:       5485 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201893 124434.295461:     533666 cycles:P: 
+performance_ben  201893 124434.295461:     533666 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201894 124434.295506:          1 cycles:P: 
+performance_ben  201894 124434.295506:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201894 124434.295520:          1 cycles:P: 
+performance_ben  201894 124434.295520:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201894 124434.295529:         83 cycles:P: 
+performance_ben  201894 124434.295529:         83 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201894 124434.295538:      11593 cycles:P: 
+performance_ben  201894 124434.295538:      11593 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201894 124434.295547:    1661128 cycles:P: 
+performance_ben  201894 124434.295547:    1661128 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb315f8e3 schedule_tail+0x13 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201895 124434.295618:          1 cycles:P: 
+performance_ben  201895 124434.295618:          1 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295618:          1 cycles:P: 
+performance_ben  201890 124434.295618:          1 cycles:P:
 	ffffffffb4086759 schedule+0x79 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -260,7 +260,7 @@ performance_ben  201890 124434.295618:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201890 124434.295636:          1 cycles:P: 
+performance_ben  201890 124434.295636:          1 cycles:P:
 	ffffffffb4086759 schedule+0x79 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -286,7 +286,7 @@ performance_ben  201890 124434.295636:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201891 124434.295636:          1 cycles:P: 
+performance_ben  201891 124434.295636:          1 cycles:P:
 	ffffffffb3202a5c futex_wait+0x15c ([kernel.kallsyms])
 	ffffffffb31feefc do_futex+0x13c ([kernel.kallsyms])
 	ffffffffb31ff02c __x64_sys_futex+0x7c ([kernel.kallsyms])
@@ -310,12 +310,12 @@ performance_ben  201891 124434.295636:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201895 124434.295645:          1 cycles:P: 
+performance_ben  201895 124434.295645:          1 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295648:         71 cycles:P: 
+performance_ben  201890 124434.295648:         71 cycles:P:
 	ffffffffb4086759 schedule+0x79 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -341,7 +341,7 @@ performance_ben  201890 124434.295648:         71 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201891 124434.295652:          1 cycles:P: 
+performance_ben  201891 124434.295652:          1 cycles:P:
 	ffffffffb3202a5c futex_wait+0x15c ([kernel.kallsyms])
 	ffffffffb31feefc do_futex+0x13c ([kernel.kallsyms])
 	ffffffffb31ff02c __x64_sys_futex+0x7c ([kernel.kallsyms])
@@ -365,12 +365,12 @@ performance_ben  201891 124434.295652:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201895 124434.295654:         53 cycles:P: 
+performance_ben  201895 124434.295654:         53 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295661:       6888 cycles:P: 
+performance_ben  201890 124434.295661:       6888 cycles:P:
 	ffffffffb4086759 schedule+0x79 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -396,7 +396,7 @@ performance_ben  201890 124434.295661:       6888 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201891 124434.295662:         75 cycles:P: 
+performance_ben  201891 124434.295662:         75 cycles:P:
 	ffffffffb3202a5c futex_wait+0x15c ([kernel.kallsyms])
 	ffffffffb31feefc do_futex+0x13c ([kernel.kallsyms])
 	ffffffffb31ff02c __x64_sys_futex+0x7c ([kernel.kallsyms])
@@ -420,12 +420,12 @@ performance_ben  201891 124434.295662:         75 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201895 124434.295665:       5165 cycles:P: 
+performance_ben  201895 124434.295665:       5165 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201891 124434.295671:       9576 cycles:P: 
+performance_ben  201891 124434.295671:       9576 cycles:P:
 	ffffffffb3202a5c futex_wait+0x15c ([kernel.kallsyms])
 	ffffffffb31feefc do_futex+0x13c ([kernel.kallsyms])
 	ffffffffb31ff02c __x64_sys_futex+0x7c ([kernel.kallsyms])
@@ -449,7 +449,7 @@ performance_ben  201891 124434.295671:       9576 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201890 124434.295673:     672258 cycles:P: 
+performance_ben  201890 124434.295673:     672258 cycles:P:
 	ffffffffb4086759 schedule+0x79 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -475,12 +475,12 @@ performance_ben  201890 124434.295673:     672258 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201895 124434.295676:     592569 cycles:P: 
+performance_ben  201895 124434.295676:     592569 cycles:P:
 	ffffffffb31275c4 calculate_sigpending+0x4 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201893 124434.295678:          1 cycles:P: 
+performance_ben  201893 124434.295678:          1 cycles:P:
 	ffffffffb4201a60 asm_sysvec_hyperv_stimer0+0x0 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -508,7 +508,7 @@ performance_ben  201893 124434.295678:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201891 124434.295681:    1277366 cycles:P: 
+performance_ben  201891 124434.295681:    1277366 cycles:P:
 	ffffffffb3202a5c futex_wait+0x15c ([kernel.kallsyms])
 	ffffffffb31feefc do_futex+0x13c ([kernel.kallsyms])
 	ffffffffb31ff02c __x64_sys_futex+0x7c ([kernel.kallsyms])
@@ -532,7 +532,7 @@ performance_ben  201891 124434.295681:    1277366 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201892 124434.295683:          1 cycles:P: 
+performance_ben  201892 124434.295683:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -560,7 +560,7 @@ performance_ben  201892 124434.295683:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.295703:          1 cycles:P: 
+performance_ben  201893 124434.295703:          1 cycles:P:
 	ffffffffb4201a60 asm_sysvec_hyperv_stimer0+0x0 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -588,7 +588,7 @@ performance_ben  201893 124434.295703:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201892 124434.295711:          1 cycles:P: 
+performance_ben  201892 124434.295711:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -616,7 +616,7 @@ performance_ben  201892 124434.295711:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.295713:         58 cycles:P: 
+performance_ben  201893 124434.295713:         58 cycles:P:
 	ffffffffb4201a60 asm_sysvec_hyperv_stimer0+0x0 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -644,7 +644,7 @@ performance_ben  201893 124434.295713:         58 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201892 124434.295720:         51 cycles:P: 
+performance_ben  201892 124434.295720:         51 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -672,7 +672,7 @@ performance_ben  201892 124434.295720:         51 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.295728:       5170 cycles:P: 
+performance_ben  201893 124434.295728:       5170 cycles:P:
 	ffffffffb4201a60 asm_sysvec_hyperv_stimer0+0x0 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -700,7 +700,7 @@ performance_ben  201893 124434.295728:       5170 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201892 124434.295734:       4702 cycles:P: 
+performance_ben  201892 124434.295734:       4702 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -728,7 +728,7 @@ performance_ben  201892 124434.295734:       4702 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.295742:     450807 cycles:P: 
+performance_ben  201893 124434.295742:     450807 cycles:P:
 	ffffffffb4201a60 asm_sysvec_hyperv_stimer0+0x0 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -756,7 +756,7 @@ performance_ben  201893 124434.295742:     450807 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201892 124434.295749:     428601 cycles:P: 
+performance_ben  201892 124434.295749:     428601 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -784,14 +784,14 @@ performance_ben  201892 124434.295749:     428601 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.295796:          1 cycles:P: 
+performance_ben  201897 124434.295796:          1 cycles:P:
 	ffffffffb408e29c _raw_spin_unlock_irq+0x2c ([kernel.kallsyms])
 	ffffffffb31275f8 calculate_sigpending+0x38 ([kernel.kallsyms])
 	ffffffffb315f928 schedule_tail+0x58 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201895 124434.295811:   65567462 cycles:P: 
+performance_ben  201895 124434.295811:   65567462 cycles:P:
 	ffffffffb40785bb do_syscall_64+0x6b ([kernel.kallsyms])
 	ffffffffb4200134 entry_SYSCALL_64_after_hwframe+0x78 ([kernel.kallsyms])
 	    72b1e2ef028d syscall+0x1d (/usr/lib/x86_64-linux-gnu/libc.so.6)
@@ -812,35 +812,35 @@ performance_ben  201895 124434.295811:   65567462 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.295812:          1 cycles:P: 
+performance_ben  201897 124434.295812:          1 cycles:P:
 	ffffffffb408e29c _raw_spin_unlock_irq+0x2c ([kernel.kallsyms])
 	ffffffffb31275f8 calculate_sigpending+0x38 ([kernel.kallsyms])
 	ffffffffb315f928 schedule_tail+0x58 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201897 124434.295823:         83 cycles:P: 
+performance_ben  201897 124434.295823:         83 cycles:P:
 	ffffffffb408e29c _raw_spin_unlock_irq+0x2c ([kernel.kallsyms])
 	ffffffffb31275f8 calculate_sigpending+0x38 ([kernel.kallsyms])
 	ffffffffb315f928 schedule_tail+0x58 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201897 124434.295834:       9241 cycles:P: 
+performance_ben  201897 124434.295834:       9241 cycles:P:
 	ffffffffb408e29c _raw_spin_unlock_irq+0x2c ([kernel.kallsyms])
 	ffffffffb31275f8 calculate_sigpending+0x38 ([kernel.kallsyms])
 	ffffffffb315f928 schedule_tail+0x58 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201897 124434.295846:    1039642 cycles:P: 
+performance_ben  201897 124434.295846:    1039642 cycles:P:
 	ffffffffb408e29c _raw_spin_unlock_irq+0x2c ([kernel.kallsyms])
 	ffffffffb31275f8 calculate_sigpending+0x38 ([kernel.kallsyms])
 	ffffffffb315f928 schedule_tail+0x58 ([kernel.kallsyms])
 	ffffffffb305cbc0 ret_from_fork+0x20 ([kernel.kallsyms])
 	ffffffffb30037db ret_from_fork_asm+0x1b ([kernel.kallsyms])
 
-performance_ben  201890 124434.295848:   68859006 cycles:P: 
+performance_ben  201890 124434.295848:   68859006 cycles:P:
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 katana::ring_buffer_queue<int>::try_push(int&&)+0x64 (inlined)
@@ -855,7 +855,7 @@ performance_ben  201890 124434.295848:   68859006 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201892 124434.295848:   38630567 cycles:P: 
+performance_ben  201892 124434.295848:   38630567 cycles:P:
 	    57e620a0aef4 katana::ring_buffer_queue<int>::push_wait(int)+0x184 (inlined)
 	    57e620a0aef4 operator()+0x184 (inlined)
 	    57e620a0aef4 __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> >+0x184 (inlined)
@@ -867,7 +867,7 @@ performance_ben  201892 124434.295848:   38630567 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201891 124434.295996:  153620368 cycles:P: 
+performance_ben  201891 124434.295996:  153620368 cycles:P:
 	    57e620a0af5a katana::ring_buffer_queue<int>::adaptive_pause(unsigned long)+0x1ea (inlined)
 	    57e620a0af5a katana::ring_buffer_queue<int>::try_push(int&&)+0x1ea (inlined)
 	    57e620a0af5a katana::ring_buffer_queue<int>::push_wait(int)+0x1ea (inlined)
@@ -881,7 +881,7 @@ performance_ben  201891 124434.295996:  153620368 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201894 124434.296006:  217981601 cycles:P: 
+performance_ben  201894 124434.296006:  217981601 cycles:P:
 	ffffffffb300382a x64_sys_call+0xa ([kernel.kallsyms])
 	ffffffffb4200134 entry_SYSCALL_64_after_hwframe+0x78 ([kernel.kallsyms])
 	    72b1e2ef028d syscall+0x1d (/usr/lib/x86_64-linux-gnu/libc.so.6)
@@ -902,7 +902,7 @@ performance_ben  201894 124434.296006:  217981601 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.296097:   98240249 cycles:P: 
+performance_ben  201897 124434.296097:   98240249 cycles:P:
 	    57e620a0afcd katana::ring_buffer_queue<int>::try_pop(int&)+0x5d (inlined)
 	    57e620a0afcd katana::ring_buffer_queue<int>::pop_wait(int&)+0x5d (inlined)
 	    57e620a0afcd operator()+0x5d (inlined)
@@ -915,7 +915,7 @@ performance_ben  201897 124434.296097:   98240249 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.300359:   41209081 cycles:P: 
+performance_ben  201893 124434.300359:   41209081 cycles:P:
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 katana::ring_buffer_queue<int>::try_push(int&&)+0x64 (inlined)
@@ -930,7 +930,7 @@ performance_ben  201893 124434.300359:   41209081 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.301463:          1 cycles:P: 
+performance_ben  201897 124434.301463:          1 cycles:P:
 	ffffffffb31d37af exit_to_user_mode_prepare+0xdf ([kernel.kallsyms])
 	ffffffffb407e70a syscall_exit_to_user_mode+0x2a ([kernel.kallsyms])
 	ffffffffb40785b7 do_syscall_64+0x67 ([kernel.kallsyms])
@@ -953,7 +953,7 @@ performance_ben  201897 124434.301463:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.301486:          1 cycles:P: 
+performance_ben  201897 124434.301486:          1 cycles:P:
 	ffffffffb31d37af exit_to_user_mode_prepare+0xdf ([kernel.kallsyms])
 	ffffffffb407e70a syscall_exit_to_user_mode+0x2a ([kernel.kallsyms])
 	ffffffffb40785b7 do_syscall_64+0x67 ([kernel.kallsyms])
@@ -976,7 +976,7 @@ performance_ben  201897 124434.301486:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.301494:         64 cycles:P: 
+performance_ben  201897 124434.301494:         64 cycles:P:
 	ffffffffb31d37af exit_to_user_mode_prepare+0xdf ([kernel.kallsyms])
 	ffffffffb407e70a syscall_exit_to_user_mode+0x2a ([kernel.kallsyms])
 	ffffffffb40785b7 do_syscall_64+0x67 ([kernel.kallsyms])
@@ -999,7 +999,7 @@ performance_ben  201897 124434.301494:         64 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.301506:       6498 cycles:P: 
+performance_ben  201897 124434.301506:       6498 cycles:P:
 	ffffffffb31d37af exit_to_user_mode_prepare+0xdf ([kernel.kallsyms])
 	ffffffffb407e70a syscall_exit_to_user_mode+0x2a ([kernel.kallsyms])
 	ffffffffb40785b7 do_syscall_64+0x67 ([kernel.kallsyms])
@@ -1022,7 +1022,7 @@ performance_ben  201897 124434.301506:       6498 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.301518:     689854 cycles:P: 
+performance_ben  201897 124434.301518:     689854 cycles:P:
 	ffffffffb31d37af exit_to_user_mode_prepare+0xdf ([kernel.kallsyms])
 	ffffffffb407e70a syscall_exit_to_user_mode+0x2a ([kernel.kallsyms])
 	ffffffffb40785b7 do_syscall_64+0x67 ([kernel.kallsyms])
@@ -1045,7 +1045,7 @@ performance_ben  201897 124434.301518:     689854 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.301694:   74033717 cycles:P: 
+performance_ben  201897 124434.301694:   74033717 cycles:P:
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 katana::ring_buffer_queue<int>::try_pop(int&)+0x71 (inlined)
@@ -1060,7 +1060,7 @@ performance_ben  201897 124434.301694:   74033717 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201892 124434.305653:  361530948 cycles:P: 
+performance_ben  201892 124434.305653:  361530948 cycles:P:
 	    57e620a0adbe katana::ring_buffer_queue<int>::try_push(int&&)+0x4e (inlined)
 	    57e620a0adbe katana::ring_buffer_queue<int>::push_wait(int)+0x4e (inlined)
 	    57e620a0adbe operator()+0x4e (inlined)
@@ -1073,7 +1073,7 @@ performance_ben  201892 124434.305653:  361530948 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.310520:   46498186 cycles:P: 
+performance_ben  201893 124434.310520:   46498186 cycles:P:
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 katana::ring_buffer_queue<int>::try_push(int&&)+0x64 (inlined)
@@ -1088,7 +1088,7 @@ performance_ben  201893 124434.310520:   46498186 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201895 124434.310928:  408717822 cycles:P: 
+performance_ben  201895 124434.310928:  408717822 cycles:P:
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 katana::ring_buffer_queue<int>::try_pop(int&)+0x71 (inlined)
@@ -1103,7 +1103,7 @@ performance_ben  201895 124434.310928:  408717822 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201890 124434.311706:  347091438 cycles:P: 
+performance_ben  201890 124434.311706:  347091438 cycles:P:
 	    57e620a0adfc std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()+0x8c (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0adfc __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> >+0x8c (inlined)
 	    57e620a0adfc __invoke<benchmark_ring_buffer_concurrent()::<lambda()> >+0x8c (inlined)
@@ -1114,7 +1114,7 @@ performance_ben  201890 124434.311706:  347091438 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.315819:   64470634 cycles:P: 
+performance_ben  201896 124434.315819:   64470634 cycles:P:
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 katana::ring_buffer_queue<int>::try_pop(int&)+0x71 (inlined)
@@ -1129,7 +1129,7 @@ performance_ben  201896 124434.315819:   64470634 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201897 124434.319004:  369190433 cycles:P: 
+performance_ben  201897 124434.319004:  369190433 cycles:P:
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 katana::ring_buffer_queue<int>::try_pop(int&)+0x71 (inlined)
@@ -1144,7 +1144,7 @@ performance_ben  201897 124434.319004:  369190433 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.321100:   46783315 cycles:P: 
+performance_ben  201893 124434.321100:   46783315 cycles:P:
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x64 (inlined)
 	    57e620a0add4 katana::ring_buffer_queue<int>::try_push(int&&)+0x64 (inlined)
@@ -1159,7 +1159,7 @@ performance_ben  201893 124434.321100:   46783315 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.330669:   57306332 cycles:P: 
+performance_ben  201896 124434.330669:   57306332 cycles:P:
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 katana::ring_buffer_queue<int>::try_pop(int&)+0x71 (inlined)
@@ -1174,7 +1174,7 @@ performance_ben  201896 124434.330669:   57306332 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201891 124434.331284:  289099371 cycles:P: 
+performance_ben  201891 124434.331284:  289099371 cycles:P:
 	    57e620a0adf9 operator()+0x89 (inlined)
 	    57e620a0adf9 __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> >+0x89 (inlined)
 	    57e620a0adf9 __invoke<benchmark_ring_buffer_concurrent()::<lambda()> >+0x89 (inlined)
@@ -1185,7 +1185,7 @@ performance_ben  201891 124434.331284:  289099371 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.331789:   47124448 cycles:P: 
+performance_ben  201893 124434.331789:   47124448 cycles:P:
 	    57e620a0ada4 katana::ring_buffer_queue<int>::try_push(int&&)+0x34 (inlined)
 	    57e620a0ada4 katana::ring_buffer_queue<int>::push_wait(int)+0x34 (inlined)
 	    57e620a0ada4 operator()+0x34 (inlined)
@@ -1198,7 +1198,7 @@ performance_ben  201893 124434.331789:   47124448 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.342745:   47087746 cycles:P: 
+performance_ben  201893 124434.342745:   47087746 cycles:P:
 	    57e620a0ada4 katana::ring_buffer_queue<int>::try_push(int&&)+0x34 (inlined)
 	    57e620a0ada4 katana::ring_buffer_queue<int>::push_wait(int)+0x34 (inlined)
 	    57e620a0ada4 operator()+0x34 (inlined)
@@ -1211,7 +1211,7 @@ performance_ben  201893 124434.342745:   47087746 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.343830:   54040493 cycles:P: 
+performance_ben  201896 124434.343830:   54040493 cycles:P:
 	    57e620a0afcd katana::ring_buffer_queue<int>::try_pop(int&)+0x5d (inlined)
 	    57e620a0afcd katana::ring_buffer_queue<int>::pop_wait(int&)+0x5d (inlined)
 	    57e620a0afcd operator()+0x5d (inlined)
@@ -1224,7 +1224,7 @@ performance_ben  201896 124434.343830:   54040493 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201894 124434.346413:  217982904 cycles:P: 
+performance_ben  201894 124434.346413:  217982904 cycles:P:
 	    57e620a0b000 katana::ring_buffer_queue<int>::try_pop(int&)+0x90 (inlined)
 	    57e620a0b000 katana::ring_buffer_queue<int>::pop_wait(int&)+0x90 (inlined)
 	    57e620a0b000 operator()+0x90 (inlined)
@@ -1237,7 +1237,7 @@ performance_ben  201894 124434.346413:  217982904 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201893 124434.353986:   46592365 cycles:P: 
+performance_ben  201893 124434.353986:   46592365 cycles:P:
 	    57e620a0adf9 operator()+0x89 (inlined)
 	    57e620a0adf9 __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> >+0x89 (inlined)
 	    57e620a0adf9 __invoke<benchmark_ring_buffer_concurrent()::<lambda()> >+0x89 (inlined)
@@ -1248,7 +1248,7 @@ performance_ben  201893 124434.353986:   46592365 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.354358:          1 cycles:P: 
+performance_ben  201896 124434.354358:          1 cycles:P:
 	ffffffffb3166497 task_dead_fair+0x17 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1271,7 +1271,7 @@ performance_ben  201896 124434.354358:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.354379:          1 cycles:P: 
+performance_ben  201896 124434.354379:          1 cycles:P:
 	ffffffffb3166497 task_dead_fair+0x17 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1294,7 +1294,7 @@ performance_ben  201896 124434.354379:          1 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.354388:         68 cycles:P: 
+performance_ben  201896 124434.354388:         68 cycles:P:
 	ffffffffb3166497 task_dead_fair+0x17 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1317,7 +1317,7 @@ performance_ben  201896 124434.354388:         68 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.354400:       6792 cycles:P: 
+performance_ben  201896 124434.354400:       6792 cycles:P:
 	ffffffffb3166497 task_dead_fair+0x17 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1340,7 +1340,7 @@ performance_ben  201896 124434.354400:       6792 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.354412:     711013 cycles:P: 
+performance_ben  201896 124434.354412:     711013 cycles:P:
 	ffffffffb3166497 task_dead_fair+0x17 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1363,7 +1363,7 @@ performance_ben  201896 124434.354412:     711013 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201896 124434.354574:   73003310 cycles:P: 
+performance_ben  201896 124434.354574:   73003310 cycles:P:
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order)+0x71 (inlined)
 	    57e620a0afe1 katana::ring_buffer_queue<int>::try_pop(int&)+0x71 (inlined)
@@ -1378,7 +1378,7 @@ performance_ben  201896 124434.354574:   73003310 cycles:P:
 	    72b1e2e65aa3 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2ef2c6b [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 
-performance_ben  201888 124434.361525:          1 cycles:P: 
+performance_ben  201888 124434.361525:          1 cycles:P:
 	ffffffffb4086754 schedule+0x74 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -1396,7 +1396,7 @@ performance_ben  201888 124434.361525:          1 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.361562:          1 cycles:P: 
+performance_ben  201888 124434.361562:          1 cycles:P:
 	ffffffffb4086754 schedule+0x74 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -1414,7 +1414,7 @@ performance_ben  201888 124434.361562:          1 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.361580:         67 cycles:P: 
+performance_ben  201888 124434.361580:         67 cycles:P:
 	ffffffffb4086754 schedule+0x74 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -1432,7 +1432,7 @@ performance_ben  201888 124434.361580:         67 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.361620:       2390 cycles:P: 
+performance_ben  201888 124434.361620:       2390 cycles:P:
 	ffffffffb4086754 schedule+0x74 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -1450,7 +1450,7 @@ performance_ben  201888 124434.361620:       2390 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.361628:      89555 cycles:P: 
+performance_ben  201888 124434.361628:      89555 cycles:P:
 	ffffffffb4086754 schedule+0x74 ([kernel.kallsyms])
 	ffffffffb32023ea futex_wait_queue+0x6a ([kernel.kallsyms])
 	ffffffffb3202a55 futex_wait+0x155 ([kernel.kallsyms])
@@ -1468,7 +1468,7 @@ performance_ben  201888 124434.361628:      89555 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.361647:    8773724 cycles:P: 
+performance_ben  201888 124434.361647:    8773724 cycles:P:
 	ffffffffb405b393 mas_wr_node_store+0x3d3 ([kernel.kallsyms])
 	ffffffffb4061af4 mas_wr_modify+0x94 ([kernel.kallsyms])
 	ffffffffb40632f0 mas_wr_store_entry.isra.0+0xb0 ([kernel.kallsyms])
@@ -1493,7 +1493,7 @@ performance_ben  201888 124434.361647:    8773724 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.363813:  593966204 cycles:P: 
+performance_ben  201888 124434.363813:  593966204 cycles:P:
 	    7ffc1ccf3adc __vdso_clock_gettime+0x6c ([vdso])
 	    72b1e2eb596c clock_gettime+0x1c (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e30e8986 std::chrono::_V2::steady_clock::now()+0x26 (/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
@@ -1503,7 +1503,7 @@ performance_ben  201888 124434.363813:  593966204 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.500711:   58680892 cycles:P: 
+performance_ben  201888 124434.500711:   58680892 cycles:P:
 	    57e620a0c583 katana::monotonic_arena::allocate_new_block(unsigned long)+0x91 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0c410 katana::monotonic_arena::allocate(unsigned long, unsigned long)+0x1a8 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a10a58 katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)+0x48 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1519,7 +1519,7 @@ performance_ben  201888 124434.500711:   58680892 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.514160:   55003931 cycles:P: 
+performance_ben  201888 124434.514160:   55003931 cycles:P:
 	    57e620a13ab1 std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const+0x47 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1abfc katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0xe2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1a738 katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)+0xb2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1534,7 +1534,7 @@ performance_ben  201888 124434.514160:   55003931 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.526755:   52563725 cycles:P: 
+performance_ben  201888 124434.526755:   52563725 cycles:P:
 	    57e620a0c8e4 katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)+0xab (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1000f katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)+0x249 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0f074 katana::http::parser::parse_headers_state()+0x9ea (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1546,7 +1546,7 @@ performance_ben  201888 124434.526755:   52563725 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.539032:   50573776 cycles:P: 
+performance_ben  201888 124434.539032:   50573776 cycles:P:
 	    57e620a0bef4 katana::monotonic_arena::block::~block()+0x14 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0c6d5 std::array<katana::monotonic_arena::block, 32ul>::~array()+0x39 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0c07d katana::monotonic_arena::~monotonic_arena()+0x1b (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1559,7 +1559,7 @@ performance_ben  201888 124434.539032:   50573776 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.550772:   49351695 cycles:P: 
+performance_ben  201888 124434.550772:   49351695 cycles:P:
 	    57e620a10a45 katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)+0x35 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a100b0 katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)+0x2ea (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0f074 katana::http::parser::parse_headers_state()+0x9ea (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1571,7 +1571,7 @@ performance_ben  201888 124434.550772:   49351695 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.562057:   48924523 cycles:P: 
+performance_ben  201888 124434.562057:   48924523 cycles:P:
 	    57e620a1248e katana::simd::find_crlf_sse2(char const*, unsigned long)+0x230 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a12863 katana::simd::find_crlf(char const*, unsigned long)+0x26 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0e701 katana::http::parser::parse_headers_state()+0x77 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1583,7 +1583,7 @@ performance_ben  201888 124434.562057:   48924523 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.573301:   48436250 cycles:P: 
+performance_ben  201888 124434.573301:   48436250 cycles:P:
 	    57e620a13aae std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const+0x44 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1ac16 katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0xfc (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1a738 katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)+0xb2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1597,7 +1597,7 @@ performance_ben  201888 124434.573301:   48436250 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.584475:   48186429 cycles:P: 
+performance_ben  201888 124434.584475:   48186429 cycles:P:
 	    57e620a1ac59 katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0x13f (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1a738 katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)+0xb2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a10085 katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)+0x2bf (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1610,7 +1610,7 @@ performance_ben  201888 124434.584475:   48186429 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.595636:   47756984 cycles:P: 
+performance_ben  201888 124434.595636:   47756984 cycles:P:
 	    7ffc1ccf3adc __vdso_clock_gettime+0x6c ([vdso])
 	    72b1e2eb596c clock_gettime+0x1c (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e30e8986 std::chrono::_V2::steady_clock::now()+0x26 (/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
@@ -1620,11 +1620,11 @@ performance_ben  201888 124434.595636:   47756984 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.606661:   47613921 cycles:P: 
+performance_ben  201888 124434.606661:   47613921 cycles:P:
 	    57e620a1023b std::__is_constant_evaluated()+0xe (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a13a82 std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const+0x18 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.617619:   47541812 cycles:P: 
+performance_ben  201888 124434.617619:   47541812 cycles:P:
 	    57e620a13a6f std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const+0x5 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1abe3 katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0xc9 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1a738 katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)+0xb2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1639,7 +1639,7 @@ performance_ben  201888 124434.617619:   47541812 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.628480:   47527302 cycles:P: 
+performance_ben  201888 124434.628480:   47527302 cycles:P:
 	    57e620a0ca2b katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)+0x8d (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0fc54 katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)+0x2fc (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0e5f9 katana::http::parser::parse_request_line_state()+0x1e5 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1651,7 +1651,7 @@ performance_ben  201888 124434.628480:   47527302 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.639343:   47573747 cycles:P: 
+performance_ben  201888 124434.639343:   47573747 cycles:P:
 	    57e620a162b8 std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const+0xc (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1632b std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)+0x33 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1439f std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)+0x39 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1667,7 +1667,7 @@ performance_ben  201888 124434.639343:   47573747 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.650265:   47522272 cycles:P: 
+performance_ben  201888 124434.650265:   47522272 cycles:P:
 	    57e620a10232 std::__is_constant_evaluated()+0x5 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a13a82 std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const+0x18 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1abfc katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0xe2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1683,7 +1683,7 @@ performance_ben  201888 124434.650265:   47522272 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.661175:   47482105 cycles:P: 
+performance_ben  201888 124434.661175:   47482105 cycles:P:
 	    57e620a1002b katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)+0x265 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0f074 katana::http::parser::parse_headers_state()+0x9ea (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0dcbe katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const+0x86 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1694,7 +1694,7 @@ performance_ben  201888 124434.661175:   47482105 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.672146:   47398277 cycles:P: 
+performance_ben  201888 124434.672146:   47398277 cycles:P:
 	    57e620a13a7a std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const+0x10 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1ac16 katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0xfc (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1a738 katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)+0xb2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1708,7 +1708,7 @@ performance_ben  201888 124434.672146:   47398277 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.683211:   47303870 cycles:P: 
+performance_ben  201888 124434.683211:   47303870 cycles:P:
 	    57e620a1ac3d katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0x123 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1a738 katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)+0xb2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a10085 katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)+0x2bf (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1721,7 +1721,7 @@ performance_ben  201888 124434.683211:   47303870 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.694059:   47223848 cycles:P: 
+performance_ben  201888 124434.694059:   47223848 cycles:P:
 	    57e620a0dff2 katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)+0x29c (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a09307 benchmark_http_parser()+0x427 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a05c3d main+0x17d (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1729,7 +1729,7 @@ performance_ben  201888 124434.694059:   47223848 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.704819:   47346105 cycles:P: 
+performance_ben  201888 124434.704819:   47346105 cycles:P:
 	    57e620a0bef4 katana::monotonic_arena::block::~block()+0x14 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0c6d5 std::array<katana::monotonic_arena::block, 32ul>::~array()+0x39 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0c07d katana::monotonic_arena::~monotonic_arena()+0x1b (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1742,7 +1742,7 @@ performance_ben  201888 124434.704819:   47346105 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.715720:   47383530 cycles:P: 
+performance_ben  201888 124434.715720:   47383530 cycles:P:
 	    72b1e2f51084 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a10427 std::char_traits<char>::find(char const*, unsigned long, char const&)+0x63 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a12d19 std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const+0x5f (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1756,7 +1756,7 @@ performance_ben  201888 124434.715720:   47383530 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.726562:   47372840 cycles:P: 
+performance_ben  201888 124434.726562:   47372840 cycles:P:
 	    57e620a0c35b katana::monotonic_arena::allocate(unsigned long, unsigned long)+0xf3 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a10a58 katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)+0x48 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a0fcb9 katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)+0x361 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1769,7 +1769,7 @@ performance_ben  201888 124434.726562:   47372840 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.737862:   47128256 cycles:P: 
+performance_ben  201888 124434.737862:   47128256 cycles:P:
 	    57e620a1ac7a katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0x160 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1a738 katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)+0xb2 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a11806 katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)+0x6c (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1783,7 +1783,7 @@ performance_ben  201888 124434.737862:   47128256 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.748961:   46613065 cycles:P: 
+performance_ben  201888 124434.748961:   46613065 cycles:P:
 	    7ffc1ccf3adc __vdso_clock_gettime+0x6c ([vdso])
 	    72b1e2eb596c clock_gettime+0x1c (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e30e8986 std::chrono::_V2::steady_clock::now()+0x26 (/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
@@ -1793,7 +1793,7 @@ performance_ben  201888 124434.748961:   46613065 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.760132:   46839289 cycles:P: 
+performance_ben  201888 124434.760132:   46839289 cycles:P:
 	    57e620a16258 __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const+0x10 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a14318 bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)+0x20 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a1165c katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)+0x106 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
@@ -1808,11 +1808,11 @@ performance_ben  201888 124434.760132:   46839289 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.771963:   45126983 cycles:P: 
+performance_ben  201888 124434.771963:   45126983 cycles:P:
 	    57e620a1023b std::__is_constant_evaluated()+0xe (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 	    57e620a13a82 std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const+0x18 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.774499:          1 cycles:P: 
+performance_ben  201888 124434.774499:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1834,7 +1834,7 @@ performance_ben  201888 124434.774499:          1 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.774518:          1 cycles:P: 
+performance_ben  201888 124434.774518:          1 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1856,7 +1856,7 @@ performance_ben  201888 124434.774518:          1 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.774530:         72 cycles:P: 
+performance_ben  201888 124434.774530:         72 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1878,7 +1878,7 @@ performance_ben  201888 124434.774530:         72 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.774540:       7689 cycles:P: 
+performance_ben  201888 124434.774540:       7689 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1900,7 +1900,7 @@ performance_ben  201888 124434.774540:       7689 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.774551:     870382 cycles:P: 
+performance_ben  201888 124434.774551:     870382 cycles:P:
 	ffffffffb315c091 finish_task_switch.isra.0+0xc1 ([kernel.kallsyms])
 	ffffffffb4085f3c __schedule+0x36c ([kernel.kallsyms])
 	ffffffffb408674f schedule+0x6f ([kernel.kallsyms])
@@ -1922,7 +1922,7 @@ performance_ben  201888 124434.774551:     870382 cycles:P:
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
 
-performance_ben  201888 124434.774844:   99050393 cycles:P: 
+performance_ben  201888 124434.774844:   99050393 cycles:P:
 	    57e620a0a2f2 std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const+0x672 (inlined)
 	    57e620a0a2f2 std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose()+0x672 (inlined)
 	    57e620a0a2f2 std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string()+0x672 (inlined)
@@ -1932,4 +1932,3 @@ performance_ben  201888 124434.774844:   99050393 cycles:P:
 	    72b1e2df31c9 [unknown] (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    72b1e2df328a __libc_start_main+0x8a (/usr/lib/x86_64-linux-gnu/libc.so.6)
 	    57e620a05e34 _start+0x24 (/workspace/.docker_build/profile/benchmark/performance_benchmark)
-

@@ -1,0 +1,200 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "ENABLE_TESTING": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "inherits": [
+        "base"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "inherits": [
+        "base"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "AddressSanitizer",
+      "inherits": [
+        "base"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "ASan"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "ThreadSanitizer",
+      "inherits": [
+        "base"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "TSan"
+      }
+    },
+    {
+      "name": "ubsan",
+      "displayName": "UndefinedBehaviorSanitizer",
+      "inherits": [
+        "base"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "UBSan"
+      }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "LibFuzzer (Clang)",
+      "inherits": [
+        "debug"
+      ],
+      "cacheVariables": {
+        "ENABLE_FUZZING": "ON"
+      }
+    },
+    {
+      "name": "bench",
+      "displayName": "Benchmarks + Examples",
+      "inherits": [
+        "release"
+      ],
+      "cacheVariables": {
+        "ENABLE_BENCHMARKS": "ON",
+        "ENABLE_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "examples",
+      "displayName": "Examples (Debug)",
+      "inherits": [
+        "debug"
+      ],
+      "cacheVariables": {
+        "ENABLE_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "io_uring-release",
+      "displayName": "Release (io_uring)",
+      "inherits": [
+        "release"
+      ],
+      "cacheVariables": {
+        "KATANA_POLL": "io_uring"
+      }
+    },
+    {
+      "name": "io_uring-debug",
+      "displayName": "Debug (io_uring)",
+      "inherits": [
+        "debug"
+      ],
+      "cacheVariables": {
+        "KATANA_POLL": "io_uring"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan"
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan"
+    },
+    {
+      "name": "ubsan",
+      "configurePreset": "ubsan"
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz"
+    },
+    {
+      "name": "bench",
+      "configurePreset": "bench"
+    },
+    {
+      "name": "examples",
+      "configurePreset": "examples"
+    },
+    {
+      "name": "io_uring-release",
+      "configurePreset": "io_uring-release"
+    },
+    {
+      "name": "io_uring-debug",
+      "configurePreset": "io_uring-debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": {
+        "shortProgress": true
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "shortProgress": true
+      }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": {
+        "shortProgress": true
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": {
+        "shortProgress": true
+      }
+    },
+    {
+      "name": "ubsan",
+      "configurePreset": "ubsan",
+      "output": {
+        "shortProgress": true
+      }
+    }
+  ]
+}

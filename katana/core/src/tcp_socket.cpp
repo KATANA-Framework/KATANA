@@ -1,14 +1,14 @@
 #include "katana/core/tcp_socket.hpp"
 
-#include <unistd.h>
+#include <algorithm>
 #include <cerrno>
 #include <system_error>
-#include <algorithm>
+#include <unistd.h>
 
 namespace katana {
 
 namespace {
-    constexpr size_t MIN_BUFFER_SIZE = 16384;
+constexpr size_t MIN_BUFFER_SIZE = 16384;
 }
 
 result<std::span<uint8_t>> tcp_socket::read(std::span<uint8_t> buf) {
