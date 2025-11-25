@@ -1,19 +1,19 @@
-#include "katana/core/ring_buffer_queue.hpp"
-#include "katana/core/circular_buffer.hpp"
 #include "katana/core/arena.hpp"
-#include "katana/core/simd_utils.hpp"
+#include "katana/core/circular_buffer.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/reactor_pool.hpp"
+#include "katana/core/ring_buffer_queue.hpp"
+#include "katana/core/simd_utils.hpp"
 #include "katana/core/tcp_listener.hpp"
 
+#include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <thread>
 #include <vector>
-#include <atomic>
-#include <iomanip>
-#include <numeric>
-#include <algorithm>
 
 using namespace std::chrono;
 using namespace katana;
@@ -28,36 +28,53 @@ struct benchmark_result {
     uint64_t duration_ms;
 };
 
+double percentile(const std::vector<double>& sorted_values, double pct) {
+    if (sorted_values.empty()) {
+        return 0.0;
+    }
+
+    double clamped = std::min(1.0, std::max(0.0, pct));
+    size_t idx = static_cast<size_t>(clamped * static_cast<double>(sorted_values.size() - 1));
+    return sorted_values[idx];
+}
+
 void print_result(const benchmark_result& result) {
     std::cout << "\n=== " << result.name << " ===\n";
     std::cout << "Operations: " << result.operations << "\n";
     std::cout << "Duration: " << result.duration_ms << " ms\n";
-    std::cout << "Throughput: " << std::fixed << std::setprecision(2)
-              << result.throughput << " ops/sec\n";
-    std::cout << "Latency p50: " << std::fixed << std::setprecision(3)
-              << result.latency_p50 << " us\n";
-    std::cout << "Latency p99: " << std::fixed << std::setprecision(3)
-              << result.latency_p99 << " us\n";
-    std::cout << "Latency p999: " << std::fixed << std::setprecision(3)
-              << result.latency_p999 << " us\n";
+    std::cout << "Throughput: " << std::fixed << std::setprecision(2) << result.throughput
+              << " ops/sec\n";
+    std::cout << "Latency p50: " << std::fixed << std::setprecision(3) << result.latency_p50
+              << " us\n";
+    std::cout << "Latency p99: " << std::fixed << std::setprecision(3) << result.latency_p99
+              << " us\n";
+    std::cout << "Latency p999: " << std::fixed << std::setprecision(3) << result.latency_p999
+              << " us\n";
 }
 
 benchmark_result benchmark_ring_buffer_queue() {
     const size_t num_operations = 1000000;
+    const size_t sample_rate = 128;
     ring_buffer_queue<int> queue(1024);
     std::vector<double> latencies;
-    latencies.reserve(num_operations);
+    latencies.reserve(num_operations / sample_rate + 2);
 
     auto start = steady_clock::now();
 
-    for (size_t i = 0; i < num_operations; ++i) {
+    for (size_t i = 0; i < num_operations;) {
+        size_t batch = std::min(sample_rate, num_operations - i);
         auto op_start = steady_clock::now();
-        queue.try_push(static_cast<int>(i));
-        int val;
-        queue.try_pop(val);
+        size_t batch_end = i + batch;
+        for (; i < batch_end; ++i) {
+            queue.try_push(static_cast<int>(i));
+            int val;
+            queue.try_pop(val);
+        }
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) /
+            (1000.0 * static_cast<double>(batch));
         latencies.push_back(latency_us);
     }
 
@@ -71,9 +88,9 @@ benchmark_result benchmark_ring_buffer_queue() {
     result.operations = num_operations;
     result.duration_ms = duration_ms;
     result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
-    result.latency_p50 = latencies[num_operations / 2];
-    result.latency_p99 = latencies[num_operations * 99 / 100];
-    result.latency_p999 = latencies[num_operations * 999 / 1000];
+    result.latency_p50 = percentile(latencies, 0.50);
+    result.latency_p99 = percentile(latencies, 0.99);
+    result.latency_p999 = percentile(latencies, 0.999);
 
     return result;
 }
@@ -92,9 +109,7 @@ benchmark_result benchmark_ring_buffer_concurrent() {
     for (int t = 0; t < num_threads; ++t) {
         producers.emplace_back([&] {
             for (size_t i = 0; i < num_operations / num_threads; ++i) {
-                while (!queue.try_push(static_cast<int>(i))) {
-                    std::this_thread::yield();
-                }
+                queue.push_wait(static_cast<int>(i));
                 total_ops.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -105,17 +120,16 @@ benchmark_result benchmark_ring_buffer_concurrent() {
             size_t consumed = 0;
             while (consumed < num_operations / num_threads) {
                 int val;
-                if (queue.try_pop(val)) {
-                    ++consumed;
-                } else {
-                    std::this_thread::yield();
-                }
+                queue.pop_wait(val);
+                ++consumed;
             }
         });
     }
 
-    for (auto& t : producers) t.join();
-    for (auto& t : consumers) t.join();
+    for (auto& t : producers)
+        t.join();
+    for (auto& t : consumers)
+        t.join();
 
     auto end = steady_clock::now();
     auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
@@ -134,22 +148,29 @@ benchmark_result benchmark_ring_buffer_concurrent() {
 
 benchmark_result benchmark_circular_buffer() {
     const size_t num_operations = 500000;
+    const size_t sample_rate = 100;
     circular_buffer buf(4096);
     std::vector<double> latencies;
-    latencies.reserve(num_operations);
+    latencies.reserve(num_operations / sample_rate + 2);
 
     std::vector<uint8_t> write_data(64, 'A');
     std::vector<uint8_t> read_data(64);
 
     auto start = steady_clock::now();
 
-    for (size_t i = 0; i < num_operations; ++i) {
+    for (size_t i = 0; i < num_operations;) {
+        size_t batch = std::min(sample_rate, num_operations - i);
         auto op_start = steady_clock::now();
-        [[maybe_unused]] auto write_count = buf.write(std::span(write_data));
-        [[maybe_unused]] auto read_count = buf.read(std::span(read_data));
+        size_t batch_end = i + batch;
+        for (; i < batch_end; ++i) {
+            [[maybe_unused]] auto write_count = buf.write(std::span(write_data));
+            [[maybe_unused]] auto read_count = buf.read(std::span(read_data));
+        }
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) /
+            (1000.0 * static_cast<double>(batch));
         latencies.push_back(latency_us);
     }
 
@@ -163,17 +184,18 @@ benchmark_result benchmark_circular_buffer() {
     result.operations = num_operations;
     result.duration_ms = duration_ms;
     result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
-    result.latency_p50 = latencies[num_operations / 2];
-    result.latency_p99 = latencies[num_operations * 99 / 100];
-    result.latency_p999 = latencies[num_operations * 999 / 1000];
+    result.latency_p50 = percentile(latencies, 0.50);
+    result.latency_p99 = percentile(latencies, 0.99);
+    result.latency_p999 = percentile(latencies, 0.999);
 
     return result;
 }
 
 benchmark_result benchmark_simd_crlf_search() {
     const size_t num_operations = 100000;
+    const size_t sample_rate = 50;
     std::vector<double> latencies;
-    latencies.reserve(num_operations);
+    latencies.reserve(num_operations / sample_rate + 2);
 
     std::string test_data(1000, 'X');
     test_data += "\r\n";
@@ -181,16 +203,21 @@ benchmark_result benchmark_simd_crlf_search() {
 
     auto start = steady_clock::now();
 
-    for (size_t i = 0; i < num_operations; ++i) {
+    for (size_t i = 0; i < num_operations;) {
+        size_t batch = std::min(sample_rate, num_operations - i);
         auto op_start = steady_clock::now();
-        const char* result = simd::find_crlf(test_data.data(), test_data.size());
+        size_t batch_end = i + batch;
+        for (; i < batch_end; ++i) {
+            const char* result = simd::find_crlf(test_data.data(), test_data.size());
+            if (result == nullptr) {
+                std::cerr << "CRLF search failed!\n";
+            }
+        }
         auto op_end = steady_clock::now();
 
-        if (result == nullptr) {
-            std::cerr << "CRLF search failed!\n";
-        }
-
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) /
+            (1000.0 * static_cast<double>(batch));
         latencies.push_back(latency_us);
     }
 
@@ -204,48 +231,56 @@ benchmark_result benchmark_simd_crlf_search() {
     result.operations = num_operations;
     result.duration_ms = duration_ms;
     result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
-    result.latency_p50 = latencies[num_operations / 2];
-    result.latency_p99 = latencies[num_operations * 99 / 100];
-    result.latency_p999 = latencies[num_operations * 999 / 1000];
+    result.latency_p50 = percentile(latencies, 0.50);
+    result.latency_p99 = percentile(latencies, 0.99);
+    result.latency_p999 = percentile(latencies, 0.999);
 
     return result;
 }
 
 benchmark_result benchmark_http_parser() {
     const size_t num_operations = 50000;
+    const size_t sample_rate = 20;
     std::vector<double> latencies;
-    latencies.reserve(num_operations);
+    latencies.reserve(num_operations / sample_rate + 2);
 
-    const std::string http_request =
-        "GET /api/v1/users?id=123&name=test HTTP/1.1\r\n"
-        "Host: example.com\r\n"
-        "User-Agent: Mozilla/5.0\r\n"
-        "Accept: application/json\r\n"
-        "Connection: keep-alive\r\n"
-        "Content-Length: 24\r\n"
-        "\r\n"
-        "{\"key\":\"value\",\"num\":42}";
+    const std::string http_request = "GET /api/v1/users?id=123&name=test HTTP/1.1\r\n"
+                                     "Host: example.com\r\n"
+                                     "User-Agent: Mozilla/5.0\r\n"
+                                     "Accept: application/json\r\n"
+                                     "Connection: keep-alive\r\n"
+                                     "Content-Length: 24\r\n"
+                                     "\r\n"
+                                     "{\"key\":\"value\",\"num\":42}";
 
     auto start = steady_clock::now();
     size_t successful_parses = 0;
 
-    for (size_t i = 0; i < num_operations; ++i) {
+    for (size_t i = 0; i < num_operations;) {
+        size_t batch = std::min(sample_rate, num_operations - i);
         auto op_start = steady_clock::now();
+        size_t batch_end = i + batch;
+        size_t batch_success = 0;
 
-        monotonic_arena arena;
-        http::parser parser(&arena);
-        auto data_span = std::span(
-            reinterpret_cast<const uint8_t*>(http_request.data()),
-            http_request.size()
-        );
+        for (; i < batch_end; ++i) {
+            monotonic_arena arena;
+            http::parser parser(&arena);
+            auto data_span = std::span(reinterpret_cast<const uint8_t*>(http_request.data()),
+                                       http_request.size());
 
-        auto parse_result = parser.parse(data_span);
+            auto parse_result = parser.parse(data_span);
+
+            if (parse_result && *parse_result == http::parser::state::complete) {
+                ++successful_parses;
+                ++batch_success;
+            }
+        }
 
         auto op_end = steady_clock::now();
-
-        if (parse_result && *parse_result == http::parser::state::complete) {
-            ++successful_parses;
-            double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        if (batch_success > 0) {
+            double latency_us =
+                static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) /
+                (1000.0 * static_cast<double>(batch_success));
             latencies.push_back(latency_us);
         }
     }
@@ -265,12 +300,13 @@ benchmark_result benchmark_http_parser() {
     result.name = "HTTP Parser (Complete Request)";
     result.operations = successful_parses;
     result.duration_ms = duration_ms;
-    result.throughput = (static_cast<double>(successful_parses) * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput =
+        (static_cast<double>(successful_parses) * 1000.0) / static_cast<double>(duration_ms);
 
     if (!latencies.empty()) {
-        result.latency_p50 = latencies[latencies.size() / 2];
-        result.latency_p99 = latencies[latencies.size() * 99 / 100];
-        result.latency_p999 = latencies[latencies.size() * 999 / 1000];
+        result.latency_p50 = percentile(latencies, 0.50);
+        result.latency_p99 = percentile(latencies, 0.99);
+        result.latency_p999 = percentile(latencies, 0.999);
     } else {
         result.latency_p50 = 0.0;
         result.latency_p99 = 0.0;
@@ -343,9 +379,8 @@ int main() {
     std::cout << "========================================\n";
 
     for (const auto& result : results) {
-        std::cout << std::left << std::setw(40) << result.name << ": "
-                  << std::fixed << std::setprecision(0) << result.throughput
-                  << " ops/sec\n";
+        std::cout << std::left << std::setw(40) << result.name << ": " << std::fixed
+                  << std::setprecision(0) << result.throughput << " ops/sec\n";
     }
 
     std::cout << "\nAll benchmarks completed successfully!\n";

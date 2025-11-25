@@ -1,11 +1,11 @@
 #pragma once
 
-#include "reactor.hpp"
 #include "fd_event.hpp"
+#include "reactor.hpp"
 #include "result.hpp"
 
-#include <utility>
 #include <cstdint>
+#include <utility>
 
 namespace katana {
 
@@ -13,8 +13,7 @@ class fd_watch {
 public:
     fd_watch() = default;
 
-    fd_watch(reactor& r, int32_t fd, event_type events, event_callback cb)
-        : reactor_(&r), fd_(fd) {
+    fd_watch(reactor& r, int32_t fd, event_type events, event_callback cb) : reactor_(&r), fd_(fd) {
         auto res = reactor_->register_fd(fd, events, std::move(cb));
         if (!res) {
             reactor_ = nullptr;
@@ -22,7 +21,8 @@ public:
         }
     }
 
-    fd_watch(reactor& r, int32_t fd, event_type events, event_callback cb, const timeout_config& config)
+    fd_watch(
+        reactor& r, int32_t fd, event_type events, event_callback cb, const timeout_config& config)
         : reactor_(&r), fd_(fd) {
         auto res = reactor_->register_fd_with_timeout(fd, events, std::move(cb), config);
         if (!res) {
@@ -31,13 +31,10 @@ public:
         }
     }
 
-    ~fd_watch() {
-        unregister();
-    }
+    ~fd_watch() { unregister(); }
 
     fd_watch(fd_watch&& other) noexcept
-        : reactor_(std::exchange(other.reactor_, nullptr))
-        , fd_(std::exchange(other.fd_, -1)) {}
+        : reactor_(std::exchange(other.reactor_, nullptr)), fd_(std::exchange(other.fd_, -1)) {}
 
     fd_watch& operator=(fd_watch&& other) noexcept {
         if (this != &other) {
@@ -72,9 +69,7 @@ public:
         }
     }
 
-    [[nodiscard]] bool is_registered() const noexcept {
-        return reactor_ != nullptr && fd_ >= 0;
-    }
+    [[nodiscard]] bool is_registered() const noexcept { return reactor_ != nullptr && fd_ >= 0; }
 
     [[nodiscard]] int32_t fd() const noexcept { return fd_; }
 

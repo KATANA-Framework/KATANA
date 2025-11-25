@@ -2,10 +2,10 @@
 
 #include "result.hpp"
 
-#include <vector>
-#include <span>
 #include <cstdint>
+#include <span>
 #include <string_view>
+#include <vector>
 
 #ifdef __linux__
 #include <sys/uio.h>

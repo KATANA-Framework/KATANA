@@ -2,16 +2,16 @@
 #include "katana/core/simd_utils.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cstring>
-#include <cctype>
 
 namespace katana::http {
 
 namespace {
 
 // HTTP protocol constants
-constexpr int HEX_BASE = 16;  // Hexadecimal base for chunked encoding
+constexpr int HEX_BASE = 16; // Hexadecimal base for chunked encoding
 
 constexpr std::string_view CHUNKED_ENCODING_HEADER = "Transfer-Encoding: chunked\r\n\r\n";
 constexpr std::string_view CHUNKED_TERMINATOR = "0\r\n\r\n";
@@ -20,26 +20,24 @@ constexpr std::string_view HEADER_SEPARATOR = ": ";
 constexpr std::string_view CRLF = "\r\n";
 
 alignas(64) static const bool TOKEN_CHARS[256] = {
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,1,0,1,1,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,
-    0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-};
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 alignas(64) static const bool INVALID_HEADER_CHARS[256] = {
-    1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-};
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 inline bool is_token_char(unsigned char c) noexcept {
     return TOKEN_CHARS[c];
@@ -81,26 +79,41 @@ bool contains_invalid_uri_char(std::string_view uri) noexcept {
 } // namespace
 
 method parse_method(std::string_view str) {
-    if (str == "GET") return method::get;
-    if (str == "POST") return method::post;
-    if (str == "PUT") return method::put;
-    if (str == "DELETE") return method::del;
-    if (str == "PATCH") return method::patch;
-    if (str == "HEAD") return method::head;
-    if (str == "OPTIONS") return method::options;
+    if (str == "GET")
+        return method::get;
+    if (str == "POST")
+        return method::post;
+    if (str == "PUT")
+        return method::put;
+    if (str == "DELETE")
+        return method::del;
+    if (str == "PATCH")
+        return method::patch;
+    if (str == "HEAD")
+        return method::head;
+    if (str == "OPTIONS")
+        return method::options;
     return method::unknown;
 }
 
 std::string_view method_to_string(method m) {
     switch (m) {
-        case method::get: return "GET";
-        case method::post: return "POST";
-        case method::put: return "PUT";
-        case method::del: return "DELETE";
-        case method::patch: return "PATCH";
-        case method::head: return "HEAD";
-        case method::options: return "OPTIONS";
-        default: return "UNKNOWN";
+    case method::get:
+        return "GET";
+    case method::post:
+        return "POST";
+    case method::put:
+        return "PUT";
+    case method::del:
+        return "DELETE";
+    case method::patch:
+        return "PATCH";
+    case method::head:
+        return "HEAD";
+    case method::options:
+        return "OPTIONS";
+    default:
+        return "UNKNOWN";
     }
 }
 
@@ -174,8 +187,8 @@ std::string response::serialize_chunked(size_t chunk_size) const {
     char chunk_size_buf[32];
     while (offset < body.size()) {
         size_t current_chunk = std::min(chunk_size, body.size() - offset);
-        auto [chunk_ptr, chunk_ec] = std::to_chars(chunk_size_buf, chunk_size_buf + sizeof(chunk_size_buf),
-                                                     current_chunk, HEX_BASE);
+        auto [chunk_ptr, chunk_ec] = std::to_chars(
+            chunk_size_buf, chunk_size_buf + sizeof(chunk_size_buf), current_chunk, HEX_BASE);
         result.append(chunk_size_buf, static_cast<size_t>(chunk_ptr - chunk_size_buf));
         result.append(CRLF);
         result.append(body.data() + offset, current_chunk);
@@ -213,8 +226,13 @@ response response::error(const problem_details& problem) {
 }
 
 result<parser::state> parser::parse(std::span<const uint8_t> data) {
-    if (!buffer_ || data.size() > buffer_capacity_ || buffer_size_ > buffer_capacity_ - data.size()) [[unlikely]] {
+    if (!buffer_ || data.size() > buffer_capacity_ || buffer_size_ > buffer_capacity_ - data.size())
+        [[unlikely]] {
         return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+
+    if (data.empty()) {
+        return state_;
     }
 
     if (state_ == state::request_line || state_ == state::headers) [[likely]] {
@@ -225,8 +243,9 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
             }
             if (byte == '\n') [[unlikely]] {
                 size_t buf_pos = buffer_size_ + i;
-                if (buf_pos == 0 || (buf_pos > 0 &&
-                    (buf_pos - 1 < buffer_size_ ? buffer_[buf_pos - 1] : data[i - 1]) != '\r')) {
+                if (buf_pos == 0 ||
+                    (buf_pos > 0 &&
+                     (buf_pos - 1 < buffer_size_ ? buffer_[buf_pos - 1] : data[i - 1]) != '\r')) {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
             }
@@ -261,20 +280,20 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         size_t old_parse_pos = parse_pos_;
         result<state> next_state = [&]() -> result<state> {
             switch (state_) {
-                case state::request_line:
-                    return parse_request_line_state();
-                case state::headers:
-                    return parse_headers_state();
-                case state::body:
-                    return parse_body_state();
-                case state::chunk_size:
-                    return parse_chunk_size_state();
-                case state::chunk_data:
-                    return parse_chunk_data_state();
-                case state::chunk_trailer:
-                    return parse_chunk_trailer_state();
-                default:
-                    return state_;
+            case state::request_line:
+                return parse_request_line_state();
+            case state::headers:
+                return parse_headers_state();
+            case state::body:
+                return parse_body_state();
+            case state::chunk_size:
+                return parse_chunk_size_state();
+            case state::chunk_data:
+                return parse_chunk_data_state();
+            case state::chunk_trailer:
+                return parse_chunk_trailer_state();
+            default:
+                return state_;
             }
         }();
 
@@ -309,7 +328,7 @@ result<parser::state> parser::parse_request_line_state() {
             if (c == '\0' || c >= 0x80) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
-            if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
+            if (c == '\n' && (i == 0 || buffer_[i - 1] != '\r')) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
         }
@@ -338,7 +357,7 @@ result<parser::state> parser::parse_headers_state() {
             if (c == '\0' || c >= 0x80) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
-            if (c == '\n' && (i == 0 || buffer_[i-1] != '\r')) {
+            if (c == '\n' && (i == 0 || buffer_[i - 1] != '\r')) {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
         }
@@ -361,9 +380,10 @@ result<parser::state> parser::parse_headers_state() {
                 }
 
                 unsigned long long val = 0;
-                auto [ptr, ec] = std::from_chars(cl_view.data(), cl_view.data() + cl_view.size(), val);
-                if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() ||
-                    val > SIZE_MAX || val > MAX_BODY_SIZE) {
+                auto [ptr, ec] =
+                    std::from_chars(cl_view.data(), cl_view.data() + cl_view.size(), val);
+                if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() || val > SIZE_MAX ||
+                    val > MAX_BODY_SIZE) {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
                 }
                 content_length_ = static_cast<size_t>(val);
@@ -383,7 +403,8 @@ result<parser::state> parser::parse_headers_state() {
             if (last_header_field_ != field::unknown) {
                 current_value = request_.headers.get(last_header_field_);
             } else {
-                current_value = request_.headers.get(std::string_view(last_header_name_, last_header_name_len_));
+                current_value = request_.headers.get(
+                    std::string_view(last_header_name_, last_header_name_len_));
             }
 
             if (!current_value) {
@@ -392,7 +413,8 @@ result<parser::state> parser::parse_headers_state() {
 
             // Header folding - allocate combined value in arena
             auto folded_view = std::string_view(line);
-            while (!folded_view.empty() && (folded_view.front() == ' ' || folded_view.front() == '\t')) {
+            while (!folded_view.empty() &&
+                   (folded_view.front() == ' ' || folded_view.front() == '\t')) {
                 folded_view.remove_prefix(1);
             }
             folded_view = trim_ows(folded_view);
@@ -405,15 +427,17 @@ result<parser::state> parser::parse_headers_state() {
             if (combined) {
                 std::memcpy(combined, current_value->data(), current_value->size());
                 combined[current_value->size()] = ' ';
-                std::memcpy(combined + current_value->size() + 1, folded_view.data(), folded_view.size());
+                std::memcpy(
+                    combined + current_value->size() + 1, folded_view.data(), folded_view.size());
                 combined[total_len] = '\0';
 
                 // Set using either field enum or name
                 if (last_header_field_ != field::unknown) {
                     request_.headers.set(last_header_field_, std::string_view(combined, total_len));
                 } else {
-                    request_.headers.set_view(std::string_view(last_header_name_, last_header_name_len_),
-                                             std::string_view(combined, total_len));
+                    request_.headers.set_view(
+                        std::string_view(last_header_name_, last_header_name_len_),
+                        std::string_view(combined, total_len));
                 }
             }
         } else {
@@ -432,7 +456,8 @@ result<parser::state> parser::parse_headers_state() {
 result<parser::state> parser::parse_body_state() {
     size_t remaining = buffer_size_ - parse_pos_;
     if (remaining >= content_length_) {
-        char* body_ptr = arena_->allocate_string(std::string_view(buffer_ + parse_pos_, content_length_));
+        char* body_ptr =
+            arena_->allocate_string(std::string_view(buffer_ + parse_pos_, content_length_));
         request_.body = std::string_view(body_ptr, content_length_);
         parse_pos_ += content_length_;
         return state::complete;
@@ -458,7 +483,8 @@ result<parser::state> parser::parse_chunk_size_state() {
     chunk_line = trim_ows(chunk_line);
 
     unsigned long long chunk_val = 0;
-    auto [ptr, ec] = std::from_chars(chunk_line.data(), chunk_line.data() + chunk_line.size(), chunk_val, 16);
+    auto [ptr, ec] =
+        std::from_chars(chunk_line.data(), chunk_line.data() + chunk_line.size(), chunk_val, 16);
     if (ec != std::errc() || ptr != chunk_line.data() + chunk_line.size()) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
@@ -471,7 +497,8 @@ result<parser::state> parser::parse_chunk_size_state() {
         return state::chunk_trailer;
     }
 
-    if (current_chunk_size_ > MAX_BODY_SIZE || chunked_body_size_ > MAX_BODY_SIZE - current_chunk_size_) {
+    if (current_chunk_size_ > MAX_BODY_SIZE ||
+        chunked_body_size_ > MAX_BODY_SIZE - current_chunk_size_) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
@@ -482,7 +509,8 @@ result<parser::state> parser::parse_chunk_data_state() {
     size_t remaining = buffer_size_ - parse_pos_;
     if (remaining >= current_chunk_size_ + 2) {
         const char* chunk_start = buffer_ + parse_pos_;
-        if (chunk_start[current_chunk_size_] != '\r' || chunk_start[current_chunk_size_ + 1] != '\n') {
+        if (chunk_start[current_chunk_size_] != '\r' ||
+            chunk_start[current_chunk_size_ + 1] != '\n') {
             return std::unexpected(make_error_code(error_code::invalid_fd));
         }
 
@@ -514,8 +542,8 @@ result<parser::state> parser::parse_chunk_trailer_state() {
 }
 
 result<void> parser::process_request_line(std::string_view line) {
-    if (line.empty() || line.front() == ' ' || line.front() == '\t' ||
-        line.back() == ' ' || line.back() == '\t') {
+    if (line.empty() || line.front() == ' ' || line.front() == '\t' || line.back() == ' ' ||
+        line.back() == '\t') {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
@@ -585,10 +613,46 @@ result<void> parser::process_header_line(std::string_view line) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
+    last_header_field_ = field::unknown;
+    last_header_name_ = nullptr;
+    last_header_name_len_ = 0;
+
+    if (name.size() == 4 && (name[0] == 'H' || name[0] == 'h')) {
+        if (ci_equal_fast(name, "Host")) {
+            request_.headers.set_known(field::host, value);
+            last_header_field_ = field::host;
+            ++header_count_;
+            return {};
+        }
+    }
+
+    if (name.size() == 14 && (name[0] == 'C' || name[0] == 'c')) {
+        if (ci_equal_fast(name, "Content-Length")) {
+            request_.headers.set_known(field::content_length, value);
+
+            unsigned long long len = 0;
+            auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), len);
+            if (ec == std::errc()) {
+                content_length_ = len;
+            }
+
+            last_header_field_ = field::content_length;
+            ++header_count_;
+            return {};
+        }
+    }
+
     last_header_field_ = string_to_field(name);
+
+    if (last_header_field_ != field::unknown) {
+        request_.headers.set_known(last_header_field_, value);
+        ++header_count_;
+        return {};
+    }
+
     last_header_name_ = arena_->allocate_string(name);
     last_header_name_len_ = name.size();
-    request_.headers.set_view(name, value);
+    request_.headers.set_unknown(name, value);
     ++header_count_;
     return {};
 }

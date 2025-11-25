@@ -1,0 +1,33 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 105  of event 'cycles:P'
+# Event count (approx.): 5018690628
+#
+# Overhead  Command          Shared Object          Symbol
+# ........  ...............  .....................  .......................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    29.71%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+    26.11%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#2}> > >::_M_run()
+            |
+             --20.01%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                       std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                       katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                       katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+                       operator() (inlined)
+                       __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       _M_invoke<0> (inlined)
+                       operator() (inlined)
+                       _M_run (inlined)
+                       0x742e0ff7fdb3
+                       0x742e0fcefaa3
+                       0x742e0fd7cc6b
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

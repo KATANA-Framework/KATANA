@@ -1,0 +1,2035 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 133  of event 'cycles:P'
+# Event count (approx.): 5485288353
+#
+# Children      Self  Command          Shared Object          Symbol
+# ........  ........  ...............  .....................  .................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    59.05%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2ef2c6b
+            |
+            ---0x72b1e2ef2c6b
+               0x72b1e2e65aa3
+               0x72b1e30f5db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--52.72%--operator() (inlined)
+               |          |
+               |          |--31.03%--katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          |          katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          |          |
+               |          |          |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          |          |
+               |          |           --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+               |          |                     void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+               |          |                     std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+               |          |                     std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+               |          |                     void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               |          |                     syscall
+               |          |                     entry_SYSCALL_64_after_hwframe
+               |          |                     |
+               |          |                     |--3.97%--x64_sys_call
+               |          |                     |
+               |          |                      --1.21%--do_syscall_64
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    59.05%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2e65aa3
+            |
+            ---0x72b1e2e65aa3
+               0x72b1e30f5db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--52.72%--operator() (inlined)
+               |          |
+               |          |--31.03%--katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          |          katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          |          |
+               |          |          |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          |          |
+               |          |           --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+               |          |                     void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+               |          |                     std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+               |          |                     std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+               |          |                     void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               |          |                     syscall
+               |          |                     entry_SYSCALL_64_after_hwframe
+               |          |                     |
+               |          |                     |--3.97%--x64_sys_call
+               |          |                     |
+               |          |                      --1.21%--do_syscall_64
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    59.05%     0.00%  performance_ben  libstdc++.so.6.0.33    [.] 0x000072b1e30f5db3
+            |
+            ---0x72b1e30f5db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--52.72%--operator() (inlined)
+               |          |
+               |          |--31.03%--katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          |          katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          |          |
+               |          |          |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          |          |
+               |          |           --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+               |          |                     void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+               |          |                     std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+               |          |                     std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+               |          |                     void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               |          |                     syscall
+               |          |                     entry_SYSCALL_64_after_hwframe
+               |          |                     |
+               |          |                     |--3.97%--x64_sys_call
+               |          |                     |
+               |          |                      --1.21%--do_syscall_64
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    36.53%     0.00%  performance_ben  performance_benchmark  [.] _start
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               |
+               |--20.47%--benchmark_http_parser()
+               |          |
+               |          |--16.94%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |          |
+               |          |           --16.08%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          |                     |
+               |          |                     |--14.35%--katana::http::parser::parse_headers_state()
+               |          |                     |          |
+               |          |                     |          |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          |
+               |          |                     |          |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |          |                     |
+               |          |                     |          |          |          |                      --0.87%--std::__is_constant_evaluated()
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               |          |                     |          |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+               |          |                     |          |          |
+               |          |                     |          |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |
+               |          |                     |          |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               |          |                     |          |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+               |          |                     |          |                     0x72b1e2f51084
+               |          |                     |          |
+               |          |                     |           --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+               |          |                     |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          |                     |
+               |          |                      --1.73%--katana::http::parser::parse_request_line_state()
+               |          |                                katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                 --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                           katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |
+               |          |--1.79%--katana::http::parser::~parser() (inlined)
+               |          |          katana::http::request::~request() (inlined)
+               |          |          katana::http::headers_map::~headers_map() (inlined)
+               |          |          katana::monotonic_arena::~monotonic_arena()
+               |          |          std::array<katana::monotonic_arena::block, 32ul>::~array()
+               |          |          katana::monotonic_arena::block::~block()
+               |          |
+               |           --1.72%--std::chrono::_V2::steady_clock::now()
+               |                     clock_gettime
+               |                     __vdso_clock_gettime
+               |
+               |--10.83%--benchmark_circular_buffer()
+               |          std::chrono::_V2::steady_clock::now()
+               |          clock_gettime
+               |          __vdso_clock_gettime
+               |
+               |--3.27%--benchmark_ring_buffer_queue()
+               |          std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |
+                --1.81%--benchmark_memory_allocations()
+                          katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+    36.53%     0.00%  performance_ben  libc.so.6              [.] __libc_start_main
+            |
+            ---__libc_start_main
+               0x72b1e2df31c9
+               main
+               |
+               |--20.47%--benchmark_http_parser()
+               |          |
+               |          |--16.94%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |          |
+               |          |           --16.08%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          |                     |
+               |          |                     |--14.35%--katana::http::parser::parse_headers_state()
+               |          |                     |          |
+               |          |                     |          |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          |
+               |          |                     |          |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |          |                     |
+               |          |                     |          |          |          |                      --0.87%--std::__is_constant_evaluated()
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               |          |                     |          |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+               |          |                     |          |          |
+               |          |                     |          |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |
+               |          |                     |          |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               |          |                     |          |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+               |          |                     |          |                     0x72b1e2f51084
+               |          |                     |          |
+               |          |                     |           --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+               |          |                     |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          |                     |
+               |          |                      --1.73%--katana::http::parser::parse_request_line_state()
+               |          |                                katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                 --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                           katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |
+               |          |--1.79%--katana::http::parser::~parser() (inlined)
+               |          |          katana::http::request::~request() (inlined)
+               |          |          katana::http::headers_map::~headers_map() (inlined)
+               |          |          katana::monotonic_arena::~monotonic_arena()
+               |          |          std::array<katana::monotonic_arena::block, 32ul>::~array()
+               |          |          katana::monotonic_arena::block::~block()
+               |          |
+               |           --1.72%--std::chrono::_V2::steady_clock::now()
+               |                     clock_gettime
+               |                     __vdso_clock_gettime
+               |
+               |--10.83%--benchmark_circular_buffer()
+               |          std::chrono::_V2::steady_clock::now()
+               |          clock_gettime
+               |          __vdso_clock_gettime
+               |
+               |--3.27%--benchmark_ring_buffer_queue()
+               |          std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |
+                --1.81%--benchmark_memory_allocations()
+                          katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+    36.53%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2df31c9
+            |
+            ---0x72b1e2df31c9
+               main
+               |
+               |--20.47%--benchmark_http_parser()
+               |          |
+               |          |--16.94%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |          |
+               |          |           --16.08%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          |                     |
+               |          |                     |--14.35%--katana::http::parser::parse_headers_state()
+               |          |                     |          |
+               |          |                     |          |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          |
+               |          |                     |          |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |          |                     |
+               |          |                     |          |          |          |                      --0.87%--std::__is_constant_evaluated()
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               |          |                     |          |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+               |          |                     |          |          |
+               |          |                     |          |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |
+               |          |                     |          |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               |          |                     |          |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+               |          |                     |          |                     0x72b1e2f51084
+               |          |                     |          |
+               |          |                     |           --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+               |          |                     |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          |                     |
+               |          |                      --1.73%--katana::http::parser::parse_request_line_state()
+               |          |                                katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                 --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                           katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |
+               |          |--1.79%--katana::http::parser::~parser() (inlined)
+               |          |          katana::http::request::~request() (inlined)
+               |          |          katana::http::headers_map::~headers_map() (inlined)
+               |          |          katana::monotonic_arena::~monotonic_arena()
+               |          |          std::array<katana::monotonic_arena::block, 32ul>::~array()
+               |          |          katana::monotonic_arena::block::~block()
+               |          |
+               |           --1.72%--std::chrono::_V2::steady_clock::now()
+               |                     clock_gettime
+               |                     __vdso_clock_gettime
+               |
+               |--10.83%--benchmark_circular_buffer()
+               |          std::chrono::_V2::steady_clock::now()
+               |          clock_gettime
+               |          __vdso_clock_gettime
+               |
+               |--3.27%--benchmark_ring_buffer_queue()
+               |          std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |
+                --1.81%--benchmark_memory_allocations()
+                          katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+    36.53%     0.00%  performance_ben  performance_benchmark  [.] main
+            |
+            ---main
+               |
+               |--20.47%--benchmark_http_parser()
+               |          |
+               |          |--16.94%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |          |
+               |          |           --16.08%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          |                     |
+               |          |                     |--14.35%--katana::http::parser::parse_headers_state()
+               |          |                     |          |
+               |          |                     |          |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |          |
+               |          |                     |          |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |          |                     |
+               |          |                     |          |          |          |                      --0.87%--std::__is_constant_evaluated()
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |                     |          |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |          |                     |          |          |                     |
+               |          |                     |          |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               |          |                     |          |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+               |          |                     |          |          |
+               |          |                     |          |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |          |
+               |          |                     |          |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |                     |          |          |
+               |          |                     |          |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          |
+               |          |                     |          |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               |          |                     |          |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+               |          |                     |          |                     0x72b1e2f51084
+               |          |                     |          |
+               |          |                     |           --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+               |          |                     |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          |                     |
+               |          |                      --1.73%--katana::http::parser::parse_request_line_state()
+               |          |                                katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                |
+               |          |                                 --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                           katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |
+               |          |--1.79%--katana::http::parser::~parser() (inlined)
+               |          |          katana::http::request::~request() (inlined)
+               |          |          katana::http::headers_map::~headers_map() (inlined)
+               |          |          katana::monotonic_arena::~monotonic_arena()
+               |          |          std::array<katana::monotonic_arena::block, 32ul>::~array()
+               |          |          katana::monotonic_arena::block::~block()
+               |          |
+               |           --1.72%--std::chrono::_V2::steady_clock::now()
+               |                     clock_gettime
+               |                     __vdso_clock_gettime
+               |
+               |--10.83%--benchmark_circular_buffer()
+               |          std::chrono::_V2::steady_clock::now()
+               |          clock_gettime
+               |          __vdso_clock_gettime
+               |
+               |--3.27%--benchmark_ring_buffer_queue()
+               |          std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |
+                --1.81%--benchmark_memory_allocations()
+                          katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+                          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+    31.03%     0.00%  performance_ben  performance_benchmark  [.] _M_run (inlined)
+            |
+            ---_M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+               |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+                          void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                          std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                          std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                          void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                          syscall
+                          entry_SYSCALL_64_after_hwframe
+                          |
+                          |--3.97%--x64_sys_call
+                          |
+                           --1.21%--do_syscall_64
+
+    31.03%     0.00%  performance_ben  performance_benchmark  [.] operator() (inlined)
+            |
+            ---operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+               |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+                          void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                          std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                          std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                          void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                          syscall
+                          entry_SYSCALL_64_after_hwframe
+                          |
+                          |--3.97%--x64_sys_call
+                          |
+                           --1.21%--do_syscall_64
+
+    31.03%     0.00%  performance_ben  performance_benchmark  [.] _M_invoke<0> (inlined)
+            |
+            ---_M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+               |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+                          void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                          std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                          std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                          void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                          syscall
+                          entry_SYSCALL_64_after_hwframe
+                          |
+                          |--3.97%--x64_sys_call
+                          |
+                           --1.21%--do_syscall_64
+
+    31.03%     0.00%  performance_ben  performance_benchmark  [.] __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+               |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+                          void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                          std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                          std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                          void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                          syscall
+                          entry_SYSCALL_64_after_hwframe
+                          |
+                          |--3.97%--x64_sys_call
+                          |
+                           --1.21%--do_syscall_64
+
+    31.03%     0.00%  performance_ben  performance_benchmark  [.] __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+               |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+                          void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                          std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                          std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                          void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                          syscall
+                          entry_SYSCALL_64_after_hwframe
+                          |
+                          |--3.97%--x64_sys_call
+                          |
+                           --1.21%--do_syscall_64
+
+    31.03%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+               |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+                          void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                          std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                          std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                          void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                          syscall
+                          entry_SYSCALL_64_after_hwframe
+                          |
+                          |--3.97%--x64_sys_call
+                          |
+                           --1.21%--do_syscall_64
+
+    31.03%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+               |--19.10%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --5.18%--std::__atomic_base<unsigned long>::notify_one() (inlined)
+                          void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                          std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                          std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                          void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                          syscall
+                          entry_SYSCALL_64_after_hwframe
+                          |
+                          |--3.97%--x64_sys_call
+                          |
+                           --1.21%--do_syscall_64
+
+    28.02%     0.00%  performance_ben  performance_benchmark  [.] _M_run (inlined)
+            |
+            ---_M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--21.69%--operator() (inlined)
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    28.02%     0.00%  performance_ben  performance_benchmark  [.] operator() (inlined)
+            |
+            ---operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--21.69%--operator() (inlined)
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    28.02%     0.00%  performance_ben  performance_benchmark  [.] _M_invoke<0> (inlined)
+            |
+            ---_M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--21.69%--operator() (inlined)
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    28.02%     0.00%  performance_ben  performance_benchmark  [.] __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--21.69%--operator() (inlined)
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    28.02%     0.00%  performance_ben  performance_benchmark  [.] __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--21.69%--operator() (inlined)
+               |          |
+               |           --15.57%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    27.97%    27.97%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+            |
+            ---0x72b1e2ef2c6b
+               0x72b1e2e65aa3
+               0x72b1e30f5db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--21.64%--operator() (inlined)
+               |          |
+               |           --15.52%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |
+               |                      --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |
+               |                                |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                |
+               |                                 --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |
+                --6.33%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    25.83%    25.83%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#2}> > >::_M_run()
+            |
+            ---0x72b1e2ef2c6b
+               0x72b1e2e65aa3
+               0x72b1e30f5db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |
+                --19.08%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    20.47%     0.00%  performance_ben  performance_benchmark  [.] benchmark_http_parser()
+            |
+            ---benchmark_http_parser()
+               |
+               |--16.94%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |
+               |           --16.08%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |                     |
+               |                     |--14.35%--katana::http::parser::parse_headers_state()
+               |                     |          |
+               |                     |          |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |
+               |                     |          |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |          |
+               |                     |          |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |          |          |
+               |                     |          |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |                     |          |          |          |                     |
+               |                     |          |          |          |                      --0.87%--std::__is_constant_evaluated()
+               |                     |          |          |          |
+               |                     |          |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |                     |
+               |                     |          |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |                     |          |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |                     |          |          |                     |
+               |                     |          |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |                     |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |                     |          |          |                     |
+               |                     |          |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               |                     |          |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+               |                     |          |          |
+               |                     |          |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |          |
+               |                     |          |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |                     |          |          |
+               |                     |          |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |
+               |                     |          |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |                     |          |          |
+               |                     |          |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               |                     |          |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+               |                     |          |                     0x72b1e2f51084
+               |                     |          |
+               |                     |           --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+               |                     |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |                     |
+               |                      --1.73%--katana::http::parser::parse_request_line_state()
+               |                                katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |                                |
+               |                                |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |                                |
+               |                                 --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |                                           katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |
+               |--1.79%--katana::http::parser::~parser() (inlined)
+               |          katana::http::request::~request() (inlined)
+               |          katana::http::headers_map::~headers_map() (inlined)
+               |          katana::monotonic_arena::~monotonic_arena()
+               |          std::array<katana::monotonic_arena::block, 32ul>::~array()
+               |          katana::monotonic_arena::block::~block()
+               |
+                --1.72%--std::chrono::_V2::steady_clock::now()
+                          clock_gettime
+                          __vdso_clock_gettime
+
+    19.10%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    19.10%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    16.94%     0.86%  performance_ben  performance_benchmark  [.] katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+            |
+            |--16.08%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+            |          katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+            |          |
+            |          |--14.35%--katana::http::parser::parse_headers_state()
+            |          |          |
+            |          |          |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |
+            |          |          |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |
+            |          |          |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          |
+            |          |          |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |          |          |          |          |                     |
+            |          |          |          |          |                      --0.87%--std::__is_constant_evaluated()
+            |          |          |          |          |
+            |          |          |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |                     |
+            |          |          |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |          |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+            |          |          |          |                     |
+            |          |          |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+            |          |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+            |          |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+            |          |          |          |                     |
+            |          |          |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+            |          |          |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+            |          |          |          |
+            |          |          |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |
+            |          |          |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |          |          |          |
+            |          |          |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |
+            |          |          |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |
+            |          |          |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+            |          |          |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+            |          |          |                     0x72b1e2f51084
+            |          |          |
+            |          |           --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+            |          |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+            |          |
+            |           --1.73%--katana::http::parser::parse_request_line_state()
+            |                     katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |                     |
+            |                     |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+            |                     |
+            |                      --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |                                katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |
+             --0.86%--_start
+                       __libc_start_main
+                       0x72b1e2df31c9
+                       main
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+
+    16.08%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+            |
+            ---katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |
+               |--14.35%--katana::http::parser::parse_headers_state()
+               |          |
+               |          |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |
+               |          |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |
+               |          |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |
+               |          |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |          |          |                     |
+               |          |          |          |                      --0.87%--std::__is_constant_evaluated()
+               |          |          |          |
+               |          |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |                     |
+               |          |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          |          |                     |
+               |          |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |          |          |                     |
+               |          |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               |          |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+               |          |          |
+               |          |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |
+               |          |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |          |
+               |          |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |
+               |          |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |
+               |          |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               |          |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+               |          |                     0x72b1e2f51084
+               |          |
+               |           --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+               |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |
+                --1.73%--katana::http::parser::parse_request_line_state()
+                          katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                          |
+                          |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+                          |
+                           --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                                     katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+    15.57%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |
+                --14.82%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+                          |
+                          |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |
+                           --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+    14.82%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |
+               |--3.71%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --2.80%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+    14.35%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::parse_headers_state()
+            |
+            ---katana::http::parser::parse_headers_state()
+               |
+               |--13.46%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |
+               |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |
+               |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |
+               |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |          |                     |
+               |          |          |                      --0.87%--std::__is_constant_evaluated()
+               |          |          |
+               |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |
+               |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          |                     |
+               |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |          |                     |
+               |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+               |          |
+               |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |
+               |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |          |
+               |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |          |
+               |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |
+               |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+               |                     0x72b1e2f51084
+               |
+                --0.89%--katana::simd::find_crlf(char const*, unsigned long)
+                          katana::simd::find_crlf_sse2(char const*, unsigned long)
+
+    13.46%     0.87%  performance_ben  performance_benchmark  [.] katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            |--12.60%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |
+            |          |--6.39%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |
+            |          |          |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |
+            |          |          |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |          |          |                     |
+            |          |          |                      --0.87%--std::__is_constant_evaluated()
+            |          |          |
+            |          |           --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |          |                     |
+            |          |                     |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |                     |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |                     |          katana::monotonic_arena::allocate_new_block(unsigned long)
+            |          |                     |
+            |          |                     |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+            |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+            |          |                     |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+            |          |                     |
+            |          |                      --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+            |          |                                __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+            |          |
+            |          |--3.49%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |
+            |          |           --1.75%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |          |
+            |          |--0.96%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+            |          |
+            |          |--0.90%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |
+            |           --0.86%--std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+            |                     std::char_traits<char>::find(char const*, unsigned long, char const&)
+            |                     0x72b1e2f51084
+            |
+             --0.87%--_start
+                       __libc_start_main
+                       0x72b1e2df31c9
+                       main
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_headers_state()
+                       katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+
+    12.55%    12.55%  performance_ben  [vdso]                 [.] __vdso_clock_gettime
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               |
+               |--10.83%--benchmark_circular_buffer()
+               |          std::chrono::_V2::steady_clock::now()
+               |          clock_gettime
+               |          __vdso_clock_gettime
+               |
+                --1.72%--benchmark_http_parser()
+                          std::chrono::_V2::steady_clock::now()
+                          clock_gettime
+                          __vdso_clock_gettime
+
+    12.55%     0.00%  performance_ben  libstdc++.so.6.0.33    [.] std::chrono::_V2::steady_clock::now()
+            |
+            ---std::chrono::_V2::steady_clock::now()
+               clock_gettime
+               __vdso_clock_gettime
+
+    12.55%     0.00%  performance_ben  libc.so.6              [.] clock_gettime
+            |
+            ---clock_gettime
+               __vdso_clock_gettime
+
+    10.83%     0.00%  performance_ben  performance_benchmark  [.] benchmark_circular_buffer()
+            |
+            ---benchmark_circular_buffer()
+               std::chrono::_V2::steady_clock::now()
+               clock_gettime
+               __vdso_clock_gettime
+
+     7.08%     2.60%  performance_ben  performance_benchmark  [.] katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |
+            |--4.48%--katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |          |
+            |           --0.87%--std::__is_constant_evaluated()
+            |
+             --2.60%--_start
+                       __libc_start_main
+                       0x72b1e2df31c9
+                       main
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_headers_state()
+                       katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+                       |
+                       |--1.74%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+                       |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       |
+                        --0.86%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                                  katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+                                  katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+
+     7.08%     0.00%  performance_ben  performance_benchmark  [.] katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |
+                --4.48%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+                          |
+                           --0.87%--std::__is_constant_evaluated()
+
+     6.39%     0.00%  performance_ben  performance_benchmark  [.] katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |
+               |--3.60%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |
+               |           --2.74%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+               |                     |
+               |                      --0.87%--std::__is_constant_evaluated()
+               |
+                --2.79%--katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+                          |
+                          |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                          |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+                          |          katana::monotonic_arena::allocate_new_block(unsigned long)
+                          |
+                          |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+                          |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+                          |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+                          |
+                           --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+                                     __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+
+     6.17%     3.62%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |
+            |--3.62%--_start
+            |          __libc_start_main
+            |          0x72b1e2df31c9
+            |          main
+            |          benchmark_http_parser()
+            |          katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+            |          katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+            |          katana::http::parser::parse_headers_state()
+            |          katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |
+            |          |--1.87%--katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |          |
+            |           --1.75%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |                     katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |                     std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |
+             --2.56%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+                       std::__is_constant_evaluated()
+
+     5.40%     0.00%  performance_ben  [kernel.kallsyms]      [k] entry_SYSCALL_64_after_hwframe
+            |
+            ---entry_SYSCALL_64_after_hwframe
+               |
+               |--3.97%--x64_sys_call
+               |
+                --1.42%--do_syscall_64
+
+     5.23%     0.00%  performance_ben  libc.so.6              [.] syscall
+            |
+            ---syscall
+               entry_SYSCALL_64_after_hwframe
+               |
+               |--3.97%--x64_sys_call
+               |
+                --1.26%--do_syscall_64
+
+     5.18%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::notify_one() (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::notify_one() (inlined)
+               void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+               std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+               std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+               void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               syscall
+               entry_SYSCALL_64_after_hwframe
+               |
+               |--3.97%--x64_sys_call
+               |
+                --1.21%--do_syscall_64
+
+     5.18%     0.00%  performance_ben  performance_benchmark  [.] void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+            |
+            ---void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+               std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+               std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+               void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               syscall
+               entry_SYSCALL_64_after_hwframe
+               |
+               |--3.97%--x64_sys_call
+               |
+                --1.21%--do_syscall_64
+
+     5.18%     0.00%  performance_ben  performance_benchmark  [.] std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+            |
+            ---std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+               std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+               void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               syscall
+               entry_SYSCALL_64_after_hwframe
+               |
+               |--3.97%--x64_sys_call
+               |
+                --1.21%--do_syscall_64
+
+     5.18%     0.00%  performance_ben  performance_benchmark  [.] std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+            |
+            ---std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+               void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               syscall
+               entry_SYSCALL_64_after_hwframe
+               |
+               |--3.97%--x64_sys_call
+               |
+                --1.21%--do_syscall_64
+
+     5.18%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+            |
+            ---void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+               syscall
+               entry_SYSCALL_64_after_hwframe
+               |
+               |--3.97%--x64_sys_call
+               |
+                --1.21%--do_syscall_64
+
+     4.19%     3.97%  performance_ben  [kernel.kallsyms]      [k] x64_sys_call
+            |
+             --3.97%--0x72b1e2ef2c6b
+                       0x72b1e2e65aa3
+                       0x72b1e30f5db3
+                       _M_run (inlined)
+                       operator() (inlined)
+                       _M_invoke<0> (inlined)
+                       __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       operator() (inlined)
+                       katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+                       katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                       std::__atomic_base<unsigned long>::notify_one() (inlined)
+                       void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                       std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                       std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                       void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                       syscall
+                       entry_SYSCALL_64_after_hwframe
+                       x64_sys_call
+
+     3.71%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+     3.71%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+     3.27%     3.27%  performance_ben  performance_benchmark  [.] benchmark_ring_buffer_queue()
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_ring_buffer_queue()
+               std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+
+     3.27%     0.00%  performance_ben  performance_benchmark  [.] std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+            |
+            ---std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+
+     2.83%     0.90%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            |--1.93%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |
+            |           --1.07%--katana::monotonic_arena::allocate_new_block(unsigned long)
+            |
+             --0.90%--_start
+                       __libc_start_main
+                       0x72b1e2df31c9
+                       main
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_headers_state()
+                       katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+                       katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+
+     2.80%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+     2.79%     0.00%  performance_ben  performance_benchmark  [.] katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |
+               |--1.07%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          katana::monotonic_arena::allocate_new_block(unsigned long)
+               |
+               |--0.87%--std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               |          std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+               |
+                --0.85%--bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+                          __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+
+     2.61%     2.61%  performance_ben  [kernel.kallsyms]      [k] check_preemption_disabled
+            |
+            ---0x72b1e32ac547
+               0x72b1e32ad75d
+               0x72b1e32abf45
+               0x72b1e32ae0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072b1e32ac547
+            |
+            ---0x72b1e32ac547
+               0x72b1e32ad75d
+               0x72b1e32abf45
+               0x72b1e32ae0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072b1e32ad75d
+            |
+            ---0x72b1e32ad75d
+               0x72b1e32abf45
+               0x72b1e32ae0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072b1e32abf45
+            |
+            ---0x72b1e32abf45
+               0x72b1e32ae0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072b1e32ae0f8
+            |
+            ---0x72b1e32ae0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] asm_exc_page_fault
+            |
+            ---asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] exc_page_fault
+            |
+            ---exc_page_fault
+               do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_user_addr_fault
+            |
+            ---do_user_addr_fault
+               handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] handle_mm_fault
+            |
+            ---handle_mm_fault
+               __handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] __handle_mm_fault
+            |
+            ---__handle_mm_fault
+               do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_fault
+            |
+            ---do_fault
+               __do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] __do_fault
+            |
+            ---__do_fault
+               filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] filemap_fault
+            |
+            ---filemap_fault
+               page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] page_cache_ra_order
+            |
+            ---page_cache_ra_order
+               page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] page_cache_ra_unbounded
+            |
+            ---page_cache_ra_unbounded
+               filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] filemap_add_folio
+            |
+            ---filemap_add_folio
+               __filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] __filemap_add_folio
+            |
+            ---__filemap_add_folio
+               __mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] __mem_cgroup_charge
+            |
+            ---__mem_cgroup_charge
+               charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] charge_memcg
+            |
+            ---charge_memcg
+               try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] try_charge_memcg
+            |
+            ---try_charge_memcg
+               debug_smp_processor_id
+               check_preemption_disabled
+
+     2.61%     0.00%  performance_ben  [kernel.kallsyms]      [k] debug_smp_processor_id
+            |
+            ---debug_smp_processor_id
+               check_preemption_disabled
+
+     2.56%     2.56%  performance_ben  performance_benchmark  [.] std::__is_constant_evaluated()
+            |
+            |--1.69%--std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+            |          std::__is_constant_evaluated()
+            |
+             --0.87%--_start
+                       __libc_start_main
+                       0x72b1e2df31c9
+                       main
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_headers_state()
+                       katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+                       katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+                       katana::http::detail::case_insensitive_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       std::basic_string_view<char, std::char_traits<char> >::operator[](unsigned long) const
+                       std::__is_constant_evaluated()
+
+     1.93%     0.86%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |
+            |--1.07%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          katana::monotonic_arena::allocate_new_block(unsigned long)
+            |
+             --0.86%--_start
+                       __libc_start_main
+                       0x72b1e2df31c9
+                       main
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_request_line_state()
+                       katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                       katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                       katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.81%     1.81%  performance_ben  performance_benchmark  [.] benchmark_memory_allocations()
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_memory_allocations()
+               katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+     1.81%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+            |
+            ---katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+     1.81%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+            |
+            ---std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string() (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+     1.81%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+            |
+            ---std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() (inlined)
+               std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+     1.81%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+            |
+            ---std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+
+     1.79%     1.79%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::block::~block()
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::~parser() (inlined)
+               katana::http::request::~request() (inlined)
+               katana::http::headers_map::~headers_map() (inlined)
+               katana::monotonic_arena::~monotonic_arena()
+               std::array<katana::monotonic_arena::block, 32ul>::~array()
+               katana::monotonic_arena::block::~block()
+
+     1.79%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::~parser() (inlined)
+            |
+            ---katana::http::parser::~parser() (inlined)
+               katana::http::request::~request() (inlined)
+               katana::http::headers_map::~headers_map() (inlined)
+               katana::monotonic_arena::~monotonic_arena()
+               std::array<katana::monotonic_arena::block, 32ul>::~array()
+               katana::monotonic_arena::block::~block()
+
+     1.79%     0.00%  performance_ben  performance_benchmark  [.] katana::http::request::~request() (inlined)
+            |
+            ---katana::http::request::~request() (inlined)
+               katana::http::headers_map::~headers_map() (inlined)
+               katana::monotonic_arena::~monotonic_arena()
+               std::array<katana::monotonic_arena::block, 32ul>::~array()
+               katana::monotonic_arena::block::~block()
+
+     1.79%     0.00%  performance_ben  performance_benchmark  [.] katana::http::headers_map::~headers_map() (inlined)
+            |
+            ---katana::http::headers_map::~headers_map() (inlined)
+               katana::monotonic_arena::~monotonic_arena()
+               std::array<katana::monotonic_arena::block, 32ul>::~array()
+               katana::monotonic_arena::block::~block()
+
+     1.79%     0.00%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::~monotonic_arena()
+            |
+            ---katana::monotonic_arena::~monotonic_arena()
+               std::array<katana::monotonic_arena::block, 32ul>::~array()
+               katana::monotonic_arena::block::~block()
+
+     1.79%     0.00%  performance_ben  performance_benchmark  [.] std::array<katana::monotonic_arena::block, 32ul>::~array()
+            |
+            ---std::array<katana::monotonic_arena::block, 32ul>::~array()
+               katana::monotonic_arena::block::~block()
+
+     1.73%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::parse_request_line_state()
+            |
+            ---katana::http::parser::parse_request_line_state()
+               katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |
+               |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |
+                --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.73%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |
+               |--0.87%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |
+                --0.86%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.42%     1.20%  performance_ben  [kernel.kallsyms]      [k] do_syscall_64
+            |
+             --1.20%--0x72b1e2ef2c6b
+                       0x72b1e2e65aa3
+                       0x72b1e30f5db3
+                       _M_run (inlined)
+                       operator() (inlined)
+                       _M_invoke<0> (inlined)
+                       __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       operator() (inlined)
+                       katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+                       katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                       std::__atomic_base<unsigned long>::notify_one() (inlined)
+                       void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+                       std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+                       std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+                       void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+                       syscall
+                       entry_SYSCALL_64_after_hwframe
+                       do_syscall_64
+
+     1.07%     1.07%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate_new_block(unsigned long)
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               katana::monotonic_arena::allocate_new_block(unsigned long)
+
+     0.96%     0.96%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+
+     0.89%     0.89%  performance_ben  performance_benchmark  [.] katana::simd::find_crlf_sse2(char const*, unsigned long)
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::simd::find_crlf(char const*, unsigned long)
+               katana::simd::find_crlf_sse2(char const*, unsigned long)
+
+     0.89%     0.00%  performance_ben  performance_benchmark  [.] katana::simd::find_crlf(char const*, unsigned long)
+            |
+            ---katana::simd::find_crlf(char const*, unsigned long)
+               katana::simd::find_crlf_sse2(char const*, unsigned long)
+
+     0.87%     0.87%  performance_ben  performance_benchmark  [.] std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+
+     0.87%     0.00%  performance_ben  performance_benchmark  [.] std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+            |
+            ---std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::insert(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+
+     0.87%     0.00%  performance_ben  performance_benchmark  [.] std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+            |
+            ---std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::_M_insert_rval(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry const*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >, katana::http::headers_map::entry&&)
+               std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> >::cbegin() const
+
+     0.87%     0.87%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_request_line_state()
+               katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+
+     0.86%     0.86%  performance_ben  libc.so.6              [.] 0x0000000000188084
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               std::char_traits<char>::find(char const*, unsigned long, char const&)
+               0x72b1e2f51084
+
+     0.86%     0.00%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+            |
+            ---std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+               std::char_traits<char>::find(char const*, unsigned long, char const&)
+               0x72b1e2f51084
+
+     0.86%     0.00%  performance_ben  performance_benchmark  [.] std::char_traits<char>::find(char const*, unsigned long, char const&)
+            |
+            ---std::char_traits<char>::find(char const*, unsigned long, char const&)
+               0x72b1e2f51084
+
+     0.86%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2f51084
+            |
+            ---0x72b1e2f51084
+
+     0.85%     0.85%  performance_ben  performance_benchmark  [.] __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+            |
+            ---_start
+               __libc_start_main
+               0x72b1e2df31c9
+               main
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::headers_map::set_view(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::headers_map::set(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+
+     0.85%     0.00%  performance_ben  performance_benchmark  [.] bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+            |
+            ---bool __gnu_cxx::operator==<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >(__gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&, __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > > const&)
+               __gnu_cxx::__normal_iterator<katana::http::headers_map::entry*, std::vector<katana::http::headers_map::entry, std::allocator<katana::http::headers_map::entry> > >::base() const
+
+     0.16%     0.00%  performance_ben  performance_benchmark  [.] benchmark_ring_buffer_concurrent()
+     0.16%     0.00%  performance_ben  libstdc++.so.6.0.33    [.] std::thread::join()
+     0.16%     0.16%  performance_ben  [kernel.kallsyms]      [k] mas_wr_node_store
+     0.16%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2e67719
+     0.16%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2e62244
+     0.16%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2e620fc
+     0.16%     0.00%  performance_ben  libc.so.6              [.] __munmap
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] __x64_sys_munmap
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] __vm_munmap
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_vmi_munmap
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_vmi_align_munmap
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] __split_vma
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] vma_complete
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] mas_store_prealloc
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] mas_wr_store_entry.isra.0
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] mas_wr_modify
+     0.11%     0.00%  performance_ben  [kernel.kallsyms]      [k] ret_from_fork_asm
+     0.11%     0.00%  performance_ben  [kernel.kallsyms]      [k] ret_from_fork
+     0.09%     0.02%  performance_ben  [kernel.kallsyms]      [k] schedule_tail
+     0.07%     0.07%  performance_ben  [kernel.kallsyms]      [k] finish_task_switch.isra.0
+     0.06%     0.01%  performance_ben  [kernel.kallsyms]      [k] schedule
+     0.05%     0.02%  performance_ben  [kernel.kallsyms]      [k] futex_wait
+     0.05%     0.00%  performance_ben  [kernel.kallsyms]      [k] __x64_sys_futex
+     0.05%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_futex
+     0.05%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const (inlined)
+     0.05%     0.00%  performance_ben  performance_benchmark  [.] void std::__atomic_wait_address_v<unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}>(unsigned long const*, unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1})
+     0.05%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait_v<unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}>(unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}) (inlined)
+     0.05%     0.00%  performance_ben  performance_benchmark  [.] std::__detail::__waiter_pool::_M_do_wait(int const*, int) (inlined)
+     0.05%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__platform_wait<int>(int const*, int) (inlined)
+     0.05%     0.00%  performance_ben  [kernel.kallsyms]      [k] __schedule
+     0.04%     0.01%  performance_ben  [kernel.kallsyms]      [k] exit_to_user_mode_prepare
+     0.04%     0.02%  performance_ben  [kernel.kallsyms]      [k] calculate_sigpending
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] futex_wait_queue
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] irqentry_exit
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] irqentry_exit_to_user_mode
+     0.02%     0.01%  performance_ben  [kernel.kallsyms]      [k] asm_sysvec_hyperv_stimer0
+     0.02%     0.02%  performance_ben  [kernel.kallsyms]      [k] _raw_spin_unlock_irq
+     0.02%     0.02%  perf-exec        [kernel.kallsyms]      [k] perf_iterate_ctx
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] entry_SYSCALL_64_after_hwframe
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] do_syscall_64
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] x64_sys_call
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] __x64_sys_execve
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] do_execveat_common.isra.0
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] bprm_execve
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] load_elf_binary
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] begin_new_exec
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] perf_event_exec
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] sysvec_hyperv_stimer0
+     0.01%     0.01%  performance_ben  [kernel.kallsyms]      [k] task_dead_fair
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] asm_sysvec_reschedule_ipi
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] sysvec_reschedule_ipi
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] syscall_exit_to_user_mode
+     0.00%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2e677a2
+     0.00%     0.00%  performance_ben  libc.so.6              [.] 0x000072b1e2e61d71
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

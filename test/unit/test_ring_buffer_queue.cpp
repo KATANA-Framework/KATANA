@@ -1,9 +1,9 @@
 #include "katana/core/ring_buffer_queue.hpp"
 
+#include <atomic>
 #include <catch2/catch_test_macros.hpp>
 #include <thread>
 #include <vector>
-#include <atomic>
 
 using namespace katana;
 
@@ -117,8 +117,10 @@ TEST_CASE("ring_buffer_queue concurrent operations", "[ring_buffer_queue]") {
             });
         }
 
-        for (auto& t : producers) t.join();
-        for (auto& t : consumers) t.join();
+        for (auto& t : producers)
+            t.join();
+        for (auto& t : consumers)
+            t.join();
 
         REQUIRE(sum_produced.load() == sum_consumed.load());
     }

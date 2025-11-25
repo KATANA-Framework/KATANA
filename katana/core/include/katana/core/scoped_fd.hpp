@@ -20,14 +20,10 @@ public:
 
     explicit scoped_fd(int32_t fd) noexcept : fd_(fd) {}
 
-    ~scoped_fd() noexcept {
-        close_fd();
-    }
+    ~scoped_fd() noexcept { close_fd(); }
 
     // Move constructor
-    scoped_fd(scoped_fd&& other) noexcept : fd_(other.fd_) {
-        other.fd_ = -1;
-    }
+    scoped_fd(scoped_fd&& other) noexcept : fd_(other.fd_) { other.fd_ = -1; }
 
     // Move assignment
     scoped_fd& operator=(scoped_fd&& other) noexcept {
@@ -47,30 +43,22 @@ public:
      * Release ownership of the file descriptor without closing it.
      * Returns the file descriptor and sets the internal fd to -1.
      */
-    [[nodiscard]] int32_t release() noexcept {
-        return std::exchange(fd_, -1);
-    }
+    [[nodiscard]] int32_t release() noexcept { return std::exchange(fd_, -1); }
 
     /**
      * Get the file descriptor value without releasing ownership.
      */
-    [[nodiscard]] int32_t get() const noexcept {
-        return fd_;
-    }
+    [[nodiscard]] int32_t get() const noexcept { return fd_; }
 
     /**
      * Check if the file descriptor is valid.
      */
-    [[nodiscard]] bool is_valid() const noexcept {
-        return fd_ >= 0;
-    }
+    [[nodiscard]] bool is_valid() const noexcept { return fd_ >= 0; }
 
     /**
      * Explicit bool conversion for convenience.
      */
-    explicit operator bool() const noexcept {
-        return is_valid();
-    }
+    explicit operator bool() const noexcept { return is_valid(); }
 
     /**
      * Reset the file descriptor, closing the current one if valid.

@@ -217,7 +217,14 @@ jobs:
     - name: Install tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-tidy-18 cppcheck
+        sudo apt-get install -y clang-tidy-18 cppcheck ninja-build
+
+    - name: Configure (compile commands for analyzers)
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DENABLE_TESTING=ON
 
     - name: Run clang-tidy
       run: |
@@ -230,3 +237,19 @@ jobs:
           --suppress=missingInclude \
           -I katana/core/include \
           katana/core/src examples
+
+  lint:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install pre-commit
+      run: pip install --no-cache-dir pre-commit
+
+    - name: Run pre-commit
+      run: pre-commit run --all-files

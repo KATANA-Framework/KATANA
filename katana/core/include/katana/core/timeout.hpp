@@ -13,9 +13,7 @@ public:
 
     chunk_sleep() = default;
 
-    chunk_sleep(duration /*total*/, duration chunk) {
-        configure(chunk);
-    }
+    chunk_sleep(duration /*total*/, duration chunk) { configure(chunk); }
 
     void configure(duration chunk) {
         if (chunk.count() <= 0) {
@@ -57,21 +55,17 @@ public:
 
     Timeout() = default;
 
-    explicit Timeout(Duration timeoutDuration)
-        : timeout_duration_(timeoutDuration) {
+    explicit Timeout(Duration timeoutDuration) : timeout_duration_(timeoutDuration) {
         reset_internal();
     }
 
     Timeout(Duration timeoutDuration, Duration sleepTime)
-        : timeout_duration_(timeoutDuration),
-          sleep_interval_(sleepTime) {
+        : timeout_duration_(timeoutDuration), sleep_interval_(sleepTime) {
         sleeper_.configure(sleep_interval_);
         reset_internal();
     }
 
-    void reset() {
-        reset_internal();
-    }
+    void reset() { reset_internal(); }
 
     void enableAutoreset(bool enable) noexcept { enable_autoreset_ = enable; }
 
@@ -154,4 +148,3 @@ private:
 };
 
 } // namespace katana
-

@@ -1,14 +1,14 @@
 #pragma once
 
-#include <memory>
 #include <array>
-#include <vector>
-#include <string_view>
-#include <string>
-#include <cstdint>
-#include <cstddef>
-#include <cstring>
 #include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace katana {
 
@@ -26,10 +26,10 @@ public:
     monotonic_arena(monotonic_arena&&) noexcept;
     monotonic_arena& operator=(monotonic_arena&&) noexcept;
 
-    [[nodiscard]] void* allocate(size_t bytes, size_t alignment = alignof(std::max_align_t)) noexcept;
+    [[nodiscard]] void* allocate(size_t bytes,
+                                 size_t alignment = alignof(std::max_align_t)) noexcept;
 
-    template<typename T>
-    [[nodiscard]] T* allocate_array(size_t count) noexcept {
+    template <typename T> [[nodiscard]] T* allocate_array(size_t count) noexcept {
         return static_cast<T*>(allocate(sizeof(T) * count, alignof(T)));
     }
 
@@ -76,8 +76,7 @@ private:
     size_t total_capacity_ = 0;
 };
 
-template<typename T>
-class arena_allocator {
+template <typename T> class arena_allocator {
 public:
     using value_type = T;
     using size_type = size_t;
@@ -85,7 +84,7 @@ public:
 
     explicit arena_allocator(monotonic_arena* arena) noexcept : arena_(arena) {}
 
-    template<typename U>
+    template <typename U>
     arena_allocator(const arena_allocator<U>& other) noexcept : arena_(other.arena_) {}
 
     [[nodiscard]] T* allocate(size_t n) {
@@ -94,23 +93,20 @@ public:
 
     void deallocate(T*, size_t) noexcept {}
 
-    template<typename U>
-    bool operator==(const arena_allocator<U>& other) const noexcept {
+    template <typename U> bool operator==(const arena_allocator<U>& other) const noexcept {
         return arena_ == other.arena_;
     }
 
-    template<typename U>
-    bool operator!=(const arena_allocator<U>& other) const noexcept {
+    template <typename U> bool operator!=(const arena_allocator<U>& other) const noexcept {
         return arena_ != other.arena_;
     }
 
     monotonic_arena* arena_;
 };
 
-template<typename T>
-using arena_vector = std::vector<T, arena_allocator<T>>;
+template <typename T> using arena_vector = std::vector<T, arena_allocator<T>>;
 
-template<typename CharT = char>
+template <typename CharT = char>
 using arena_string = std::basic_string<CharT, std::char_traits<CharT>, arena_allocator<CharT>>;
 
 using arena_string_view = std::string_view;

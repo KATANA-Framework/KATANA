@@ -1,18 +1,17 @@
+#include "katana/core/arena.hpp"
+#include "katana/core/fd_watch.hpp"
+#include "katana/core/http.hpp"
+#include "katana/core/io_buffer.hpp"
 #include "katana/core/reactor_pool.hpp"
+#include "katana/core/shutdown.hpp"
 #include "katana/core/tcp_listener.hpp"
 #include "katana/core/tcp_socket.hpp"
-#include "katana/core/http.hpp"
-#include "katana/core/arena.hpp"
-#include "katana/core/io_buffer.hpp"
-#include "katana/core/fd_watch.hpp"
-#include "katana/core/shutdown.hpp"
-#include "katana/core/arena.hpp"
 
 #include <iostream>
-#include <memory>
-#include <string>
-#include <sstream>
 #include <map>
+#include <memory>
+#include <sstream>
+#include <string>
 #include <vector>
 
 using namespace katana;
@@ -88,9 +87,9 @@ private:
         json << "[";
         bool first = true;
         for (const auto& [id, user] : users_) {
-            if (!first) json << ",";
-            json << "{\"id\":" << user.id
-                 << ",\"name\":\"" << user.name << "\""
+            if (!first)
+                json << ",";
+            json << "{\"id\":" << user.id << ",\"name\":\"" << user.name << "\""
                  << ",\"email\":\"" << user.email << "\"}";
             first = false;
         }
@@ -110,8 +109,7 @@ private:
 
         const auto& user = it->second;
         std::ostringstream json;
-        json << "{\"id\":" << user.id
-             << ",\"name\":\"" << user.name << "\""
+        json << "{\"id\":" << user.id << ",\"name\":\"" << user.name << "\""
              << ",\"email\":\"" << user.email << "\"}";
         return response::json(json.str());
     }
@@ -147,8 +145,7 @@ private:
         users_[new_id] = {new_id, name, email};
 
         std::ostringstream json;
-        json << "{\"id\":" << new_id
-             << ",\"name\":\"" << name << "\""
+        json << "{\"id\":" << new_id << ",\"name\":\"" << name << "\""
              << ",\"email\":\"" << email << "\"}";
 
         response resp = response::json(json.str());
@@ -188,8 +185,7 @@ private:
         }
 
         std::ostringstream json;
-        json << "{\"id\":" << user.id
-             << ",\"name\":\"" << user.name << "\""
+        json << "{\"id\":" << user.id << ",\"name\":\"" << user.name << "\""
              << ",\"email\":\"" << user.email << "\"}";
         return response::json(json.str());
     }
@@ -224,12 +220,8 @@ struct connection_state {
     std::unique_ptr<fd_watch> watch;
 
     explicit connection_state(tcp_socket sock)
-        : socket(std::move(sock))
-        , read_buffer(8192)
-        , write_buffer(8192)
-        , arena(8192)
-        , http_parser(&arena)
-    {}
+        : socket(std::move(sock)), read_buffer(8192), write_buffer(8192), arena(8192),
+          http_parser(&arena) {}
 };
 
 void handle_connection(connection_state& state, [[maybe_unused]] reactor& r, simple_rest_api& api) {
@@ -238,7 +230,8 @@ void handle_connection(connection_state& state, [[maybe_unused]] reactor& r, sim
         auto read_result = state.socket.read(buf);
 
         if (!read_result) {
-            if (read_result.error().value() == EAGAIN || read_result.error().value() == EWOULDBLOCK) {
+            if (read_result.error().value() == EAGAIN ||
+                read_result.error().value() == EWOULDBLOCK) {
                 break;
             }
             state.watch.reset();
@@ -269,8 +262,8 @@ void handle_connection(connection_state& state, [[maybe_unused]] reactor& r, sim
         const auto& req = state.http_parser.get_request();
         auto resp = api.handle_request(req);
 
-        std::cout << method_to_string(req.http_method) << " " << req.uri
-                  << " -> " << resp.status << "\n";
+        std::cout << method_to_string(req.http_method) << " " << req.uri << " -> " << resp.status
+                  << "\n";
 
         state.write_buffer.append(resp.serialize());
 
@@ -279,7 +272,8 @@ void handle_connection(connection_state& state, [[maybe_unused]] reactor& r, sim
             auto write_result = state.socket.write(data);
 
             if (!write_result) {
-                if (write_result.error().value() == EAGAIN || write_result.error().value() == EWOULDBLOCK) {
+                if (write_result.error().value() == EAGAIN ||
+                    write_result.error().value() == EWOULDBLOCK) {
                     break;
                 }
                 state.watch.reset();
@@ -301,9 +295,10 @@ void handle_connection(connection_state& state, [[maybe_unused]] reactor& r, sim
     }
 }
 
-void accept_connection(reactor& r, tcp_listener& listener,
-                      std::vector<std::unique_ptr<connection_state>>& connections,
-                      simple_rest_api& api) {
+void accept_connection(reactor& r,
+                       tcp_listener& listener,
+                       std::vector<std::unique_ptr<connection_state>>& connections,
+                       simple_rest_api& api) {
     auto accept_result = listener.accept();
     if (!accept_result) {
         return;
@@ -313,12 +308,10 @@ void accept_connection(reactor& r, tcp_listener& listener,
     int32_t fd = state->socket.native_handle();
 
     auto* state_ptr = state.get();
-    state->watch = std::make_unique<fd_watch>(
-        r, fd, event_type::readable,
-        [state_ptr, &r, &api](event_type) {
+    state->watch =
+        std::make_unique<fd_watch>(r, fd, event_type::readable, [state_ptr, &r, &api](event_type) {
             handle_connection(*state_ptr, r, api);
-        }
-    );
+        });
 
     connections.push_back(std::move(state));
 }
@@ -342,12 +335,13 @@ int main() {
     std::unique_ptr<fd_watch> accept_watch;
 
     auto& reactor = pool.get_reactor(0);
-    accept_watch = std::make_unique<fd_watch>(
-        reactor, listener.native_handle(), event_type::readable,
-        [&reactor, &listener, &connections, &api](event_type) {
-            accept_connection(reactor, listener, connections, api);
-        }
-    );
+    accept_watch =
+        std::make_unique<fd_watch>(reactor,
+                                   listener.native_handle(),
+                                   event_type::readable,
+                                   [&reactor, &listener, &connections, &api](event_type) {
+                                       accept_connection(reactor, listener, connections, api);
+                                   });
 
     std::cout << "Simple REST API listening on http://localhost:8080\n";
     std::cout << "\nEndpoints:\n";
@@ -359,12 +353,12 @@ int main() {
     std::cout << "  GET    /api/health      - Health check\n";
     std::cout << "\nExample:\n";
     std::cout << "  curl http://localhost:8080/api/users\n";
-    std::cout << "  curl -X POST http://localhost:8080/api/users -d '{\"name\":\"Charlie\",\"email\":\"charlie@example.com\"}'\n\n";
+    std::cout << "  curl -X POST http://localhost:8080/api/users -d "
+                 "'{\"name\":\"Charlie\",\"email\":\"charlie@example.com\"}'\n\n";
 
     shutdown_manager::instance().setup_signal_handlers();
-    shutdown_manager::instance().set_shutdown_callback([&pool]() {
-        pool.graceful_stop(std::chrono::milliseconds(5000));
-    });
+    shutdown_manager::instance().set_shutdown_callback(
+        [&pool]() { pool.graceful_stop(std::chrono::milliseconds(5000)); });
 
     pool.start();
     pool.wait();

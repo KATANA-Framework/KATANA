@@ -18,20 +18,15 @@ public:
         return mgr;
     }
 
-    void request_shutdown() noexcept {
-        shutdown_requested_.store(true, std::memory_order_release);
-    }
+    void request_shutdown() noexcept { shutdown_requested_.store(true, std::memory_order_release); }
 
     [[nodiscard]] bool is_shutdown_requested() const noexcept {
         return shutdown_requested_.load(std::memory_order_acquire);
     }
 
-    void record_shutdown_time() noexcept {
-        shutdown_time_ = clock::now();
-    }
+    void record_shutdown_time() noexcept { shutdown_time_ = clock::now(); }
 
-    [[nodiscard]] bool
-    is_deadline_exceeded(duration deadline = std::chrono::seconds(30)) noexcept {
+    [[nodiscard]] bool is_deadline_exceeded(duration deadline = std::chrono::seconds(30)) noexcept {
         if (!is_shutdown_requested()) {
             return false;
         }
@@ -44,9 +39,7 @@ public:
 
     [[nodiscard]] time_point shutdown_time() const noexcept { return shutdown_time_; }
 
-    void set_shutdown_callback(shutdown_callback cb) {
-        callback_ = std::move(cb);
-    }
+    void set_shutdown_callback(shutdown_callback cb) { callback_ = std::move(cb); }
 
     void trigger_shutdown() {
         request_shutdown();

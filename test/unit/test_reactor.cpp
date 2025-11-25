@@ -6,22 +6,18 @@ using reactor_impl = katana::io_uring_reactor;
 using reactor_impl = katana::epoll_reactor;
 #endif
 
-#include <gtest/gtest.h>
-#include <unistd.h>
-#include <thread>
 #include <chrono>
+#include <gtest/gtest.h>
+#include <thread>
+#include <unistd.h>
 
 using namespace std::chrono_literals;
 
 class ReactorTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        reactor_ = std::make_unique<reactor_impl>();
-    }
+    void SetUp() override { reactor_ = std::make_unique<reactor_impl>(); }
 
-    void TearDown() override {
-        reactor_.reset();
-    }
+    void TearDown() override { reactor_.reset(); }
 
     std::unique_ptr<reactor_impl> reactor_;
 };
@@ -31,9 +27,7 @@ TEST_F(ReactorTest, CreateReactor) {
 }
 
 TEST_F(ReactorTest, StopReactor) {
-    reactor_->schedule([this]() {
-        reactor_->stop();
-    });
+    reactor_->schedule([this]() { reactor_->stop(); });
 
     auto result = reactor_->run();
     EXPECT_TRUE(result.has_value());
@@ -77,15 +71,12 @@ TEST_F(ReactorTest, RegisterFd) {
     bool readable = false;
 
     auto result = reactor_->register_fd(
-        pipefd[0],
-        katana::event_type::readable,
-        [&readable, this](katana::event_type events) {
+        pipefd[0], katana::event_type::readable, [&readable, this](katana::event_type events) {
             if (katana::has_flag(events, katana::event_type::readable)) {
                 readable = true;
                 reactor_->stop();
             }
-        }
-    );
+        });
 
     ASSERT_TRUE(result.has_value());
 
@@ -108,11 +99,8 @@ TEST_F(ReactorTest, UnregisterFd) {
     int pipefd[2];
     ASSERT_EQ(pipe(pipefd), 0);
 
-    auto result = reactor_->register_fd(
-        pipefd[0],
-        katana::event_type::readable,
-        [](katana::event_type) {}
-    );
+    auto result =
+        reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {});
 
     ASSERT_TRUE(result.has_value());
 
@@ -127,18 +115,13 @@ TEST_F(ReactorTest, ModifyFd) {
     int pipefd[2];
     ASSERT_EQ(pipe(pipefd), 0);
 
-    auto result = reactor_->register_fd(
-        pipefd[0],
-        katana::event_type::readable,
-        [](katana::event_type) {}
-    );
+    auto result =
+        reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {});
 
     ASSERT_TRUE(result.has_value());
 
-    result = reactor_->modify_fd(
-        pipefd[0],
-        katana::event_type::readable | katana::event_type::edge_triggered
-    );
+    result = reactor_->modify_fd(pipefd[0],
+                                 katana::event_type::readable | katana::event_type::edge_triggered);
 
     EXPECT_TRUE(result.has_value());
 
@@ -149,31 +132,21 @@ TEST_F(ReactorTest, ModifyFd) {
 }
 
 TEST_F(ReactorTest, InvalidFd) {
-    auto result = reactor_->register_fd(
-        -1,
-        katana::event_type::readable,
-        [](katana::event_type) {}
-    );
+    auto result =
+        reactor_->register_fd(-1, katana::event_type::readable, [](katana::event_type) {});
 
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(
-        result.error(),
-        katana::make_error_code(katana::error_code::invalid_fd)
-    );
+    EXPECT_EQ(result.error(), katana::make_error_code(katana::error_code::invalid_fd));
 }
 
 TEST_F(ReactorTest, MultipleScheduledTasks) {
     int counter = 0;
 
     for (int i = 0; i < 10; ++i) {
-        reactor_->schedule([&counter]() {
-            ++counter;
-        });
+        reactor_->schedule([&counter]() { ++counter; });
     }
 
-    reactor_->schedule([this]() {
-        reactor_->stop();
-    });
+    reactor_->schedule([this]() { reactor_->stop(); });
 
     auto result = reactor_->run();
     EXPECT_TRUE(result.has_value());
@@ -191,9 +164,7 @@ TEST_F(ReactorTest, ExceptionInScheduledTask) {
         EXPECT_EQ(ctx.fd, -1);
     });
 
-    reactor_->schedule([]() {
-        throw std::runtime_error("test exception");
-    });
+    reactor_->schedule([]() { throw std::runtime_error("test exception"); });
 
     reactor_->schedule([&task_after_exception, this]() {
         task_after_exception = true;
@@ -214,13 +185,9 @@ TEST_F(ReactorTest, ExceptionInDelayedTask) {
         EXPECT_EQ(ctx.location, "delayed_task");
     });
 
-    reactor_->schedule_after(50ms, []() {
-        throw std::logic_error("delayed task exception");
-    });
+    reactor_->schedule_after(50ms, []() { throw std::logic_error("delayed task exception"); });
 
-    reactor_->schedule_after(100ms, [this]() {
-        reactor_->stop();
-    });
+    reactor_->schedule_after(100ms, [this]() { reactor_->stop(); });
 
     auto result = reactor_->run();
     EXPECT_TRUE(result.has_value());
@@ -233,19 +200,17 @@ TEST_F(ReactorTest, ExceptionInFdCallback) {
 
     bool exception_handled = false;
 
-    reactor_->set_exception_handler([&exception_handled, pipefd](const katana::exception_context& ctx) {
-        exception_handled = true;
-        EXPECT_EQ(ctx.location, "fd_callback");
-        EXPECT_EQ(ctx.fd, pipefd[0]);
-    });
+    reactor_->set_exception_handler(
+        [&exception_handled, pipefd](const katana::exception_context& ctx) {
+            exception_handled = true;
+            EXPECT_EQ(ctx.location, "fd_callback");
+            EXPECT_EQ(ctx.fd, pipefd[0]);
+        });
 
-    auto result = reactor_->register_fd(
-        pipefd[0],
-        katana::event_type::readable,
-        [](katana::event_type) {
+    auto result =
+        reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {
             throw std::runtime_error("fd callback exception");
-        }
-    );
+        });
 
     ASSERT_TRUE(result.has_value());
 
@@ -255,9 +220,7 @@ TEST_F(ReactorTest, ExceptionInFdCallback) {
         [[maybe_unused]] auto _ = write(pipefd[1], &buf, 1);
 
         std::this_thread::sleep_for(50ms);
-        reactor_->schedule([this]() {
-            reactor_->stop();
-        });
+        reactor_->schedule([this]() { reactor_->stop(); });
     });
 
     reactor_->run();
@@ -272,9 +235,7 @@ TEST_F(ReactorTest, ExceptionInFdCallback) {
 TEST_F(ReactorTest, GracefulStop) {
     auto start = std::chrono::steady_clock::now();
 
-    reactor_->schedule([this]() {
-        reactor_->graceful_stop(std::chrono::milliseconds(1000));
-    });
+    reactor_->schedule([this]() { reactor_->graceful_stop(std::chrono::milliseconds(1000)); });
 
     auto result = reactor_->run();
     auto elapsed = std::chrono::steady_clock::now() - start;
@@ -287,14 +248,10 @@ TEST_F(ReactorTest, GracefulStopWithPendingTasks) {
     int counter = 0;
 
     for (int i = 0; i < 5; ++i) {
-        reactor_->schedule([&counter]() {
-            ++counter;
-        });
+        reactor_->schedule([&counter]() { ++counter; });
     }
 
-    reactor_->schedule([this]() {
-        reactor_->graceful_stop(std::chrono::milliseconds(1000));
-    });
+    reactor_->schedule([this]() { reactor_->graceful_stop(std::chrono::milliseconds(1000)); });
 
     auto result = reactor_->run();
     EXPECT_TRUE(result.has_value());
@@ -319,8 +276,7 @@ TEST_F(ReactorTest, RegisterFdWithTimeout) {
                 reactor_->stop();
             }
         },
-        config
-    );
+        config);
 
     ASSERT_TRUE(result.has_value());
 
@@ -363,8 +319,7 @@ TEST_F(ReactorTest, RefreshFdTimeout) {
                 reactor_->refresh_fd_timeout(pipefd[0]);
             }
         },
-        config
-    );
+        config);
 
     ASSERT_TRUE(result.has_value());
 
@@ -404,15 +359,12 @@ TEST_F(ReactorTest, EventFdIntegration) {
     bool event_received = false;
 
     auto result = reactor_->register_fd(
-        efd,
-        katana::event_type::readable,
-        [&event_received, this](katana::event_type events) {
+        efd, katana::event_type::readable, [&event_received, this](katana::event_type events) {
             if (katana::has_flag(events, katana::event_type::readable)) {
                 event_received = true;
                 reactor_->stop();
             }
-        }
-    );
+        });
 
     ASSERT_TRUE(result.has_value());
 
@@ -437,18 +389,17 @@ TEST_F(ReactorTest, EdgeTriggeredMode) {
 
     int callback_count = 0;
 
-    auto result = reactor_->register_fd(
-        pipefd[0],
-        katana::event_type::readable | katana::event_type::edge_triggered,
-        [&callback_count, this](katana::event_type events) {
-            if (katana::has_flag(events, katana::event_type::readable)) {
-                ++callback_count;
-                if (callback_count >= 2) {
-                    reactor_->stop();
-                }
-            }
-        }
-    );
+    auto result =
+        reactor_->register_fd(pipefd[0],
+                              katana::event_type::readable | katana::event_type::edge_triggered,
+                              [&callback_count, this](katana::event_type events) {
+                                  if (katana::has_flag(events, katana::event_type::readable)) {
+                                      ++callback_count;
+                                      if (callback_count >= 2) {
+                                          reactor_->stop();
+                                      }
+                                  }
+                              });
 
     ASSERT_TRUE(result.has_value());
 
@@ -478,15 +429,12 @@ TEST_F(ReactorTest, WritableEvent) {
     bool writable = false;
 
     auto result = reactor_->register_fd(
-        pipefd[1],
-        katana::event_type::writable,
-        [&writable, this](katana::event_type events) {
+        pipefd[1], katana::event_type::writable, [&writable, this](katana::event_type events) {
             if (katana::has_flag(events, katana::event_type::writable)) {
                 writable = true;
                 reactor_->stop();
             }
-        }
-    );
+        });
 
     ASSERT_TRUE(result.has_value());
 
@@ -504,23 +452,17 @@ TEST_F(ReactorTest, ConcurrentScheduling) {
 
     std::thread scheduler1([this, &counter]() {
         for (int i = 0; i < NUM_TASKS / 2; ++i) {
-            reactor_->schedule([&counter]() {
-                counter.fetch_add(1, std::memory_order_relaxed);
-            });
+            reactor_->schedule([&counter]() { counter.fetch_add(1, std::memory_order_relaxed); });
         }
     });
 
     std::thread scheduler2([this, &counter]() {
         for (int i = 0; i < NUM_TASKS / 2; ++i) {
-            reactor_->schedule([&counter]() {
-                counter.fetch_add(1, std::memory_order_relaxed);
-            });
+            reactor_->schedule([&counter]() { counter.fetch_add(1, std::memory_order_relaxed); });
         }
     });
 
-    reactor_->schedule_after(200ms, [this]() {
-        reactor_->stop();
-    });
+    reactor_->schedule_after(200ms, [this]() { reactor_->stop(); });
 
     reactor_->run();
 
@@ -536,19 +478,16 @@ TEST_F(ReactorTest, UnregisterFdDuringCallback) {
 
     bool callback_executed = false;
 
-    auto result = reactor_->register_fd(
-        pipefd[0],
-        katana::event_type::readable,
-        [&callback_executed, this, pipefd](katana::event_type events) {
-            if (katana::has_flag(events, katana::event_type::readable)) {
-                callback_executed = true;
-                reactor_->unregister_fd(pipefd[0]);
-                reactor_->schedule([this]() {
-                    reactor_->stop();
-                });
-            }
-        }
-    );
+    auto result =
+        reactor_->register_fd(pipefd[0],
+                              katana::event_type::readable,
+                              [&callback_executed, this, pipefd](katana::event_type events) {
+                                  if (katana::has_flag(events, katana::event_type::readable)) {
+                                      callback_executed = true;
+                                      reactor_->unregister_fd(pipefd[0]);
+                                      reactor_->schedule([this]() { reactor_->stop(); });
+                                  }
+                              });
 
     ASSERT_TRUE(result.has_value());
 
@@ -573,18 +512,17 @@ TEST_F(ReactorTest, ScheduleTaskFromCallback) {
 
     bool secondary_task_executed = false;
 
-    auto result = reactor_->register_fd(
-        pipefd[0],
-        katana::event_type::readable,
-        [&secondary_task_executed, this](katana::event_type events) {
-            if (katana::has_flag(events, katana::event_type::readable)) {
-                reactor_->schedule([&secondary_task_executed, this]() {
-                    secondary_task_executed = true;
-                    reactor_->stop();
-                });
-            }
-        }
-    );
+    auto result =
+        reactor_->register_fd(pipefd[0],
+                              katana::event_type::readable,
+                              [&secondary_task_executed, this](katana::event_type events) {
+                                  if (katana::has_flag(events, katana::event_type::readable)) {
+                                      reactor_->schedule([&secondary_task_executed, this]() {
+                                          secondary_task_executed = true;
+                                          reactor_->stop();
+                                      });
+                                  }
+                              });
 
     ASSERT_TRUE(result.has_value());
 
