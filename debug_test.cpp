@@ -1,5 +1,5 @@
-#include "katana/core/http.hpp"
 #include "katana/core/arena.hpp"
+#include "katana/core/http.hpp"
 #include "katana/core/http_field.hpp"
 #include <iostream>
 
@@ -11,8 +11,10 @@ int main() {
     const auto& popular = http::detail::get_popular_headers();
     std::cout << "Popular headers size: " << popular.size() << "\n";
     if (popular.size() > 0) {
-        std::cout << "First popular header: " << popular[0].name << " = " << static_cast<int>(popular[0].value) << "\n";
-        std::cout << "Content-Length should be at index 6: " << popular[6].name << " = " << static_cast<int>(popular[6].value) << "\n";
+        std::cout << "First popular header: " << popular[0].name << " = "
+                  << static_cast<int>(popular[0].value) << "\n";
+        std::cout << "Content-Length should be at index 6: " << popular[6].name << " = "
+                  << static_cast<int>(popular[6].value) << "\n";
     }
     std::cout << "\n";
 
@@ -27,17 +29,18 @@ int main() {
     parser p(&arena);
 
     std::string request = "POST /api/data HTTP/1.1\r\n"
-                         "Host: api.example.com\r\n"
-                         "Content-Type: application/json\r\n"
-                         "Content-Length: 13\r\n"
-                         "\r\n"
-                         "{\"key\":\"val\"}";
+                          "Host: api.example.com\r\n"
+                          "Content-Type: application/json\r\n"
+                          "Content-Length: 13\r\n"
+                          "\r\n"
+                          "{\"key\":\"val\"}";
 
     auto data = as_bytes(request);
 
     // Test getting Content-Length by field enum directly
     auto cl_by_field = p.get_request().headers.get(field::content_length);
-    std::cout << "Content-Length (by field enum) BEFORE parse: " << (cl_by_field ? *cl_by_field : "(null)") << "\n";
+    std::cout << "Content-Length (by field enum) BEFORE parse: "
+              << (cl_by_field ? *cl_by_field : "(null)") << "\n";
 
     auto result = p.parse(data);
 

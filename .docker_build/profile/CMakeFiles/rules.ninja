@@ -194,4 +194,3 @@ rule CLEAN
 rule HELP
   command = /usr/bin/ninja -t targets
   description = All primary targets available:
-

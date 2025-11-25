@@ -1,23 +1,22 @@
 #pragma once
 
 #if __has_include(<expected>)
-#    include <expected>
+#include <expected>
 #endif
 #include <string>
-#include <system_error>
 #include <string_view>
+#include <system_error>
 
 #ifndef __cpp_lib_expected
-#    include <functional>
-#    include <stdexcept>
-#    include <type_traits>
-#    include <utility>
-#    include <variant>
+#include <functional>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+#include <variant>
 
 namespace std {
 
-template <class E>
-class unexpected {
+template <class E> class unexpected {
 public:
     using error_type = E;
 
@@ -32,18 +31,17 @@ private:
     E error_;
 };
 
-template <class E>
-unexpected(E) -> unexpected<E>;
+template <class E> unexpected(E) -> unexpected<E>;
 
-template <class T, class E>
-class expected {
+template <class T, class E> class expected {
 public:
     using value_type = T;
     using error_type = E;
 
     constexpr expected(const T& value) : storage_(value) {}
     constexpr expected(T&& value) : storage_(std::in_place_index<0>, std::move(value)) {}
-    constexpr expected(unexpected<E> error) : storage_(std::in_place_index<1>, std::move(error.error())) {}
+    constexpr expected(unexpected<E> error)
+        : storage_(std::in_place_index<1>, std::move(error.error())) {}
 
     template <class... Args>
     constexpr explicit expected(std::in_place_t, Args&&... args)
@@ -66,71 +64,77 @@ public:
     constexpr const T* operator->() const { return &value(); }
 
     constexpr T& value() & {
-        if (!has_value()) throw std::logic_error("bad expected access");
+        if (!has_value())
+            throw std::logic_error("bad expected access");
         return std::get<0>(storage_);
     }
 
     constexpr const T& value() const& {
-        if (!has_value()) throw std::logic_error("bad expected access");
+        if (!has_value())
+            throw std::logic_error("bad expected access");
         return std::get<0>(storage_);
     }
 
     constexpr T&& value() && {
-        if (!has_value()) throw std::logic_error("bad expected access");
+        if (!has_value())
+            throw std::logic_error("bad expected access");
         return std::get<0>(std::move(storage_));
     }
 
     constexpr const E& error() const& {
-        if (has_value()) throw std::logic_error("bad expected error access");
+        if (has_value())
+            throw std::logic_error("bad expected error access");
         return std::get<1>(storage_);
     }
 
     constexpr E& error() & {
-        if (has_value()) throw std::logic_error("bad expected error access");
+        if (has_value())
+            throw std::logic_error("bad expected error access");
         return std::get<1>(storage_);
     }
 
     constexpr E&& error() && {
-        if (has_value()) throw std::logic_error("bad expected error access");
+        if (has_value())
+            throw std::logic_error("bad expected error access");
         return std::get<1>(std::move(storage_));
     }
 
-    template <class F>
-    constexpr auto and_then(F&& f) & {
+    template <class F> constexpr auto and_then(F&& f) & {
         using return_type = std::invoke_result_t<F, T&>;
-        if (has_value()) return std::invoke(std::forward<F>(f), value());
+        if (has_value())
+            return std::invoke(std::forward<F>(f), value());
         return return_type(unexpected<E>(error()));
     }
 
-    template <class F>
-    constexpr auto and_then(F&& f) const& {
+    template <class F> constexpr auto and_then(F&& f) const& {
         using return_type = std::invoke_result_t<F, const T&>;
-        if (has_value()) return std::invoke(std::forward<F>(f), value());
+        if (has_value())
+            return std::invoke(std::forward<F>(f), value());
         return return_type(unexpected<E>(error()));
     }
 
-    template <class F>
-    constexpr auto and_then(F&& f) && {
+    template <class F> constexpr auto and_then(F&& f) && {
         using return_type = std::invoke_result_t<F, T&&>;
-        if (has_value()) return std::invoke(std::forward<F>(f), std::move(*this).value());
+        if (has_value())
+            return std::invoke(std::forward<F>(f), std::move(*this).value());
         return return_type(unexpected<E>(std::move(*this).error()));
     }
 
-    template <class F>
-    constexpr expected or_else(F&& f) & {
-        if (has_value()) return *this;
+    template <class F> constexpr expected or_else(F&& f) & {
+        if (has_value())
+            return *this;
         return std::invoke(std::forward<F>(f), error());
     }
 
-    template <class F>
-    constexpr expected or_else(F&& f) const& {
-        if (has_value()) return *this;
+    template <class F> constexpr expected or_else(F&& f) const& {
+        if (has_value())
+            return *this;
         return std::invoke(std::forward<F>(f), error());
     }
 
-    template <class F>
-    constexpr expected or_else(F&& f) && {
-        if (has_value()) return expected(std::in_place, std::move(*this).value());
+    template <class F> constexpr expected or_else(F&& f) && {
+        if (has_value())
+            return expected(std::in_place, std::move(*this).value());
         return std::invoke(std::forward<F>(f), std::move(*this).error());
     }
 
@@ -138,8 +142,7 @@ private:
     std::variant<T, E> storage_;
 };
 
-template <class E>
-class expected<void, E> {
+template <class E> class expected<void, E> {
 public:
     using value_type = void;
     using error_type = E;
@@ -156,60 +159,64 @@ public:
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return has_value(); }
 
     constexpr void value() const {
-        if (!has_value_) throw std::logic_error("bad expected access");
+        if (!has_value_)
+            throw std::logic_error("bad expected access");
     }
 
     [[nodiscard]] constexpr const E& error() const& {
-        if (has_value_) throw std::logic_error("bad expected error access");
+        if (has_value_)
+            throw std::logic_error("bad expected error access");
         return error_;
     }
 
     constexpr E& error() & {
-        if (has_value_) throw std::logic_error("bad expected error access");
+        if (has_value_)
+            throw std::logic_error("bad expected error access");
         return error_;
     }
 
     constexpr E&& error() && {
-        if (has_value_) throw std::logic_error("bad expected error access");
+        if (has_value_)
+            throw std::logic_error("bad expected error access");
         return std::move(error_);
     }
 
-    template <class F>
-    constexpr auto and_then(F&& f) & {
+    template <class F> constexpr auto and_then(F&& f) & {
         using return_type = std::invoke_result_t<F>;
-        if (has_value_) return std::invoke(std::forward<F>(f));
+        if (has_value_)
+            return std::invoke(std::forward<F>(f));
         return return_type(unexpected<E>(error_));
     }
 
-    template <class F>
-    constexpr auto and_then(F&& f) const& {
+    template <class F> constexpr auto and_then(F&& f) const& {
         using return_type = std::invoke_result_t<F>;
-        if (has_value_) return std::invoke(std::forward<F>(f));
+        if (has_value_)
+            return std::invoke(std::forward<F>(f));
         return return_type(unexpected<E>(error_));
     }
 
-    template <class F>
-    constexpr auto and_then(F&& f) && {
+    template <class F> constexpr auto and_then(F&& f) && {
         using return_type = std::invoke_result_t<F>;
-        if (has_value_) return std::invoke(std::forward<F>(f));
+        if (has_value_)
+            return std::invoke(std::forward<F>(f));
         return return_type(unexpected<E>(std::move(error_)));
     }
 
-    template <class F>
-    constexpr expected or_else(F&& f) & {
-        if (has_value_) return *this;
+    template <class F> constexpr expected or_else(F&& f) & {
+        if (has_value_)
+            return *this;
         return std::invoke(std::forward<F>(f), error_);
     }
 
-    template <class F>
-    constexpr expected or_else(F&& f) const& {
-        if (has_value_) return *this;
+    template <class F> constexpr expected or_else(F&& f) const& {
+        if (has_value_)
+            return *this;
         return std::invoke(std::forward<F>(f), error_);
     }
 
-    template <class F>
-    constexpr expected or_else(F&& f) && {
-        if (has_value_) return expected();
+    template <class F> constexpr expected or_else(F&& f) && {
+        if (has_value_)
+            return expected();
         return std::invoke(std::forward<F>(f), std::move(error_));
     }
 
@@ -224,8 +231,7 @@ private:
 
 namespace katana {
 
-template <typename T>
-using result = std::expected<T, std::error_code>;
+template <typename T> using result = std::expected<T, std::error_code>;
 
 enum class error_code : int {
     ok = 0,
@@ -244,14 +250,22 @@ public:
     [[nodiscard]] std::string message(int ev) const override {
         using ec = error_code;
         switch (static_cast<ec>(ev)) {
-            case ec::ok: return "success";
-            case ec::epoll_create_failed: return "epoll_create failed";
-            case ec::epoll_ctl_failed: return "epoll_ctl failed";
-            case ec::epoll_wait_failed: return "epoll_wait failed";
-            case ec::invalid_fd: return "invalid file descriptor";
-            case ec::reactor_stopped: return "reactor is stopped";
-            case ec::timeout: return "operation timed out";
-            default: return "unknown error";
+        case ec::ok:
+            return "success";
+        case ec::epoll_create_failed:
+            return "epoll_create failed";
+        case ec::epoll_ctl_failed:
+            return "epoll_ctl failed";
+        case ec::epoll_wait_failed:
+            return "epoll_wait failed";
+        case ec::invalid_fd:
+            return "invalid file descriptor";
+        case ec::reactor_stopped:
+            return "reactor is stopped";
+        case ec::timeout:
+            return "operation timed out";
+        default:
+            return "unknown error";
         }
     }
 };
@@ -268,6 +282,5 @@ inline std::error_code make_error_code(error_code e) {
 } // namespace katana
 
 namespace std {
-template <>
-struct is_error_code_enum<katana::error_code> : true_type {};
-}
+template <> struct is_error_code_enum<katana::error_code> : true_type {};
+} // namespace std

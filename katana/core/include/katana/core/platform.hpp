@@ -4,12 +4,12 @@
 #include <cstring>
 
 #ifdef __linux__
-#include <sys/socket.h>
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
-#include <sys/socket.h>
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #define KATANA_BSD_LIKE
 #elif defined(_WIN32)
@@ -26,7 +26,8 @@ inline int accept_nonblock(int sockfd, struct sockaddr* addr, socklen_t* addrlen
 #elif defined(KATANA_BSD_LIKE)
 inline int accept_nonblock(int sockfd, struct sockaddr* addr, socklen_t* addrlen) {
     int fd = accept(sockfd, addr, addrlen);
-    if (fd < 0) return fd;
+    if (fd < 0)
+        return fd;
 
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags >= 0) {
@@ -42,9 +43,10 @@ inline int accept_nonblock(int sockfd, struct sockaddr* addr, socklen_t* addrlen
 }
 #endif
 
-inline const void* find_pattern(const void* haystack, size_t hlen,
-                                 const void* needle, size_t nlen) {
-    if (nlen == 0 || hlen < nlen) return nullptr;
+inline const void*
+find_pattern(const void* haystack, size_t hlen, const void* needle, size_t nlen) {
+    if (nlen == 0 || hlen < nlen)
+        return nullptr;
 
 #ifdef __linux__
     return memmem(haystack, hlen, needle, nlen);
@@ -68,7 +70,8 @@ inline const void* find_pattern(const void* haystack, size_t hlen,
 inline bool set_nonblocking(int fd) {
 #if defined(__linux__) || defined(KATANA_BSD_LIKE)
     int flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0) return false;
+    if (flags < 0)
+        return false;
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK) >= 0;
 #else
     return false;
@@ -78,7 +81,8 @@ inline bool set_nonblocking(int fd) {
 inline bool set_cloexec(int fd) {
 #if defined(__linux__) || defined(KATANA_BSD_LIKE)
     int flags = fcntl(fd, F_GETFD, 0);
-    if (flags < 0) return false;
+    if (flags < 0)
+        return false;
     return fcntl(fd, F_SETFD, flags | FD_CLOEXEC) >= 0;
 #else
     return false;

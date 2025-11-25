@@ -1,13 +1,13 @@
 #include "katana/core/wheel_timer.hpp"
 
+#include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <thread>
 #include <vector>
-#include <atomic>
-#include <iomanip>
-#include <numeric>
-#include <algorithm>
 
 using namespace std::chrono;
 using namespace katana;
@@ -26,15 +26,15 @@ void print_result(const benchmark_result& result) {
     std::cout << "\n=== " << result.name << " ===\n";
     std::cout << "Operations: " << result.operations << "\n";
     std::cout << "Duration: " << result.duration_ms << " ms\n";
-    std::cout << "Throughput: " << std::fixed << std::setprecision(2)
-              << result.throughput << " ops/sec\n";
+    std::cout << "Throughput: " << std::fixed << std::setprecision(2) << result.throughput
+              << " ops/sec\n";
     if (result.latency_p50 > 0.0) {
-        std::cout << "Latency p50: " << std::fixed << std::setprecision(3)
-                  << result.latency_p50 << " us\n";
-        std::cout << "Latency p99: " << std::fixed << std::setprecision(3)
-                  << result.latency_p99 << " us\n";
-        std::cout << "Latency p999: " << std::fixed << std::setprecision(3)
-                  << result.latency_p999 << " us\n";
+        std::cout << "Latency p50: " << std::fixed << std::setprecision(3) << result.latency_p50
+                  << " us\n";
+        std::cout << "Latency p99: " << std::fixed << std::setprecision(3) << result.latency_p99
+                  << " us\n";
+        std::cout << "Latency p999: " << std::fixed << std::setprecision(3) << result.latency_p999
+                  << " us\n";
     }
 }
 
@@ -51,7 +51,8 @@ benchmark_result benchmark_timer_add() {
         timer.add(milliseconds(100 + (i % 1000)), []() {});
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -92,7 +93,8 @@ benchmark_result benchmark_timer_cancel() {
         (void)timer.cancel(ids[i]);
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -121,9 +123,8 @@ benchmark_result benchmark_timer_execution() {
     auto start = steady_clock::now();
 
     for (size_t i = 0; i < num_timers; ++i) {
-        timer.add(milliseconds(100 + (i % 200)), [&executed]() {
-            executed.fetch_add(1, std::memory_order_relaxed);
-        });
+        timer.add(milliseconds(100 + (i % 200)),
+                  [&executed]() { executed.fetch_add(1, std::memory_order_relaxed); });
     }
 
     while (executed.load(std::memory_order_relaxed) < num_timers) {
@@ -163,7 +164,8 @@ benchmark_result benchmark_timer_tick() {
         timer.tick(steady_clock::now());
         auto op_end = steady_clock::now();
 
-        double latency_us = static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
+        double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(op_end - op_start).count()) / 1000.0;
         latencies.push_back(latency_us);
     }
 
@@ -212,9 +214,8 @@ int main() {
     std::cout << "========================================\n";
 
     for (const auto& result : results) {
-        std::cout << std::left << std::setw(35) << result.name << ": "
-                  << std::fixed << std::setprecision(0) << result.throughput
-                  << " ops/sec\n";
+        std::cout << std::left << std::setw(35) << result.name << ": " << std::fixed
+                  << std::setprecision(0) << result.throughput << " ops/sec\n";
     }
 
     std::cout << "\nAll benchmarks completed successfully!\n";

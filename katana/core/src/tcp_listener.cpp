@@ -1,11 +1,11 @@
 #include "katana/core/tcp_listener.hpp"
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 namespace katana {
 
@@ -62,8 +62,7 @@ result<void> tcp_listener::create_and_bind(uint16_t port, bool ipv6) {
 result<tcp_socket> tcp_listener::accept() {
     int32_t fd;
     do {
-        fd = ::accept4(socket_.native_handle(), nullptr, nullptr,
-                      SOCK_NONBLOCK | SOCK_CLOEXEC);
+        fd = ::accept4(socket_.native_handle(), nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
     } while (fd < 0 && errno == EINTR);
 
     if (fd < 0) {

@@ -1,10 +1,10 @@
 #include "katana/core/io_buffer.hpp"
 
 #include <algorithm>
-#include <cstring>
-#include <cerrno>
-#include <limits.h>
 #include <cassert>
+#include <cerrno>
+#include <cstring>
+#include <limits.h>
 
 #ifdef __linux__
 #include <sys/uio.h>
@@ -25,9 +25,7 @@ void io_buffer::append(std::span<const uint8_t> data) {
 
 void io_buffer::append(std::string_view str) {
     append(std::span<const uint8_t>(
-        reinterpret_cast<const uint8_t*>(static_cast<const void*>(str.data())),
-        str.size()
-    ));
+        reinterpret_cast<const uint8_t*>(static_cast<const void*>(str.data())), str.size()));
 }
 
 std::span<uint8_t> io_buffer::writable_span(size_t size) {

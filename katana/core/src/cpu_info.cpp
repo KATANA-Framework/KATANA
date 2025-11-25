@@ -3,8 +3,8 @@
 #include <thread>
 
 #ifdef __linux__
-#include <sched.h>
 #include <pthread.h>
+#include <sched.h>
 #endif
 
 namespace katana {

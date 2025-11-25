@@ -1,14 +1,14 @@
 #include "katana/core/io_uring_reactor.hpp"
 #include "katana/core/scoped_fd.hpp"
 
-#include <poll.h>
-#include <sys/eventfd.h>
-#include <unistd.h>
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
+#include <poll.h>
+#include <sys/eventfd.h>
 #include <system_error>
-#include <algorithm>
+#include <unistd.h>
 
 namespace katana {
 
@@ -49,51 +49,38 @@ constexpr event_type from_poll_events(uint32_t events) noexcept {
 } // namespace
 
 io_uring_reactor::io_uring_reactor(size_t ring_size, size_t max_pending_tasks)
-    : wakeup_fd_(-1)
-    , running_(false)
-    , graceful_shutdown_(false)
-    , pending_tasks_(max_pending_tasks)
-    , pending_timers_(max_pending_tasks)
-    , exception_handler_([](const exception_context& ctx) {
-        std::cerr << "[reactor] Exception in " << ctx.location;
-        if (ctx.fd >= 0) {
-            std::cerr << " (fd=" << ctx.fd << ")";
-        }
-        std::cerr << ": ";
-        try {
-            if (ctx.exception) {
-                std::rethrow_exception(ctx.exception);
-            }
-        } catch (const std::exception& e) {
-            std::cerr << e.what();
-        } catch (...) {
-            std::cerr << "unknown exception";
-        }
-        std::cerr << "\n";
-    })
-{
+    : wakeup_fd_(-1), running_(false), graceful_shutdown_(false), pending_tasks_(max_pending_tasks),
+      pending_timers_(max_pending_tasks), exception_handler_([](const exception_context& ctx) {
+          std::cerr << "[reactor] Exception in " << ctx.location;
+          if (ctx.fd >= 0) {
+              std::cerr << " (fd=" << ctx.fd << ")";
+          }
+          std::cerr << ": ";
+          try {
+              if (ctx.exception) {
+                  std::rethrow_exception(ctx.exception);
+              }
+          } catch (const std::exception& e) {
+              std::cerr << e.what();
+          } catch (...) {
+              std::cerr << "unknown exception";
+          }
+          std::cerr << "\n";
+      }) {
     io_uring_params params{};
     params.flags = IORING_SETUP_CQSIZE;
     params.cq_entries = static_cast<__u32>(ring_size * 2);
 
     int ret = io_uring_queue_init_params(static_cast<unsigned int>(ring_size), &ring_, &params);
     if (ret < 0) {
-        throw std::system_error(
-            -ret,
-            std::system_category(),
-            "io_uring_queue_init_params failed"
-        );
+        throw std::system_error(-ret, std::system_category(), "io_uring_queue_init_params failed");
     }
 
     // Use RAII wrapper for exception safety - will auto-cleanup if construction fails
     scoped_fd wakeup_fd(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
     if (!wakeup_fd.is_valid()) {
         io_uring_queue_exit(&ring_);
-        throw std::system_error(
-            errno,
-            std::system_category(),
-            "eventfd failed"
-        );
+        throw std::system_error(errno, std::system_category(), "eventfd failed");
     }
 
     fd_states_.reserve(65536);
@@ -115,15 +102,12 @@ result<void> io_uring_reactor::run() {
     }
 
     auto wakeup_res = register_fd(
-        wakeup_fd_,
-        event_type::readable | event_type::edge_triggered,
-        [this](event_type) {
+        wakeup_fd_, event_type::readable | event_type::edge_triggered, [this](event_type) {
             uint64_t val;
             ssize_t ret = read(wakeup_fd_, &val, sizeof(val));
             (void)ret;
             needs_wakeup_.store(true, std::memory_order_relaxed);
-        }
-    );
+        });
     if (!wakeup_res) {
         running_ = false;
         return wakeup_res;
@@ -149,11 +133,14 @@ result<void> io_uring_reactor::run() {
             }
             if (now >= graceful_shutdown_deadline_) {
                 for (size_t fd = 0; fd < fd_states_.size(); ++fd) {
-                    if (!fd_states_[fd].callback) continue;
+                    if (!fd_states_[fd].callback)
+                        continue;
                     try {
                         fd_states_[fd].callback(event_type::error);
                     } catch (...) {
-                        handle_exception("forced_shutdown_callback", std::current_exception(), static_cast<int32_t>(fd));
+                        handle_exception("forced_shutdown_callback",
+                                         std::current_exception(),
+                                         static_cast<int32_t>(fd));
                     }
                     if (fd_states_[fd].callback) {
                         submit_poll_remove(static_cast<int32_t>(fd));
@@ -197,11 +184,7 @@ void io_uring_reactor::graceful_stop(std::chrono::milliseconds timeout) {
     } while (ret < 0 && errno == EINTR);
 }
 
-result<void> io_uring_reactor::register_fd(
-    int32_t fd,
-    event_type events,
-    event_callback callback
-) {
+result<void> io_uring_reactor::register_fd(int32_t fd, event_type events, event_callback callback) {
     if (fd < 0) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
@@ -224,12 +207,10 @@ result<void> io_uring_reactor::register_fd(
     return submit_poll_add(fd, events);
 }
 
-result<void> io_uring_reactor::register_fd_with_timeout(
-    int32_t fd,
-    event_type events,
-    event_callback callback,
-    const timeout_config& config
-) {
+result<void> io_uring_reactor::register_fd_with_timeout(int32_t fd,
+                                                        event_type events,
+                                                        event_callback callback,
+                                                        const timeout_config& config) {
     if (fd < 0) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
@@ -330,20 +311,16 @@ bool io_uring_reactor::schedule(task_fn task) {
         } while (ret < 0 && errno == EINTR);
 
         if (ret < 0 && errno != EAGAIN) {
-            handle_exception(
-                "schedule_wakeup",
-                std::make_exception_ptr(std::system_error(errno, std::system_category(), "eventfd write failed"))
-            );
+            handle_exception("schedule_wakeup",
+                             std::make_exception_ptr(std::system_error(
+                                 errno, std::system_category(), "eventfd write failed")));
         }
     }
 
     return true;
 }
 
-bool io_uring_reactor::schedule_after(
-    std::chrono::milliseconds delay,
-    task_fn task
-) {
+bool io_uring_reactor::schedule_after(std::chrono::milliseconds delay, task_fn task) {
     auto deadline = std::chrono::steady_clock::now() + delay;
     if (!pending_timers_.try_push(timer_entry{deadline, std::move(task)})) {
         metrics_.tasks_rejected.fetch_add(1, std::memory_order_relaxed);
@@ -359,10 +336,9 @@ bool io_uring_reactor::schedule_after(
     } while (ret < 0 && errno == EINTR);
 
     if (ret < 0 && errno != EAGAIN) {
-        handle_exception(
-            "schedule_timer_wakeup",
-            std::make_exception_ptr(std::system_error(errno, std::system_category(), "eventfd write failed"))
-        );
+        handle_exception("schedule_timer_wakeup",
+                         std::make_exception_ptr(std::system_error(
+                             errno, std::system_category(), "eventfd write failed")));
     }
 
     return true;
@@ -424,7 +400,8 @@ result<void> io_uring_reactor::process_completions(int32_t timeout_ms) {
     unsigned count = 0;
     io_uring_cqe* current_cqe;
     io_uring_for_each_cqe(&ring_, count, current_cqe) {
-        int32_t fd = static_cast<int32_t>(reinterpret_cast<uintptr_t>(io_uring_cqe_get_data(current_cqe)));
+        int32_t fd =
+            static_cast<int32_t>(reinterpret_cast<uintptr_t>(io_uring_cqe_get_data(current_cqe)));
 
         if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
             fd_states_[static_cast<size_t>(fd)].callback) {
@@ -480,7 +457,8 @@ void io_uring_reactor::process_tasks() {
 
     for (uint32_t i = 0; i < to_process; ++i) {
         auto task = pending_tasks_.pop();
-        if (!task) break;
+        if (!task)
+            break;
         try {
             (*task)();
             metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
@@ -520,7 +498,8 @@ int32_t io_uring_reactor::calculate_timeout() const {
     auto now = std::chrono::steady_clock::now();
 
     if (!timeout_dirty_.load(std::memory_order_relaxed)) {
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - timeout_cached_at_);
+        auto elapsed =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - timeout_cached_at_);
         if (elapsed.count() < 5 && cached_timeout_ > 0) {
             return std::max(0, cached_timeout_ - static_cast<int32_t>(elapsed.count()));
         }
@@ -560,10 +539,8 @@ int32_t io_uring_reactor::calculate_timeout() const {
     if (min_timeout == std::chrono::milliseconds::max()) {
         result = -1;
     } else {
-        auto clamped = std::min<int64_t>(
-            min_timeout.count(),
-            static_cast<int64_t>(std::numeric_limits<int32_t>::max())
-        );
+        auto clamped = std::min<int64_t>(min_timeout.count(),
+                                         static_cast<int64_t>(std::numeric_limits<int32_t>::max()));
         result = static_cast<int32_t>(clamped);
     }
 
@@ -599,44 +576,40 @@ void io_uring_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
         state.activity_timer.reset();
     }
 
-    state.timeout_id = wheel_timer_.add(
-        timeout,
-        [this, fd]() {
-            if (fd < 0 || static_cast<size_t>(fd) >= fd_states_.size()) {
-                return;
-            }
+    state.timeout_id = wheel_timer_.add(timeout, [this, fd]() {
+        if (fd < 0 || static_cast<size_t>(fd) >= fd_states_.size()) {
+            return;
+        }
 
-            auto index = static_cast<size_t>(fd);
-            auto& entry_state = fd_states_[index];
-            if (!entry_state.callback) {
-                entry_state.timeout_id = 0;
-                entry_state.activity_timer = Timeout{};
-                return;
-            }
-
+        auto index = static_cast<size_t>(fd);
+        auto& entry_state = fd_states_[index];
+        if (!entry_state.callback) {
             entry_state.timeout_id = 0;
             entry_state.activity_timer = Timeout{};
-            metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
-
-            submit_poll_remove(fd);
-
-            if (close(fd) < 0 && errno != EBADF) {
-                handle_exception(
-                    "timeout_close",
-                    std::make_exception_ptr(std::system_error(errno, std::system_category(), "close failed")),
-                    fd
-                );
-            }
-
-            try {
-                entry_state.callback(event_type::timeout);
-            } catch (...) {
-                handle_exception("timeout_handler", std::current_exception(), fd);
-            }
-
-            fd_states_[index] = fd_state{};
+            return;
         }
-    );
+
+        entry_state.timeout_id = 0;
+        entry_state.activity_timer = Timeout{};
+        metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
+
+        submit_poll_remove(fd);
+
+        if (close(fd) < 0 && errno != EBADF) {
+            handle_exception("timeout_close",
+                             std::make_exception_ptr(
+                                 std::system_error(errno, std::system_category(), "close failed")),
+                             fd);
+        }
+
+        try {
+            entry_state.callback(event_type::timeout);
+        } catch (...) {
+            handle_exception("timeout_handler", std::current_exception(), fd);
+        }
+
+        fd_states_[index] = fd_state{};
+    });
 }
 
 void io_uring_reactor::cancel_fd_timeout(fd_state& state) {
@@ -693,9 +666,8 @@ result<void> io_uring_reactor::ensure_fd_capacity(int32_t fd) {
     return {};
 }
 
-std::chrono::milliseconds io_uring_reactor::time_until_graceful_deadline(
-    std::chrono::steady_clock::time_point now
-) const {
+std::chrono::milliseconds
+io_uring_reactor::time_until_graceful_deadline(std::chrono::steady_clock::time_point now) const {
     if (!graceful_shutdown_.load(std::memory_order_relaxed)) {
         return std::chrono::milliseconds::max();
     }
@@ -704,16 +676,12 @@ std::chrono::milliseconds io_uring_reactor::time_until_graceful_deadline(
         return std::chrono::milliseconds{0};
     }
 
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        graceful_shutdown_deadline_ - now
-    );
+    return std::chrono::duration_cast<std::chrono::milliseconds>(graceful_shutdown_deadline_ - now);
 }
 
-void io_uring_reactor::handle_exception(
-    std::string_view location,
-    std::exception_ptr ex,
-    int32_t fd
-) noexcept {
+void io_uring_reactor::handle_exception(std::string_view location,
+                                        std::exception_ptr ex,
+                                        int32_t fd) noexcept {
     metrics_.exceptions_caught.fetch_add(1, std::memory_order_relaxed);
 
     if (exception_handler_) {

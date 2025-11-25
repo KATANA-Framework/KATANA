@@ -6,8 +6,7 @@
 
 namespace katana {
 
-template <typename T>
-class mpsc_queue {
+template <typename T> class mpsc_queue {
 public:
     explicit mpsc_queue(size_t max_size = 0) : max_size_(max_size) {
         auto n = new node();
@@ -16,7 +15,8 @@ public:
     }
 
     ~mpsc_queue() {
-        while (auto item = pop()) {}
+        while (auto item = pop()) {
+        }
         delete tail_;
     }
 
@@ -42,9 +42,8 @@ public:
                 if (old_size >= max_size_) {
                     return false;
                 }
-            } while (!size_.compare_exchange_weak(old_size, old_size + 1,
-                                                  std::memory_order_acq_rel,
-                                                  std::memory_order_acquire));
+            } while (!size_.compare_exchange_weak(
+                old_size, old_size + 1, std::memory_order_acq_rel, std::memory_order_acquire));
             push_impl(std::move(value));
         } else {
             push(std::move(value));
@@ -92,7 +91,7 @@ private:
     alignas(64) std::atomic<node*> head_;
     alignas(64) node* tail_;
     alignas(64) std::atomic<size_t> size_{0};
-    alignas(64) const size_t max_size_;  // 0 means unlimited
+    alignas(64) const size_t max_size_; // 0 means unlimited
 };
 
 } // namespace katana

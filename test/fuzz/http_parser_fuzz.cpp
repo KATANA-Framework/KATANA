@@ -1,7 +1,7 @@
-#include "katana/core/http.hpp"
 #include "katana/core/arena.hpp"
-#include <cstdint>
+#include "katana/core/http.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <span>
 
 extern "C" int32_t LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {

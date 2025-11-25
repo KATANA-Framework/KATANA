@@ -1,21 +1,21 @@
 #pragma once
 
-#include "result.hpp"
 #include "fd_event.hpp"
 #include "inplace_function.hpp"
 #include "metrics.hpp"
+#include "result.hpp"
 #include "ring_buffer_queue.hpp"
-#include "wheel_timer.hpp"
 #include "timeout.hpp"
+#include "wheel_timer.hpp"
 
-#include <liburing.h>
 #include <atomic>
-#include <unordered_map>
-#include <vector>
-#include <queue>
 #include <chrono>
 #include <exception>
+#include <liburing.h>
+#include <queue>
 #include <string_view>
+#include <unordered_map>
+#include <vector>
 
 namespace katana {
 
@@ -40,10 +40,8 @@ public:
     static constexpr size_t DEFAULT_MAX_PENDING_TASKS = 10000;
     static constexpr size_t DEFAULT_RING_SIZE = 4096;
 
-    explicit io_uring_reactor(
-        size_t ring_size = DEFAULT_RING_SIZE,
-        size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS
-    );
+    explicit io_uring_reactor(size_t ring_size = DEFAULT_RING_SIZE,
+                              size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
     ~io_uring_reactor() noexcept;
 
     io_uring_reactor(const io_uring_reactor&) = delete;
@@ -55,23 +53,14 @@ public:
     void stop();
     void graceful_stop(std::chrono::milliseconds timeout);
 
-    result<void> register_fd(
-        int32_t fd,
-        event_type events,
-        event_callback callback
-    );
+    result<void> register_fd(int32_t fd, event_type events, event_callback callback);
 
-    result<void> register_fd_with_timeout(
-        int32_t fd,
-        event_type events,
-        event_callback callback,
-        const timeout_config& config
-    );
+    result<void> register_fd_with_timeout(int32_t fd,
+                                          event_type events,
+                                          event_callback callback,
+                                          const timeout_config& config);
 
-    result<void> modify_fd(
-        int32_t fd,
-        event_type events
-    );
+    result<void> modify_fd(int32_t fd, event_type events);
 
     result<void> unregister_fd(int32_t fd);
 
@@ -79,10 +68,7 @@ public:
 
     bool schedule(task_fn task);
 
-    bool schedule_after(
-        std::chrono::milliseconds delay,
-        task_fn task
-    );
+    bool schedule_after(std::chrono::milliseconds delay, task_fn task);
 
     void set_exception_handler(exception_handler handler);
 
@@ -119,9 +105,7 @@ private:
         std::chrono::steady_clock::time_point deadline;
         task_fn task;
 
-        bool operator>(const timer_entry& other) const {
-            return deadline > other.deadline;
-        }
+        bool operator>(const timer_entry& other) const { return deadline > other.deadline; }
     };
 
     result<void> submit_poll_add(int32_t fd, event_type events);
@@ -131,12 +115,14 @@ private:
     void process_timers();
     void process_wheel_timer();
     int32_t calculate_timeout() const;
-    void handle_exception(std::string_view location, std::exception_ptr ex, int32_t fd = -1) noexcept;
+    void
+    handle_exception(std::string_view location, std::exception_ptr ex, int32_t fd = -1) noexcept;
     void setup_fd_timeout(int32_t fd, fd_state& state);
     void cancel_fd_timeout(fd_state& state);
     std::chrono::milliseconds fd_timeout_for(const fd_state& state) const;
     result<void> ensure_fd_capacity(int32_t fd);
-    std::chrono::milliseconds time_until_graceful_deadline(std::chrono::steady_clock::time_point now) const;
+    std::chrono::milliseconds
+    time_until_graceful_deadline(std::chrono::steady_clock::time_point now) const;
 
     io_uring ring_;
     int32_t wakeup_fd_;

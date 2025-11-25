@@ -14,8 +14,7 @@ TEST_CASE("circular_buffer basic operations", "[circular_buffer]") {
         REQUIRE(buf.size() == 0);
 
         const char* data = "hello";
-        size_t written = buf.write(std::span(
-            reinterpret_cast<const uint8_t*>(data), 5));
+        size_t written = buf.write(std::span(reinterpret_cast<const uint8_t*>(data), 5));
         REQUIRE(written == 5);
         REQUIRE(buf.size() == 5);
         REQUIRE(!buf.empty());

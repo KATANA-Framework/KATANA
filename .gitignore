@@ -13,3 +13,5 @@ compile_commands.json
 benchmark_results.md
 BENCHMARK_FINAL*.md
 /tmp/*.md
+*.data
+/.docker_build

@@ -1,15 +1,16 @@
 #include <algorithm>
+#include <arpa/inet.h>
 #include <atomic>
 #include <barrier>
-#include <chrono>
-#include <csignal>
 #include <cctype>
-#include <charconv>
 #include <cerrno>
+#include <charconv>
+#include <chrono>
 #include <cmath>
+#include <csignal>
 #include <cstddef>
-#include <ctime>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -25,7 +26,6 @@
 #include <thread>
 #include <unistd.h>
 #include <vector>
-#include <arpa/inet.h>
 
 namespace {
 
@@ -38,7 +38,10 @@ struct benchmark_result {
 
 class benchmark_reporter {
 public:
-    void add(const std::string& category, const std::string& name, double value, const std::string& unit) {
+    void add(const std::string& category,
+             const std::string& name,
+             double value,
+             const std::string& unit) {
         results_.push_back({name, category, value, unit});
     }
 
@@ -49,9 +52,8 @@ public:
                 std::cout << "\n=== " << r.category << " ===\n";
                 current_category = r.category;
             }
-            std::cout << "  " << std::left << std::setw(44) << r.name
-                      << std::right << std::setw(12) << std::fixed << std::setprecision(3) << r.value
-                      << " " << r.unit << "\n";
+            std::cout << "  " << std::left << std::setw(44) << r.name << std::right << std::setw(12)
+                      << std::fixed << std::setprecision(3) << r.value << " " << r.unit << "\n";
         }
     }
 
@@ -59,7 +61,8 @@ public:
         std::ofstream out(filename);
         out << "# KATANA Framework - Benchmark Results\n\n";
         out << "Generated: " << timestamp() << "\n\n";
-        out << "**Note**: Measurements use time-boxed phases with warm-ups, steady-state sampling, and full response validation.\n\n";
+        out << "**Note**: Measurements use time-boxed phases with warm-ups, steady-state sampling, "
+               "and full response validation.\n\n";
 
         std::string current_category;
         for (const auto& r : results_) {
@@ -69,8 +72,8 @@ public:
                 out << "|-----------|-------|------|\n";
                 current_category = r.category;
             }
-            out << "| " << r.name << " | " << std::fixed << std::setprecision(3)
-                << r.value << " | " << r.unit << " |\n";
+            out << "| " << r.name << " | " << std::fixed << std::setprecision(3) << r.value << " | "
+                << r.unit << " |\n";
         }
     }
 
@@ -92,13 +95,9 @@ struct latency_stats {
         sum_ns += ns;
     }
 
-    void sort() {
-        std::sort(samples.begin(), samples.end());
-    }
+    void sort() { std::sort(samples.begin(), samples.end()); }
 
-    [[nodiscard]] size_t count() const {
-        return samples.size();
-    }
+    [[nodiscard]] size_t count() const { return samples.size(); }
 
     [[nodiscard]] double percentile(double p) const {
         if (samples.empty()) {
@@ -196,16 +195,11 @@ std::optional<size_t> parse_content_length(std::string_view header) {
 
 class http_client {
 public:
-    http_client(std::string host, uint16_t port)
-        : host_(std::move(host))
-        , port_(port)
-    {
+    http_client(std::string host, uint16_t port) : host_(std::move(host)), port_(port) {
         read_buffer_.resize(8192);
     }
 
-    ~http_client() {
-        close();
-    }
+    ~http_client() { close(); }
 
     bool perform_request(std::string_view request, latency_stats* stats = nullptr) {
         if (!ensure_connection()) {
@@ -235,9 +229,7 @@ public:
         return perform_request(default_request(), stats);
     }
 
-    void close() {
-        reset();
-    }
+    void close() { reset(); }
 
 private:
     bool ensure_connection() {
@@ -313,7 +305,8 @@ private:
                 read_buffer_.resize(std::min(read_buffer_.size() * 2, max_bytes));
             }
 
-            ssize_t received = ::recv(sockfd_, read_buffer_.data() + total, read_buffer_.size() - total, 0);
+            ssize_t received =
+                ::recv(sockfd_, read_buffer_.data() + total, read_buffer_.size() - total, 0);
             if (received < 0) {
                 if (errno == EINTR) {
                     continue;
@@ -418,7 +411,8 @@ void test_latency(benchmark_reporter& reporter, const std::string& host, uint16_
     }
     combined.sort();
 
-    reporter.add("Core Performance", "Latency samples", static_cast<double>(combined.count()), "samples");
+    reporter.add(
+        "Core Performance", "Latency samples", static_cast<double>(combined.count()), "samples");
     reporter.add("Core Performance", "Latency avg", combined.avg(), "ms");
     reporter.add("Core Performance", "Latency p50", combined.percentile(50.0), "ms");
     reporter.add("Core Performance", "Latency p90", combined.percentile(90.0), "ms");
@@ -446,11 +440,15 @@ void test_keepalive(benchmark_reporter& reporter, const std::string& host, uint1
     double rps = static_cast<double>(success) / duration_s;
 
     reporter.add("Core Performance", "Keep-alive throughput", rps, "req/s");
-    reporter.add("Core Performance", "Keep-alive success", static_cast<double>(success), "requests");
+    reporter.add(
+        "Core Performance", "Keep-alive success", static_cast<double>(success), "requests");
 }
 
-void test_throughput(benchmark_reporter& reporter, const std::string& host, uint16_t port,
-                     size_t num_threads, std::chrono::milliseconds duration) {
+void test_throughput(benchmark_reporter& reporter,
+                     const std::string& host,
+                     uint16_t port,
+                     size_t num_threads,
+                     std::chrono::milliseconds duration) {
     const auto warmup = std::chrono::milliseconds(300);
 
     std::atomic<size_t> total_requests{0};
@@ -497,17 +495,22 @@ void test_throughput(benchmark_reporter& reporter, const std::string& host, uint
     double duration_s = std::chrono::duration<double>(duration).count();
     double rps = static_cast<double>(total_requests.load(std::memory_order_relaxed)) / duration_s;
 
-    reporter.add("Scalability", "Throughput with " + std::to_string(num_threads) + " threads", rps, "req/s");
+    reporter.add(
+        "Scalability", "Throughput with " + std::to_string(num_threads) + " threads", rps, "req/s");
 }
 
 void test_fd_limits(benchmark_reporter& reporter) {
     rlimit limit{};
     getrlimit(RLIMIT_NOFILE, &limit);
-    reporter.add("System Configuration", "FD soft limit", static_cast<double>(limit.rlim_cur), "fds");
-    reporter.add("System Configuration", "FD hard limit", static_cast<double>(limit.rlim_max), "fds");
+    reporter.add(
+        "System Configuration", "FD soft limit", static_cast<double>(limit.rlim_cur), "fds");
+    reporter.add(
+        "System Configuration", "FD hard limit", static_cast<double>(limit.rlim_max), "fds");
 }
 
-void test_concurrent_connections(benchmark_reporter& reporter, const std::string& host, uint16_t port) {
+void test_concurrent_connections(benchmark_reporter& reporter,
+                                 const std::string& host,
+                                 uint16_t port) {
     const std::vector<size_t> connection_counts{32, 64, 128};
     const auto warmup = std::chrono::milliseconds(300);
     const auto duration = std::chrono::milliseconds(2500);
@@ -555,18 +558,25 @@ void test_concurrent_connections(benchmark_reporter& reporter, const std::string
         }
 
         double duration_s = std::chrono::duration<double>(duration).count();
-        double rps = static_cast<double>(total_requests.load(std::memory_order_relaxed)) / duration_s;
+        double rps =
+            static_cast<double>(total_requests.load(std::memory_order_relaxed)) / duration_s;
 
-        reporter.add("Scalability", std::to_string(connections) + " concurrent connections", rps, "req/s");
+        reporter.add(
+            "Scalability", std::to_string(connections) + " concurrent connections", rps, "req/s");
     }
 }
 
 void test_parsing_overhead(benchmark_reporter& reporter, const std::string& host, uint16_t port) {
     const std::vector<std::pair<std::string, std::string>> test_cases{
         {"Minimal request", "GET / HTTP/1.1\r\nHost: a\r\n\r\n"},
-        {"Medium request", "GET /api/users HTTP/1.1\r\nHost: localhost\r\nUser-Agent: bench/1.0\r\nAccept: */*\r\n\r\n"},
-        {"Large headers", "GET /api/data HTTP/1.1\r\nHost: localhost\r\nUser-Agent: benchmark\r\nAccept: application/json\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.9\r\nCache-Control: no-cache\r\nPragma: no-cache\r\nX-Custom-1: value1\r\nX-Custom-2: value2\r\nX-Custom-3: value3\r\n\r\n"}
-    };
+        {"Medium request",
+         "GET /api/users HTTP/1.1\r\nHost: localhost\r\nUser-Agent: bench/1.0\r\nAccept: "
+         "*/*\r\n\r\n"},
+        {"Large headers",
+         "GET /api/data HTTP/1.1\r\nHost: localhost\r\nUser-Agent: benchmark\r\nAccept: "
+         "application/json\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: "
+         "en-US,en;q=0.9\r\nCache-Control: no-cache\r\nPragma: no-cache\r\nX-Custom-1: "
+         "value1\r\nX-Custom-2: value2\r\nX-Custom-3: value3\r\n\r\n"}};
 
     const size_t target_samples = 1500;
 
@@ -590,7 +600,8 @@ void test_parsing_overhead(benchmark_reporter& reporter, const std::string& host
         }
 
         stats.sort();
-        reporter.add("HTTP Parsing", label + " samples", static_cast<double>(stats.count()), "samples");
+        reporter.add(
+            "HTTP Parsing", label + " samples", static_cast<double>(stats.count()), "samples");
         reporter.add("HTTP Parsing", label + " p50", stats.percentile(50.0), "ms");
         reporter.add("HTTP Parsing", label + " p99", stats.percentile(99.0), "ms");
     }
@@ -631,7 +642,10 @@ void test_stress(benchmark_reporter& reporter, const std::string& host, uint16_t
     double rps = static_cast<double>(total_requests.load(std::memory_order_relaxed)) / elapsed;
 
     reporter.add("Stability", "Sustained throughput", rps, "req/s");
-    reporter.add("Stability", "Total requests", static_cast<double>(total_requests.load(std::memory_order_relaxed)), "requests");
+    reporter.add("Stability",
+                 "Total requests",
+                 static_cast<double>(total_requests.load(std::memory_order_relaxed)),
+                 "requests");
 }
 
 } // namespace
@@ -657,7 +671,8 @@ int32_t main(int32_t argc, char* argv[]) {
 
     http_client probe(host, port);
     if (!probe.perform_request()) {
-        std::cerr << "ERROR: Unable to complete probe request. Ensure hello_world_server is running.\n";
+        std::cerr
+            << "ERROR: Unable to complete probe request. Ensure hello_world_server is running.\n";
         return 1;
     }
 
@@ -696,4 +711,3 @@ int32_t main(int32_t argc, char* argv[]) {
     std::cout << "\n✅ Benchmark complete! Results saved to " << output_file << "\n";
     return 0;
 }
-

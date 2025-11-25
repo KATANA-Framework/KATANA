@@ -1,0 +1,814 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 86  of event 'cycles:P'
+# Event count (approx.): 4109530560
+#
+# Children      Self  Command          Shared Object          Symbol
+# ........  ........  ...............  .....................  ...............................................................................................................................................................................................................................................................................................................
+#
+    73.71%     0.00%  performance_ben  libc.so.6              [.] 0x000070328386ec6b
+            |
+            ---0x70328386ec6b
+               0x7032837e1aa3
+               0x703283a71db3
+               |
+               |--42.98%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+               |          |
+               |           --42.97%--operator() (inlined)
+               |                     _M_invoke<0> (inlined)
+               |                     __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |                     __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |                     |
+               |                     |--42.05%--operator() (inlined)
+               |                     |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          |
+               |                     |           --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                     |                     katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                     |                     |
+               |                     |                      --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     |                                std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                     |
+               |                      --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+               |
+                --30.73%--_M_run (inlined)
+                          operator() (inlined)
+                          _M_invoke<0> (inlined)
+                          __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          operator() (inlined)
+                          katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+                          |
+                          |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |
+                          |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |
+                           --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                                     katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                                     katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                                     _mm_pause() (inlined)
+
+    73.71%     0.00%  performance_ben  libc.so.6              [.] 0x00007032837e1aa3
+            |
+            ---0x7032837e1aa3
+               0x703283a71db3
+               |
+               |--42.98%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+               |          |
+               |           --42.97%--operator() (inlined)
+               |                     _M_invoke<0> (inlined)
+               |                     __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |                     __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |                     |
+               |                     |--42.05%--operator() (inlined)
+               |                     |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          |
+               |                     |           --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                     |                     katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                     |                     |
+               |                     |                      --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     |                                std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                     |
+               |                      --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+               |
+                --30.73%--_M_run (inlined)
+                          operator() (inlined)
+                          _M_invoke<0> (inlined)
+                          __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          operator() (inlined)
+                          katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+                          |
+                          |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |
+                          |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |
+                           --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                                     katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                                     katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                                     _mm_pause() (inlined)
+
+    73.71%     0.00%  performance_ben  libstdc++.so.6.0.33    [.] 0x0000703283a71db3
+            |
+            ---0x703283a71db3
+               |
+               |--42.98%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+               |          |
+               |           --42.97%--operator() (inlined)
+               |                     _M_invoke<0> (inlined)
+               |                     __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |                     __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |                     |
+               |                     |--42.05%--operator() (inlined)
+               |                     |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          |
+               |                     |           --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                     |                     katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                     |                     |
+               |                     |                      --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     |                                std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                     |
+               |                      --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+               |
+                --30.73%--_M_run (inlined)
+                          operator() (inlined)
+                          _M_invoke<0> (inlined)
+                          __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          operator() (inlined)
+                          katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+                          |
+                          |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |
+                          |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |
+                           --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                                     katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                                     katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                                     _mm_pause() (inlined)
+
+    42.98%    42.96%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+            |
+             --42.96%--0x70328386ec6b
+                       0x7032837e1aa3
+                       0x703283a71db3
+                       std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+                       operator() (inlined)
+                       _M_invoke<0> (inlined)
+                       __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                       |
+                       |--42.05%--operator() (inlined)
+                       |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+                       |          katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+                       |          katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+                       |          |
+                       |           --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                       |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                       |
+                        --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    42.97%     0.00%  performance_ben  performance_benchmark  [.] operator() (inlined)
+            |
+            ---operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--42.05%--operator() (inlined)
+               |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |          |
+               |           --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                     katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                     |
+               |                      --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    42.97%     0.00%  performance_ben  performance_benchmark  [.] _M_invoke<0> (inlined)
+            |
+            ---_M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--42.05%--operator() (inlined)
+               |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |          |
+               |           --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                     katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                     |
+               |                      --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    42.97%     0.00%  performance_ben  performance_benchmark  [.] __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--42.05%--operator() (inlined)
+               |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |          |
+               |           --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                     katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                     |
+               |                      --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    42.97%     0.00%  performance_ben  performance_benchmark  [.] __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |
+               |--42.05%--operator() (inlined)
+               |          katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |          |
+               |           --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                     katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                     |
+               |                      --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.91%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    42.05%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |
+                --42.05%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+                          katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+                          |
+                           --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    42.05%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |
+                --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    42.05%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |
+                --32.58%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    32.58%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    32.58%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    30.73%    30.73%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#2}> > >::_M_run()
+            |
+            ---0x70328386ec6b
+               0x7032837e1aa3
+               0x703283a71db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |
+               |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |
+               |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                          _mm_pause() (inlined)
+
+    30.73%     0.00%  performance_ben  performance_benchmark  [.] _M_run (inlined)
+            |
+            ---_M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |
+               |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |
+               |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                          _mm_pause() (inlined)
+
+    30.73%     0.00%  performance_ben  performance_benchmark  [.] operator() (inlined)
+            |
+            ---operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |
+               |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |
+               |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                          _mm_pause() (inlined)
+
+    30.73%     0.00%  performance_ben  performance_benchmark  [.] _M_invoke<0> (inlined)
+            |
+            ---_M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |
+               |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |
+               |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                          _mm_pause() (inlined)
+
+    30.73%     0.00%  performance_ben  performance_benchmark  [.] __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |
+               |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |
+               |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                          _mm_pause() (inlined)
+
+    30.73%     0.00%  performance_ben  performance_benchmark  [.] __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |
+               |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |
+               |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                          _mm_pause() (inlined)
+
+    30.73%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |
+               |--21.76%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |
+               |           --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                     std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |
+                --0.71%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+                          _mm_pause() (inlined)
+
+    22.68%     0.00%  performance_ben  [unknown]              [k] 0xffffffffffffffff
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               |
+               |--12.84%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |
+               |          |--6.75%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          |          |
+               |          |          |--3.66%--katana::http::parser::parse_headers_state()
+               |          |          |          katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |
+               |          |          |          |--2.44%--katana::http::(anonymous namespace)::is_token_char(unsigned char)
+               |          |          |          |
+               |          |          |           --1.22%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |
+               |          |           --3.10%--katana::http::parser::parse_request_line_state()
+               |          |                     |
+               |          |                      --1.78%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |
+               |          |--1.25%--std::span<unsigned char const, 18446744073709551615ul>::size() const
+               |          |          std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+               |          |
+               |           --1.20%--std::span<unsigned char const, 18446744073709551615ul>::operator[](unsigned long) const
+               |
+                --9.84%--katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+                          |
+                          |--8.32%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+                          |
+                           --1.52%--0x7032838ce50a
+
+    22.68%     0.00%  performance_ben  performance_benchmark  [.] benchmark_http_parser()
+            |
+            ---benchmark_http_parser()
+               |
+               |--12.84%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |
+               |          |--6.75%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          |          |
+               |          |          |--3.66%--katana::http::parser::parse_headers_state()
+               |          |          |          katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |
+               |          |          |          |--2.44%--katana::http::(anonymous namespace)::is_token_char(unsigned char)
+               |          |          |          |
+               |          |          |           --1.22%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |
+               |          |           --3.10%--katana::http::parser::parse_request_line_state()
+               |          |                     |
+               |          |                      --1.78%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                                katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |
+               |          |--1.25%--std::span<unsigned char const, 18446744073709551615ul>::size() const
+               |          |          std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+               |          |
+               |           --1.20%--std::span<unsigned char const, 18446744073709551615ul>::operator[](unsigned long) const
+               |
+                --9.84%--katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+                          |
+                          |--8.32%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+                          |
+                           --1.52%--0x7032838ce50a
+
+    21.76%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |
+                --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    21.76%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |
+                --5.12%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    12.84%     3.63%  performance_ben  performance_benchmark  [.] katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+            |
+            |--9.21%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+            |          |
+            |          |--6.75%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+            |          |          |
+            |          |          |--3.66%--katana::http::parser::parse_headers_state()
+            |          |          |          katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |
+            |          |          |          |--2.44%--katana::http::(anonymous namespace)::is_token_char(unsigned char)
+            |          |          |          |
+            |          |          |           --1.22%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |
+            |          |           --3.10%--katana::http::parser::parse_request_line_state()
+            |          |                     |
+            |          |                      --1.78%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |                                katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |                                katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |
+            |          |--1.25%--std::span<unsigned char const, 18446744073709551615ul>::size() const
+            |          |          std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+            |          |
+            |           --1.20%--std::span<unsigned char const, 18446744073709551615ul>::operator[](unsigned long) const
+            |
+             --3.63%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+
+    10.10%    10.10%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               |
+               |--8.32%--katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+               |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |
+                --1.78%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                          katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                          katana::http::parser::parse_request_line_state()
+                          katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                          katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     9.84%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+            |
+            ---katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+               |
+               |--8.32%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |
+                --1.52%--0x7032838ce50a
+
+     6.75%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+            |
+            ---katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |
+               |--3.66%--katana::http::parser::parse_headers_state()
+               |          katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |
+               |          |--2.44%--katana::http::(anonymous namespace)::is_token_char(unsigned char)
+               |          |
+               |           --1.22%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |
+                --3.10%--katana::http::parser::parse_request_line_state()
+                          |
+                           --1.78%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                                     katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                                     katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     5.12%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+     5.12%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+     3.66%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::parse_headers_state()
+            |
+            ---katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |
+               |--2.44%--katana::http::(anonymous namespace)::is_token_char(unsigned char)
+               |
+                --1.22%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+
+     3.66%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |
+               |--2.44%--katana::http::(anonymous namespace)::is_token_char(unsigned char)
+               |
+                --1.22%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+
+     3.39%     0.00%  performance_ben  [kernel.kallsyms]      [k] asm_exc_page_fault
+            |
+            ---asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               |
+                --3.37%--lock_vma_under_rcu
+                          mas_walk
+                          mtree_range_walk
+
+     3.39%     0.00%  performance_ben  [kernel.kallsyms]      [k] exc_page_fault
+            |
+            ---exc_page_fault
+               do_user_addr_fault
+               |
+                --3.37%--lock_vma_under_rcu
+                          mas_walk
+                          mtree_range_walk
+
+     3.39%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_user_addr_fault
+            |
+            ---do_user_addr_fault
+               |
+                --3.37%--lock_vma_under_rcu
+                          mas_walk
+                          mtree_range_walk
+
+     3.37%     3.37%  performance_ben  [kernel.kallsyms]      [k] mtree_range_walk
+            |
+            ---0x703283c28547
+               0x703283c2975d
+               0x703283c27f45
+               0x703283c2a0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               lock_vma_under_rcu
+               mas_walk
+               mtree_range_walk
+
+     3.37%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x0000703283c28547
+            |
+            ---0x703283c28547
+               0x703283c2975d
+               0x703283c27f45
+               0x703283c2a0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               lock_vma_under_rcu
+               mas_walk
+               mtree_range_walk
+
+     3.37%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x0000703283c2975d
+            |
+            ---0x703283c2975d
+               0x703283c27f45
+               0x703283c2a0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               lock_vma_under_rcu
+               mas_walk
+               mtree_range_walk
+
+     3.37%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x0000703283c27f45
+            |
+            ---0x703283c27f45
+               0x703283c2a0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               lock_vma_under_rcu
+               mas_walk
+               mtree_range_walk
+
+     3.37%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x0000703283c2a0f8
+            |
+            ---0x703283c2a0f8
+               asm_exc_page_fault
+               exc_page_fault
+               do_user_addr_fault
+               lock_vma_under_rcu
+               mas_walk
+               mtree_range_walk
+
+     3.37%     0.00%  performance_ben  [kernel.kallsyms]      [k] lock_vma_under_rcu
+            |
+            ---lock_vma_under_rcu
+               mas_walk
+               mtree_range_walk
+
+     3.37%     0.00%  performance_ben  [kernel.kallsyms]      [k] mas_walk
+            |
+            ---mas_walk
+               mtree_range_walk
+
+     3.10%     1.32%  performance_ben  performance_benchmark  [.] katana::http::parser::parse_request_line_state()
+            |
+            |--1.78%--katana::http::parser::parse_request_line_state()
+            |          katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |
+             --1.32%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_request_line_state()
+
+     2.44%     2.44%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::is_token_char(unsigned char)
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::(anonymous namespace)::is_token_char(unsigned char)
+
+     1.78%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.78%     0.00%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.52%     1.52%  performance_ben  libc.so.6              [.] 0x000000000018950a
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+               0x7032838ce50a
+
+     1.52%     0.00%  performance_ben  libc.so.6              [.] 0x00007032838ce50a
+            |
+            ---0x7032838ce50a
+
+     1.25%     1.25%  performance_ben  performance_benchmark  [.] std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               std::span<unsigned char const, 18446744073709551615ul>::size() const
+               std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+
+     1.25%     0.00%  performance_ben  performance_benchmark  [.] std::span<unsigned char const, 18446744073709551615ul>::size() const
+            |
+            ---std::span<unsigned char const, 18446744073709551615ul>::size() const
+               std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+
+     1.22%     1.22%  performance_ben  performance_benchmark  [.] katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+
+     1.20%     1.18%  performance_ben  performance_benchmark  [.] std::span<unsigned char const, 18446744073709551615ul>::operator[](unsigned long) const
+            |
+             --1.18%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       std::span<unsigned char const, 18446744073709551615ul>::operator[](unsigned long) const
+
+     0.71%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+               _mm_pause() (inlined)
+
+     0.71%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+               _mm_pause() (inlined)
+
+     0.71%     0.00%  performance_ben  performance_benchmark  [.] _mm_pause() (inlined)
+            |
+            ---_mm_pause() (inlined)
+
+     0.21%     0.00%  performance_ben  [kernel.kallsyms]      [k] ret_from_fork_asm
+     0.21%     0.00%  performance_ben  [kernel.kallsyms]      [k] ret_from_fork
+     0.18%     0.00%  performance_ben  [kernel.kallsyms]      [k] schedule_tail
+     0.16%     0.08%  performance_ben  [kernel.kallsyms]      [k] calculate_sigpending
+     0.08%     0.05%  performance_ben  [kernel.kallsyms]      [k] _raw_spin_lock_irq
+     0.04%     0.04%  performance_ben  [kernel.kallsyms]      [k] asm_sysvec_hyperv_callback
+     0.04%     0.04%  performance_ben  [kernel.kallsyms]      [k] in_lock_functions
+     0.03%     0.03%  performance_ben  [kernel.kallsyms]      [k] check_preemption_disabled
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] asm_sysvec_hyperv_stimer0
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] sysvec_hyperv_stimer0
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] irqentry_exit
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] irqentry_exit_to_user_mode
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] exit_to_user_mode_prepare
+     0.03%     0.00%  performance_ben  [kernel.kallsyms]      [k] debug_smp_processor_id
+     0.02%     0.02%  perf-exec        [kernel.kallsyms]      [k] perf_iterate_ctx
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] entry_SYSCALL_64_after_hwframe
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] do_syscall_64
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] x64_sys_call
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] __x64_sys_execve
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] do_execveat_common.isra.0
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] bprm_execve
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] load_elf_binary
+     0.02%     0.00%  perf-exec        [kernel.kallsyms]      [k] begin_new_exec
+     0.02%     0.02%  performance_ben  [kernel.kallsyms]      [k] finish_task_switch.isra.0
+     0.01%     0.01%  performance_ben  [kernel.kallsyms]      [k] _raw_spin_lock_irqsave
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] handle_mm_fault
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] __handle_mm_fault
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_fault
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] __do_fault
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] filemap_fault
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] page_cache_async_ra
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] ondemand_readahead
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] page_cache_ra_order
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] page_cache_ra_unbounded
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] read_pages
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] netfs_readahead
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] netfs_begin_read
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] v9fs_issue_read
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] p9_client_read
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] p9_client_read_once
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] p9_client_rpc
+     0.01%     0.01%  performance_ben  [kernel.kallsyms]      [k] schedule
+     0.01%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const (inlined)
+     0.01%     0.00%  performance_ben  performance_benchmark  [.] void std::__atomic_wait_address_v<unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}>(unsigned long const*, unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1})
+     0.01%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait_v<unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}>(unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}) (inlined)
+     0.01%     0.00%  performance_ben  performance_benchmark  [.] std::__detail::__waiter_pool::_M_do_wait(int const*, int) (inlined)
+     0.01%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__platform_wait<int>(int const*, int) (inlined)
+     0.01%     0.00%  performance_ben  libc.so.6              [.] syscall
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] entry_SYSCALL_64_after_hwframe
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_syscall_64
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] x64_sys_call
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] __x64_sys_futex
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_futex
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] futex_wait
+     0.01%     0.00%  performance_ben  [kernel.kallsyms]      [k] futex_wait_queue
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

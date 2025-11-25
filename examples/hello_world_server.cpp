@@ -1,19 +1,19 @@
-#include "katana/core/reactor_pool.hpp"
+#include "katana/core/arena.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/http_headers.hpp"
-#include "katana/core/system_limits.hpp"
-#include "katana/core/shutdown.hpp"
-#include "katana/core/arena.hpp"
 #include "katana/core/io_buffer.hpp"
+#include "katana/core/reactor_pool.hpp"
+#include "katana/core/shutdown.hpp"
+#include "katana/core/system_limits.hpp"
 
+#include <chrono>
+#include <cstring>
+#include <fcntl.h>
 #include <iostream>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/socket.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <cstring>
-#include <chrono>
 
 using namespace katana;
 using katana::http::ci_equal;
@@ -91,12 +91,7 @@ struct connection {
     bool should_close_after_write = false;
     epoll_reactor* reactor = nullptr;
 
-    connection()
-        : arena(ARENA_BLOCK_SIZE)
-        , parser(&arena)
-    {
-        read_buffer.resize(BUFFER_SIZE);
-    }
+    connection() : arena(ARENA_BLOCK_SIZE), parser(&arena) { read_buffer.resize(BUFFER_SIZE); }
 
     void safe_close() {
         int32_t expected_fd = fd.exchange(-1, std::memory_order_acq_rel);
@@ -119,10 +114,9 @@ void handle_client(connection& conn) {
     if (conn.writing_response) {
         while (conn.write_pos < conn.write_buffer.size()) {
             scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
-            ));
+            sg_write.add_buffer(
+                std::span<const uint8_t>(conn.write_buffer.data() + conn.write_pos,
+                                         conn.write_buffer.size() - conn.write_pos));
 
             auto write_result = write_vectored(fd_val, sg_write);
             if (!write_result) {
@@ -158,7 +152,8 @@ void handle_client(connection& conn) {
 
         auto read_result = read_vectored(fd_val, sg_read);
         if (!read_result) {
-            if (read_result.error().value() != EAGAIN && read_result.error().value() != EWOULDBLOCK) {
+            if (read_result.error().value() != EAGAIN &&
+                read_result.error().value() != EWOULDBLOCK) {
                 conn.safe_close();
             }
             return;
@@ -178,9 +173,7 @@ void handle_client(connection& conn) {
 
             scatter_gather_write sg_write;
             sg_write.add_buffer(std::span<const uint8_t>(
-                reinterpret_cast<const uint8_t*>(serialized.data()),
-                serialized.size()
-            ));
+                reinterpret_cast<const uint8_t*>(serialized.data()), serialized.size()));
 
             write_vectored(fd_val, sg_write);
             conn.safe_close();
@@ -209,38 +202,33 @@ void handle_client(connection& conn) {
             should_close = true;
         }
 
-        static const char* response_keepalive =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 13\r\n"
-            "Connection: keep-alive\r\n"
-            "Keep-Alive: timeout=60, max=1000\r\n"
-            "\r\n"
-            "Hello, World!";
+        static const char* response_keepalive = "HTTP/1.1 200 OK\r\n"
+                                                "Content-Type: text/plain\r\n"
+                                                "Content-Length: 13\r\n"
+                                                "Connection: keep-alive\r\n"
+                                                "Keep-Alive: timeout=60, max=1000\r\n"
+                                                "\r\n"
+                                                "Hello, World!";
 
-        static const char* response_close =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 13\r\n"
-            "Connection: close\r\n"
-            "\r\n"
-            "Hello, World!";
+        static const char* response_close = "HTTP/1.1 200 OK\r\n"
+                                            "Content-Type: text/plain\r\n"
+                                            "Content-Length: 13\r\n"
+                                            "Connection: close\r\n"
+                                            "\r\n"
+                                            "Hello, World!";
 
         const char* response = should_close ? response_close : response_keepalive;
         size_t response_len = should_close ? 103 : 136;
 
-        conn.write_buffer.assign(
-            reinterpret_cast<const uint8_t*>(response),
-            reinterpret_cast<const uint8_t*>(response) + response_len
-        );
+        conn.write_buffer.assign(reinterpret_cast<const uint8_t*>(response),
+                                 reinterpret_cast<const uint8_t*>(response) + response_len);
         conn.write_pos = 0;
 
         while (conn.write_pos < conn.write_buffer.size()) {
             scatter_gather_write sg_write;
-            sg_write.add_buffer(std::span<const uint8_t>(
-                conn.write_buffer.data() + conn.write_pos,
-                conn.write_buffer.size() - conn.write_pos
-            ));
+            sg_write.add_buffer(
+                std::span<const uint8_t>(conn.write_buffer.data() + conn.write_pos,
+                                         conn.write_buffer.size() - conn.write_pos));
 
             auto write_result = write_vectored(fd_val, sg_write);
             if (!write_result) {
@@ -291,9 +279,9 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
         socklen_t addr_len = sizeof(client_addr);
 
         int32_t client_fd = accept4(listener_fd,
-                               static_cast<sockaddr*>(static_cast<void*>(&client_addr)),
-                               &addr_len,
-                               SOCK_NONBLOCK | SOCK_CLOEXEC);
+                                    static_cast<sockaddr*>(static_cast<void*>(&client_addr)),
+                                    &addr_len,
+                                    SOCK_NONBLOCK | SOCK_CLOEXEC);
 
         if (client_fd < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -316,11 +304,9 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
         auto& r = pool.get_reactor(reactor_idx);
         conn->reactor = &r;
 
-        timeout_config timeouts{
-            std::chrono::milliseconds(30000),
-            std::chrono::milliseconds(30000),
-            std::chrono::milliseconds(60000)
-        };
+        timeout_config timeouts{std::chrono::milliseconds(30000),
+                                std::chrono::milliseconds(30000),
+                                std::chrono::milliseconds(60000)};
 
         r.schedule([conn, &r, client_fd, timeouts]() {
             auto result = r.register_fd_with_timeout(
@@ -335,8 +321,7 @@ void accept_connections(reactor_pool& pool, int32_t listener_fd) {
                         }
                     }
                 },
-                timeouts
-            );
+                timeouts);
 
             if (!result) {
                 close(client_fd);
@@ -365,15 +350,13 @@ int32_t main() {
     size_t main_reactor_idx = pool.select_reactor();
     auto& main_reactor = pool.get_reactor(main_reactor_idx);
 
-    auto result = main_reactor.register_fd(
-        listener_fd,
-        event_type::readable | event_type::edge_triggered,
-        [&pool, listener_fd](event_type events) {
-            if (has_flag(events, event_type::readable)) {
-                accept_connections(pool, listener_fd);
-            }
-        }
-    );
+    auto result = main_reactor.register_fd(listener_fd,
+                                           event_type::readable | event_type::edge_triggered,
+                                           [&pool, listener_fd](event_type events) {
+                                               if (has_flag(events, event_type::readable)) {
+                                                   accept_connections(pool, listener_fd);
+                                               }
+                                           });
 
     if (!result) {
         std::cerr << "Failed to register listener: " << result.error().message() << "\n";
@@ -384,9 +367,8 @@ int32_t main() {
     pool.start();
 
     shutdown_manager::instance().setup_signal_handlers();
-    shutdown_manager::instance().set_shutdown_callback([&pool]() {
-        pool.graceful_stop(std::chrono::milliseconds(30000));
-    });
+    shutdown_manager::instance().set_shutdown_callback(
+        [&pool]() { pool.graceful_stop(std::chrono::milliseconds(30000)); });
 
     std::cout << "Server running. Press Ctrl+C to stop.\n";
 

@@ -17,15 +17,11 @@ enum class event_type : uint8_t {
 };
 
 constexpr event_type operator|(event_type lhs, event_type rhs) noexcept {
-    return static_cast<event_type>(
-        static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs)
-    );
+    return static_cast<event_type>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
 }
 
 constexpr event_type operator&(event_type lhs, event_type rhs) noexcept {
-    return static_cast<event_type>(
-        static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs)
-    );
+    return static_cast<event_type>(static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs));
 }
 
 constexpr bool has_flag(event_type value, event_type flag) noexcept {

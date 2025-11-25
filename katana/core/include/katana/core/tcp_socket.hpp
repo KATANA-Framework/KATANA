@@ -2,8 +2,8 @@
 
 #include "result.hpp"
 
-#include <span>
 #include <cstdint>
+#include <span>
 #include <utility>
 
 namespace katana {
@@ -14,12 +14,9 @@ public:
 
     explicit tcp_socket(int32_t fd) noexcept : fd_(fd) {}
 
-    ~tcp_socket() {
-        close();
-    }
+    ~tcp_socket() { close(); }
 
-    tcp_socket(tcp_socket&& other) noexcept
-        : fd_(std::exchange(other.fd_, -1)) {}
+    tcp_socket(tcp_socket&& other) noexcept : fd_(std::exchange(other.fd_, -1)) {}
 
     tcp_socket& operator=(tcp_socket&& other) noexcept {
         if (this != &other) {
@@ -40,9 +37,7 @@ public:
     [[nodiscard]] int32_t native_handle() const noexcept { return fd_; }
     [[nodiscard]] explicit operator bool() const noexcept { return fd_ >= 0; }
 
-    [[nodiscard]] int32_t release() noexcept {
-        return std::exchange(fd_, -1);
-    }
+    [[nodiscard]] int32_t release() noexcept { return std::exchange(fd_, -1); }
 
 private:
     int32_t fd_{-1};

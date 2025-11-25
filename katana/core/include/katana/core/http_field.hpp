@@ -1,8 +1,8 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string_view>
-#include <array>
 
 namespace katana::http {
 
@@ -387,9 +387,10 @@ constexpr uint32_t fnv1a_hash(std::string_view str) noexcept {
     return hash;
 }
 
-const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)>& get_field_name_table() noexcept;
+const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)>&
+get_field_name_table() noexcept;
 const std::array<field_entry, 25>& get_popular_headers() noexcept;
 const std::array<field_entry, 342>& get_rare_headers() noexcept;
-}
+} // namespace detail
 
 } // namespace katana::http

@@ -1,14 +1,14 @@
 #pragma once
 
+#include "metrics.hpp"
 #include "reactor.hpp"
 #include "reactor_impl.hpp"
-#include "metrics.hpp"
 
-#include <vector>
-#include <thread>
-#include <memory>
 #include <atomic>
 #include <functional>
+#include <memory>
+#include <thread>
+#include <vector>
 
 namespace katana {
 
@@ -45,13 +45,33 @@ public:
         reference operator*() const { return *(*it_)->reactor; }
         pointer operator->() const { return (*it_)->reactor.get(); }
 
-        iterator& operator++() { ++it_; return *this; }
-        iterator operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
-        iterator& operator--() { --it_; return *this; }
-        iterator operator--(int) { iterator tmp = *this; --(*this); return tmp; }
+        iterator& operator++() {
+            ++it_;
+            return *this;
+        }
+        iterator operator++(int) {
+            iterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+        iterator& operator--() {
+            --it_;
+            return *this;
+        }
+        iterator operator--(int) {
+            iterator tmp = *this;
+            --(*this);
+            return tmp;
+        }
 
-        iterator& operator+=(difference_type n) { it_ += n; return *this; }
-        iterator& operator-=(difference_type n) { it_ -= n; return *this; }
+        iterator& operator+=(difference_type n) {
+            it_ += n;
+            return *this;
+        }
+        iterator& operator-=(difference_type n) {
+            it_ -= n;
+            return *this;
+        }
 
         iterator operator+(difference_type n) const { return iterator(it_ + n); }
         iterator operator-(difference_type n) const { return iterator(it_ - n); }
@@ -106,7 +126,7 @@ public:
 
     [[nodiscard]] metrics_snapshot aggregate_metrics() const;
 
-    template<typename AcceptHandler>
+    template <typename AcceptHandler>
     result<void> start_listening(uint16_t port, AcceptHandler&& handler) {
         for (auto& ctx : reactors_) {
             auto listener_fd = create_listener_socket_reuseport(port);
@@ -117,15 +137,13 @@ public:
             ctx->listener_fd = listener_fd;
 
             auto& r = *ctx->reactor;
-            auto res = r.register_fd(
-                listener_fd,
-                event_type::readable | event_type::edge_triggered,
-                [handler, listener_fd](event_type events) {
-                    if (has_flag(events, event_type::readable)) {
-                        handler(listener_fd);
-                    }
-                }
-            );
+            auto res = r.register_fd(listener_fd,
+                                     event_type::readable | event_type::edge_triggered,
+                                     [handler, listener_fd](event_type events) {
+                                         if (has_flag(events, event_type::readable)) {
+                                             handler(listener_fd);
+                                         }
+                                     });
 
             if (!res) {
                 close(listener_fd);

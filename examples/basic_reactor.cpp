@@ -1,7 +1,7 @@
 #include "katana/core/epoll_reactor.hpp"
 
-#include <iostream>
 #include <cstring>
+#include <iostream>
 #include <unistd.h>
 
 int main() {
@@ -9,31 +9,24 @@ int main() {
 
     std::cout << "Starting reactor example...\n";
 
-    reactor.schedule([]() {
-        std::cout << "Immediate task executed\n";
-    });
+    reactor.schedule([]() { std::cout << "Immediate task executed\n"; });
 
-    reactor.schedule_after(std::chrono::milliseconds(500), []() {
-        std::cout << "Delayed task executed after 500ms\n";
-    });
+    reactor.schedule_after(std::chrono::milliseconds(500),
+                           []() { std::cout << "Delayed task executed after 500ms\n"; });
 
     int pipefd[2];
     if (pipe(pipefd) == 0) {
         auto res = reactor.register_fd(
-            pipefd[0],
-            katana::event_type::readable,
-            [pipefd](katana::event_type events) {
+            pipefd[0], katana::event_type::readable, [pipefd](katana::event_type events) {
                 if (katana::has_flag(events, katana::event_type::readable)) {
                     char buf[64];
                     ssize_t n = read(pipefd[0], buf, sizeof(buf));
                     if (n > 0) {
                         std::cout << "Read from pipe: "
-                                  << std::string_view(buf, static_cast<size_t>(n))
-                                  << "\n";
+                                  << std::string_view(buf, static_cast<size_t>(n)) << "\n";
                     }
                 }
-            }
-        );
+            });
 
         if (res) {
             reactor.schedule_after(std::chrono::milliseconds(200), [pipefd]() {

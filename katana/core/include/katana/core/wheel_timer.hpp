@@ -11,8 +11,7 @@
 
 namespace katana {
 
-template <size_t NumSlots = 512, size_t SlotMs = 100>
-class wheel_timer {
+template <size_t NumSlots = 512, size_t SlotMs = 100> class wheel_timer {
 public:
     using callback_fn = inplace_function<void(), 128>;
     using timeout_id = uint64_t;
@@ -22,9 +21,7 @@ public:
     static constexpr size_t WHEEL_SIZE = NumSlots;
     static constexpr size_t TICK_MS = SlotMs;
 
-    wheel_timer()
-        : current_slot_(0)
-        , last_tick_(clock::now()) {
+    wheel_timer() : current_slot_(0), last_tick_(clock::now()) {
         slots_.resize(WHEEL_SIZE);
         entries_.reserve(WHEEL_SIZE);
     }
@@ -76,9 +73,11 @@ public:
         release_entry(index);
 
         auto& handles = slots_[slot_idx].handles;
-        handles.erase(std::remove_if(handles.begin(), handles.end(), [&](const slot_handle& h) {
-                          return h.index == index && h.generation == generation;
-                      }),
+        handles.erase(std::remove_if(handles.begin(),
+                                     handles.end(),
+                                     [&](const slot_handle& h) {
+                                         return h.index == index && h.generation == generation;
+                                     }),
                       handles.end());
 
         if (handles.capacity() > handles.size() * 4 && handles.capacity() > 64) {
@@ -113,9 +112,8 @@ public:
             return duration::max();
         }
 
-        auto since_last_tick = now > last_tick_
-                                    ? std::chrono::duration_cast<duration>(now - last_tick_)
-                                    : duration{0};
+        auto since_last_tick =
+            now > last_tick_ ? std::chrono::duration_cast<duration>(now - last_tick_) : duration{0};
         auto base = duration(TICK_MS) - std::min(duration(TICK_MS), since_last_tick);
 
         duration best = duration::max();
@@ -124,7 +122,8 @@ public:
                 continue;
             }
 
-            auto offset = slot >= current_slot_ ? slot - current_slot_ : (WHEEL_SIZE - (current_slot_ - slot));
+            auto offset = slot >= current_slot_ ? slot - current_slot_
+                                                : (WHEEL_SIZE - (current_slot_ - slot));
 
             for (const auto& handle : slots_[slot].handles) {
                 if (handle.index >= entries_.size()) {
@@ -136,7 +135,8 @@ public:
                 }
 
                 size_t total_ticks = offset + entry.remaining_rounds * WHEEL_SIZE;
-                duration candidate = base + duration(static_cast<int64_t>(total_ticks) * static_cast<int64_t>(TICK_MS));
+                duration candidate = base + duration(static_cast<int64_t>(total_ticks) *
+                                                     static_cast<int64_t>(TICK_MS));
                 if (candidate < best) {
                     best = candidate;
                 }
@@ -256,4 +256,3 @@ private:
 };
 
 } // namespace katana
-

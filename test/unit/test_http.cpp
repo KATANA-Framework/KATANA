@@ -1,5 +1,5 @@
-#include "katana/core/http.hpp"
 #include "katana/core/arena.hpp"
+#include "katana/core/http.hpp"
 
 #include <gtest/gtest.h>
 
@@ -31,11 +31,11 @@ TEST(HttpParser, ParsePostRequestWithBody) {
     parser p(&arena);
 
     std::string request = "POST /api/data HTTP/1.1\r\n"
-                         "Host: api.example.com\r\n"
-                         "Content-Type: application/json\r\n"
-                         "Content-Length: 13\r\n"
-                         "\r\n"
-                         "{\"key\":\"val\"}";
+                          "Host: api.example.com\r\n"
+                          "Content-Type: application/json\r\n"
+                          "Content-Length: 13\r\n"
+                          "\r\n"
+                          "{\"key\":\"val\"}";
 
     auto data = as_bytes(request);
 
@@ -83,11 +83,11 @@ TEST(HttpParser, ParseMultipleHeaders) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "User-Agent: TestClient/1.0\r\n"
-                         "Accept: */*\r\n"
-                         "Connection: keep-alive\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "User-Agent: TestClient/1.0\r\n"
+                          "Accept: */*\r\n"
+                          "Connection: keep-alive\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
 
@@ -238,7 +238,8 @@ TEST(HttpParser, RejectHeaderValueControlCharacters) {
     monotonic_arena arena;
     parser p(&arena);
 
-    std::string request = std::string("GET / HTTP/1.1\r\nHeader: value") + std::string(1, '\x01') + "\r\n\r\n";
+    std::string request =
+        std::string("GET / HTTP/1.1\r\nHeader: value") + std::string(1, '\x01') + "\r\n\r\n";
     auto data = as_bytes(request);
 
     auto result = p.parse(data);
@@ -329,10 +330,10 @@ TEST(HttpParser, ParseMultilineHeaderFoldingSpace) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "X-Custom-Header: value-line1\r\n"
-                         " value-line2\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "X-Custom-Header: value-line1\r\n"
+                          " value-line2\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -349,10 +350,10 @@ TEST(HttpParser, ParseMultilineHeaderFoldingTab) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "X-Long-Header: first-part\r\n"
-                         "\tsecond-part\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "X-Long-Header: first-part\r\n"
+                          "\tsecond-part\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -369,12 +370,12 @@ TEST(HttpParser, ParseMultilineHeaderMultipleFolds) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "X-Very-Long-Header: part1\r\n"
-                         " part2\r\n"
-                         "\tpart3\r\n"
-                         "  part4\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "X-Very-Long-Header: part1\r\n"
+                          " part2\r\n"
+                          "\tpart3\r\n"
+                          "  part4\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -395,9 +396,9 @@ TEST(HttpParser, RejectFoldingWithoutPriorHeader) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         " invalid-folding\r\n"
-                         "Host: example.com\r\n"
-                         "\r\n";
+                          " invalid-folding\r\n"
+                          "Host: example.com\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -410,15 +411,15 @@ TEST(HttpParser, ChunkedEncodingSimple) {
     parser p(&arena);
 
     std::string request = "POST /data HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "Transfer-Encoding: chunked\r\n"
-                         "\r\n"
-                         "5\r\n"
-                         "hello\r\n"
-                         "6\r\n"
-                         "world!\r\n"
-                         "0\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "Transfer-Encoding: chunked\r\n"
+                          "\r\n"
+                          "5\r\n"
+                          "hello\r\n"
+                          "6\r\n"
+                          "world!\r\n"
+                          "0\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -434,7 +435,8 @@ TEST(HttpParser, ChunkedEncodingIncremental) {
     monotonic_arena arena;
     parser p(&arena);
 
-    std::string part1 = "POST /data HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: chunked\r\n\r\n";
+    std::string part1 =
+        "POST /data HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: chunked\r\n\r\n";
     std::string part2 = "3\r\nfoo\r\n";
     std::string part3 = "3\r\nbar\r\n";
     std::string part4 = "0\r\n\r\n";
@@ -467,12 +469,12 @@ TEST(HttpParser, RejectChunkWithoutTrailingCrlf) {
     parser p(&arena);
 
     std::string request = "POST /data HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "Transfer-Encoding: chunked\r\n"
-                         "\r\n"
-                         "5\r\n"
-                         "hello"
-                         "0\r\n\r\n";
+                          "Host: example.com\r\n"
+                          "Transfer-Encoding: chunked\r\n"
+                          "\r\n"
+                          "5\r\n"
+                          "hello"
+                          "0\r\n\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -484,14 +486,14 @@ TEST(HttpParser, ChunkedEncodingWithTrailer) {
     parser p(&arena);
 
     std::string request = "POST /data HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "Transfer-Encoding: chunked\r\n"
-                         "\r\n"
-                         "4\r\n"
-                         "test\r\n"
-                         "0\r\n"
-                         "X-Trailer: value\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "Transfer-Encoding: chunked\r\n"
+                          "\r\n"
+                          "4\r\n"
+                          "test\r\n"
+                          "0\r\n"
+                          "X-Trailer: value\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -522,9 +524,10 @@ TEST(HttpParser, ExcessivelyLongURI) {
     parser p(&arena);
 
     std::string long_uri(10000, 'a');
-    std::string request = "GET /" + long_uri + " HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "\r\n";
+    std::string request = "GET /" + long_uri +
+                          " HTTP/1.1\r\n"
+                          "Host: example.com\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -538,9 +541,11 @@ TEST(HttpParser, ExcessivelyLongHeader) {
 
     std::string long_value(100000, 'x');
     std::string request = "GET / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "X-Long-Header: " + long_value + "\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "X-Long-Header: " +
+                          long_value +
+                          "\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -586,8 +591,8 @@ TEST(HttpParser, MalformedHeaderMissingColon) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "InvalidHeaderNoColon\r\n"
-                         "\r\n";
+                          "InvalidHeaderNoColon\r\n"
+                          "\r\n";
     auto data = as_bytes(request);
 
     auto result = p.parse(data);
@@ -599,8 +604,8 @@ TEST(HttpParser, MalformedHeaderInvalidCharacters) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "X-Header\x01\x02: value\r\n"
-                         "\r\n";
+                          "X-Header\x01\x02: value\r\n"
+                          "\r\n";
     auto data = as_bytes(request);
 
     auto result = p.parse(data);
@@ -631,9 +636,9 @@ TEST(HttpParser, ContentLengthZero) {
     parser p(&arena);
 
     std::string request = "POST / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "Content-Length: 0\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "Content-Length: 0\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -649,9 +654,12 @@ TEST(HttpParser, LargeValidContentLength) {
 
     std::string body(1024 * 1024, 'x');
     std::string request = "POST / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "Content-Length: " + std::to_string(body.size()) + "\r\n"
-                         "\r\n" + body;
+                          "Host: example.com\r\n"
+                          "Content-Length: " +
+                          std::to_string(body.size()) +
+                          "\r\n"
+                          "\r\n" +
+                          body;
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -666,9 +674,9 @@ TEST(HttpParser, CaseInsensitiveHeaders) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "CoNtEnT-tYpE: text/plain\r\n"
-                         "HoSt: example.com\r\n"
-                         "\r\n";
+                          "CoNtEnT-tYpE: text/plain\r\n"
+                          "HoSt: example.com\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
@@ -687,9 +695,9 @@ TEST(HttpParser, EmptyHeaderValue) {
     parser p(&arena);
 
     std::string request = "GET / HTTP/1.1\r\n"
-                         "Host: example.com\r\n"
-                         "X-Empty-Header:\r\n"
-                         "\r\n";
+                          "Host: example.com\r\n"
+                          "X-Empty-Header:\r\n"
+                          "\r\n";
 
     auto data = as_bytes(request);
     auto result = p.parse(data);
