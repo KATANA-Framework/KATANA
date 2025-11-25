@@ -1,0 +1,47 @@
+name: Benchmarks and README Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: write
+
+env:
+  BENCH_IMAGE: katana-bench
+  BENCH_DOCKERFILE: docker/benchmarks/Dockerfile
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build benchmark image (if Dockerfile exists)
+        if: hashFiles(env.BENCH_DOCKERFILE) != ''
+        run: docker build -t "$BENCH_IMAGE" -f "$BENCH_DOCKERFILE" .
+
+      - name: Run benchmarks
+        run: docker run --rm -v "$PWD":/workspace "$BENCH_IMAGE"
+
+      - name: Update README from benchmark results
+        run: python3 scripts/update_readme_from_bench.py
+
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md BENCHMARK_RESULTS.md
+          git commit -m "chore: refresh benchmarks and README"
+          git push
