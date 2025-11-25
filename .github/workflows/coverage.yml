@@ -49,11 +49,19 @@ jobs:
         lcov --directory build --capture --output-file coverage.info
 
         # Remove external dependencies and test code from coverage
-        lcov --remove coverage.info \
+        if ! lcov --remove coverage.info \
           '/usr/*' \
           '*/test/*' \
+          '*/build/_deps/*' \
           --output-file coverage.info \
-          --ignore-errors unused
+          --ignore-errors unused; then
+          status=$?
+          if [ "$status" -eq 25 ]; then
+            echo "Ignoring unused lcov exclude patterns (exit code $status)"
+          else
+            exit "$status"
+          fi
+        fi
 
         # List coverage data for debugging
         lcov --list coverage.info
