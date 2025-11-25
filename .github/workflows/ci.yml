@@ -204,9 +204,9 @@ jobs:
         cmake --build ${{github.workspace}}/build --config Release -j$(nproc)
 
     - name: Run Performance Benchmark
-      working-directory: ${{github.workspace}}/build/benchmark
       run: |
-        ./performance_benchmark
+        cd ${{github.workspace}}/build/benchmark
+        timeout --preserve-status 180 ./performance_benchmark
 
   static-analysis:
     runs-on: ubuntu-24.04
