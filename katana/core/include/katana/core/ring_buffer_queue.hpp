@@ -22,7 +22,8 @@ public:
         size_t actual_capacity = next_power_of_two(capacity);
         mask_ = actual_capacity - 1;
 
-        buffer_ = static_cast<slot*>(operator new(actual_capacity * sizeof(slot)));
+        buffer_ = static_cast<slot*>(
+            ::operator new(actual_capacity * sizeof(slot), std::align_val_t(alignof(slot))));
         for (size_t i = 0; i < actual_capacity; ++i) {
             new (&buffer_[i]) slot();
             buffer_[i].sequence.store(i, std::memory_order_relaxed);
@@ -39,7 +40,7 @@ public:
             for (size_t i = 0; i < capacity_; ++i) {
                 buffer_[i].~slot();
             }
-            operator delete(buffer_);
+            ::operator delete(buffer_, std::align_val_t(alignof(slot)));
         }
     }
 

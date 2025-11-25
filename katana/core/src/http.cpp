@@ -231,6 +231,10 @@ result<parser::state> parser::parse(std::span<const uint8_t> data) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
+    if (data.empty()) {
+        return state_;
+    }
+
     if (state_ == state::request_line || state_ == state::headers) [[likely]] {
         for (size_t i = 0; i < data.size(); ++i) {
             uint8_t byte = data[i];
