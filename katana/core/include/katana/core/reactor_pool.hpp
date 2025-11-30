@@ -14,7 +14,8 @@ namespace katana {
 
 struct reactor_pool_config {
     uint32_t reactor_count = 0;
-    int32_t max_events_per_reactor = 128;
+    int32_t max_events_per_reactor = 512;
+    size_t max_pending_tasks = 65536;
     bool enable_adaptive_balancing = true;
     bool enable_thread_pinning = false;
 };
@@ -139,9 +140,9 @@ public:
             auto& r = *ctx->reactor;
             auto res = r.register_fd(listener_fd,
                                      event_type::readable | event_type::edge_triggered,
-                                     [handler, listener_fd](event_type events) {
+                                     [handler, listener_fd, &r](event_type events) {
                                          if (has_flag(events, event_type::readable)) {
-                                             handler(listener_fd);
+                                             handler(r, listener_fd);
                                          }
                                      });
 
