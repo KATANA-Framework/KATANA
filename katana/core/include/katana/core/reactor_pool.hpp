@@ -162,7 +162,6 @@ private:
 
     std::vector<std::unique_ptr<reactor_context>> reactors_;
     reactor_pool_config config_;
-    std::atomic<size_t> next_reactor_{0};
 };
 
 } // namespace katana

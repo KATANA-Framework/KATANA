@@ -71,7 +71,19 @@ size_t reactor_pool::select_reactor() noexcept {
     if (config_.enable_adaptive_balancing) {
         return select_least_loaded();
     }
-    return next_reactor_.fetch_add(1, std::memory_order_relaxed) % reactors_.size();
+    if (reactors_.empty()) {
+        return 0;
+    }
+
+    // Per-thread round-robin without shared atomics to keep reactors isolated.
+    thread_local size_t local_cursor = 0;
+    thread_local size_t thread_seed =
+        static_cast<size_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+
+    const size_t count = reactors_.size();
+    const size_t base = thread_seed % count;
+    const size_t idx = (base + local_cursor++) % count;
+    return idx;
 }
 
 size_t reactor_pool::select_least_loaded() noexcept {
