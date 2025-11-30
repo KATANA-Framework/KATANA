@@ -142,10 +142,97 @@ class BenchmarkCollector:
                         continue
 
     def generate_markdown(self, output_path):
+        def iter_flat_metrics(category_name):
+            for name, data in self.results.get(category_name, {}).items():
+                if isinstance(data, dict):
+                    for m_name, m_val in data.items():
+                        yield m_name, m_val
+                else:
+                    yield name, data
+
+        def get_metric(category_name, metric_name):
+            for name, data in iter_flat_metrics(category_name):
+                if name == metric_name:
+                    return data
+            return None
+
+        def format_metric(metric):
+            if not metric:
+                return "n/a"
+            value, unit = metric
+            return f"{value:.3f} {unit.strip()}"
+
+        def summarize():
+            summary = []
+
+            core_p99 = get_metric("Core Performance", "Latency p99")
+            core_thr = get_metric("Core Performance", "Keep-alive throughput")
+            if core_p99 or core_thr:
+                parts = []
+                if core_p99:
+                    parts.append(f"p99 {format_metric(core_p99)}")
+                if core_thr:
+                    parts.append(f"throughput {format_metric(core_thr)}")
+                summary.append("Core: " + "; ".join(parts))
+
+            max_thread = None
+            max_thread_thr = None
+            for name, metric in iter_flat_metrics("Scalability"):
+                m = re.match(r"Throughput with (\d+) threads", name)
+                if m:
+                    threads = int(m.group(1))
+                    if max_thread is None or threads > max_thread:
+                        max_thread = threads
+                        max_thread_thr = metric
+            if max_thread is not None and max_thread_thr:
+                summary.append(
+                    f"Thread scaling: {max_thread} threads -> {format_metric(max_thread_thr)}"
+                )
+
+            max_conn = None
+            max_conn_thr = None
+            for name, metric in iter_flat_metrics("Scalability"):
+                m = re.match(r"(\d+)\s+concurrent connections", name)
+                if m:
+                    conns = int(m.group(1))
+                    if max_conn is None or conns > max_conn:
+                        max_conn = conns
+                        max_conn_thr = metric
+            if max_conn is not None and max_conn_thr:
+                summary.append(
+                    f"Fan-out: {max_conn} conns -> {format_metric(max_conn_thr)}"
+                )
+
+            churn_thr = None
+            churn_threads = None
+            for name, metric in iter_flat_metrics("Connection Churn"):
+                m = re.match(r"Close-after-each-request throughput \((\d+) threads\)", name)
+                if m:
+                    churn_threads = int(m.group(1))
+                    churn_thr = metric
+                    break
+            if churn_thr:
+                summary.append(
+                    f"Connection churn ({churn_threads} threads): {format_metric(churn_thr)}"
+                )
+
+            stability = get_metric("Stability", "Sustained throughput")
+            if stability:
+                summary.append(f"Stability: sustained {format_metric(stability)}")
+
+            return summary
+
         with open(output_path, 'w') as f:
             f.write("# KATANA Framework - Comprehensive Benchmark Results\n\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
             f.write("This report includes results from all benchmark suites.\n\n")
+
+            summary = summarize()
+            if summary:
+                f.write("## Summary\n\n")
+                for item in summary:
+                    f.write(f"- {item}\n")
+                f.write("\n")
 
             f.write("## Table of Contents\n\n")
             for category in sorted(self.results.keys()):

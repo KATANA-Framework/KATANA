@@ -499,6 +499,65 @@ void test_throughput(benchmark_reporter& reporter,
         "Scalability", "Throughput with " + std::to_string(num_threads) + " threads", rps, "req/s");
 }
 
+void test_connection_churn(benchmark_reporter& reporter,
+                           const std::string& host,
+                           uint16_t port,
+                           size_t num_threads,
+                           std::chrono::milliseconds duration) {
+    const auto warmup = std::chrono::milliseconds(300);
+
+    std::atomic<size_t> total_requests{0};
+    steady_clock::time_point warmup_end;
+    steady_clock::time_point finish;
+
+    std::barrier sync_point(static_cast<std::ptrdiff_t>(num_threads), [&]() {
+        auto start = steady_clock::now();
+        warmup_end = start + warmup;
+        finish = warmup_end + duration;
+    });
+
+    std::vector<std::thread> workers;
+    workers.reserve(num_threads);
+
+    for (size_t i = 0; i < num_threads; ++i) {
+        workers.emplace_back([&]() {
+            sync_point.arrive_and_wait();
+
+            auto now = steady_clock::now();
+            while (now < warmup_end) {
+                http_client client(host, port);
+                client.perform_request();
+                now = steady_clock::now();
+            }
+
+            size_t local = 0;
+            now = steady_clock::now();
+            while (now < finish) {
+                http_client client(host, port);
+                if (client.perform_request()) {
+                    ++local;
+                }
+                now = steady_clock::now();
+            }
+
+            total_requests.fetch_add(local, std::memory_order_relaxed);
+        });
+    }
+
+    for (auto& t : workers) {
+        t.join();
+    }
+
+    double duration_s = std::chrono::duration<double>(duration).count();
+    double rps = static_cast<double>(total_requests.load(std::memory_order_relaxed)) / duration_s;
+
+    reporter.add("Connection Churn",
+                 "Close-after-each-request throughput (" + std::to_string(num_threads) +
+                     " threads)",
+                 rps,
+                 "req/s");
+}
+
 void test_fd_limits(benchmark_reporter& reporter) {
     rlimit limit{};
     getrlimit(RLIMIT_NOFILE, &limit);
@@ -511,7 +570,7 @@ void test_fd_limits(benchmark_reporter& reporter) {
 void test_concurrent_connections(benchmark_reporter& reporter,
                                  const std::string& host,
                                  uint16_t port) {
-    const std::vector<size_t> connection_counts{32, 64, 128};
+    const std::vector<size_t> connection_counts{32, 64, 128, 256};
     const auto warmup = std::chrono::milliseconds(300);
     const auto duration = std::chrono::milliseconds(2500);
 
@@ -678,28 +737,41 @@ int32_t main(int32_t argc, char* argv[]) {
 
     benchmark_reporter reporter;
 
-    std::cout << "[1/8] Measuring latency distribution...\n";
+    auto hw = std::max<unsigned>(1u, std::thread::hardware_concurrency());
+    std::vector<size_t> throughput_levels{1, 4, 8};
+    if (hw >= 12) {
+        throughput_levels.push_back(12);
+    }
+    if (hw >= 16) {
+        throughput_levels.push_back(16);
+    }
+
+    const size_t total_steps = 3 + throughput_levels.size() + 3;
+    size_t step = 1;
+
+    std::cout << "[" << step++ << "/" << total_steps << "] Measuring latency distribution...\n";
     test_latency(reporter, host, port);
 
-    std::cout << "[2/8] Measuring keep-alive throughput...\n";
+    std::cout << "[" << step++ << "/" << total_steps << "] Measuring keep-alive throughput...\n";
     test_keepalive(reporter, host, port);
 
-    std::cout << "[3/8] Evaluating HTTP parsing overhead...\n";
+    std::cout << "[" << step++ << "/" << total_steps << "] Evaluating HTTP parsing overhead...\n";
     test_parsing_overhead(reporter, host, port);
 
-    std::cout << "[4/8] Measuring throughput at 1 thread...\n";
-    test_throughput(reporter, host, port, 1, std::chrono::milliseconds(2000));
+    for (size_t level : throughput_levels) {
+        std::cout << "[" << step++ << "/" << total_steps
+                  << "] Measuring throughput at " << level << " threads...\n";
+        test_throughput(reporter, host, port, level, std::chrono::milliseconds(2000));
+    }
 
-    std::cout << "[5/8] Measuring throughput at 4 threads...\n";
-    test_throughput(reporter, host, port, 4, std::chrono::milliseconds(2000));
+    std::cout << "[" << step++ << "/" << total_steps
+              << "] Measuring connection churn (close-after-each)...\n";
+    test_connection_churn(reporter, host, port, 4, std::chrono::milliseconds(1500));
 
-    std::cout << "[6/8] Measuring throughput at 8 threads...\n";
-    test_throughput(reporter, host, port, 8, std::chrono::milliseconds(2000));
-
-    std::cout << "[7/8] Exploring connection fan-out...\n";
+    std::cout << "[" << step++ << "/" << total_steps << "] Exploring connection fan-out...\n";
     test_concurrent_connections(reporter, host, port);
 
-    std::cout << "[8/8] Running sustained stress test...\n";
+    std::cout << "[" << step++ << "/" << total_steps << "] Running sustained stress test...\n";
     test_stress(reporter, host, port);
 
     std::cout << "\n";
