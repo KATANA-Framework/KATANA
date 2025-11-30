@@ -341,10 +341,10 @@ LTO (Link-Time Optimization) в релизе.
 
 ### Reactor-per-core с полной изоляцией
 
-Каждое ядро CPU получает независимый event loop **без shared state между реакторами**.
+Каждое ядро CPU получает независимый event loop **без shared state в data-plane между реакторами** (shared остаются только сервисные счётчики для shutdown/выдачи thread id).
 
 **Гарантии изоляции**:
-- Никаких глобальных mutable переменных
+- Нет глобальных mutable переменных в data-plane; остаются только сервисные shared-счётчики (shutdown, выдача thread id) в control-plane
 - Никаких mutex/locks в critical path
 - Никаких race conditions на состоянии запроса
 - Каждый reactor — самодостаточная единица обработки
