@@ -300,20 +300,22 @@ bool io_uring_reactor::schedule(task_fn task) {
         return false;
     }
     metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
-    pending_count_.fetch_add(1, std::memory_order_relaxed);
+    uint32_t prev = pending_count_.fetch_add(1, std::memory_order_relaxed);
 
-    bool expected = false;
-    if (needs_wakeup_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
-        uint64_t val = 1;
-        ssize_t ret;
-        do {
-            ret = write(wakeup_fd_, &val, sizeof(val));
-        } while (ret < 0 && errno == EINTR);
+    if (prev == 0) {
+        bool expected = false;
+        if (needs_wakeup_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+            uint64_t val = 1;
+            ssize_t ret;
+            do {
+                ret = write(wakeup_fd_, &val, sizeof(val));
+            } while (ret < 0 && errno == EINTR);
 
-        if (ret < 0 && errno != EAGAIN) {
-            handle_exception("schedule_wakeup",
-                             std::make_exception_ptr(std::system_error(
-                                 errno, std::system_category(), "eventfd write failed")));
+            if (ret < 0 && errno != EAGAIN) {
+                handle_exception("schedule_wakeup",
+                                 std::make_exception_ptr(std::system_error(
+                                     errno, std::system_category(), "eventfd write failed")));
+            }
         }
     }
 
