@@ -759,8 +759,8 @@ int32_t main(int32_t argc, char* argv[]) {
     test_parsing_overhead(reporter, host, port);
 
     for (size_t level : throughput_levels) {
-        std::cout << "[" << step++ << "/" << total_steps
-                  << "] Measuring throughput at " << level << " threads...\n";
+        std::cout << "[" << step++ << "/" << total_steps << "] Measuring throughput at " << level
+                  << " threads...\n";
         test_throughput(reporter, host, port, level, std::chrono::milliseconds(2000));
     }
 
