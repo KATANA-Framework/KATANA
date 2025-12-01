@@ -3,6 +3,7 @@
 #include "result.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -20,7 +21,7 @@ namespace katana {
 
 class io_buffer {
 public:
-    io_buffer() = default;
+    io_buffer();
     io_buffer(io_buffer&&) noexcept = default;
     io_buffer& operator=(io_buffer&&) noexcept = default;
     io_buffer(const io_buffer&) = delete;
@@ -37,7 +38,7 @@ public:
     void consume(size_t bytes);
 
     [[nodiscard]] size_t size() const noexcept { return write_pos_ - read_pos_; }
-    [[nodiscard]] size_t capacity() const noexcept { return buffer_.capacity(); }
+    [[nodiscard]] size_t capacity() const noexcept { return capacity_; }
     [[nodiscard]] bool empty() const noexcept { return read_pos_ == write_pos_; }
 
     void clear() noexcept;
@@ -47,12 +48,16 @@ private:
     void ensure_writable(size_t bytes);
     void compact_if_needed();
 
-    std::vector<uint8_t> buffer_;
+    std::unique_ptr<uint8_t[]> owner_;
+    uint8_t* data_ = nullptr;
+    size_t capacity_ = 0;
     size_t read_pos_ = 0;
     size_t write_pos_ = 0;
 
-    // Increased from 4KB to 16KB for better performance on streaming workloads
-    static constexpr size_t COMPACT_THRESHOLD = 16384;
+    static constexpr size_t COMPACT_THRESHOLD = 4096;
+    static constexpr size_t INITIAL_CAPACITY = 64;
+    static constexpr size_t STATIC_SCRATCH_CAPACITY = 65536; // 64 KB scratch reused per thread
+    alignas(64) static thread_local uint8_t static_scratch_[STATIC_SCRATCH_CAPACITY];
 };
 
 class scatter_gather_read {

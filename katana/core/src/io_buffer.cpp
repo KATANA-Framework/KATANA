@@ -13,14 +13,51 @@
 
 namespace katana {
 
-io_buffer::io_buffer(size_t capacity) {
-    buffer_.reserve(capacity);
+namespace {
+std::unique_ptr<uint8_t[]> allocate_raw(size_t n) {
+    // Use default-initialized storage to avoid zero-fill overhead on hot path.
+    if (n == 0) {
+        return nullptr;
+    }
+    // Align to 64 bytes to keep memcpy in the fast path for AVX loads/stores.
+    return std::unique_ptr<uint8_t[]>(
+        static_cast<uint8_t*>(::operator new[](n, std::align_val_t(64))));
+}
+} // namespace
+
+thread_local uint8_t io_buffer::static_scratch_[io_buffer::STATIC_SCRATCH_CAPACITY];
+
+io_buffer::io_buffer() {
+    // Default to the per-thread scratch arena to avoid heap work on the hot path.
+    data_ = static_scratch_;
+    capacity_ = STATIC_SCRATCH_CAPACITY;
+}
+
+io_buffer::io_buffer(size_t capacity) : capacity_(capacity) {
+    if (capacity_ == 0 || capacity_ <= STATIC_SCRATCH_CAPACITY) {
+        data_ = static_scratch_;
+        capacity_ = STATIC_SCRATCH_CAPACITY;
+    } else {
+        owner_ = allocate_raw(capacity_);
+        data_ = owner_.get();
+    }
 }
 
 void io_buffer::append(std::span<const uint8_t> data) {
-    ensure_writable(data.size());
-    std::memcpy(buffer_.data() + write_pos_, data.data(), data.size());
-    write_pos_ += data.size();
+    const size_t data_size = data.size();
+    const size_t new_write_pos = write_pos_ + data_size;
+
+    // Fast path: enough space already available.
+    if (new_write_pos <= capacity_) {
+        std::memcpy(data_ + write_pos_, data.data(), data_size);
+        write_pos_ = new_write_pos;
+        return;
+    }
+
+    // Slow path: grow/compact then copy.
+    ensure_writable(data_size);
+    std::memcpy(data_ + write_pos_, data.data(), data_size);
+    write_pos_ += data_size;
 }
 
 void io_buffer::append(std::string_view str) {
@@ -29,8 +66,10 @@ void io_buffer::append(std::string_view str) {
 }
 
 std::span<uint8_t> io_buffer::writable_span(size_t size) {
-    ensure_writable(size);
-    return std::span<uint8_t>(buffer_.data() + write_pos_, size);
+    if (write_pos_ + size > capacity_) {
+        ensure_writable(size);
+    }
+    return std::span<uint8_t>(data_ + write_pos_, size);
 }
 
 void io_buffer::commit(size_t bytes) {
@@ -38,7 +77,7 @@ void io_buffer::commit(size_t bytes) {
 }
 
 std::span<const uint8_t> io_buffer::readable_span() const noexcept {
-    return std::span<const uint8_t>(buffer_.data() + read_pos_, write_pos_ - read_pos_);
+    return std::span<const uint8_t>(data_ + read_pos_, write_pos_ - read_pos_);
 }
 
 void io_buffer::consume(size_t bytes) {
@@ -58,8 +97,18 @@ void io_buffer::clear() noexcept {
 }
 
 void io_buffer::reserve(size_t new_capacity) {
-    if (new_capacity > buffer_.capacity()) {
-        buffer_.reserve(new_capacity);
+    if (new_capacity > capacity_) {
+        // Allocate new storage and preserve unread data at the front.
+        auto new_buffer = allocate_raw(new_capacity);
+        size_t data_size = write_pos_ - read_pos_;
+        if (data_size > 0) {
+            std::memcpy(new_buffer.get(), data_ + read_pos_, data_size);
+        }
+        owner_ = std::move(new_buffer);
+        data_ = owner_.get();
+        capacity_ = new_capacity;
+        write_pos_ = data_size;
+        read_pos_ = 0;
     }
 }
 
@@ -71,7 +120,7 @@ void io_buffer::compact_if_needed() {
 
         size_t data_size = write_pos_ - read_pos_;
         if (data_size > 0) {
-            std::memmove(buffer_.data(), buffer_.data() + read_pos_, data_size);
+            std::memmove(data_, data_ + read_pos_, data_size);
         }
         read_pos_ = 0;
         write_pos_ = data_size;
@@ -79,16 +128,15 @@ void io_buffer::compact_if_needed() {
 }
 
 void io_buffer::ensure_writable(size_t bytes) {
-    size_t current_size = buffer_.size();
-    size_t available = current_size > write_pos_ ? current_size - write_pos_ : 0;
+    size_t available = capacity_ > write_pos_ ? capacity_ - write_pos_ : 0;
 
     if (available < bytes) {
         compact_if_needed();
-        available = current_size > write_pos_ ? current_size - write_pos_ : 0;
+        available = capacity_ > write_pos_ ? capacity_ - write_pos_ : 0;
 
         if (available < bytes) {
-            size_t current_cap = buffer_.capacity();
-            size_t doubled_cap = current_cap > 0 ? current_cap * 2 : 64;
+            size_t current_cap = capacity_;
+            size_t doubled_cap = current_cap > 0 ? current_cap * 2 : INITIAL_CAPACITY;
 
             if (current_cap > SIZE_MAX / 2) {
                 doubled_cap = SIZE_MAX;
@@ -100,8 +148,17 @@ void io_buffer::ensure_writable(size_t bytes) {
             }
 
             size_t new_cap = std::max(doubled_cap, required_cap);
-            buffer_.reserve(new_cap);
-            buffer_.resize(write_pos_ + bytes);
+
+            auto new_buffer = allocate_raw(new_cap);
+            size_t data_size = write_pos_ - read_pos_;
+            if (data_size > 0) {
+                std::memcpy(new_buffer.get(), data_ + read_pos_, data_size);
+            }
+            owner_ = std::move(new_buffer);
+            data_ = owner_.get();
+            capacity_ = new_cap;
+            write_pos_ = data_size;
+            read_pos_ = 0;
         }
     }
 }

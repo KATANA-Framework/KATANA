@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <sys/epoll.h>
@@ -207,8 +208,9 @@ result<void> epoll_reactor::register_fd(int32_t fd, event_type events, event_cal
     state.events = events;
     state.timeouts = {};
     state.timeout_id = 0;
-    state.activity_timer = Timeout{};
     state.has_timeout = false;
+    state.last_activity = std::chrono::steady_clock::now();
+    state.timeout_interval = std::chrono::milliseconds{0};
 
     active_fds_.fetch_add(1, std::memory_order_relaxed);
     return {};
@@ -232,9 +234,10 @@ result<void> epoll_reactor::register_fd_with_timeout(int32_t fd,
     state.events = events;
     state.timeouts = config;
     state.timeout_id = 0;
-    state.activity_timer = Timeout{};
     state.has_timeout = true;
-    setup_fd_timeout(fd, state);
+    state.timeout_interval = fd_timeout_for(state);
+    state.last_activity = std::chrono::steady_clock::now();
+    schedule_fd_timeout(fd, state);
 
     epoll_event ev{};
     ev.events = to_epoll_events(events);
@@ -268,7 +271,7 @@ result<void> epoll_reactor::modify_fd(int32_t fd, event_type events) {
     state.events = events;
     if (state.has_timeout) {
         cancel_fd_timeout(state);
-        setup_fd_timeout(fd, state);
+        schedule_fd_timeout(fd, state);
     }
     return {};
 }
@@ -294,8 +297,7 @@ void epoll_reactor::refresh_fd_timeout(int32_t fd) {
     if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
         fd_states_[static_cast<size_t>(fd)].has_timeout) {
         auto& state = fd_states_[static_cast<size_t>(fd)];
-        cancel_fd_timeout(state);
-        setup_fd_timeout(fd, state);
+        state.last_activity = std::chrono::steady_clock::now();
     }
 }
 
@@ -352,8 +354,6 @@ bool epoll_reactor::schedule_after(std::chrono::milliseconds delay, task_fn task
 }
 
 result<void> epoll_reactor::process_events(int32_t timeout_ms) {
-    events_buffer_.resize(static_cast<size_t>(max_events_));
-
     int32_t nfds = epoll_wait(epoll_fd_, events_buffer_.data(), max_events_, timeout_ms);
 
     if (nfds < 0) {
@@ -511,30 +511,29 @@ void epoll_reactor::process_wheel_timer() {
     wheel_timer_.tick();
 }
 
-void epoll_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
-    auto timeout = fd_timeout_for(state);
+void epoll_reactor::schedule_fd_timeout(int32_t fd, fd_state& state) {
+    state.timeout_interval = fd_timeout_for(state);
+    state.last_activity = std::chrono::steady_clock::now();
+    state.timeout_id =
+        wheel_timer_.add(state.timeout_interval, [this, fd]() { handle_fd_timeout(fd); });
+}
 
-    if (!state.activity_timer.active() || state.activity_timer.duration() != timeout) {
-        state.activity_timer = Timeout(timeout);
-    } else {
-        state.activity_timer.reset();
+void epoll_reactor::handle_fd_timeout(int32_t fd) {
+    if (fd < 0 || static_cast<size_t>(fd) >= fd_states_.size()) {
+        return;
     }
 
-    state.timeout_id = wheel_timer_.add(timeout, [this, fd]() {
-        if (fd < 0 || static_cast<size_t>(fd) >= fd_states_.size()) {
-            return;
-        }
+    auto index = static_cast<size_t>(fd);
+    auto& entry_state = fd_states_[index];
+    if (!entry_state.callback || !entry_state.has_timeout) {
+        return;
+    }
 
-        auto index = static_cast<size_t>(fd);
-        auto& entry_state = fd_states_[index];
-        if (!entry_state.callback) {
-            entry_state.timeout_id = 0;
-            entry_state.activity_timer = Timeout{};
-            return;
-        }
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - entry_state.last_activity);
 
-        entry_state.timeout_id = 0;
-        entry_state.activity_timer = Timeout{};
+    if (elapsed >= entry_state.timeout_interval) {
         metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
 
         if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0 && errno != ENOENT &&
@@ -559,7 +558,12 @@ void epoll_reactor::setup_fd_timeout(int32_t fd, fd_state& state) {
         }
 
         fd_states_[index] = fd_state{};
-    });
+        active_fds_.fetch_sub(1, std::memory_order_relaxed);
+        return;
+    }
+
+    auto remaining = entry_state.timeout_interval - elapsed;
+    entry_state.timeout_id = wheel_timer_.add(remaining, [this, fd]() { handle_fd_timeout(fd); });
 }
 
 void epoll_reactor::cancel_fd_timeout(fd_state& state) {
@@ -567,7 +571,6 @@ void epoll_reactor::cancel_fd_timeout(fd_state& state) {
         (void)wheel_timer_.cancel(state.timeout_id);
         state.timeout_id = 0;
     }
-    state.activity_timer = Timeout{};
 }
 
 std::chrono::milliseconds epoll_reactor::fd_timeout_for(const fd_state& state) const {

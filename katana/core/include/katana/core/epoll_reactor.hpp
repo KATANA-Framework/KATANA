@@ -5,7 +5,6 @@
 #include "metrics.hpp"
 #include "result.hpp"
 #include "ring_buffer_queue.hpp"
-#include "timeout.hpp"
 #include "wheel_timer.hpp"
 
 #include <atomic>
@@ -79,18 +78,14 @@ private:
     using fd_wheel_timer = wheel_timer<2048, 8>;
 
     struct alignas(64) fd_state {
-        // Hot data - frequently accessed
         event_callback callback;
-        event_type events;
-        fd_wheel_timer::timeout_id timeout_id = 0;
-        bool has_timeout = false;
+        event_type events{event_type::none};
+        fd_wheel_timer::timeout_id timeout_id{0};
+        bool has_timeout{false};
 
-        // Cold data - rarely accessed
-        char padding1[64 - sizeof(event_callback) - sizeof(event_type) -
-                      sizeof(fd_wheel_timer::timeout_id) - sizeof(bool)];
-
-        timeout_config timeouts;
-        Timeout activity_timer;
+        timeout_config timeouts{};
+        std::chrono::steady_clock::time_point last_activity{};
+        std::chrono::milliseconds timeout_interval{0};
     };
 
     struct timer_entry {
@@ -107,7 +102,8 @@ private:
     int32_t calculate_timeout() const;
     void
     handle_exception(std::string_view location, std::exception_ptr ex, int32_t fd = -1) noexcept;
-    void setup_fd_timeout(int32_t fd, fd_state& state);
+    void schedule_fd_timeout(int32_t fd, fd_state& state);
+    void handle_fd_timeout(int32_t fd);
     void cancel_fd_timeout(fd_state& state);
     std::chrono::milliseconds fd_timeout_for(const fd_state& state) const;
     result<void> ensure_fd_capacity(int32_t fd);

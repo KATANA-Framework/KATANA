@@ -48,7 +48,7 @@ CMAKE_CXX_FLAGS_MINSIZEREL:STRING=-Os -DNDEBUG
 CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
 
 //Flags used by the CXX compiler during RELWITHDEBINFO builds.
-CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 
 //Path to a program.
 CMAKE_DLLTOOL:FILEPATH=CMAKE_DLLTOOL-NOTFOUND
@@ -213,22 +213,6 @@ ENABLE_FUZZING:BOOL=OFF
 //Enable testing
 ENABLE_TESTING:BOOL=OFF
 
-//Directory under which to collect all populated content
-FETCHCONTENT_BASE_DIR:PATH=/workspace/.docker_build/profile/_deps
-
-//Disables all attempts to download or update content and assumes
-// source dirs already exist
-FETCHCONTENT_FULLY_DISCONNECTED:BOOL=OFF
-
-//Enables QUIET option for all content population
-FETCHCONTENT_QUIET:BOOL=ON
-
-//Enables UPDATE_DISCONNECTED behavior for all content population
-FETCHCONTENT_UPDATES_DISCONNECTED:BOOL=OFF
-
-//No help, variable specified on the command line.
-KATANA_BENCH_BUILD:UNINITIALIZED=OFF
-
 //I/O polling backend: epoll or io_uring
 KATANA_POLL:STRING=epoll
 
@@ -377,3 +361,4 @@ CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
 KATANA_POLL-STRINGS:INTERNAL=epoll;io_uring
 //linker supports push/pop state
 _CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE
+

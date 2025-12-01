@@ -27,6 +27,17 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
         -mtune=native
     )
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    add_compile_options(
+        -O3
+        -g
+        -DNDEBUG
+        -fno-omit-frame-pointer
+        -fno-optimize-sibling-calls
+        -march=native
+        -mtune=native
+    )
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-O0 -g)
 elseif(CMAKE_BUILD_TYPE STREQUAL "ASan")
