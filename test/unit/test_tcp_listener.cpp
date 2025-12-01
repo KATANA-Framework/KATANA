@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 using namespace katana;
 
@@ -153,7 +154,7 @@ TEST_F(TcpListenerTest, AcceptConnection) {
     while (std::chrono::steady_clock::now() - start < std::chrono::seconds(2)) {
         auto result = listener.accept();
         if (result.has_value()) {
-            accepted = result;
+            accepted.emplace(std::move(result));
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
