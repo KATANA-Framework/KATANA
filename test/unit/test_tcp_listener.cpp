@@ -4,6 +4,7 @@
 #include <chrono>
 #include <gtest/gtest.h>
 #include <netinet/in.h>
+#include <optional>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
@@ -148,10 +149,11 @@ TEST_F(TcpListenerTest, AcceptConnection) {
 
     // Wait for connection with timeout
     auto start = std::chrono::steady_clock::now();
-    result<tcp_socket> accepted;
+    std::optional<result<tcp_socket>> accepted;
     while (std::chrono::steady_clock::now() - start < std::chrono::seconds(2)) {
-        accepted = listener.accept();
-        if (accepted.has_value()) {
+        auto result = listener.accept();
+        if (result.has_value()) {
+            accepted = result;
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -160,7 +162,8 @@ TEST_F(TcpListenerTest, AcceptConnection) {
     client_thread.join();
 
     ASSERT_TRUE(accepted.has_value());
-    EXPECT_TRUE(*accepted);
+    ASSERT_TRUE(accepted->has_value());
+    EXPECT_TRUE(**accepted);
 }
 
 TEST_F(TcpListenerTest, AcceptNoConnection) {
