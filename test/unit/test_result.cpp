@@ -440,7 +440,7 @@ TEST(Result, VoidErrorMutableAccess) {
 
 TEST(Result, ErrorCategoryName) {
     auto& cat = get_error_category();
-    EXPECT_STREQ(cat.name(), "katana");
+    EXPECT_EQ(std::string(cat.name()), "katana");
 }
 
 TEST(Result, ErrorCategoryMessages) {
