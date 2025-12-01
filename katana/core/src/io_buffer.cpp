@@ -25,7 +25,7 @@ std::unique_ptr<uint8_t[]> allocate_raw(size_t n) {
 }
 } // namespace
 
-thread_local uint8_t io_buffer::static_scratch_[io_buffer::STATIC_SCRATCH_CAPACITY];
+alignas(64) thread_local uint8_t io_buffer::static_scratch_[io_buffer::STATIC_SCRATCH_CAPACITY];
 
 io_buffer::io_buffer() {
     // Default to the per-thread scratch arena to avoid heap work on the hot path.
