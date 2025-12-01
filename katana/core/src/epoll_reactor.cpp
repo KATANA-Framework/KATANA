@@ -116,12 +116,13 @@ result<void> epoll_reactor::run() {
     }
 
     while (running_.load(std::memory_order_relaxed)) {
+        const auto loop_now = std::chrono::steady_clock::now();
         process_wheel_timer();
-        process_timers();
+        process_timers(loop_now);
         process_tasks();
 
         if (graceful_shutdown_.load(std::memory_order_relaxed)) {
-            auto now = std::chrono::steady_clock::now();
+            auto now = loop_now;
             bool has_active_fds = false;
             for (const auto& state : fd_states_) {
                 if (state.callback) {
@@ -155,14 +156,17 @@ result<void> epoll_reactor::run() {
             }
         }
 
-        int timeout_ms = calculate_timeout();
+        int timeout_ms = calculate_timeout(loop_now);
         auto res = process_events(timeout_ms);
         if (!res) {
             running_ = false;
             return res;
         }
+
+        flush_deferred_closes();
     }
 
+    flush_deferred_closes();
     return {};
 }
 
@@ -363,31 +367,53 @@ result<void> epoll_reactor::process_events(int32_t timeout_ms) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
 
-    for (int32_t i = 0; i < nfds; ++i) {
-        int32_t fd = events_buffer_[static_cast<size_t>(i)].data.fd;
+    constexpr int32_t kChunk = 128;
+    for (int32_t base = 0; base < nfds; base += kChunk) {
+        const int32_t end = std::min<int32_t>(base + kChunk, nfds);
 
-        if (fd == wakeup_fd_) {
-            uint64_t val;
-            ssize_t ret = read(wakeup_fd_, &val, sizeof(val));
-            (void)ret;
-            needs_wakeup_.store(true, std::memory_order_relaxed);
-            continue;
+        // Prefetch phase: warm up fd_state for this chunk.
+        for (int32_t i = base; i < end; ++i) {
+            int32_t fd = events_buffer_[static_cast<size_t>(i)].data.fd;
+            if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size()) {
+                __builtin_prefetch(&fd_states_[static_cast<size_t>(fd)], 0, 1);
+            }
         }
 
-        if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
-            fd_states_[static_cast<size_t>(fd)].callback) {
-            event_type ev = from_epoll_events(events_buffer_[static_cast<size_t>(i)].events);
-            event_callback callback_copy = fd_states_[static_cast<size_t>(fd)].callback;
+        for (int32_t i = base; i < end; ++i) {
+            int32_t fd = events_buffer_[static_cast<size_t>(i)].data.fd;
 
-            if (!callback_copy) {
+            if (fd == wakeup_fd_) {
+                uint64_t val;
+                ssize_t ret = read(wakeup_fd_, &val, sizeof(val));
+                (void)ret;
+                needs_wakeup_.store(true, std::memory_order_relaxed);
                 continue;
             }
 
-            try {
-                callback_copy(ev);
-                metrics_.fd_events_processed.fetch_add(1, std::memory_order_relaxed);
-            } catch (...) {
-                handle_exception("fd_callback", std::current_exception(), fd);
+            if (fd >= 0 && static_cast<size_t>(fd) < fd_states_.size() &&
+                fd_states_[static_cast<size_t>(fd)].callback) {
+                event_type ev = from_epoll_events(events_buffer_[static_cast<size_t>(i)].events);
+                auto& state = fd_states_[static_cast<size_t>(fd)];
+
+                if (i + 1 < end) {
+                    int32_t next_fd = events_buffer_[static_cast<size_t>(i + 1)].data.fd;
+                    if (next_fd >= 0 && static_cast<size_t>(next_fd) < fd_states_.size()) {
+                        __builtin_prefetch(&fd_states_[static_cast<size_t>(next_fd)], 0, 1);
+                    }
+                }
+                if (i + 2 < end && (end - base) >= 16) {
+                    int32_t next_fd2 = events_buffer_[static_cast<size_t>(i + 2)].data.fd;
+                    if (next_fd2 >= 0 && static_cast<size_t>(next_fd2) < fd_states_.size()) {
+                        __builtin_prefetch(&fd_states_[static_cast<size_t>(next_fd2)], 0, 1);
+                    }
+                }
+
+                try {
+                    state.callback(ev);
+                    metrics_.fd_events_processed.fetch_add(1, std::memory_order_relaxed);
+                } catch (...) {
+                    handle_exception("fd_callback", std::current_exception(), fd);
+                }
             }
         }
     }
@@ -412,12 +438,10 @@ void epoll_reactor::process_tasks() {
     }
 }
 
-void epoll_reactor::process_timers() {
+void epoll_reactor::process_timers(std::chrono::steady_clock::time_point now) {
     while (auto timer = pending_timers_.pop()) {
         timers_.push(std::move(*timer));
     }
-
-    auto now = std::chrono::steady_clock::now();
 
     while (!timers_.empty() && timers_.top().deadline <= now) {
         auto task = std::move(timers_.top().task);
@@ -433,13 +457,11 @@ void epoll_reactor::process_timers() {
     }
 }
 
-int32_t epoll_reactor::calculate_timeout() const {
+int32_t epoll_reactor::calculate_timeout(std::chrono::steady_clock::time_point now) const {
     if (!pending_tasks_.empty()) {
         timeout_dirty_.store(true, std::memory_order_relaxed);
         return 0;
     }
-
-    auto now = std::chrono::steady_clock::now();
 
     if (!timeout_dirty_.load(std::memory_order_relaxed)) {
         auto elapsed =
@@ -529,47 +551,111 @@ void epoll_reactor::handle_fd_timeout(int32_t fd) {
         return;
     }
 
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - entry_state.last_activity);
+    const auto now = std::chrono::steady_clock::now();
+    const auto elapsed_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(now - entry_state.last_activity)
+            .count();
 
-    if (elapsed >= entry_state.timeout_interval) {
+    if (elapsed_ns >= entry_state.timeout_interval.count()) {
         metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
 
-        if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0 && errno != ENOENT &&
-            errno != EBADF) {
-            handle_exception("timeout_epoll_ctl_del",
-                             std::make_exception_ptr(std::system_error(
-                                 errno, std::system_category(), "epoll_ctl del failed")),
-                             fd);
+        auto cb = std::move(entry_state.callback);
+        entry_state.has_timeout = false;
+        entry_state.timeout_id = 0;
+
+        if (cb) {
+            try {
+                cb(event_type::timeout);
+            } catch (...) {
+                handle_exception("timeout_handler", std::current_exception(), fd);
+            }
         }
 
-        if (close(fd) < 0 && errno != EBADF) {
-            handle_exception("timeout_close",
-                             std::make_exception_ptr(
-                                 std::system_error(errno, std::system_category(), "close failed")),
-                             fd);
-        }
-
-        try {
-            entry_state.callback(event_type::timeout);
-        } catch (...) {
-            handle_exception("timeout_handler", std::current_exception(), fd);
-        }
-
-        fd_states_[index] = fd_state{};
-        active_fds_.fetch_sub(1, std::memory_order_relaxed);
+        queue_fd_close(fd);
         return;
     }
 
-    auto remaining = entry_state.timeout_interval - elapsed;
-    entry_state.timeout_id = wheel_timer_.add(remaining, [this, fd]() { handle_fd_timeout(fd); });
+    const auto remaining_ns = entry_state.timeout_interval.count() - elapsed_ns;
+    entry_state.timeout_id = wheel_timer_.add(std::chrono::milliseconds(remaining_ns / 1'000'000),
+                                              [this, fd]() { handle_fd_timeout(fd); });
 }
 
 void epoll_reactor::cancel_fd_timeout(fd_state& state) {
     if (state.timeout_id != 0) {
         (void)wheel_timer_.cancel(state.timeout_id);
         state.timeout_id = 0;
+    }
+}
+
+void epoll_reactor::queue_fd_close(int32_t fd) {
+    if (fd < 0) {
+        return;
+    }
+
+    // For tiny close counts, close inline; otherwise push to the deferred queue.
+    // Minimal inline budget to keep the tick short.
+    constexpr size_t kInlineThreshold = 2;
+    static thread_local size_t inline_budget = kInlineThreshold;
+
+    if (inline_budget > 0 && deferred_closes_.empty()) {
+        --inline_budget;
+        close_fd_immediate(fd);
+        return;
+    }
+    inline_budget = kInlineThreshold;
+
+    if (!deferred_closes_.try_push(fd)) {
+        // Fallback: queue is saturated — close immediately to avoid leaks.
+        close_fd_immediate(fd);
+    }
+}
+
+void epoll_reactor::close_fd_immediate(int32_t fd) {
+    if (fd < 0) {
+        return;
+    }
+
+    (void)epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+    (void)close(fd);
+
+    size_t idx = static_cast<size_t>(fd);
+    if (idx < fd_states_.size()) {
+        fd_states_[idx] = fd_state{};
+    }
+    active_fds_.fetch_sub(1, std::memory_order_relaxed);
+}
+
+void epoll_reactor::flush_deferred_closes() {
+    // Small batch to avoid blocking the tick with a long syscall series.
+    constexpr size_t kMaxBatch = 2;
+    size_t processed = 0;
+    int32_t fd;
+    while (processed < kMaxBatch && deferred_closes_.try_pop(fd)) {
+        ++processed;
+        if (fd < 0) {
+            continue;
+        }
+
+        if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0 && errno != ENOENT &&
+            errno != EBADF) {
+            handle_exception("deferred_epoll_ctl_del",
+                             std::make_exception_ptr(std::system_error(
+                                 errno, std::system_category(), "epoll_ctl del failed")),
+                             fd);
+        }
+
+        if (close(fd) < 0 && errno != EBADF) {
+            handle_exception("deferred_close",
+                             std::make_exception_ptr(
+                                 std::system_error(errno, std::system_category(), "close failed")),
+                             fd);
+        }
+
+        size_t idx = static_cast<size_t>(fd);
+        if (idx < fd_states_.size()) {
+            fd_states_[idx] = fd_state{};
+        }
+        active_fds_.fetch_sub(1, std::memory_order_relaxed);
     }
 }
 

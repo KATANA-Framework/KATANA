@@ -20,6 +20,7 @@ public:
 
     static constexpr size_t WHEEL_SIZE = NumSlots;
     static constexpr size_t TICK_MS = SlotMs;
+    static constexpr size_t COMPACT_INTERVAL_TICKS = 8; // периодическая очистка отменённых
 
     wheel_timer() : current_slot_(0), last_tick_(clock::now()) {
         slots_.resize(WHEEL_SIZE);
@@ -69,21 +70,8 @@ public:
             return false;
         }
 
-        auto slot_idx = entry.slot_idx;
-        release_entry(index);
-
-        auto& handles = slots_[slot_idx].handles;
-        handles.erase(std::remove_if(handles.begin(),
-                                     handles.end(),
-                                     [&](const slot_handle& h) {
-                                         return h.index == index && h.generation == generation;
-                                     }),
-                      handles.end());
-
-        if (handles.capacity() > handles.size() * 4 && handles.capacity() > 64) {
-            handles.shrink_to_fit();
-        }
-
+        // Ленивая отмена: помечаем и убираем при ближайшей очистке слота.
+        entry.cancelled = true;
         return true;
     }
 
@@ -162,6 +150,7 @@ private:
         uint32_t slot_idx{0};
         uint32_t generation{1};
         bool active{false};
+        bool cancelled{false};
     };
 
     static timeout_id make_id(slot_handle handle) {
@@ -195,6 +184,7 @@ private:
     void release_entry(uint32_t index) {
         auto& entry = entries_[index];
         entry.active = false;
+        entry.cancelled = false;
         entry.callback = callback_fn{};
         entry.remaining_rounds = 0;
         entry.slot_idx = 0;
@@ -220,6 +210,8 @@ private:
         bucket.handles.clear();
         bucket.handles.reserve(handles.size());
 
+        bool should_compact = (++compact_tick_counter_ % COMPACT_INTERVAL_TICKS) == 0;
+
         for (size_t i = 0; i < handles.size(); ++i) {
             auto& handle = handles[i];
 
@@ -232,6 +224,15 @@ private:
             }
             auto& entry = entries_[handle.index];
             if (!entry.active || entry.generation != handle.generation) {
+                continue;
+            }
+
+            if (entry.cancelled) {
+                if (should_compact) {
+                    release_entry(handle.index);
+                } else {
+                    bucket.handles.push_back(handle);
+                }
                 continue;
             }
 
@@ -253,6 +254,7 @@ private:
     size_t current_slot_;
     clock::time_point last_tick_;
     size_t pending_entries_{0};
+    size_t compact_tick_counter_{0};
 };
 
 } // namespace katana

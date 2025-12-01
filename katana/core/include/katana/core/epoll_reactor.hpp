@@ -97,14 +97,17 @@ private:
 
     result<void> process_events(int32_t timeout_ms);
     void process_tasks();
-    void process_timers();
+    void process_timers(std::chrono::steady_clock::time_point now);
     void process_wheel_timer();
-    int32_t calculate_timeout() const;
+    int32_t calculate_timeout(std::chrono::steady_clock::time_point now) const;
     void
     handle_exception(std::string_view location, std::exception_ptr ex, int32_t fd = -1) noexcept;
     void schedule_fd_timeout(int32_t fd, fd_state& state);
     void handle_fd_timeout(int32_t fd);
     void cancel_fd_timeout(fd_state& state);
+    void queue_fd_close(int32_t fd);
+    void flush_deferred_closes();
+    void close_fd_immediate(int32_t fd);
     std::chrono::milliseconds fd_timeout_for(const fd_state& state) const;
     result<void> ensure_fd_capacity(int32_t fd);
     std::chrono::milliseconds
@@ -130,6 +133,7 @@ private:
 
     fd_wheel_timer wheel_timer_;
     std::vector<epoll_event> events_buffer_;
+    ring_buffer_queue<int32_t> deferred_closes_{2048, false};
 
     mutable int32_t cached_timeout_ = -1;
     mutable std::chrono::steady_clock::time_point timeout_cached_at_;

@@ -255,6 +255,9 @@ private:
         return n + 1;
     }
 
+    // Используем 128B паддинг, чтобы снизить ложное разделение линий в сценариАх
+    // с высоким контеншеном (8×8 бенч); для hot-path это даёт более ровный
+    // throughput на p99.
     static constexpr size_t cache_line_size = 128;
 
     struct alignas(cache_line_size) padded_atomic {
