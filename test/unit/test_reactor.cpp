@@ -591,8 +591,8 @@ TEST_F(ReactorTest, RegisterDuplicateFd) {
 }
 
 TEST_F(ReactorTest, RefreshTimeoutNonExistentFd) {
-    auto result = reactor_->refresh_fd_timeout(999);
-    EXPECT_FALSE(result.has_value());
+    // refresh_fd_timeout returns void, so just verify it doesn't crash
+    EXPECT_NO_THROW(reactor_->refresh_fd_timeout(999));
 }
 
 TEST_F(ReactorTest, RefreshTimeoutWithoutTimeout) {
@@ -603,9 +603,8 @@ TEST_F(ReactorTest, RefreshTimeoutWithoutTimeout) {
         reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {});
     ASSERT_TRUE(result.has_value());
 
-    // Refresh timeout on fd without timeout configured
-    auto refresh_result = reactor_->refresh_fd_timeout(pipefd[0]);
-    // Should handle gracefully (may succeed or fail depending on implementation)
+    // Refresh timeout on fd without timeout configured - should not crash
+    EXPECT_NO_THROW(reactor_->refresh_fd_timeout(pipefd[0]));
 
     reactor_->unregister_fd(pipefd[0]);
     close(pipefd[0]);
