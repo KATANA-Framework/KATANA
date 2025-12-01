@@ -64,8 +64,8 @@ TEST_F(TcpListenerTest, CreateListenerIPv6) {
         EXPECT_TRUE(listener);
         EXPECT_GE(listener.native_handle(), 0);
     } catch (const std::system_error& e) {
-        // IPv6 might not be available, that's OK
-        GTEST_SKIP() << "IPv6 not available: " << e.what();
+        // IPv6 might not be available, that's OK - skip test
+        return;
     }
 }
 
@@ -83,7 +83,13 @@ TEST_F(TcpListenerTest, BindToUsedPort) {
     EXPECT_TRUE(listener1);
 
     // Try to bind to same port - should throw
-    EXPECT_THROW({ tcp_listener listener2(port, false); }, std::system_error);
+    bool threw_exception = false;
+    try {
+        tcp_listener listener2(port, false);
+    } catch (const std::system_error&) {
+        threw_exception = true;
+    }
+    EXPECT_TRUE(threw_exception);
 }
 
 TEST_F(TcpListenerTest, MoveConstructor) {

@@ -634,8 +634,8 @@ TEST_F(ReactorTest, VeryShortTimeout) {
 TEST_F(ReactorTest, MetricsTracking) {
     auto initial_metrics = reactor_->metrics().snapshot();
 
-    reactor_->schedule([this]() {});
-    reactor_->schedule([this]() {});
+    reactor_->schedule([]() {});
+    reactor_->schedule([]() {});
     reactor_->schedule([this]() { reactor_->stop(); });
 
     reactor_->run();
@@ -714,7 +714,7 @@ TEST_F(ReactorTest, LargeFdNumber) {
 TEST_F(ReactorTest, ScheduleAfterMultiple) {
     std::vector<bool> executed(5, false);
 
-    for (int i = 0; i < 5; ++i) {
+    for (size_t i = 0; i < 5; ++i) {
         reactor_->schedule_after(std::chrono::milliseconds(50 + i * 10),
                                  [&executed, i]() { executed[i] = true; });
     }
