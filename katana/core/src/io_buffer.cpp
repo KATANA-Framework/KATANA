@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <cstring>
 #include <limits.h>
+#include <new>
 
 #ifdef __linux__
 #include <sys/uio.h>
@@ -14,13 +15,13 @@
 namespace katana {
 
 namespace {
-std::unique_ptr<uint8_t[]> allocate_raw(size_t n) {
+std::unique_ptr<uint8_t[], io_buffer::aligned_delete> allocate_raw(size_t n) {
     // Use default-initialized storage to avoid zero-fill overhead on hot path.
     if (n == 0) {
         return nullptr;
     }
     // Align to 64 bytes to keep memcpy in the fast path for AVX loads/stores.
-    return std::unique_ptr<uint8_t[]>(
+    return std::unique_ptr<uint8_t[], io_buffer::aligned_delete>(
         static_cast<uint8_t*>(::operator new[](n, std::align_val_t(64))));
 }
 } // namespace
