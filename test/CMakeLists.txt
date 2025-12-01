@@ -11,6 +11,11 @@ add_executable(unit_tests
     unit/test_http_fuzzer_regression.cpp
     unit/test_virtual_event_loop.cpp
     unit/test_http_handler_harness.cpp
+    unit/test_tcp_socket.cpp
+    unit/test_tcp_listener.cpp
+    unit/test_system_limits.cpp
+    unit/test_shutdown.cpp
+    unit/test_problem.cpp
 )
 
 target_link_libraries(unit_tests

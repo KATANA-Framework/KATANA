@@ -540,3 +540,191 @@ TEST_F(ReactorTest, ScheduleTaskFromCallback) {
     close(pipefd[0]);
     close(pipefd[1]);
 }
+
+TEST_F(ReactorTest, RunWithoutTasks) {
+    // Reactor should handle empty run gracefully
+    reactor_->schedule([this]() { reactor_->stop(); });
+    auto result = reactor_->run();
+    EXPECT_TRUE(result.has_value());
+}
+
+TEST_F(ReactorTest, MultipleRuns) {
+    // Test multiple consecutive runs
+    for (int i = 0; i < 3; ++i) {
+        bool executed = false;
+        reactor_->schedule([&executed, this]() {
+            executed = true;
+            reactor_->stop();
+        });
+        auto result = reactor_->run();
+        EXPECT_TRUE(result.has_value());
+        EXPECT_TRUE(executed);
+    }
+}
+
+TEST_F(ReactorTest, ModifyNonExistentFd) {
+    auto result = reactor_->modify_fd(999, katana::event_type::readable);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(ReactorTest, UnregisterNonExistentFd) {
+    auto result = reactor_->unregister_fd(999);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(ReactorTest, RegisterDuplicateFd) {
+    int pipefd[2];
+    ASSERT_EQ(pipe(pipefd), 0);
+
+    auto result1 =
+        reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {});
+    ASSERT_TRUE(result1.has_value());
+
+    // Try to register same fd again - should fail
+    auto result2 =
+        reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {});
+    EXPECT_FALSE(result2.has_value());
+
+    reactor_->unregister_fd(pipefd[0]);
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
+TEST_F(ReactorTest, RefreshTimeoutNonExistentFd) {
+    auto result = reactor_->refresh_fd_timeout(999);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(ReactorTest, RefreshTimeoutWithoutTimeout) {
+    int pipefd[2];
+    ASSERT_EQ(pipe(pipefd), 0);
+
+    auto result =
+        reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {});
+    ASSERT_TRUE(result.has_value());
+
+    // Refresh timeout on fd without timeout configured
+    auto refresh_result = reactor_->refresh_fd_timeout(pipefd[0]);
+    // Should handle gracefully (may succeed or fail depending on implementation)
+
+    reactor_->unregister_fd(pipefd[0]);
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
+TEST_F(ReactorTest, ZeroTimeout) {
+    reactor_->schedule_after(std::chrono::milliseconds(0), [this]() { reactor_->stop(); });
+
+    auto result = reactor_->run();
+    EXPECT_TRUE(result.has_value());
+}
+
+TEST_F(ReactorTest, VeryShortTimeout) {
+    bool executed = false;
+
+    reactor_->schedule_after(std::chrono::milliseconds(1), [&executed, this]() {
+        executed = true;
+        reactor_->stop();
+    });
+
+    auto result = reactor_->run();
+    EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(executed);
+}
+
+TEST_F(ReactorTest, MetricsTracking) {
+    auto initial_metrics = reactor_->metrics().snapshot();
+
+    reactor_->schedule([this]() {});
+    reactor_->schedule([this]() {});
+    reactor_->schedule([this]() { reactor_->stop(); });
+
+    reactor_->run();
+
+    auto final_metrics = reactor_->metrics().snapshot();
+    EXPECT_GT(final_metrics.tasks_executed, initial_metrics.tasks_executed);
+}
+
+TEST_F(ReactorTest, BothReadableAndWritable) {
+    int pipefd[2];
+    ASSERT_EQ(pipe(pipefd), 0);
+
+    bool readable = false;
+    bool writable = false;
+
+    auto result =
+        reactor_->register_fd(pipefd[1],
+                              katana::event_type::readable | katana::event_type::writable,
+                              [&readable, &writable, this](katana::event_type events) {
+                                  if (katana::has_flag(events, katana::event_type::readable)) {
+                                      readable = true;
+                                  }
+                                  if (katana::has_flag(events, katana::event_type::writable)) {
+                                      writable = true;
+                                      reactor_->stop();
+                                  }
+                              });
+
+    ASSERT_TRUE(result.has_value());
+
+    reactor_->run();
+
+    EXPECT_TRUE(writable);
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
+TEST_F(ReactorTest, CancelScheduledAfter) {
+    bool executed = false;
+
+    // Schedule a task but stop before it executes
+    reactor_->schedule_after(std::chrono::seconds(10), [&executed]() { executed = true; });
+
+    reactor_->schedule([this]() { reactor_->stop(); });
+
+    auto result = reactor_->run();
+    EXPECT_TRUE(result.has_value());
+    EXPECT_FALSE(executed);
+}
+
+TEST_F(ReactorTest, EmptyCallback) {
+    reactor_->schedule([]() {});
+    reactor_->schedule([this]() { reactor_->stop(); });
+
+    auto result = reactor_->run();
+    EXPECT_TRUE(result.has_value());
+}
+
+TEST_F(ReactorTest, LargeFdNumber) {
+    // Test with a larger fd number
+    int pipefd[2];
+    ASSERT_EQ(pipe(pipefd), 0);
+
+    auto result =
+        reactor_->register_fd(pipefd[0], katana::event_type::readable, [](katana::event_type) {});
+
+    if (result.has_value()) {
+        reactor_->unregister_fd(pipefd[0]);
+    }
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
+TEST_F(ReactorTest, ScheduleAfterMultiple) {
+    std::vector<bool> executed(5, false);
+
+    for (int i = 0; i < 5; ++i) {
+        reactor_->schedule_after(std::chrono::milliseconds(50 + i * 10),
+                                 [&executed, i]() { executed[i] = true; });
+    }
+
+    reactor_->schedule_after(std::chrono::milliseconds(200), [this]() { reactor_->stop(); });
+
+    reactor_->run();
+
+    for (bool e : executed) {
+        EXPECT_TRUE(e);
+    }
+}

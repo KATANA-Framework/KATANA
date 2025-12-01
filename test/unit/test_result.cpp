@@ -287,3 +287,222 @@ TEST(Result, ErrorPropagation) {
     EXPECT_FALSE(final_result.has_value());
     EXPECT_EQ(final_result.error(), make_error_code(error_code::timeout));
 }
+
+TEST(Result, DereferenceOperator) {
+    result<int> r = 42;
+    EXPECT_EQ(*r, 42);
+
+    const result<int> cr = 100;
+    EXPECT_EQ(*cr, 100);
+}
+
+TEST(Result, ArrowOperator) {
+    struct test_struct {
+        int value = 42;
+        int get_value() const { return value; }
+    };
+
+    result<test_struct> r = test_struct{10};
+    EXPECT_EQ(r->value, 10);
+    EXPECT_EQ(r->get_value(), 10);
+
+    const result<test_struct> cr = test_struct{20};
+    EXPECT_EQ(cr->value, 20);
+    EXPECT_EQ(cr->get_value(), 20);
+}
+
+TEST(Result, InPlaceConstruction) {
+    struct complex_type {
+        int a;
+        double b;
+        std::string c;
+
+        complex_type(int x, double y, std::string z) : a(x), b(y), c(std::move(z)) {}
+    };
+
+    result<complex_type> r(std::in_place, 1, 2.5, "test");
+    EXPECT_TRUE(r.has_value());
+    EXPECT_EQ(r->a, 1);
+    EXPECT_EQ(r->b, 2.5);
+    EXPECT_EQ(r->c, "test");
+}
+
+TEST(Result, ConstAndThen) {
+    const result<int> r = 10;
+
+    auto doubled = r.and_then([](const int& val) -> result<int> { return val * 2; });
+
+    EXPECT_TRUE(doubled.has_value());
+    EXPECT_EQ(doubled.value(), 20);
+}
+
+TEST(Result, RvalueAndThen) {
+    auto get_result = []() -> result<int> { return 10; };
+
+    auto doubled = get_result().and_then([](int&& val) -> result<int> { return val * 2; });
+
+    EXPECT_TRUE(doubled.has_value());
+    EXPECT_EQ(doubled.value(), 20);
+}
+
+TEST(Result, RvalueOrElse) {
+    auto get_error = []() -> result<int> {
+        return std::unexpected(make_error_code(error_code::timeout));
+    };
+
+    auto recovered = get_error().or_else([](std::error_code&&) -> result<int> { return 100; });
+
+    EXPECT_TRUE(recovered.has_value());
+    EXPECT_EQ(recovered.value(), 100);
+}
+
+TEST(Result, ErrorRvalueAccess) {
+    result<int> r = std::unexpected(make_error_code(error_code::timeout));
+
+    auto err = std::move(r).error();
+    EXPECT_EQ(err, make_error_code(error_code::timeout));
+}
+
+TEST(Result, ErrorMutableAccess) {
+    result<int> r = std::unexpected(make_error_code(error_code::timeout));
+
+    auto& err = r.error();
+    EXPECT_EQ(err, make_error_code(error_code::timeout));
+}
+
+TEST(Result, VoidConstAndThen) {
+    const result<void> r;
+
+    bool called = false;
+    auto chained = r.and_then([&called]() -> result<void> {
+        called = true;
+        return {};
+    });
+
+    EXPECT_TRUE(chained.has_value());
+    EXPECT_TRUE(called);
+}
+
+TEST(Result, VoidRvalueAndThen) {
+    auto get_result = []() -> result<void> { return {}; };
+
+    bool called = false;
+    auto chained = get_result().and_then([&called]() -> result<void> {
+        called = true;
+        return {};
+    });
+
+    EXPECT_TRUE(chained.has_value());
+    EXPECT_TRUE(called);
+}
+
+TEST(Result, VoidConstOrElse) {
+    const result<void> r = std::unexpected(make_error_code(error_code::timeout));
+
+    bool called = false;
+    auto recovered = r.or_else([&called](const std::error_code&) -> result<void> {
+        called = true;
+        return {};
+    });
+
+    EXPECT_TRUE(recovered.has_value());
+    EXPECT_TRUE(called);
+}
+
+TEST(Result, VoidRvalueOrElse) {
+    auto get_error = []() -> result<void> {
+        return std::unexpected(make_error_code(error_code::timeout));
+    };
+
+    bool called = false;
+    auto recovered = get_error().or_else([&called](std::error_code&&) -> result<void> {
+        called = true;
+        return {};
+    });
+
+    EXPECT_TRUE(recovered.has_value());
+    EXPECT_TRUE(called);
+}
+
+TEST(Result, VoidErrorRvalueAccess) {
+    result<void> r = std::unexpected(make_error_code(error_code::timeout));
+
+    auto err = std::move(r).error();
+    EXPECT_EQ(err, make_error_code(error_code::timeout));
+}
+
+TEST(Result, VoidErrorMutableAccess) {
+    result<void> r = std::unexpected(make_error_code(error_code::timeout));
+
+    auto& err = r.error();
+    EXPECT_EQ(err, make_error_code(error_code::timeout));
+}
+
+TEST(Result, ErrorCategoryName) {
+    auto& cat = get_error_category();
+    EXPECT_STREQ(cat.name(), "katana");
+}
+
+TEST(Result, ErrorCategoryMessages) {
+    auto& cat = get_error_category();
+
+    EXPECT_EQ(cat.message(static_cast<int>(error_code::ok)), "success");
+    EXPECT_EQ(cat.message(static_cast<int>(error_code::epoll_create_failed)),
+              "epoll_create failed");
+    EXPECT_EQ(cat.message(static_cast<int>(error_code::epoll_ctl_failed)), "epoll_ctl failed");
+    EXPECT_EQ(cat.message(static_cast<int>(error_code::epoll_wait_failed)), "epoll_wait failed");
+    EXPECT_EQ(cat.message(static_cast<int>(error_code::invalid_fd)), "invalid file descriptor");
+    EXPECT_EQ(cat.message(static_cast<int>(error_code::reactor_stopped)), "reactor is stopped");
+    EXPECT_EQ(cat.message(static_cast<int>(error_code::timeout)), "operation timed out");
+    EXPECT_EQ(cat.message(999), "unknown error");
+}
+
+TEST(Result, ErrorCodeConversion) {
+    std::error_code ec = error_code::timeout;
+    EXPECT_EQ(ec.value(), static_cast<int>(error_code::timeout));
+    EXPECT_EQ(ec.category().name(), std::string("katana"));
+}
+
+TEST(Result, UnexpectedDeductionGuide) {
+    auto err = make_error_code(error_code::timeout);
+    std::unexpected unexp(err);
+
+    EXPECT_EQ(unexp.error(), err);
+}
+
+TEST(Result, UnexpectedMoveConstruction) {
+    auto err = make_error_code(error_code::timeout);
+    std::unexpected unexp1(err);
+    std::unexpected unexp2(std::move(err));
+
+    EXPECT_EQ(unexp1.error(), make_error_code(error_code::timeout));
+    EXPECT_EQ(unexp2.error(), make_error_code(error_code::timeout));
+}
+
+TEST(Result, UnexpectedErrorAccess) {
+    auto err = make_error_code(error_code::timeout);
+    std::unexpected unexp(err);
+
+    const auto& err_ref = unexp.error();
+    EXPECT_EQ(err_ref, err);
+
+    auto& err_mut = unexp.error();
+    EXPECT_EQ(err_mut, err);
+
+    auto err_move = std::move(unexp).error();
+    EXPECT_EQ(err_move, err);
+}
+
+TEST(Result, RvalueDereference) {
+    auto get_result = []() -> result<int> { return 42; };
+
+    int val = *get_result();
+    EXPECT_EQ(val, 42);
+}
+
+TEST(Result, ConstRvalueDereference) {
+    const auto get_result = []() -> result<int> { return 42; };
+
+    int val = *get_result();
+    EXPECT_EQ(val, 42);
+}
