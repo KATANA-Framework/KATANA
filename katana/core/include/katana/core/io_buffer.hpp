@@ -48,7 +48,13 @@ private:
     void ensure_writable(size_t bytes);
     void compact_if_needed();
 
-    std::unique_ptr<uint8_t[]> owner_;
+public:
+    struct aligned_delete {
+        void operator()(uint8_t* p) const noexcept { ::operator delete[](p, std::align_val_t(64)); }
+    };
+
+private:
+    std::unique_ptr<uint8_t[], aligned_delete> owner_;
     uint8_t* data_ = nullptr;
     size_t capacity_ = 0;
     size_t read_pos_ = 0;
