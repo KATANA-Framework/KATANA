@@ -6,7 +6,7 @@
 
 # =============================================================================
 # Write statements declared in CMakeLists.txt:
-#
+# 
 # Which is the root file.
 # =============================================================================
 
@@ -52,98 +52,122 @@ build cmake_object_order_depends_target_katana_core: phony || CMakeFiles/katana_
 build CMakeFiles/katana_core.dir/katana/core/src/epoll_reactor.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/epoll_reactor.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/epoll_reactor.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/cpu_info.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/cpu_info.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/cpu_info.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/reactor_pool.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/reactor_pool.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/reactor_pool.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/io_buffer.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/io_buffer.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/io_buffer.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/arena.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/arena.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/arena.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/problem.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/problem.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/problem.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/http.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/http.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/http.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/http_field.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/http_field.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/http_field.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/system_limits.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/system_limits.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/system_limits.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/shutdown.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/shutdown.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/shutdown.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/tcp_socket.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/tcp_socket.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/tcp_socket.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 build CMakeFiles/katana_core.dir/katana/core/src/tcp_listener.cpp.o: CXX_COMPILER__katana_core_unscanned_RelWithDebInfo /workspace/katana/core/src/tcp_listener.cpp || cmake_object_order_depends_target_katana_core
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/katana_core.dir/katana/core/src/tcp_listener.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/katana_core.dir
   OBJECT_FILE_DIR = CMakeFiles/katana_core.dir/katana/core/src
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
+  TARGET_PDB = libkatana_core.pdb
 
 
 # =============================================================================
@@ -154,12 +178,13 @@ build CMakeFiles/katana_core.dir/katana/core/src/tcp_listener.cpp.o: CXX_COMPILE
 # Link the static library libkatana_core.a
 
 build libkatana_core.a: CXX_STATIC_LIBRARY_LINKER__katana_core_RelWithDebInfo CMakeFiles/katana_core.dir/katana/core/src/epoll_reactor.cpp.o CMakeFiles/katana_core.dir/katana/core/src/cpu_info.cpp.o CMakeFiles/katana_core.dir/katana/core/src/reactor_pool.cpp.o CMakeFiles/katana_core.dir/katana/core/src/io_buffer.cpp.o CMakeFiles/katana_core.dir/katana/core/src/arena.cpp.o CMakeFiles/katana_core.dir/katana/core/src/problem.cpp.o CMakeFiles/katana_core.dir/katana/core/src/http.cpp.o CMakeFiles/katana_core.dir/katana/core/src/http_field.cpp.o CMakeFiles/katana_core.dir/katana/core/src/system_limits.cpp.o CMakeFiles/katana_core.dir/katana/core/src/shutdown.cpp.o CMakeFiles/katana_core.dir/katana/core/src/tcp_socket.cpp.o CMakeFiles/katana_core.dir/katana/core/src/tcp_listener.cpp.o
-  LANGUAGE_COMPILE_FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  LANGUAGE_COMPILE_FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   OBJECT_DIR = CMakeFiles/katana_core.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = CMakeFiles/katana_core.dir/katana_core.pdb
   TARGET_FILE = libkatana_core.a
-  TARGET_PDB = katana_core.a.dbg
+  TARGET_PDB = libkatana_core.pdb
 
 # =============================================================================
 # Object build statements for EXECUTABLE target debug_test
@@ -173,10 +198,12 @@ build cmake_object_order_depends_target_debug_test: phony || cmake_object_order_
 build CMakeFiles/debug_test.dir/debug_test.cpp.o: CXX_COMPILER__debug_test_unscanned_RelWithDebInfo /workspace/debug_test.cpp || cmake_object_order_depends_target_debug_test
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = CMakeFiles/debug_test.dir/debug_test.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = CMakeFiles/debug_test.dir
   OBJECT_FILE_DIR = CMakeFiles/debug_test.dir
+  TARGET_COMPILE_PDB = CMakeFiles/debug_test.dir/
+  TARGET_PDB = debug_test.pdb
 
 
 # =============================================================================
@@ -187,13 +214,14 @@ build CMakeFiles/debug_test.dir/debug_test.cpp.o: CXX_COMPILER__debug_test_unsca
 # Link the executable debug_test
 
 build debug_test: CXX_EXECUTABLE_LINKER__debug_test_RelWithDebInfo CMakeFiles/debug_test.dir/debug_test.cpp.o | libkatana_core.a || libkatana_core.a
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   LINK_LIBRARIES = libkatana_core.a
   OBJECT_DIR = CMakeFiles/debug_test.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = CMakeFiles/debug_test.dir/
   TARGET_FILE = debug_test
-  TARGET_PDB = debug_test.dbg
+  TARGET_PDB = debug_test.pdb
 
 
 #############################################
@@ -235,10 +263,12 @@ build cmake_object_order_depends_target_simple_benchmark: phony || cmake_object_
 build benchmark/CMakeFiles/simple_benchmark.dir/simple_benchmark.cpp.o: CXX_COMPILER__simple_benchmark_unscanned_RelWithDebInfo /workspace/benchmark/simple_benchmark.cpp || cmake_object_order_depends_target_simple_benchmark
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = benchmark/CMakeFiles/simple_benchmark.dir/simple_benchmark.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -march=native
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = benchmark/CMakeFiles/simple_benchmark.dir
   OBJECT_FILE_DIR = benchmark/CMakeFiles/simple_benchmark.dir
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/simple_benchmark.dir/
+  TARGET_PDB = benchmark/simple_benchmark.pdb
 
 
 # =============================================================================
@@ -249,13 +279,14 @@ build benchmark/CMakeFiles/simple_benchmark.dir/simple_benchmark.cpp.o: CXX_COMP
 # Link the executable benchmark/simple_benchmark
 
 build benchmark/simple_benchmark: CXX_EXECUTABLE_LINKER__simple_benchmark_RelWithDebInfo benchmark/CMakeFiles/simple_benchmark.dir/simple_benchmark.cpp.o | libkatana_core.a || libkatana_core.a
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   LINK_LIBRARIES = libkatana_core.a  -lpthread
   OBJECT_DIR = benchmark/CMakeFiles/simple_benchmark.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/simple_benchmark.dir/
   TARGET_FILE = benchmark/simple_benchmark
-  TARGET_PDB = simple_benchmark.dbg
+  TARGET_PDB = benchmark/simple_benchmark.pdb
 
 # =============================================================================
 # Object build statements for EXECUTABLE target performance_benchmark
@@ -269,10 +300,12 @@ build cmake_object_order_depends_target_performance_benchmark: phony || cmake_ob
 build benchmark/CMakeFiles/performance_benchmark.dir/performance_benchmark.cpp.o: CXX_COMPILER__performance_benchmark_unscanned_RelWithDebInfo /workspace/benchmark/performance_benchmark.cpp || cmake_object_order_depends_target_performance_benchmark
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = benchmark/CMakeFiles/performance_benchmark.dir/performance_benchmark.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -march=native
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = benchmark/CMakeFiles/performance_benchmark.dir
   OBJECT_FILE_DIR = benchmark/CMakeFiles/performance_benchmark.dir
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/performance_benchmark.dir/
+  TARGET_PDB = benchmark/performance_benchmark.pdb
 
 
 # =============================================================================
@@ -283,13 +316,14 @@ build benchmark/CMakeFiles/performance_benchmark.dir/performance_benchmark.cpp.o
 # Link the executable benchmark/performance_benchmark
 
 build benchmark/performance_benchmark: CXX_EXECUTABLE_LINKER__performance_benchmark_RelWithDebInfo benchmark/CMakeFiles/performance_benchmark.dir/performance_benchmark.cpp.o | libkatana_core.a || libkatana_core.a
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   LINK_LIBRARIES = libkatana_core.a  -lpthread
   OBJECT_DIR = benchmark/CMakeFiles/performance_benchmark.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/performance_benchmark.dir/
   TARGET_FILE = benchmark/performance_benchmark
-  TARGET_PDB = performance_benchmark.dbg
+  TARGET_PDB = benchmark/performance_benchmark.pdb
 
 # =============================================================================
 # Object build statements for EXECUTABLE target mpsc_benchmark
@@ -303,10 +337,12 @@ build cmake_object_order_depends_target_mpsc_benchmark: phony || cmake_object_or
 build benchmark/CMakeFiles/mpsc_benchmark.dir/mpsc_benchmark.cpp.o: CXX_COMPILER__mpsc_benchmark_unscanned_RelWithDebInfo /workspace/benchmark/mpsc_benchmark.cpp || cmake_object_order_depends_target_mpsc_benchmark
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = benchmark/CMakeFiles/mpsc_benchmark.dir/mpsc_benchmark.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -march=native
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = benchmark/CMakeFiles/mpsc_benchmark.dir
   OBJECT_FILE_DIR = benchmark/CMakeFiles/mpsc_benchmark.dir
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/mpsc_benchmark.dir/
+  TARGET_PDB = benchmark/mpsc_benchmark.pdb
 
 
 # =============================================================================
@@ -317,13 +353,14 @@ build benchmark/CMakeFiles/mpsc_benchmark.dir/mpsc_benchmark.cpp.o: CXX_COMPILER
 # Link the executable benchmark/mpsc_benchmark
 
 build benchmark/mpsc_benchmark: CXX_EXECUTABLE_LINKER__mpsc_benchmark_RelWithDebInfo benchmark/CMakeFiles/mpsc_benchmark.dir/mpsc_benchmark.cpp.o | libkatana_core.a || libkatana_core.a
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   LINK_LIBRARIES = libkatana_core.a  -lpthread
   OBJECT_DIR = benchmark/CMakeFiles/mpsc_benchmark.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/mpsc_benchmark.dir/
   TARGET_FILE = benchmark/mpsc_benchmark
-  TARGET_PDB = mpsc_benchmark.dbg
+  TARGET_PDB = benchmark/mpsc_benchmark.pdb
 
 # =============================================================================
 # Object build statements for EXECUTABLE target timer_benchmark
@@ -337,10 +374,12 @@ build cmake_object_order_depends_target_timer_benchmark: phony || cmake_object_o
 build benchmark/CMakeFiles/timer_benchmark.dir/timer_benchmark.cpp.o: CXX_COMPILER__timer_benchmark_unscanned_RelWithDebInfo /workspace/benchmark/timer_benchmark.cpp || cmake_object_order_depends_target_timer_benchmark
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = benchmark/CMakeFiles/timer_benchmark.dir/timer_benchmark.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -march=native
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = benchmark/CMakeFiles/timer_benchmark.dir
   OBJECT_FILE_DIR = benchmark/CMakeFiles/timer_benchmark.dir
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/timer_benchmark.dir/
+  TARGET_PDB = benchmark/timer_benchmark.pdb
 
 
 # =============================================================================
@@ -351,13 +390,14 @@ build benchmark/CMakeFiles/timer_benchmark.dir/timer_benchmark.cpp.o: CXX_COMPIL
 # Link the executable benchmark/timer_benchmark
 
 build benchmark/timer_benchmark: CXX_EXECUTABLE_LINKER__timer_benchmark_RelWithDebInfo benchmark/CMakeFiles/timer_benchmark.dir/timer_benchmark.cpp.o | libkatana_core.a || libkatana_core.a
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   LINK_LIBRARIES = libkatana_core.a  -lpthread
   OBJECT_DIR = benchmark/CMakeFiles/timer_benchmark.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/timer_benchmark.dir/
   TARGET_FILE = benchmark/timer_benchmark
-  TARGET_PDB = timer_benchmark.dbg
+  TARGET_PDB = benchmark/timer_benchmark.pdb
 
 # =============================================================================
 # Object build statements for EXECUTABLE target headers_benchmark
@@ -371,10 +411,12 @@ build cmake_object_order_depends_target_headers_benchmark: phony || cmake_object
 build benchmark/CMakeFiles/headers_benchmark.dir/headers_benchmark.cpp.o: CXX_COMPILER__headers_benchmark_unscanned_RelWithDebInfo /workspace/benchmark/headers_benchmark.cpp || cmake_object_order_depends_target_headers_benchmark
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = benchmark/CMakeFiles/headers_benchmark.dir/headers_benchmark.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -march=native
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = benchmark/CMakeFiles/headers_benchmark.dir
   OBJECT_FILE_DIR = benchmark/CMakeFiles/headers_benchmark.dir
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/headers_benchmark.dir/
+  TARGET_PDB = benchmark/headers_benchmark.pdb
 
 
 # =============================================================================
@@ -385,13 +427,14 @@ build benchmark/CMakeFiles/headers_benchmark.dir/headers_benchmark.cpp.o: CXX_CO
 # Link the executable benchmark/headers_benchmark
 
 build benchmark/headers_benchmark: CXX_EXECUTABLE_LINKER__headers_benchmark_RelWithDebInfo benchmark/CMakeFiles/headers_benchmark.dir/headers_benchmark.cpp.o | libkatana_core.a || libkatana_core.a
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   LINK_LIBRARIES = libkatana_core.a  -lpthread
   OBJECT_DIR = benchmark/CMakeFiles/headers_benchmark.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/headers_benchmark.dir/
   TARGET_FILE = benchmark/headers_benchmark
-  TARGET_PDB = headers_benchmark.dbg
+  TARGET_PDB = benchmark/headers_benchmark.pdb
 
 # =============================================================================
 # Object build statements for EXECUTABLE target io_buffer_benchmark
@@ -405,10 +448,12 @@ build cmake_object_order_depends_target_io_buffer_benchmark: phony || cmake_obje
 build benchmark/CMakeFiles/io_buffer_benchmark.dir/io_buffer_benchmark.cpp.o: CXX_COMPILER__io_buffer_benchmark_unscanned_RelWithDebInfo /workspace/benchmark/io_buffer_benchmark.cpp || cmake_object_order_depends_target_io_buffer_benchmark
   DEFINES = -DKATANA_USE_EPOLL
   DEP_FILE = benchmark/CMakeFiles/io_buffer_benchmark.dir/io_buffer_benchmark.cpp.o.d
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -march=native
+  FLAGS = -O2 -g -DNDEBUG -std=c++23 -flto=auto -fno-fat-lto-objects -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -O3 -g -DNDEBUG -fno-omit-frame-pointer -fno-optimize-sibling-calls -march=native -mtune=native
   INCLUDES = -I/workspace/katana/core/include
   OBJECT_DIR = benchmark/CMakeFiles/io_buffer_benchmark.dir
   OBJECT_FILE_DIR = benchmark/CMakeFiles/io_buffer_benchmark.dir
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/io_buffer_benchmark.dir/
+  TARGET_PDB = benchmark/io_buffer_benchmark.pdb
 
 
 # =============================================================================
@@ -419,13 +464,14 @@ build benchmark/CMakeFiles/io_buffer_benchmark.dir/io_buffer_benchmark.cpp.o: CX
 # Link the executable benchmark/io_buffer_benchmark
 
 build benchmark/io_buffer_benchmark: CXX_EXECUTABLE_LINKER__io_buffer_benchmark_RelWithDebInfo benchmark/CMakeFiles/io_buffer_benchmark.dir/io_buffer_benchmark.cpp.o | libkatana_core.a || libkatana_core.a
-  FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls -g
+  FLAGS = -O2 -g -DNDEBUG -flto=auto -fno-fat-lto-objects
   LINK_LIBRARIES = libkatana_core.a  -lpthread
   OBJECT_DIR = benchmark/CMakeFiles/io_buffer_benchmark.dir
   POST_BUILD = :
   PRE_LINK = :
+  TARGET_COMPILE_PDB = benchmark/CMakeFiles/io_buffer_benchmark.dir/
   TARGET_FILE = benchmark/io_buffer_benchmark
-  TARGET_PDB = io_buffer_benchmark.dbg
+  TARGET_PDB = benchmark/io_buffer_benchmark.pdb
 
 
 #############################################
@@ -491,14 +537,14 @@ build benchmark/all: phony benchmark/simple_benchmark benchmark/performance_benc
 #############################################
 # Re-run CMake if any of its inputs changed.
 
-build build.ninja: RERUN_CMAKE | /usr/share/cmake-3.28/Modules/CMakeCXXInformation.cmake /usr/share/cmake-3.28/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake-3.28/Modules/CMakeGenericSystem.cmake /usr/share/cmake-3.28/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake-3.28/Modules/CMakeLanguageInformation.cmake /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake-3.28/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake-3.28/Modules/Platform/Linux.cmake /usr/share/cmake-3.28/Modules/Platform/UnixPaths.cmake /workspace/CMakeLists.txt /workspace/benchmark/CMakeLists.txt CMakeCache.txt CMakeFiles/3.28.3/CMakeCXXCompiler.cmake CMakeFiles/3.28.3/CMakeSystem.cmake
+build build.ninja: RERUN_CMAKE | /usr/share/cmake-3.28/Modules/CMakeCXXCompiler.cmake.in /usr/share/cmake-3.28/Modules/CMakeCXXCompilerABI.cpp /usr/share/cmake-3.28/Modules/CMakeCXXInformation.cmake /usr/share/cmake-3.28/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake-3.28/Modules/CMakeCompilerIdDetection.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCXXCompiler.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompileFeatures.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompiler.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineSystem.cmake /usr/share/cmake-3.28/Modules/CMakeFindBinUtils.cmake /usr/share/cmake-3.28/Modules/CMakeGenericSystem.cmake /usr/share/cmake-3.28/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake-3.28/Modules/CMakeLanguageInformation.cmake /usr/share/cmake-3.28/Modules/CMakeNinjaFindMake.cmake /usr/share/cmake-3.28/Modules/CMakeParseImplicitIncludeInfo.cmake /usr/share/cmake-3.28/Modules/CMakeParseImplicitLinkInfo.cmake /usr/share/cmake-3.28/Modules/CMakeParseLibraryArchitecture.cmake /usr/share/cmake-3.28/Modules/CMakeSystem.cmake.in /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake-3.28/Modules/CMakeTestCXXCompiler.cmake /usr/share/cmake-3.28/Modules/CMakeTestCompilerCommon.cmake /usr/share/cmake-3.28/Modules/Compiler/ADSP-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/ARMCC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/ARMClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/AppleClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Borland-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake-3.28/Modules/Compiler/Clang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Clang-DetermineCompilerInternal.cmake /usr/share/cmake-3.28/Modules/Compiler/Comeau-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Compaq-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Cray-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/CrayClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Embarcadero-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Fujitsu-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/FujitsuClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/GHS-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-FindBinUtils.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU.cmake /usr/share/cmake-3.28/Modules/Compiler/HP-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/IAR-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/IBMCPP-CXX-DetermineVersionInternal.cmake /usr/share/cmake-3.28/Modules/Compiler/IBMClang-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Intel-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/IntelLLVM-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/LCC-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/MSVC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/NVHPC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/NVIDIA-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/OpenWatcom-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/OrangeC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/PGI-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/PathScale-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/SCO-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/SunPro-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/TI-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Tasking-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/VisualAge-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Watcom-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/XL-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/XLClang-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/zOS-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Internal/FeatureTesting.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-Determine-CXX.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake-3.28/Modules/Platform/Linux.cmake /usr/share/cmake-3.28/Modules/Platform/UnixPaths.cmake /workspace/CMakeLists.txt /workspace/benchmark/CMakeLists.txt CMakeCache.txt CMakeFiles/3.28.3/CMakeCXXCompiler.cmake CMakeFiles/3.28.3/CMakeSystem.cmake
   pool = console
 
 
 #############################################
 # A missing CMake input file is not an error.
 
-build /usr/share/cmake-3.28/Modules/CMakeCXXInformation.cmake /usr/share/cmake-3.28/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake-3.28/Modules/CMakeGenericSystem.cmake /usr/share/cmake-3.28/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake-3.28/Modules/CMakeLanguageInformation.cmake /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake-3.28/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake-3.28/Modules/Platform/Linux.cmake /usr/share/cmake-3.28/Modules/Platform/UnixPaths.cmake /workspace/CMakeLists.txt /workspace/benchmark/CMakeLists.txt CMakeCache.txt CMakeFiles/3.28.3/CMakeCXXCompiler.cmake CMakeFiles/3.28.3/CMakeSystem.cmake: phony
+build /usr/share/cmake-3.28/Modules/CMakeCXXCompiler.cmake.in /usr/share/cmake-3.28/Modules/CMakeCXXCompilerABI.cpp /usr/share/cmake-3.28/Modules/CMakeCXXInformation.cmake /usr/share/cmake-3.28/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake-3.28/Modules/CMakeCompilerIdDetection.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCXXCompiler.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompileFeatures.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompiler.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompilerABI.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineCompilerId.cmake /usr/share/cmake-3.28/Modules/CMakeDetermineSystem.cmake /usr/share/cmake-3.28/Modules/CMakeFindBinUtils.cmake /usr/share/cmake-3.28/Modules/CMakeGenericSystem.cmake /usr/share/cmake-3.28/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake-3.28/Modules/CMakeLanguageInformation.cmake /usr/share/cmake-3.28/Modules/CMakeNinjaFindMake.cmake /usr/share/cmake-3.28/Modules/CMakeParseImplicitIncludeInfo.cmake /usr/share/cmake-3.28/Modules/CMakeParseImplicitLinkInfo.cmake /usr/share/cmake-3.28/Modules/CMakeParseLibraryArchitecture.cmake /usr/share/cmake-3.28/Modules/CMakeSystem.cmake.in /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake-3.28/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake-3.28/Modules/CMakeTestCXXCompiler.cmake /usr/share/cmake-3.28/Modules/CMakeTestCompilerCommon.cmake /usr/share/cmake-3.28/Modules/Compiler/ADSP-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/ARMCC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/ARMClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/AppleClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Borland-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake-3.28/Modules/Compiler/Clang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Clang-DetermineCompilerInternal.cmake /usr/share/cmake-3.28/Modules/Compiler/Comeau-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Compaq-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Cray-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/CrayClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Embarcadero-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Fujitsu-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/FujitsuClang-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/GHS-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU-FindBinUtils.cmake /usr/share/cmake-3.28/Modules/Compiler/GNU.cmake /usr/share/cmake-3.28/Modules/Compiler/HP-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/IAR-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/IBMCPP-CXX-DetermineVersionInternal.cmake /usr/share/cmake-3.28/Modules/Compiler/IBMClang-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Intel-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/IntelLLVM-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/LCC-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/MSVC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/NVHPC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/NVIDIA-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/OpenWatcom-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/OrangeC-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/PGI-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/PathScale-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/SCO-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/SunPro-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/TI-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Tasking-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/VisualAge-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/Watcom-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/XL-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/XLClang-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Compiler/zOS-CXX-DetermineCompiler.cmake /usr/share/cmake-3.28/Modules/Internal/FeatureTesting.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-Determine-CXX.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-GNU.cmake /usr/share/cmake-3.28/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake-3.28/Modules/Platform/Linux.cmake /usr/share/cmake-3.28/Modules/Platform/UnixPaths.cmake /workspace/CMakeLists.txt /workspace/benchmark/CMakeLists.txt CMakeCache.txt CMakeFiles/3.28.3/CMakeCXXCompiler.cmake CMakeFiles/3.28.3/CMakeSystem.cmake: phony
 
 
 #############################################

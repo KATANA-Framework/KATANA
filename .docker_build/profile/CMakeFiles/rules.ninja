@@ -25,7 +25,7 @@ rule CXX_COMPILER__katana_core_unscanned_RelWithDebInfo
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__katana_core_RelWithDebInfo
-  command = $PRE_LINK && /usr/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar qc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /usr/bin/cmake -E rm -f $TARGET_FILE && "/usr/bin/gcc-ar-13" cr $TARGET_FILE $LINK_FLAGS $in && "/usr/bin/gcc-ranlib-13" $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -194,3 +194,4 @@ rule CLEAN
 rule HELP
   command = /usr/bin/ninja -t targets
   description = All primary targets available:
+

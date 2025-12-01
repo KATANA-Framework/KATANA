@@ -1,0 +1,1251 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 51  of event 'cycles:Pu'
+# Event count (approx.): 159780375
+#
+# Children      Self  Command          Shared Object         Symbol                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+# ........  ........  ...............  ....................  .................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    98.37%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] _start
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               |          
+               |--21.70%--benchmark_scatter_gather() (inlined)
+               |          |          
+               |          |--10.78%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --8.07%--__GI___clock_gettime (inlined)
+               |          |                     __vdso_clock_gettime
+               |          |          
+               |          |--2.74%--katana::scatter_gather_write::~scatter_gather_write() (inlined)
+               |          |          std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+               |          |          std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               |          |          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |          |          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |          |          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          |          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          |          operator delete(void*)
+               |          |          
+               |          |--2.74%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+               |          |          
+               |          |--2.73%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |          |          
+               |           --2.71%--katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               |                     std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+               |                     iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+               |                     void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+               |                     std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |                     std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |                     std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |                     std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |                     operator delete(void*)
+               |          
+               |--20.71%--benchmark_buffer_writable_commit() (inlined)
+               |          |          
+               |          |--15.38%--std::chrono::_V2::steady_clock::now()
+               |          |          __GI___clock_gettime (inlined)
+               |          |          __vdso_clock_gettime
+               |          |          
+               |           --5.33%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          
+               |                     |--2.67%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          
+               |                      --2.66%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                                __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--19.99%--benchmark_buffer_read_write() (inlined)
+               |          |          
+               |          |--12.49%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --10.04%--__GI___clock_gettime (inlined)
+               |          |                     |          
+               |          |                      --7.51%--__vdso_clock_gettime
+               |          |          
+               |          |--5.05%--katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               |          |          operator new(unsigned long, std::align_val_t)
+               |          |          |          
+               |          |           --2.53%--__posix_memalign
+               |          |                     __posix_memalign
+               |          |                     _mid_memalign (inlined)
+               |          |          
+               |           --2.45%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+               |          
+               |--19.28%--benchmark_buffer_append_small() (inlined)
+               |          |          
+               |          |--14.91%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --13.52%--__GI___clock_gettime (inlined)
+               |          |                     __vdso_clock_gettime
+               |          |          
+               |          |--2.24%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          
+               |           --2.14%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |          
+                --16.68%--benchmark_buffer_append_large() (inlined)
+                          |          
+                          |--12.02%--std::chrono::_V2::steady_clock::now()
+                          |          __GI___clock_gettime (inlined)
+                          |          __vdso_clock_gettime
+                          |          
+                           --4.66%--katana::io_buffer::~io_buffer() (inlined)
+                                     std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+                                     std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+                                     __GI___libc_free (inlined)
+                                     |          
+                                      --2.37%--_int_free_merge_chunk
+                                                _int_free_create_chunk (inlined)
+
+    98.37%     0.00%  io_buffer_bench  libc.so.6             [.] __libc_start_main_impl (inlined)
+            |
+            ---__libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               |          
+               |--21.70%--benchmark_scatter_gather() (inlined)
+               |          |          
+               |          |--10.78%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --8.07%--__GI___clock_gettime (inlined)
+               |          |                     __vdso_clock_gettime
+               |          |          
+               |          |--2.74%--katana::scatter_gather_write::~scatter_gather_write() (inlined)
+               |          |          std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+               |          |          std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               |          |          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |          |          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |          |          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          |          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          |          operator delete(void*)
+               |          |          
+               |          |--2.74%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+               |          |          
+               |          |--2.73%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |          |          
+               |           --2.71%--katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               |                     std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+               |                     iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+               |                     void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+               |                     std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |                     std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |                     std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |                     std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |                     operator delete(void*)
+               |          
+               |--20.71%--benchmark_buffer_writable_commit() (inlined)
+               |          |          
+               |          |--15.38%--std::chrono::_V2::steady_clock::now()
+               |          |          __GI___clock_gettime (inlined)
+               |          |          __vdso_clock_gettime
+               |          |          
+               |           --5.33%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          
+               |                     |--2.67%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          
+               |                      --2.66%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                                __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--19.99%--benchmark_buffer_read_write() (inlined)
+               |          |          
+               |          |--12.49%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --10.04%--__GI___clock_gettime (inlined)
+               |          |                     |          
+               |          |                      --7.51%--__vdso_clock_gettime
+               |          |          
+               |          |--5.05%--katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               |          |          operator new(unsigned long, std::align_val_t)
+               |          |          |          
+               |          |           --2.53%--__posix_memalign
+               |          |                     __posix_memalign
+               |          |                     _mid_memalign (inlined)
+               |          |          
+               |           --2.45%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+               |          
+               |--19.28%--benchmark_buffer_append_small() (inlined)
+               |          |          
+               |          |--14.91%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --13.52%--__GI___clock_gettime (inlined)
+               |          |                     __vdso_clock_gettime
+               |          |          
+               |          |--2.24%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          
+               |           --2.14%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |          
+                --16.68%--benchmark_buffer_append_large() (inlined)
+                          |          
+                          |--12.02%--std::chrono::_V2::steady_clock::now()
+                          |          __GI___clock_gettime (inlined)
+                          |          __vdso_clock_gettime
+                          |          
+                           --4.66%--katana::io_buffer::~io_buffer() (inlined)
+                                     std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+                                     std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+                                     __GI___libc_free (inlined)
+                                     |          
+                                      --2.37%--_int_free_merge_chunk
+                                                _int_free_create_chunk (inlined)
+
+    98.37%     0.00%  io_buffer_bench  libc.so.6             [.] __libc_start_call_main
+            |
+            ---__libc_start_call_main
+               main
+               |          
+               |--21.70%--benchmark_scatter_gather() (inlined)
+               |          |          
+               |          |--10.78%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --8.07%--__GI___clock_gettime (inlined)
+               |          |                     __vdso_clock_gettime
+               |          |          
+               |          |--2.74%--katana::scatter_gather_write::~scatter_gather_write() (inlined)
+               |          |          std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+               |          |          std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               |          |          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |          |          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |          |          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          |          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          |          operator delete(void*)
+               |          |          
+               |          |--2.74%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+               |          |          
+               |          |--2.73%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |          |          
+               |           --2.71%--katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               |                     std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+               |                     iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+               |                     void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+               |                     std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |                     std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |                     std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |                     std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |                     operator delete(void*)
+               |          
+               |--20.71%--benchmark_buffer_writable_commit() (inlined)
+               |          |          
+               |          |--15.38%--std::chrono::_V2::steady_clock::now()
+               |          |          __GI___clock_gettime (inlined)
+               |          |          __vdso_clock_gettime
+               |          |          
+               |           --5.33%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          
+               |                     |--2.67%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     |          
+               |                      --2.66%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                                __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--19.99%--benchmark_buffer_read_write() (inlined)
+               |          |          
+               |          |--12.49%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --10.04%--__GI___clock_gettime (inlined)
+               |          |                     |          
+               |          |                      --7.51%--__vdso_clock_gettime
+               |          |          
+               |          |--5.05%--katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          |          katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               |          |          operator new(unsigned long, std::align_val_t)
+               |          |          |          
+               |          |           --2.53%--__posix_memalign
+               |          |                     __posix_memalign
+               |          |                     _mid_memalign (inlined)
+               |          |          
+               |           --2.45%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+               |          
+               |--19.28%--benchmark_buffer_append_small() (inlined)
+               |          |          
+               |          |--14.91%--std::chrono::_V2::steady_clock::now()
+               |          |          |          
+               |          |           --13.52%--__GI___clock_gettime (inlined)
+               |          |                     __vdso_clock_gettime
+               |          |          
+               |          |--2.24%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          
+               |           --2.14%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |          
+                --16.68%--benchmark_buffer_append_large() (inlined)
+                          |          
+                          |--12.02%--std::chrono::_V2::steady_clock::now()
+                          |          __GI___clock_gettime (inlined)
+                          |          __vdso_clock_gettime
+                          |          
+                           --4.66%--katana::io_buffer::~io_buffer() (inlined)
+                                     std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+                                     std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+                                     __GI___libc_free (inlined)
+                                     |          
+                                      --2.37%--_int_free_merge_chunk
+                                                _int_free_create_chunk (inlined)
+
+    98.37%     4.87%  io_buffer_bench  io_buffer_benchmark   [.] main
+            |          
+            |--93.49%--main
+            |          |          
+            |          |--20.71%--benchmark_buffer_writable_commit() (inlined)
+            |          |          |          
+            |          |          |--15.38%--std::chrono::_V2::steady_clock::now()
+            |          |          |          __GI___clock_gettime (inlined)
+            |          |          |          __vdso_clock_gettime
+            |          |          |          
+            |          |           --5.33%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+            |          |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     |          
+            |          |                     |--2.67%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     |          
+            |          |                      --2.66%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                                __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          
+            |          |--19.99%--benchmark_buffer_read_write() (inlined)
+            |          |          |          
+            |          |          |--12.49%--std::chrono::_V2::steady_clock::now()
+            |          |          |          |          
+            |          |          |           --10.04%--__GI___clock_gettime (inlined)
+            |          |          |                     |          
+            |          |          |                      --7.51%--__vdso_clock_gettime
+            |          |          |          
+            |          |          |--5.05%--katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+            |          |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+            |          |          |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+            |          |          |          katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+            |          |          |          operator new(unsigned long, std::align_val_t)
+            |          |          |          |          
+            |          |          |           --2.53%--__posix_memalign
+            |          |          |                     __posix_memalign
+            |          |          |                     _mid_memalign (inlined)
+            |          |          |          
+            |          |           --2.45%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+            |          |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+            |          |          
+            |          |--18.97%--benchmark_scatter_gather() (inlined)
+            |          |          |          
+            |          |          |--10.78%--std::chrono::_V2::steady_clock::now()
+            |          |          |          |          
+            |          |          |           --8.07%--__GI___clock_gettime (inlined)
+            |          |          |                     __vdso_clock_gettime
+            |          |          |          
+            |          |          |--2.74%--katana::scatter_gather_write::~scatter_gather_write() (inlined)
+            |          |          |          std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+            |          |          |          std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+            |          |          |          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+            |          |          |          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+            |          |          |          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+            |          |          |          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+            |          |          |          operator delete(void*)
+            |          |          |          
+            |          |          |--2.74%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+            |          |          |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+            |          |          |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+            |          |          |          
+            |          |           --2.71%--katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+            |          |                     std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+            |          |                     iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+            |          |                     void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+            |          |                     std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+            |          |                     std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+            |          |                     std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+            |          |                     std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+            |          |                     operator delete(void*)
+            |          |          
+            |          |--17.14%--benchmark_buffer_append_small() (inlined)
+            |          |          |          
+            |          |          |--14.91%--std::chrono::_V2::steady_clock::now()
+            |          |          |          |          
+            |          |          |           --13.52%--__GI___clock_gettime (inlined)
+            |          |          |                     __vdso_clock_gettime
+            |          |          |          
+            |          |           --2.24%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+            |          |                     void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |          |          
+            |           --16.68%--benchmark_buffer_append_large() (inlined)
+            |                     |          
+            |                     |--12.02%--std::chrono::_V2::steady_clock::now()
+            |                     |          __GI___clock_gettime (inlined)
+            |                     |          __vdso_clock_gettime
+            |                     |          
+            |                      --4.66%--katana::io_buffer::~io_buffer() (inlined)
+            |                                std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+            |                                std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+            |                                __GI___libc_free (inlined)
+            |                                |          
+            |                                 --2.37%--_int_free_merge_chunk
+            |                                           _int_free_create_chunk (inlined)
+            |          
+             --4.87%--_start
+                       __libc_start_main_impl (inlined)
+                       __libc_start_call_main
+                       main
+                       |          
+                       |--2.73%--benchmark_scatter_gather() (inlined)
+                       |          std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+                       |          
+                        --2.14%--benchmark_buffer_append_small() (inlined)
+                                  std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+
+    65.58%     6.54%  io_buffer_bench  libstdc++.so.6.0.33   [.] std::chrono::_V2::steady_clock::now()
+            |          
+            |--59.04%--std::chrono::_V2::steady_clock::now()
+            |          __GI___clock_gettime (inlined)
+            |          |          
+            |           --56.51%--__vdso_clock_gettime
+            |          
+             --6.54%--_start
+                       __libc_start_main_impl (inlined)
+                       __libc_start_call_main
+                       main
+                       |          
+                       |--2.71%--benchmark_scatter_gather() (inlined)
+                       |          std::chrono::_V2::steady_clock::now()
+                       |          
+                       |--2.44%--benchmark_buffer_read_write() (inlined)
+                       |          std::chrono::_V2::steady_clock::now()
+                       |          
+                        --1.39%--benchmark_buffer_append_small() (inlined)
+                                  std::chrono::_V2::steady_clock::now()
+
+    59.04%     0.00%  io_buffer_bench  libc.so.6             [.] __GI___clock_gettime (inlined)
+            |
+            ---__GI___clock_gettime (inlined)
+               |          
+                --56.51%--__vdso_clock_gettime
+
+    56.51%    56.51%  io_buffer_bench  [vdso]                [.] __vdso_clock_gettime
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               |          
+               |--15.38%--benchmark_buffer_writable_commit() (inlined)
+               |          std::chrono::_V2::steady_clock::now()
+               |          __GI___clock_gettime (inlined)
+               |          __vdso_clock_gettime
+               |          
+               |--13.52%--benchmark_buffer_append_small() (inlined)
+               |          std::chrono::_V2::steady_clock::now()
+               |          __GI___clock_gettime (inlined)
+               |          __vdso_clock_gettime
+               |          
+               |--12.02%--benchmark_buffer_append_large() (inlined)
+               |          std::chrono::_V2::steady_clock::now()
+               |          __GI___clock_gettime (inlined)
+               |          __vdso_clock_gettime
+               |          
+               |--8.07%--benchmark_scatter_gather() (inlined)
+               |          std::chrono::_V2::steady_clock::now()
+               |          __GI___clock_gettime (inlined)
+               |          __vdso_clock_gettime
+               |          
+                --7.51%--benchmark_buffer_read_write() (inlined)
+                          std::chrono::_V2::steady_clock::now()
+                          __GI___clock_gettime (inlined)
+                          __vdso_clock_gettime
+
+    21.70%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] benchmark_scatter_gather() (inlined)
+            |
+            ---benchmark_scatter_gather() (inlined)
+               |          
+               |--10.78%--std::chrono::_V2::steady_clock::now()
+               |          |          
+               |           --8.07%--__GI___clock_gettime (inlined)
+               |                     __vdso_clock_gettime
+               |          
+               |--2.74%--katana::scatter_gather_write::~scatter_gather_write() (inlined)
+               |          std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+               |          std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               |          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          operator delete(void*)
+               |          
+               |--2.74%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+               |          
+               |--2.73%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+               |          
+                --2.71%--katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+                          std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+                          iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+                          void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+                          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+                          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+                          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+                          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+                          operator delete(void*)
+
+    20.71%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] benchmark_buffer_writable_commit() (inlined)
+            |
+            ---benchmark_buffer_writable_commit() (inlined)
+               |          
+               |--15.38%--std::chrono::_V2::steady_clock::now()
+               |          __GI___clock_gettime (inlined)
+               |          __vdso_clock_gettime
+               |          
+                --5.33%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+                          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          
+                          |--2.67%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          
+                           --2.66%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+
+    19.99%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] benchmark_buffer_read_write() (inlined)
+            |
+            ---benchmark_buffer_read_write() (inlined)
+               |          
+               |--12.49%--std::chrono::_V2::steady_clock::now()
+               |          |          
+               |           --10.04%--__GI___clock_gettime (inlined)
+               |                     |          
+               |                      --7.51%--__vdso_clock_gettime
+               |          
+               |--5.05%--katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               |          katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               |          operator new(unsigned long, std::align_val_t)
+               |          |          
+               |           --2.53%--__posix_memalign
+               |                     __posix_memalign
+               |                     _mid_memalign (inlined)
+               |          
+                --2.45%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+                          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+
+    19.28%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] benchmark_buffer_append_small() (inlined)
+            |
+            ---benchmark_buffer_append_small() (inlined)
+               |          
+               |--14.91%--std::chrono::_V2::steady_clock::now()
+               |          |          
+               |           --13.52%--__GI___clock_gettime (inlined)
+               |                     __vdso_clock_gettime
+               |          
+               |--2.24%--void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+                --2.14%--std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+
+    16.68%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] benchmark_buffer_append_large() (inlined)
+            |
+            ---benchmark_buffer_append_large() (inlined)
+               |          
+               |--12.02%--std::chrono::_V2::steady_clock::now()
+               |          __GI___clock_gettime (inlined)
+               |          __vdso_clock_gettime
+               |          
+                --4.66%--katana::io_buffer::~io_buffer() (inlined)
+                          std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+                          std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+                          __GI___libc_free (inlined)
+                          |          
+                           --2.37%--_int_free_merge_chunk
+                                     _int_free_create_chunk (inlined)
+
+    12.75%    12.75%  io_buffer_bench  io_buffer_benchmark   [.] void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) [clone .isra.0]
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               |          
+               |--10.02%--0x5d0a93cc4510
+               |          |          
+               |          |--5.33%--0x5d0a93cc4ba4
+               |          |          0x5d0a93cc4ba4
+               |          |          0x5d0a93cc6bbf
+               |          |          0x5d0a93cc5e9f
+               |          |          |          
+               |          |          |--2.67%--0x5d0a93cc5f11
+               |          |          |          0x5d0a93cc5f11
+               |          |          |          0x5d0a93cc5e70
+               |          |          |          0x5d0a93cc5e70
+               |          |          |          0x5d0a93cc5e70
+               |          |          |          
+               |          |           --2.66%--0x5d0a93cc5e9f
+               |          |                     0x5d0a93cc5e9f
+               |          |          
+               |          |--2.45%--0x5d0a93cc4972
+               |          |          0x5d0a93cc4972
+               |          |          0x5d0a93cc6bbf
+               |          |          0x5d0a93cc5e95
+               |          |          0x5d0a93cc5e95
+               |          |          0x5d0a93cc5e95
+               |          |          0x5d0a93cc5e95
+               |          |          
+               |           --2.24%--0x5d0a93cc4510
+               |                     0x5d0a93cc4510
+               |                     0x5d0a93cc6bbf
+               |                     0x5d0a93cc5e85
+               |                     0x5d0a93cc5e85
+               |                     0x5d0a93cc5e85
+               |          
+                --2.74%--main
+                          benchmark_scatter_gather() (inlined)
+                          void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+                          void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+                          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+
+    12.75%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+            |
+            ---void std::sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--7.35%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          
+               |           --2.45%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+               |          
+                --5.40%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          
+                          |--2.74%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+                          |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+                          |          
+                           --2.67%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+
+    12.75%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |
+            ---void std::__sort<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--7.35%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          
+               |           --2.45%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+               |          
+                --5.40%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          
+                          |--2.74%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+                          |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+                          |          
+                           --2.67%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+
+    12.75%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |
+            ---void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--7.35%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          |          
+               |           --2.45%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+               |          
+                --5.40%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          
+                          |--2.74%--void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::__introsort_loop<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, long, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                          |          void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+                          |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+                          |          
+                           --2.67%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+                                     __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+
+    12.75%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |
+            ---__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition_pivot<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--2.74%--void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+               |          
+                --2.45%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+
+    12.75%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+            |
+            ---__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > std::__unguarded_partition<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter>(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__ops::_Iter_less_iter) (inlined)
+               |          
+               |--2.74%--void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               |          std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+               |          
+                --2.45%--__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+
+     5.45%     5.45%  io_buffer_bench  libstdc++.so.6.0.33   [.] operator delete(void*)
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               benchmark_scatter_gather() (inlined)
+               |          
+               |--2.74%--katana::scatter_gather_write::~scatter_gather_write() (inlined)
+               |          std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+               |          std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               |          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               |          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               |          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               |          operator delete(void*)
+               |          
+                --2.71%--katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+                          std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+                          iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+                          void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+                          std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+                          std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+                          std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+                          std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+                          operator delete(void*)
+
+     5.45%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+            |
+            ---std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     5.45%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+            |
+            ---std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     5.45%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+            |
+            ---std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     5.45%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+            |
+            ---std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     5.05%     2.52%  io_buffer_bench  libstdc++.so.6.0.33   [.] operator new(unsigned long, std::align_val_t)
+            |          
+            |--2.53%--operator new(unsigned long, std::align_val_t)
+            |          __posix_memalign
+            |          __posix_memalign
+            |          _mid_memalign (inlined)
+            |          
+             --2.52%--_start
+                       __libc_start_main_impl (inlined)
+                       __libc_start_call_main
+                       main
+                       benchmark_buffer_read_write() (inlined)
+                       katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+                       katana::io_buffer::ensure_writable(unsigned long) (inlined)
+                       katana::io_buffer::ensure_writable(unsigned long) (inlined)
+                       katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+                       operator new(unsigned long, std::align_val_t)
+
+     5.05%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+            |
+            ---katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               operator new(unsigned long, std::align_val_t)
+               |          
+                --2.53%--__posix_memalign
+                          __posix_memalign
+                          _mid_memalign (inlined)
+
+     5.05%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] katana::io_buffer::ensure_writable(unsigned long) (inlined)
+            |
+            ---katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               operator new(unsigned long, std::align_val_t)
+               |          
+                --2.53%--__posix_memalign
+                          __posix_memalign
+                          _mid_memalign (inlined)
+
+     5.05%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] katana::io_buffer::ensure_writable(unsigned long) (inlined)
+            |
+            ---katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               operator new(unsigned long, std::align_val_t)
+               |          
+                --2.53%--__posix_memalign
+                          __posix_memalign
+                          _mid_memalign (inlined)
+
+     5.05%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+            |
+            ---katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               operator new(unsigned long, std::align_val_t)
+               |          
+                --2.53%--__posix_memalign
+                          __posix_memalign
+                          _mid_memalign (inlined)
+
+     4.87%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+            |
+            ---std::vector<double, std::allocator<double> >::push_back(double const&) (inlined)
+
+     4.66%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] katana::io_buffer::~io_buffer() (inlined)
+            |
+            ---katana::io_buffer::~io_buffer() (inlined)
+               std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+               std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+               __GI___libc_free (inlined)
+               |          
+                --2.37%--_int_free_merge_chunk
+                          _int_free_create_chunk (inlined)
+
+     4.66%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+            |
+            ---std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+               std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+               __GI___libc_free (inlined)
+               |          
+                --2.37%--_int_free_merge_chunk
+                          _int_free_create_chunk (inlined)
+
+     4.66%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+            |
+            ---std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+               __GI___libc_free (inlined)
+               |          
+                --2.37%--_int_free_merge_chunk
+                          _int_free_create_chunk (inlined)
+
+     4.66%     0.00%  io_buffer_bench  libc.so.6             [.] __GI___libc_free (inlined)
+            |
+            ---__GI___libc_free (inlined)
+               |          
+                --2.37%--_int_free_merge_chunk
+                          _int_free_create_chunk (inlined)
+
+     2.74%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] katana::scatter_gather_write::~scatter_gather_write() (inlined)
+            |
+            ---katana::scatter_gather_write::~scatter_gather_write() (inlined)
+               std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     2.74%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+            |
+            ---std::vector<iovec, std::allocator<iovec> >::~vector() (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     2.74%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+            |
+            ---std::_Vector_base<iovec, std::allocator<iovec> >::~_Vector_base() (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     2.74%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+            |
+            ---void std::iter_swap<__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > > >(__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >, __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >) (inlined)
+               std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+
+     2.74%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+            |
+            ---std::enable_if<std::__and_<std::__not_<std::__is_tuple_like<double> >, std::is_move_constructible<double>, std::is_move_assignable<double> >::value, void>::type std::swap<double>(double&, double&) (inlined)
+
+     2.71%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+            |
+            ---katana::scatter_gather_write::add_buffer(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+               iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+               void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     2.71%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+            |
+            ---std::vector<iovec, std::allocator<iovec> >::push_back(iovec&&) (inlined)
+               iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+               void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     2.71%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+            |
+            ---iovec& std::vector<iovec, std::allocator<iovec> >::emplace_back<iovec>(iovec&&) (inlined)
+               void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     2.71%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+            |
+            ---void std::vector<iovec, std::allocator<iovec> >::_M_realloc_insert<iovec>(__gnu_cxx::__normal_iterator<iovec*, std::vector<iovec, std::allocator<iovec> > >, iovec&&) (inlined)
+               std::_Vector_base<iovec, std::allocator<iovec> >::_M_deallocate(iovec*, unsigned long) (inlined)
+               std::allocator_traits<std::allocator<iovec> >::deallocate(std::allocator<iovec>&, iovec*, unsigned long) (inlined)
+               std::allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               std::__new_allocator<iovec>::deallocate(iovec*, unsigned long) (inlined)
+               operator delete(void*)
+
+     2.53%     2.53%  io_buffer_bench  libc.so.6             [.] _mid_memalign.isra.0
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               benchmark_buffer_read_write() (inlined)
+               katana::io_buffer::append(std::span<unsigned char const, 18446744073709551615ul>) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) (inlined)
+               katana::io_buffer::ensure_writable(unsigned long) [clone .part.0]
+               operator new(unsigned long, std::align_val_t)
+               __posix_memalign
+               __posix_memalign
+               _mid_memalign (inlined)
+
+     2.53%     0.00%  io_buffer_bench  libc.so.6             [.] __posix_memalign
+            |
+            ---__posix_memalign
+               __posix_memalign
+               _mid_memalign (inlined)
+
+     2.53%     0.00%  io_buffer_bench  libc.so.6             [.] _mid_memalign (inlined)
+            |
+            ---_mid_memalign (inlined)
+
+     2.53%     2.53%  io_buffer_bench  libc.so.6             [.] clock_gettime@@GLIBC_2.17
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               benchmark_buffer_read_write() (inlined)
+               std::chrono::_V2::steady_clock::now()
+               __GI___clock_gettime (inlined)
+
+     2.45%     0.00%  io_buffer_bench  io_buffer_benchmark   [.] __gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+            |
+            ---__gnu_cxx::__normal_iterator<double*, std::vector<double, std::allocator<double> > >::operator--() (inlined)
+
+     2.37%     2.37%  io_buffer_bench  libc.so.6             [.] _int_free_merge_chunk
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               benchmark_buffer_append_large() (inlined)
+               katana::io_buffer::~io_buffer() (inlined)
+               std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+               std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+               __GI___libc_free (inlined)
+               _int_free_merge_chunk
+               _int_free_create_chunk (inlined)
+
+     2.37%     0.00%  io_buffer_bench  libc.so.6             [.] _int_free_create_chunk (inlined)
+            |
+            ---_int_free_create_chunk (inlined)
+
+     2.29%     2.29%  io_buffer_bench  libc.so.6             [.] cfree@GLIBC_2.2.5
+            |
+            ---_start
+               __libc_start_main_impl (inlined)
+               __libc_start_call_main
+               main
+               benchmark_buffer_append_large() (inlined)
+               katana::io_buffer::~io_buffer() (inlined)
+               std::unique_ptr<unsigned char [], std::default_delete<unsigned char []> >::~unique_ptr() (inlined)
+               std::enable_if<std::is_convertible<unsigned char (*) [], unsigned char (*) []>::value, void>::type std::default_delete<unsigned char []>::operator()<unsigned char>(unsigned char*) const (inlined)
+               __GI___libc_free (inlined)
+
+     1.63%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _start
+            |
+            ---_start
+               |          
+                --1.63%--_dl_start
+                          |          
+                           --1.63%--_dl_start_final (inlined)
+                                     |          
+                                      --1.63%--_dl_sysdep_start
+                                                |          
+                                                 --1.57%--dl_main
+                                                           |          
+                                                            --1.12%--_dl_relocate_object
+                                                                      elf_dynamic_do_Rela (inlined)
+                                                                      elf_machine_rela (inlined)
+                                                                      resolve_map (inlined)
+
+     1.63%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_start
+            |
+            ---_dl_start
+               |          
+                --1.63%--_dl_start_final (inlined)
+                          |          
+                           --1.63%--_dl_sysdep_start
+                                     |          
+                                      --1.57%--dl_main
+                                                |          
+                                                 --1.12%--_dl_relocate_object
+                                                           elf_dynamic_do_Rela (inlined)
+                                                           elf_machine_rela (inlined)
+                                                           resolve_map (inlined)
+
+     1.63%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_sysdep_start
+            |
+            ---_dl_sysdep_start
+               |          
+                --1.57%--dl_main
+                          |          
+                           --1.12%--_dl_relocate_object
+                                     elf_dynamic_do_Rela (inlined)
+                                     elf_machine_rela (inlined)
+                                     resolve_map (inlined)
+
+     1.57%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] dl_main
+            |
+            ---dl_main
+               |          
+                --1.12%--_dl_relocate_object
+                          elf_dynamic_do_Rela (inlined)
+                          elf_machine_rela (inlined)
+                          resolve_map (inlined)
+
+     1.12%     1.12%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_relocate_object
+            |
+            ---_start
+               _dl_start
+               _dl_start_final (inlined)
+               _dl_sysdep_start
+               dl_main
+               _dl_relocate_object
+               elf_dynamic_do_Rela (inlined)
+               elf_machine_rela (inlined)
+               resolve_map (inlined)
+
+     1.12%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_start_final (inlined)
+            |
+            ---_dl_start_final (inlined)
+               _dl_sysdep_start
+               dl_main
+               _dl_relocate_object
+               elf_dynamic_do_Rela (inlined)
+               elf_machine_rela (inlined)
+               resolve_map (inlined)
+
+     1.12%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] elf_dynamic_do_Rela (inlined)
+            |
+            ---elf_dynamic_do_Rela (inlined)
+               elf_machine_rela (inlined)
+               resolve_map (inlined)
+
+     1.12%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] elf_machine_rela (inlined)
+            |
+            ---elf_machine_rela (inlined)
+               resolve_map (inlined)
+
+     1.12%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] resolve_map (inlined)
+            |
+            ---resolve_map (inlined)
+
+     0.51%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_start_final (inlined)
+            |
+            ---_dl_start_final (inlined)
+               |          
+                --0.50%--_dl_sysdep_start
+
+     0.45%     0.45%  io_buffer_bench  [unknown]             [k] 0xffffffff9c45cc65
+     0.45%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_map_object_deps
+     0.45%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] __GI__dl_catch_exception (inlined)
+     0.45%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] openaux
+     0.45%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_map_object
+     0.45%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_load_cache_lookup
+     0.45%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_sysdep_read_whole_file
+     0.45%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] __GI___open64_nocancel
+     0.45%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9d200134
+     0.45%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9d0785aa
+     0.45%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9c005270
+     0.45%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9c448739
+     0.45%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9c448144
+     0.05%     0.05%  io_buffer_bench  ld-linux-x86-64.so.2  [.] __GI___tunables_init
+     0.05%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] get_next_env (inlined)
+     0.00%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9d2013cb
+     0.00%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9d07e323
+     0.00%     0.00%  io_buffer_bench  [unknown]             [k] 0xffffffff9c0a86f0
+     0.00%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] _dl_setup_hash
+     0.00%     0.00%  io_buffer_bench  [unknown]             [k] 0xffffffff9d2013a4
+     0.00%     0.00%  io_buffer_bench  ld-linux-x86-64.so.2  [.] rtld_timer_start (inlined)
+     0.00%     0.00%  io_buffer_bench  [unknown]             [k] 0xffffffff9d201f68
+     0.00%     0.00%  io_buffer_bench  [unknown]             [k] 0xffffffff9d05778b
+     0.00%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9c0a878c
+     0.00%     0.00%  io_buffer_bench  [unknown]             [.] 0xffffffff9c3a517c
+     0.00%     0.00%  io_buffer_bench  [unknown]             [k] 0xffffffff9d07e30d
+     0.00%     0.00%  io_buffer_bench  [unknown]             [k] 0xffffffff9d2013a0
+
+
+#
+# (Tip: See assembly instructions with percentage: perf annotate <symbol>)
+#

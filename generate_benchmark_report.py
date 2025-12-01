@@ -156,6 +156,12 @@ class BenchmarkCollector:
                     return data
             return None
 
+        def get_bench_metric(category_name, bench_name, metric_name):
+            bench = self.results.get(category_name, {}).get(bench_name)
+            if isinstance(bench, dict):
+                return bench.get(metric_name)
+            return None
+
         def format_metric(metric):
             if not metric:
                 return "n/a"
@@ -219,6 +225,24 @@ class BenchmarkCollector:
             stability = get_metric("Stability", "Sustained throughput")
             if stability:
                 summary.append(f"Stability: sustained {format_metric(stability)}")
+
+            rb_contention = get_bench_metric(
+                "Core Performance", "Ring Buffer Queue (High Contention 8x8)", "Throughput"
+            )
+            if rb_contention:
+                summary.append(f"Contention: ring buffer 8x8 {format_metric(rb_contention)}")
+
+            http_frag_p99 = get_bench_metric(
+                "Core Performance", "HTTP Parser (Fragmented Request)", "Latency p99"
+            )
+            if http_frag_p99:
+                summary.append(f"HTTP fragmented p99 {format_metric(http_frag_p99)}")
+
+            simd_large_p99 = get_bench_metric(
+                "Core Performance", "SIMD CRLF Search (16KB buffer)", "Latency p99"
+            )
+            if simd_large_p99:
+                summary.append(f"SIMD scan 16KB p99 {format_metric(simd_large_p99)}")
 
             return summary
 

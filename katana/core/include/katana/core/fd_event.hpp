@@ -1,7 +1,8 @@
 #pragma once
 
+#include "inplace_function.hpp"
+
 #include <cstdint>
-#include <functional>
 
 namespace katana {
 
@@ -28,6 +29,6 @@ constexpr bool has_flag(event_type value, event_type flag) noexcept {
     return (static_cast<uint8_t>(value) & static_cast<uint8_t>(flag)) != 0;
 }
 
-using event_callback = std::function<void(event_type events)>;
+using event_callback = inplace_function<void(event_type events), 96>;
 
 } // namespace katana

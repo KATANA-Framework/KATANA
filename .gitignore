@@ -16,3 +16,6 @@ BENCHMARK_FINAL*.md
 *.data
 /.docker_build
 .pre-commit-cache/
+/build_bench_tmp
+/.docker_build
+*.script

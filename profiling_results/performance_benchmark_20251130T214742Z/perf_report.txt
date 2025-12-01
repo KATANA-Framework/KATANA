@@ -1,0 +1,1382 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 794  of event 'cycles:P'
+# Event count (approx.): 3182187437
+#
+# Children      Self  Command          Shared Object          Symbol                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+# ........  ........  ...............  .....................  ..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    65.34%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb90c6b
+            |
+            ---0x72331cb90c6b
+               |          
+                --65.06%--0x72331cb03aa3
+                          0x72331cd93db3
+                          _M_run (inlined)
+                          operator() (inlined)
+                          _M_invoke<0> (inlined)
+                          __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          |          
+                          |--59.55%--operator() (inlined)
+                          |          |          
+                          |          |--30.60%--katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+                          |          |          |          
+                          |          |           --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          |                     |          
+                          |          |                     |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |                     |          |          
+                          |          |                     |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |                     |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |                     |          |          
+                          |          |                     |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          |                     |          
+                          |          |                      --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          |                                katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |                                |          
+                          |          |                                 --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+                          |          |          
+                          |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+                          |                     |          
+                          |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+                          |                                |          
+                          |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+                          |                                           |          
+                          |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |                                           |          
+                          |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    65.06%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb03aa3
+            |
+            ---0x72331cb03aa3
+               0x72331cd93db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |          
+               |--59.55%--operator() (inlined)
+               |          |          
+               |          |--30.60%--katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          |          |          
+               |          |           --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          |                     |          
+               |          |                     |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |                     |          |          
+               |          |                     |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          |                     |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          |                     |          |          
+               |          |                     |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          |                     |          
+               |          |                      --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          |                                katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |                                |          
+               |          |                                 --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+               |          |          
+               |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          
+               |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |          
+               |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                                           |          
+               |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                           |          
+               |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    65.06%     0.00%  performance_ben  libstdc++.so.6.0.33    [.] 0x000072331cd93db3
+            |
+            ---0x72331cd93db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |          
+               |--59.55%--operator() (inlined)
+               |          |          
+               |          |--30.60%--katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          |          |          
+               |          |           --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          |                     |          
+               |          |                     |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |                     |          |          
+               |          |                     |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          |                     |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          |                     |          |          
+               |          |                     |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          |                     |          
+               |          |                      --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          |                                katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |                                |          
+               |          |                                 --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+               |          |          
+               |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          
+               |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |          
+               |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                                           |          
+               |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                           |          
+               |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    34.46%     0.00%  performance_ben  performance_benchmark  [.] _M_run (inlined)
+            |
+            ---_M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |          
+               |--28.95%--operator() (inlined)
+               |          |          
+               |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          
+               |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |          
+               |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                                           |          
+               |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                           |          
+               |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    34.46%     0.00%  performance_ben  performance_benchmark  [.] operator() (inlined)
+            |
+            ---operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |          
+               |--28.95%--operator() (inlined)
+               |          |          
+               |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          
+               |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |          
+               |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                                           |          
+               |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                           |          
+               |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    34.46%     0.00%  performance_ben  performance_benchmark  [.] _M_invoke<0> (inlined)
+            |
+            ---_M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |          
+               |--28.95%--operator() (inlined)
+               |          |          
+               |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          
+               |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |          
+               |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                                           |          
+               |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                           |          
+               |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    34.46%     0.00%  performance_ben  performance_benchmark  [.] __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |          
+               |--28.95%--operator() (inlined)
+               |          |          
+               |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          
+               |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |          
+               |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                                           |          
+               |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                           |          
+               |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    34.46%     0.00%  performance_ben  performance_benchmark  [.] __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               |          
+               |--28.95%--operator() (inlined)
+               |          |          
+               |           --27.59%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |                     |          
+               |                      --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |                                |          
+               |                                 --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |                                           |          
+               |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |                                           |          
+               |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    34.31%    34.31%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+            |
+            ---0x72331cb90c6b
+               0x72331cb03aa3
+               0x72331cd93db3
+               |          
+                --34.22%--_M_run (inlined)
+                          operator() (inlined)
+                          _M_invoke<0> (inlined)
+                          __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+                          |          
+                          |--28.71%--operator() (inlined)
+                          |          |          
+                          |           --27.35%--katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+                          |                     |          
+                          |                      --27.13%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+                          |                                |          
+                          |                                 --26.85%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+                          |                                           |          
+                          |                                           |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |                                           |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |                                           |          
+                          |                                            --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --5.51%--std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#1}> > >::_M_run()
+
+    32.51%     0.00%  performance_ben  [unknown]              [.] 0xffffffffffffffff
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               |          
+               |--27.20%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               |          |          
+               |          |--18.53%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          |          |          
+               |          |          |--13.06%--katana::http::parser::parse_headers_state()
+               |          |          |          |          
+               |          |          |          |--7.35%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |          
+               |          |          |          |          |--1.50%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |          |          
+               |          |          |          |          |           --1.22%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |                     |          
+               |          |          |          |          |                      --0.95%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |          |          |          |          
+               |          |          |          |          |--1.48%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |          |          
+               |          |          |          |          |          |--0.68%--katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |          |          
+               |          |          |          |          |           --0.54%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |          
+               |          |          |          |          |--0.68%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          |          
+               |          |          |          |           --0.55%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          |          |          |          
+               |          |          |           --2.88%--katana::simd::find_crlf(char const*, unsigned long)
+               |          |          |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          |          |                     |          
+               |          |          |                      --1.22%--_mm_set1_epi8(char) (inlined)
+               |          |          |                                |          
+               |          |          |                                 --0.55%--_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+               |          |          |          
+               |          |           --4.75%--katana::http::parser::parse_request_line_state()
+               |          |                     |          
+               |          |                     |--2.73%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          |          
+               |          |                     |           --1.08%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+               |          |                     |          
+               |          |                      --0.95%--katana::simd::find_crlf(char const*, unsigned long)
+               |          |                                katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          |                                |          
+               |          |                                 --0.54%--_mm_set1_epi8(char) (inlined)
+               |          |          
+               |           --2.97%--std::span<unsigned char const, 18446744073709551615ul>::size() const
+               |                     |          
+               |                      --2.69%--std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+               |          
+               |--4.36%--katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+               |          |          
+               |          |--1.09%--0x72331cbf050a
+               |          |          
+               |          |--0.81%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |          |          
+               |          |           --0.68%--katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          |                     |          
+               |          |                      --0.54%--katana::monotonic_arena::block::block(unsigned long)
+               |          |          
+               |          |--0.69%--katana::http::request::request() (inlined)
+               |          |          katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+               |          |          |          
+               |          |           --0.56%--0x72331cbf050a
+               |          |          
+               |          |--0.69%--katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+               |          |          
+               |           --0.67%--katana::http::headers_map::operator=(katana::http::headers_map&&) (inlined)
+               |          
+                --0.68%--katana::monotonic_arena::~monotonic_arena()
+                          std::array<katana::monotonic_arena::block, 32ul>::~array()
+                          |          
+                           --0.54%--katana::monotonic_arena::block::~block()
+
+    32.51%     0.00%  performance_ben  performance_benchmark  [.] benchmark_http_parser()
+            |          
+            |--18.78%--0x653d5a768b21
+            |          |          
+            |          |--15.37%--0x653d5a76ed09
+            |          |          |          
+            |          |          |--10.10%--0x653d5a76e7bb
+            |          |          |          |          
+            |          |          |          |--7.34%--0x653d5a76f297
+            |          |          |          |          |          
+            |          |          |          |          |--4.07%--0x653d5a770dc6
+            |          |          |          |          |          |          
+            |          |          |          |          |          |--0.94%--0x653d5a779ee9
+            |          |          |          |          |          |          
+            |          |          |          |          |          |--0.55%--0x653d5a7726bd
+            |          |          |          |          |          |          
+            |          |          |          |          |           --0.54%--0x653d5a76d3d4
+            |          |          |          |          |          
+            |          |          |          |           --1.39%--0x653d5a773b59
+            |          |          |          |                     0x653d5a773ad6
+            |          |          |          |                     |          
+            |          |          |          |                      --0.68%--0x653d5a773691
+            |          |          |          |          
+            |          |          |           --2.17%--0x653d5a76f18f
+            |          |          |                     |          
+            |          |          |                      --1.10%--0x653d5a770697
+            |          |          |          
+            |          |           --1.75%--0x653d5a773e3b
+            |          |                     |          
+            |          |                      --1.61%--0x653d5a7733e9
+            |          |          
+            |           --3.00%--0x653d5a768bd4
+            |                     |          
+            |                     |--1.09%--0x72331cbf050a
+            |                     |          
+            |                     |--0.56%--0x653d5a768bd4
+            |                     |          0x653d5a768bd4
+            |                     |          0x72331cbf050a
+            |                     |          
+            |                      --0.54%--0x653d5a76cfec
+            |          
+             --13.73%--benchmark_http_parser()
+                       |          
+                       |--11.83%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       |          |          
+                       |          |--8.43%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       |          |          |          
+                       |          |          |--5.72%--katana::http::parser::parse_headers_state()
+                       |          |          |          |          
+                       |          |          |          |--3.27%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          |          |          
+                       |          |          |          |          |--0.95%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          |          |          |          
+                       |          |          |          |          |           --0.82%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          |          |                     |          
+                       |          |          |          |          |                      --0.68%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+                       |          |          |          |          |          
+                       |          |          |          |           --0.55%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          |          
+                       |          |          |           --1.49%--katana::simd::find_crlf(char const*, unsigned long)
+                       |          |          |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+                       |          |          |                     |          
+                       |          |          |                      --0.54%--_mm_set1_epi8(char) (inlined)
+                       |          |          |          
+                       |          |           --2.58%--katana::http::parser::parse_request_line_state()
+                       |          |                     |          
+                       |          |                     |--1.63%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |                     |          |          
+                       |          |                     |           --0.68%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |                     |          
+                       |          |                      --0.54%--katana::simd::find_crlf(char const*, unsigned long)
+                       |          |                                katana::simd::find_crlf_sse2(char const*, unsigned long)
+                       |          |          
+                       |           --1.22%--std::span<unsigned char const, 18446744073709551615ul>::size() const
+                       |                     |          
+                       |                      --1.08%--std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+                       |          
+                        --1.36%--katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+
+    30.60%     0.00%  performance_ben  performance_benchmark  [.] _M_run (inlined)
+            |
+            ---_M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          
+                --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          
+                          |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |          
+                          |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |          
+                          |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                                     katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                                     |          
+                                      --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    30.60%     0.00%  performance_ben  performance_benchmark  [.] operator() (inlined)
+            |
+            ---operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          
+                --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          
+                          |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |          
+                          |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |          
+                          |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                                     katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                                     |          
+                                      --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    30.60%     0.00%  performance_ben  performance_benchmark  [.] _M_invoke<0> (inlined)
+            |
+            ---_M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          
+                --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          
+                          |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |          
+                          |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |          
+                          |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                                     katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                                     |          
+                                      --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    30.60%     0.00%  performance_ben  performance_benchmark  [.] __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          
+                --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          
+                          |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |          
+                          |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |          
+                          |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                                     katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                                     |          
+                                      --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    30.60%     0.00%  performance_ben  performance_benchmark  [.] __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+            |
+            ---__invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          
+                --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          
+                          |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |          
+                          |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |          
+                          |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                                     katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                                     |          
+                                      --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    30.60%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          
+                --28.96%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          
+                          |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |          
+                          |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |          
+                          |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                                     katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                                     |          
+                                      --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    29.67%    29.67%  performance_ben  performance_benchmark  [.] std::thread::_State_impl<std::thread::_Invoker<std::tuple<benchmark_ring_buffer_concurrent()::{lambda()#2}> > >::_M_run()
+            |
+            ---0x72331cb90c6b
+               0x72331cb03aa3
+               0x72331cd93db3
+               _M_run (inlined)
+               operator() (inlined)
+               _M_invoke<0> (inlined)
+               __invoke<benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               __invoke_impl<void, benchmark_ring_buffer_concurrent()::<lambda()> > (inlined)
+               operator() (inlined)
+               katana::ring_buffer_queue<int>::pop_wait(int&) (inlined)
+               |          
+                --28.03%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          |          
+                          |--26.70%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          |          
+                          |          |--14.56%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          |          
+                          |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+                          |          
+                           --1.26%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                                     katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                                     |          
+                                      --0.99%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    28.96%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+               |          
+               |--27.45%--katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          |          
+               |          |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          |          
+               |           --1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --1.44%--katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+                          katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+                          |          
+                           --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    28.89%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_pop_mpmc(int&) (inlined)
+               |          
+               |--15.18%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          
+               |--1.96%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+               |          
+                --1.16%--katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+    27.59%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::push_wait(int) (inlined)
+               |          
+                --27.27%--katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+                          |          
+                           --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+                                     |          
+                                     |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                                     |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                                     |          
+                                      --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+    27.27%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+               |          
+                --26.98%--katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+                          |          
+                          |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+                          |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+                          |          
+                           --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+    27.20%     5.30%  performance_ben  performance_benchmark  [.] katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+            |          
+            |--21.90%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+            |          |          
+            |          |--18.53%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+            |          |          |          
+            |          |          |--13.06%--katana::http::parser::parse_headers_state()
+            |          |          |          |          
+            |          |          |          |--7.35%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          
+            |          |          |          |          |--1.50%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          |          
+            |          |          |          |          |           --1.22%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |                     |          
+            |          |          |          |          |                      --0.95%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |          |          |          |          
+            |          |          |          |          |--1.48%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          |          
+            |          |          |          |          |          |--0.68%--katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          |          
+            |          |          |          |          |           --0.54%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          
+            |          |          |          |          |--0.68%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          |          
+            |          |          |          |           --0.55%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          
+            |          |          |           --2.88%--katana::simd::find_crlf(char const*, unsigned long)
+            |          |          |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+            |          |          |                     |          
+            |          |          |                      --1.22%--_mm_set1_epi8(char) (inlined)
+            |          |          |                                |          
+            |          |          |                                 --0.55%--_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+            |          |          |          
+            |          |           --4.75%--katana::http::parser::parse_request_line_state()
+            |          |                     |          
+            |          |                     |--2.73%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |                     |          |          
+            |          |                     |           --1.08%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+            |          |                     |          
+            |          |                      --0.95%--katana::simd::find_crlf(char const*, unsigned long)
+            |          |                                katana::simd::find_crlf_sse2(char const*, unsigned long)
+            |          |                                |          
+            |          |                                 --0.54%--_mm_set1_epi8(char) (inlined)
+            |          |          
+            |           --2.97%--std::span<unsigned char const, 18446744073709551615ul>::size() const
+            |                     |          
+            |                      --2.69%--std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+            |          
+             --5.30%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+
+    26.98%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::try_push_mpmc(int&&) (inlined)
+               |          
+               |--16.00%--std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               |          std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+               |          
+                --1.24%--katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+    18.53%     0.46%  performance_ben  performance_benchmark  [.] katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+            |          
+             --18.07%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       |          
+                       |--13.06%--katana::http::parser::parse_headers_state()
+                       |          |          
+                       |          |--7.35%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          
+                       |          |          |--1.50%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          |          
+                       |          |          |           --1.22%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |                     |          
+                       |          |          |                      --0.95%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+                       |          |          |          
+                       |          |          |--1.48%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          |          
+                       |          |          |          |--0.68%--katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          |          
+                       |          |          |           --0.54%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          
+                       |          |          |--0.68%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          |          
+                       |          |           --0.55%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       |          |          
+                       |           --2.88%--katana::simd::find_crlf(char const*, unsigned long)
+                       |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+                       |                     |          
+                       |                      --1.22%--_mm_set1_epi8(char) (inlined)
+                       |                                |          
+                       |                                 --0.55%--_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+                       |          
+                        --4.75%--katana::http::parser::parse_request_line_state()
+                                  |          
+                                  |--2.73%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                                  |          |          
+                                  |           --1.08%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+                                  |          
+                                   --0.95%--katana::simd::find_crlf(char const*, unsigned long)
+                                             katana::simd::find_crlf_sse2(char const*, unsigned long)
+                                             |          
+                                              --0.54%--_mm_set1_epi8(char) (inlined)
+
+    16.00%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    16.00%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    15.18%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order) (inlined)
+               std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    15.18%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+            |
+            ---std::__atomic_base<unsigned long>::compare_exchange_weak(unsigned long&, unsigned long, std::memory_order, std::memory_order) (inlined)
+
+    13.06%     1.75%  performance_ben  performance_benchmark  [.] katana::http::parser::parse_headers_state()
+            |          
+            |--11.31%--katana::http::parser::parse_headers_state()
+            |          |          
+            |          |--7.35%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          
+            |          |          |--1.50%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          
+            |          |          |           --1.22%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |                     |          
+            |          |          |                      --0.95%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |          |          
+            |          |          |--1.48%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          
+            |          |          |          |--0.68%--katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          |          
+            |          |          |           --0.54%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          
+            |          |          |--0.68%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          
+            |          |           --0.55%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          
+            |           --2.88%--katana::simd::find_crlf(char const*, unsigned long)
+            |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+            |                     |          
+            |                      --1.22%--_mm_set1_epi8(char) (inlined)
+            |                                |          
+            |                                 --0.55%--_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+            |          
+             --1.75%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_headers_state()
+
+     7.35%     0.54%  performance_ben  performance_benchmark  [.] katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          
+            |--6.80%--katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          
+            |          |--1.50%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          
+            |          |           --1.22%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          |                     |          
+            |          |                      --0.95%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |          
+            |          |--1.48%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          
+            |          |          |--0.68%--katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          
+            |          |           --0.54%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          |          
+            |          |--0.68%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          
+            |           --0.55%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |                     katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --0.54%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_headers_state()
+                       katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+
+     4.75%     1.07%  performance_ben  performance_benchmark  [.] katana::http::parser::parse_request_line_state()
+            |          
+            |--3.68%--katana::http::parser::parse_request_line_state()
+            |          |          
+            |          |--2.73%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          |          
+            |          |           --1.08%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+            |          |          
+            |           --0.95%--katana::simd::find_crlf(char const*, unsigned long)
+            |                     katana::simd::find_crlf_sse2(char const*, unsigned long)
+            |                     |          
+            |                      --0.54%--_mm_set1_epi8(char) (inlined)
+            |          
+             --1.07%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_request_line_state()
+
+     4.36%     0.00%  performance_ben  performance_benchmark  [.] katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+            |
+            ---katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+               |          
+               |--1.09%--0x72331cbf050a
+               |          
+               |--0.81%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+               |          |          
+               |           --0.68%--katana::monotonic_arena::allocate_new_block(unsigned long)
+               |                     |          
+               |                      --0.54%--katana::monotonic_arena::block::block(unsigned long)
+               |          
+               |--0.69%--katana::http::request::request() (inlined)
+               |          katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+               |          |          
+               |           --0.56%--0x72331cbf050a
+               |          
+               |--0.69%--katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+               |          
+                --0.67%--katana::http::headers_map::operator=(katana::http::headers_map&&) (inlined)
+
+     3.83%     3.83%  performance_ben  performance_benchmark  [.] katana::simd::find_crlf_sse2(char const*, unsigned long)
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          
+               |--2.88%--katana::http::parser::parse_headers_state()
+               |          katana::simd::find_crlf(char const*, unsigned long)
+               |          katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          |          
+               |           --1.22%--_mm_set1_epi8(char) (inlined)
+               |                     |          
+               |                      --0.55%--_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+               |          
+                --0.95%--katana::http::parser::parse_request_line_state()
+                          katana::simd::find_crlf(char const*, unsigned long)
+                          katana::simd::find_crlf_sse2(char const*, unsigned long)
+                          |          
+                           --0.54%--_mm_set1_epi8(char) (inlined)
+
+     3.83%     0.00%  performance_ben  performance_benchmark  [.] katana::simd::find_crlf(char const*, unsigned long)
+            |
+            ---katana::simd::find_crlf(char const*, unsigned long)
+               katana::simd::find_crlf_sse2(char const*, unsigned long)
+               |          
+                --1.77%--_mm_set1_epi8(char) (inlined)
+                          |          
+                           --0.96%--_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+
+     2.97%     0.27%  performance_ben  performance_benchmark  [.] std::span<unsigned char const, 18446744073709551615ul>::size() const
+            |          
+             --2.69%--std::span<unsigned char const, 18446744073709551615ul>::size() const
+                       std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+
+     2.73%     0.43%  performance_ben  performance_benchmark  [.] katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --2.30%--katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                       |          
+                        --1.08%--katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+
+     2.69%     2.69%  performance_ben  performance_benchmark  [.] std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               |          
+                --2.56%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                          std::span<unsigned char const, 18446744073709551615ul>::size() const
+                          std::__detail::__extent_storage<18446744073709551615ul>::_M_extent() const
+
+     2.22%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+     2.07%     2.07%  performance_ben  libc.so.6              [.] 0x000000000018950a
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parser(katana::monotonic_arena*) (inlined)
+               |          
+               |--1.09%--0x72331cbf050a
+               |          
+                --0.56%--katana::http::request::request() (inlined)
+                          katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+                          0x72331cbf050a
+
+     2.07%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbf050a
+            |
+            ---0x72331cbf050a
+
+     2.03%     0.95%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          
+            |--1.08%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+            |          |          
+            |           --0.81%--katana::monotonic_arena::allocate_new_block(unsigned long)
+            |                     |          
+            |                      --0.54%--katana::monotonic_arena::block::block(unsigned long)
+            |          
+             --0.95%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       |          
+                        --0.81%--katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                                  katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                                  |          
+                                   --0.54%--katana::http::parser::parse_headers_state()
+                                             katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+                                             katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+                                             katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                                             katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.77%     0.00%  performance_ben  performance_benchmark  [.] _mm_set1_epi8(char) (inlined)
+            |
+            ---_mm_set1_epi8(char) (inlined)
+               |          
+                --0.96%--_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+
+     1.62%     0.27%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --1.35%--katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                       |          
+                        --1.22%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.50%     0.28%  performance_ben  performance_benchmark  [.] katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --1.22%--katana::http::headers_map::set_known(katana::http::field, std::basic_string_view<char, std::char_traits<char> >)
+                       katana::monotonic_arena::allocate_string(std::basic_string_view<char, std::char_traits<char> >)
+                       |          
+                        --0.95%--katana::monotonic_arena::allocate(unsigned long, unsigned long)
+
+     1.49%     1.49%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::size() const
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               |          
+                --1.22%--katana::http::parser::parse_headers_state()
+                          katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+                          |          
+                           --0.54%--katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+
+     1.48%     0.00%  performance_ben  performance_benchmark  [.] katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::string_to_field(std::basic_string_view<char, std::char_traits<char> >)
+               |          
+               |--0.68%--katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+               |          
+                --0.54%--katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                          katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+
+     1.42%     0.00%  performance_ben  performance_benchmark  [.] _start
+            |
+            ---_start
+               __libc_start_main
+               0x72331ca911c9
+               |          
+                --1.01%--0x653d5a764b65
+                          |          
+                           --0.58%--0x653d5a766455
+
+     1.42%     0.00%  performance_ben  libc.so.6              [.] __libc_start_main
+            |
+            ---__libc_start_main
+               0x72331ca911c9
+               main
+               |          
+                --0.58%--benchmark_ring_buffer_queue()
+
+     1.42%     0.00%  performance_ben  libc.so.6              [.] 0x000072331ca911c9
+            |
+            ---0x72331ca911c9
+               main
+               |          
+                --0.58%--benchmark_ring_buffer_queue()
+
+     1.42%     0.00%  performance_ben  performance_benchmark  [.] main
+            |          
+             --1.01%--0x653d5a764b65
+                       |          
+                        --0.58%--0x653d5a766455
+
+     1.38%     0.00%  performance_ben  performance_benchmark  [.] katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+            |
+            ---katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+               |          
+                --0.98%--0x72331cbf050a
+
+     1.32%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::adaptive_pause(unsigned long) (inlined)
+
+     1.16%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+
+     1.09%     0.14%  performance_ben  performance_benchmark  [.] katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --0.96%--katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+                       |          
+                        --0.82%--katana::http::ci_equal_short(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+
+     1.09%     0.00%  performance_ben  performance_benchmark  [.] katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |
+            ---katana::http::ci_equal_fast(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               katana::http::ci_equal(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+               |          
+                --0.82%--katana::http::ci_equal_short(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+
+     1.08%     0.68%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --0.68%--0xffffffffffffffff
+                       benchmark_http_parser()
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+                       katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+                       katana::http::parser::parse_request_line_state()
+                       katana::http::parser::process_request_line(std::basic_string_view<char, std::char_traits<char> >)
+                       katana::http::(anonymous namespace)::contains_invalid_uri_char(std::basic_string_view<char, std::char_traits<char> >)
+
+     0.96%     0.00%  performance_ben  performance_benchmark  [.] _mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+            |
+            ---_mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+
+     0.82%     0.28%  performance_ben  performance_benchmark  [.] katana::http::ci_equal_short(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --0.54%--katana::http::ci_equal_short(std::basic_string_view<char, std::char_traits<char> >, std::basic_string_view<char, std::char_traits<char> >)
+
+     0.81%     0.14%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --0.68%--katana::http::(anonymous namespace)::trim_ows(std::basic_string_view<char, std::char_traits<char> >)
+
+     0.81%     0.00%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::allocate_new_block(unsigned long)
+            |
+            ---katana::monotonic_arena::allocate_new_block(unsigned long)
+               |          
+                --0.54%--katana::monotonic_arena::block::block(unsigned long)
+
+     0.81%     0.00%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::~monotonic_arena()
+            |
+            ---katana::monotonic_arena::~monotonic_arena()
+               std::array<katana::monotonic_arena::block, 32ul>::~array()
+               |          
+                --0.68%--katana::monotonic_arena::block::~block()
+
+     0.81%     0.13%  performance_ben  performance_benchmark  [.] std::array<katana::monotonic_arena::block, 32ul>::~array()
+            |          
+             --0.68%--std::array<katana::monotonic_arena::block, 32ul>::~array()
+                       katana::monotonic_arena::block::~block()
+
+     0.69%     0.00%  performance_ben  performance_benchmark  [.] katana::http::request::request() (inlined)
+            |
+            ---katana::http::request::request() (inlined)
+               katana::http::headers_map::headers_map(katana::monotonic_arena*) (inlined)
+               |          
+                --0.56%--0x72331cbf050a
+
+     0.68%     0.14%  performance_ben  performance_benchmark  [.] katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+            |          
+             --0.54%--katana::http::detail::popular_hash(std::basic_string_view<char, std::char_traits<char> >)
+
+     0.68%     0.27%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::block::~block()
+     0.68%     0.13%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::monotonic_arena(unsigned long)
+            |          
+             --0.54%--katana::monotonic_arena::monotonic_arena(unsigned long)
+                       std::array<katana::monotonic_arena::block, 32ul>::array()
+                       katana::monotonic_arena::block::block()
+
+     0.67%     0.00%  performance_ben  performance_benchmark  [.] katana::http::headers_map::operator=(katana::http::headers_map&&) (inlined)
+            |
+            ---katana::http::headers_map::operator=(katana::http::headers_map&&) (inlined)
+
+     0.58%     0.58%  performance_ben  performance_benchmark  [.] benchmark_ring_buffer_queue()
+            |
+            ---_start
+               __libc_start_main
+               0x72331ca911c9
+               main
+               benchmark_ring_buffer_queue()
+
+     0.57%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+            |
+            ---katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+
+     0.55%     0.55%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::empty() const
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)
+               katana::http::parser::parse(std::span<unsigned char const, 18446744073709551615ul>)::{lambda()#1}::operator()() const
+               katana::http::parser::parse_headers_state()
+               katana::http::parser::process_header_line(std::basic_string_view<char, std::char_traits<char> >)
+
+     0.54%     0.27%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::find(char, unsigned long) const
+     0.54%     0.54%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::block::block()
+            |
+            ---0xffffffffffffffff
+               benchmark_http_parser()
+
+     0.54%     0.00%  performance_ben  performance_benchmark  [.] std::array<katana::monotonic_arena::block, 32ul>::array()
+            |
+            ---std::array<katana::monotonic_arena::block, 32ul>::array()
+               katana::monotonic_arena::block::block()
+
+     0.54%     0.14%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::block::block(unsigned long)
+     0.48%     0.00%  performance_ben  [kernel.kallsyms]      [k] asm_sysvec_hyperv_callback
+     0.48%     0.00%  performance_ben  [kernel.kallsyms]      [k] sysvec_hyperv_callback
+     0.42%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::maybe_notify(katana::ring_buffer_queue<int>::padded_atomic&, std::atomic<bool>&) (inlined)
+     0.42%     0.00%  performance_ben  [kernel.kallsyms]      [k] entry_SYSCALL_64_after_hwframe
+     0.42%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_syscall_64
+     0.42%     0.00%  performance_ben  [kernel.kallsyms]      [k] x64_sys_call
+     0.41%     0.00%  performance_ben  [kernel.kallsyms]      [k] asm_sysvec_hyperv_stimer0
+     0.41%     0.00%  performance_ben  [kernel.kallsyms]      [k] sysvec_hyperv_stimer0
+     0.41%     0.27%  performance_ben  performance_benchmark  [.] benchmark_memory_allocations()
+     0.41%     0.00%  performance_ben  performance_benchmark  [.] _mm_and_si128(long long __vector(2), long long __vector(2)) (inlined)
+     0.41%     0.41%  performance_ben  performance_benchmark  [.] std::array<katana::monotonic_arena::block, 32ul>::operator[](unsigned long)
+     0.41%     0.27%  performance_ben  performance_benchmark  [.] std::enable_if<std::__or_<std::__or_<std::is_same<std::remove_cv<unsigned long long>::type, signed char>, std::is_same<std::remove_cv<unsigned long long>::type, short>, std::is_same<std::remove_cv<unsigned long long>::type, int>, std::is_same<std::remove_cv<unsigned long long>::type, long>, std::is_same<std::remove_cv<unsigned long long>::type, long long> >, std::__or_<std::is_same<std::remove_cv<unsigned long long>::type, unsigned char>, std::is_same<std::remove_cv<unsigned long long>::type, unsigned short>, std::is_same<std::remove_cv<unsigned long long>::type, unsigned int>, std::is_same<std::remove_cv<unsigned long long>::type, unsigned long>, std::is_same<std::remove_cv<unsigned long long>::type, unsigned long long> >, std::is_same<char, std::remove_cv<unsigned long long>::type> >::value, std::from_chars_result>::type std::from_chars<unsigned long long>(char const*, char const*, unsigned long long&, int)
+     0.41%     0.00%  performance_ben  libc.so.6              [.] cfree
+     0.40%     0.40%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::block::operator=(katana::monotonic_arena::block&&)
+     0.40%     0.00%  performance_ben  performance_benchmark  [.] katana::monotonic_arena::operator=(katana::monotonic_arena&&)
+     0.40%     0.00%  performance_ben  performance_benchmark  [.] std::array<katana::monotonic_arena::block, 32ul>::operator=(std::array<katana::monotonic_arena::block, 32ul>&&)
+     0.40%     0.40%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::is_ctl(unsigned char)
+     0.40%     0.40%  performance_ben  performance_benchmark  [.] std::expected<void, std::error_code>::operator bool() const
+     0.40%     0.40%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::back() const
+     0.32%     0.01%  performance_ben  [kernel.kallsyms]      [k] do_futex
+     0.31%     0.14%  performance_ben  [kernel.kallsyms]      [k] futex_wake
+     0.31%     0.31%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000000000000a3b5
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf4a547
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf4b75d
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf49f45
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf4d6f1
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf3aae2
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf361fb
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf358c8
+     0.31%     0.00%  performance_ben  ld-linux-x86-64.so.2   [.] 0x000072331cf353b5
+     0.30%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_push(int&&) (inlined)
+     0.28%     0.00%  performance_ben  [kernel.kallsyms]      [k] irq_exit_rcu
+     0.28%     0.00%  performance_ben  [kernel.kallsyms]      [k] __irq_exit_rcu
+     0.28%     0.00%  performance_ben  [kernel.kallsyms]      [k] handle_softirqs
+     0.28%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_pop(int&) (inlined)
+     0.28%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::try_pop_spsc(int&) (inlined)
+     0.28%     0.28%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::end() const
+     0.27%     0.00%  performance_ben  performance_benchmark  [.] _mm_pause() (inlined)
+     0.27%     0.27%  performance_ben  libc.so.6              [.] 0x0000000000188084
+     0.27%     0.00%  performance_ben  performance_benchmark  [.] std::char_traits<char>::find(char const*, unsigned long, char const&)
+     0.27%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbef084
+     0.27%     0.27%  performance_ben  libc.so.6              [.] 0x0000000000188a99
+     0.27%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbefa99
+     0.27%     0.27%  performance_ben  performance_benchmark  [.] std::__is_constant_evaluated()
+     0.27%     0.27%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::contains_invalid_header_value(std::basic_string_view<char, std::char_traits<char> >)
+     0.27%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb14a31
+     0.27%     0.14%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::basic_string_view(char const*)
+     0.27%     0.27%  performance_ben  performance_benchmark  [.] katana::http::(anonymous namespace)::is_token_char(unsigned char)
+     0.27%     0.00%  performance_ben  performance_benchmark  [.] bool std::operator==<char, std::char_traits<char> >(std::basic_string_view<char, std::char_traits<char> >, std::__type_identity<std::basic_string_view<char, std::char_traits<char> > >::type)
+     0.27%     0.14%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::front() const
+     0.27%     0.27%  performance_ben  performance_benchmark  [.] std::span<unsigned char const, 18446744073709551615ul>::operator[](unsigned long) const
+     0.27%     0.14%  performance_ben  performance_benchmark  [.] std::_Optional_base<std::basic_string_view<char, std::char_traits<char> >, true, true>::_Optional_base<std::basic_string_view<char, std::char_traits<char> >, false>(std::in_place_t, std::basic_string_view<char, std::char_traits<char> >&&)
+     0.27%     0.00%  performance_ben  performance_benchmark  [.] katana::http::headers_map::get(katana::http::field) const
+     0.27%     0.00%  performance_ben  performance_benchmark  [.] std::optional<std::basic_string_view<char, std::char_traits<char> > >::optional<std::basic_string_view<char, std::char_traits<char> >, true>(std::basic_string_view<char, std::char_traits<char> >&&)
+     0.27%     0.00%  performance_ben  performance_benchmark  [.] _mm_cmpeq_epi8(long long __vector(2), long long __vector(2)) (inlined)
+     0.27%     0.27%  performance_ben  libc.so.6              [.] 0x0000000000188d47
+     0.27%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbefd47
+     0.27%     0.27%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::substr(unsigned long, unsigned long) const
+     0.26%     0.14%  performance_ben  performance_benchmark  [.] katana::http::parser::parse_body_state()
+     0.24%     0.00%  performance_ben  [kernel.kallsyms]      [k] exit_to_user_mode_prepare
+     0.22%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<int>::cpu_relax() (inlined)
+     0.22%     0.00%  performance_ben  performance_benchmark  [.] _mm_pause() (inlined)
+     0.22%     0.22%  performance_ben  libc.so.6              [.] 0x0000000000188a61
+     0.22%     0.22%  performance_ben  performance_benchmark  [.] benchmark_simd_crlf_search()
+     0.22%     0.00%  performance_ben  performance_benchmark  [.] benchmark_circular_buffer()
+     0.22%     0.00%  performance_ben  performance_benchmark  [.] katana::circular_buffer::read(std::span<unsigned char, 18446744073709551615ul>) (inlined)
+     0.22%     0.00%  performance_ben  performance_benchmark  [.] katana::simd::find_crlf(char const*, unsigned long) (inlined)
+     0.22%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbefa61
+     0.22%     0.00%  performance_ben  performance_benchmark  [.] katana::simd::find_crlf_avx2(char const*, unsigned long) (inlined)
+     0.21%     0.00%  performance_ben  [kernel.kallsyms]      [k] irqentry_exit
+     0.21%     0.00%  performance_ben  [kernel.kallsyms]      [k] irqentry_exit_to_user_mode
+     0.19%     0.01%  performance_ben  [kernel.kallsyms]      [k] __x64_sys_futex
+     0.19%     0.00%  performance_ben  libc.so.6              [.] syscall
+     0.17%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::notify_one() (inlined)
+     0.17%     0.00%  performance_ben  performance_benchmark  [.] void std::__atomic_notify_address<unsigned long>(unsigned long const*, bool) (inlined)
+     0.17%     0.00%  performance_ben  performance_benchmark  [.] std::__detail::__waiter_base<std::__detail::__waiter_pool>::_M_notify(bool, bool) (inlined)
+     0.17%     0.00%  performance_ben  performance_benchmark  [.] std::__detail::__waiter_pool_base::_M_notify(int*, bool, bool) (inlined)
+     0.17%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__platform_notify<int>(int const*, bool) (inlined)
+     0.17%     0.00%  performance_ben  [kernel.kallsyms]      [k] get_futex_key
+     0.17%     0.00%  performance_ben  [kernel.kallsyms]      [k] get_user_pages_fast
+     0.17%     0.00%  performance_ben  [kernel.kallsyms]      [k] internal_get_user_pages_fast
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] asm_exc_page_fault
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] exc_page_fault
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_user_addr_fault
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] handle_mm_fault
+     0.16%     0.00%  performance_ben  [kernel.kallsyms]      [k] __handle_mm_fault
+     0.15%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_exit
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] _mm_movemask_epi8(long long __vector(2)) (inlined)
+     0.14%     0.14%  performance_ben  [kernel.kallsyms]      [k] _raw_spin_unlock_irqrestore
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] tasklet_action
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] tasklet_action_common.constprop.0
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] vmbus_on_event
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] hvs_channel_cb
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] sock_def_write_space
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] __wake_up_sync_key
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] __wake_up_common_lock
+     0.14%     0.14%  performance_ben  [kernel.kallsyms]      [k] kmem_cache_free
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] rcu_core_si
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] rcu_core
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] vm_area_free_rcu_cb
+     0.14%     0.14%  performance_ben  [kernel.kallsyms]      [k] srso_alias_safe_ret
+     0.14%     0.14%  performance_ben  performance_benchmark  [.] std::optional<std::basic_string_view<char, std::char_traits<char> > >::operator bool() const
+     0.14%     0.14%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::data() const
+     0.14%     0.14%  performance_ben  performance_benchmark  [.] std::optional<std::basic_string_view<char, std::char_traits<char> > >::operator*() &
+     0.14%     0.14%  performance_ben  [kernel.kallsyms]      [k] set_pte_range
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb03894
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb174ec
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbde9b0
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_fault
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] filemap_map_pages
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x00000000000ab42c
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb1242c
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x00000000000ad22f
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb1422f
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] katana::ring_buffer_queue<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >::try_pop_spsc(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::operator=(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&&) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_is_local() const (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_local_data() const (inlined)
+     0.14%     0.14%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::basic_string_view(char const*, unsigned long)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::expected<katana::http::parser::state, std::error_code>::operator*() &
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] _mm_movemask_epi8(long long __vector(2)) (inlined)
+     0.14%     0.14%  performance_ben  performance_benchmark  [.] bool std::__detail::__from_chars_alnum<true, unsigned long>(char const*&, char const*, unsigned long&, int)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > std::operator+<char, std::char_traits<char>, std::allocator<char> >(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&&) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::append(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::append(char const*, unsigned long) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_append(char const*, unsigned long) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_mutate(unsigned long, unsigned long, char const*, unsigned long) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_S_copy(char*, char const*, unsigned long) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::char_traits<char>::copy(char*, char const*, unsigned long) (inlined)
+     0.14%     0.14%  performance_ben  performance_benchmark  [.] katana::http::parse_method(std::basic_string_view<char, std::char_traits<char> >)
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x0000000000188665
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::basic_string_view<char, std::char_traits<char> >::compare(std::basic_string_view<char, std::char_traits<char> >) const
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::char_traits<char>::compare(char const*, char const*, unsigned long)
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbef665
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::__cxx11::to_string(unsigned long) (inlined)
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__to_chars_10_impl<unsigned long>(char*, unsigned int, unsigned long) (inlined)
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x000000000018b7a7
+     0.14%     0.00%  performance_ben  performance_benchmark  [.] std::char_traits<char>::length(char const*)
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbf27a7
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x0000000000189500
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cbf0500
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] __sysvec_hyperv_stimer0
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] hv_stimer0_isr
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] hrtimer_interrupt
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] __hrtimer_run_queues
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb03a36
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] __x64_sys_exit
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] exit_mm_release
+     0.14%     0.00%  performance_ben  [kernel.kallsyms]      [k] mm_release
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x00000000000ad21a
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb1421a
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x00000000000a9ae3
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb12439
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb12024
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb10ae3
+     0.14%     0.14%  performance_ben  libc.so.6              [.] 0x00000000000ab43e
+     0.14%     0.00%  performance_ben  libc.so.6              [.] 0x000072331cb1243e
+     0.13%     0.13%  performance_ben  [kernel.kallsyms]      [k] __this_cpu_preempt_check
+     0.13%     0.13%  performance_ben  performance_benchmark  [.] std::_Optional_payload_base<std::basic_string_view<char, std::char_traits<char> > >::_Optional_payload_base<std::basic_string_view<char, std::char_traits<char> > >(std::in_place_t, std::basic_string_view<char, std::char_traits<char> >&&)
+     0.13%     0.00%  performance_ben  performance_benchmark  [.] std::_Optional_payload<std::basic_string_view<char, std::char_traits<char> >, true, true, true>::_Optional_payload_base<std::basic_string_view<char, std::char_traits<char> > >(std::in_place_t, std::basic_string_view<char, std::char_traits<char> >&&)
+     0.13%     0.00%  performance_ben  performance_benchmark  [.] _mm_loadu_si128(long long __vector(2) const*) (inlined)
+     0.13%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::load(std::memory_order) const (inlined)
+     0.13%     0.13%  performance_ben  performance_benchmark  [.] unsigned long const& std::max<unsigned long>(unsigned long const&, unsigned long const&)
+     0.13%     0.00%  performance_ben  performance_benchmark  [.] katana::http::headers_map::~headers_map() (inlined)
+     0.13%     0.13%  performance_ben  performance_benchmark  [.] katana::http::detail::get_popular_hash_table()
+     0.13%     0.13%  performance_ben  libc.so.6              [.] aligned_alloc
+     0.13%     0.13%  performance_ben  performance_benchmark  [.] std::expected<katana::http::parser::state, std::error_code>::operator bool() const
+     0.13%     0.13%  performance_ben  performance_benchmark  [.] memset@plt
+     0.13%     0.00%  performance_ben  performance_benchmark  [.] _mm_set1_epi8(char) (inlined)
+     0.13%     0.00%  performance_ben  performance_benchmark  [.] _mm_set_epi8(char, char, char, char, char, char, char, char, char, char, char, char, char, char, char, char) (inlined)
+     0.13%     0.13%  performance_ben  [kernel.kallsyms]      [k] __sysvec_hyperv_callback
+     0.13%     0.13%  performance_ben  performance_benchmark  [.] katana::http::parser::state&& std::forward<katana::http::parser::state>(std::remove_reference<katana::http::parser::state>::type&)
+     0.13%     0.00%  performance_ben  performance_benchmark  [.] std::expected<katana::http::parser::state, std::error_code>::expected<katana::http::parser::state>(katana::http::parser::state&&)
+     0.12%     0.12%  performance_ben  [kernel.kallsyms]      [k] __get_user_8
+     0.10%     0.10%  performance_ben  [kernel.kallsyms]      [k] blkcg_maybe_throttle_current
+     0.09%     0.09%  performance_ben  [kernel.kallsyms]      [k] try_grab_folio_fast
+     0.09%     0.09%  performance_ben  [kernel.kallsyms]      [k] __rcu_read_lock
+     0.07%     0.07%  performance_ben  [kernel.kallsyms]      [k] ima_file_mmap
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] __x64_sys_execve
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_execveat_common.isra.0
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] bprm_execve
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] load_elf_binary
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] elf_map
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] vm_mmap
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] vm_mmap_pgoff
+     0.07%     0.00%  performance_ben  [kernel.kallsyms]      [k] security_mmap_file
+     0.04%     0.00%  performance_ben  [kernel.kallsyms]      [k] ret_from_fork_asm
+     0.04%     0.00%  performance_ben  [kernel.kallsyms]      [k] ret_from_fork
+     0.02%     0.01%  performance_ben  [kernel.kallsyms]      [k] fpregs_restore_userregs
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] syscall_exit_to_user_mode
+     0.02%     0.02%  performance_ben  [kernel.kallsyms]      [k] __list_del_entry_valid_or_report
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_anonymous_page
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] vma_alloc_folio
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] __folio_alloc
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] __alloc_pages
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] get_page_from_freelist
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] __rmqueue_pcplist
+     0.02%     0.02%  performance_ben  [kernel.kallsyms]      [k] restore_fpregs_from_fpstate
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] switch_fpu_return
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] __x64_sys_exit_group
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] do_group_exit
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] task_work_run
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] ____fput
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] __fput
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] v9fs_dir_release
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] p9_client_clunk
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] p9_client_rpc
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const (inlined)
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] void std::__atomic_wait_address_v<unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}>(unsigned long const*, unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1})
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait_v<unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}>(unsigned long, std::__atomic_base<unsigned long>::wait(unsigned long, std::memory_order) const::{lambda()#1}) (inlined)
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] std::__detail::__waiter_pool::_M_do_wait(int const*, int) (inlined)
+     0.02%     0.00%  performance_ben  performance_benchmark  [.] void std::__detail::__platform_wait<int>(int const*, int) (inlined)
+     0.02%     0.02%  performance_ben  [kernel.kallsyms]      [k] p9pdu_readf
+     0.02%     0.00%  performance_ben  [kernel.kallsyms]      [k] p9_check_errors
+     0.01%     0.01%  performance_ben  [kernel.kallsyms]      [k] preempt_count_sub
+     0.01%     0.01%  performance_ben  [kernel.kallsyms]      [k] __irqentry_text_end
+     0.01%     0.01%  perf-exec        [kernel.kallsyms]      [k] perf_event_exec
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] entry_SYSCALL_64_after_hwframe
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] do_syscall_64
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] x64_sys_call
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] __x64_sys_execve
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] do_execveat_common.isra.0
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] bprm_execve
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] load_elf_binary
+     0.01%     0.00%  perf-exec        [kernel.kallsyms]      [k] begin_new_exec
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] futex_wait
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] finish_task_switch.isra.0
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] calculate_sigpending
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] schedule
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] __schedule
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] futex_wait_queue
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] __perf_event_task_sched_in
+     0.00%     0.00%  performance_ben  [kernel.kallsyms]      [k] schedule_tail
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

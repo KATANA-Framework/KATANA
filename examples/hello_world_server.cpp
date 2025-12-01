@@ -20,7 +20,7 @@ using namespace katana;
 using katana::http::ci_equal;
 
 constexpr uint16_t PORT = 8080;
-constexpr size_t BUFFER_SIZE = 4096;
+constexpr size_t BUFFER_SIZE = 16384;
 constexpr size_t ARENA_BLOCK_SIZE = 8192;
 constexpr size_t MAX_CONNECTIONS = 10000;
 

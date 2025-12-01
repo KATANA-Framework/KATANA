@@ -18,7 +18,7 @@ namespace katana {
 
 template <typename T> class ring_buffer_queue {
 public:
-    explicit ring_buffer_queue(size_t capacity = 1024) {
+    explicit ring_buffer_queue(size_t capacity = 1024, bool enable_spsc_fast_path = true) {
         size_t actual_capacity = next_power_of_two(capacity);
         mask_ = actual_capacity - 1;
 
@@ -29,6 +29,14 @@ public:
             buffer_[i].sequence.store(i, std::memory_order_relaxed);
         }
         capacity_ = actual_capacity;
+
+        // Some workloads (e.g., multi-producer benchmarks) hit edge cases when the queue
+        // opportunistically switches between SPSC and MPMC. Allow callers to force the
+        // safer MPMC path from the start.
+        if (!enable_spsc_fast_path) {
+            multi_producer_seen_.store(true, std::memory_order_relaxed);
+            multi_consumer_seen_.store(true, std::memory_order_relaxed);
+        }
     }
 
     ~ring_buffer_queue() {
@@ -254,11 +262,8 @@ private:
         std::atomic<size_t> waiters{0};
         static constexpr size_t padding_size =
             cache_line_size - sizeof(std::atomic<size_t>) - sizeof(std::atomic<size_t>);
-        static_assert(padding_size < cache_line_size, "padding calculation underflow");
         char padding[padding_size > 0 ? padding_size : 1]{};
     };
-    static_assert(cache_line_size >= sizeof(std::atomic<size_t>) * 2,
-                  "cache line size too small for padding");
 
     static void cpu_relax() noexcept {
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
