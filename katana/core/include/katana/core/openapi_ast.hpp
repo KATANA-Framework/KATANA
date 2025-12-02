@@ -27,21 +27,38 @@ struct schema {
     explicit schema(monotonic_arena* arena = nullptr)
         : name(arena_allocator<char>(arena)), format(arena_allocator<char>(arena)),
           ref(arena_allocator<char>(arena)), description(arena_allocator<char>(arena)),
-          properties(arena_allocator<property>(arena)), enum_values(arena_allocator<char>(arena)) {}
+          pattern(arena_allocator<char>(arena)), discriminator(arena_allocator<char>(arena)),
+          default_value(arena_allocator<char>(arena)), properties(arena_allocator<property>(arena)),
+          one_of(arena_allocator<const schema*>(arena)),
+          any_of(arena_allocator<const schema*>(arena)),
+          all_of(arena_allocator<const schema*>(arena)), enum_values(arena_allocator<char>(arena)) {
+    }
 
     schema_kind kind{schema_kind::object};
     arena_string<> name;
     arena_string<> format;
     arena_string<> ref;
     arena_string<> description;
+    arena_string<> pattern;
+    arena_string<> discriminator;
+    arena_string<> default_value;
 
     const schema* items = nullptr; // for arrays
     arena_vector<property> properties;
+    arena_vector<const schema*> one_of;
+    arena_vector<const schema*> any_of;
+    arena_vector<const schema*> all_of;
+    const schema* additional_properties = nullptr;
+    bool additional_properties_allowed = true;
 
     bool nullable = false;
     bool deprecated = false;
+    bool unique_items = false;
     std::optional<double> minimum;
     std::optional<double> maximum;
+    std::optional<double> exclusive_minimum;
+    std::optional<double> exclusive_maximum;
+    std::optional<double> multiple_of;
     std::optional<size_t> min_length;
     std::optional<size_t> max_length;
     std::optional<size_t> min_items;
@@ -114,7 +131,8 @@ struct document {
 
     document(document&& other) noexcept
         : arena_(other.arena_), schemas(std::move(other.schemas)), paths(std::move(other.paths)),
-          openapi_version(std::move(other.openapi_version)) {}
+          openapi_version(std::move(other.openapi_version)),
+          info_title(std::move(other.info_title)), info_version(std::move(other.info_version)) {}
 
     document& operator=(document&& other) noexcept {
         if (this != &other) {
@@ -122,6 +140,8 @@ struct document {
             schemas = std::move(other.schemas);
             paths = std::move(other.paths);
             openapi_version = std::move(other.openapi_version);
+            info_title = std::move(other.info_title);
+            info_version = std::move(other.info_version);
         }
         return *this;
     }
