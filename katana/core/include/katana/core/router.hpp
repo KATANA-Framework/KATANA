@@ -92,9 +92,12 @@ struct path_pattern {
         size_t segment_index = 0;
 
         while (pos < raw.size()) {
-            size_t next_slash = raw.find('/', pos);
-            if (next_slash == std::string_view::npos) {
-                next_slash = raw.size();
+            size_t next_slash = raw.size();
+            for (size_t i = pos; i < raw.size(); ++i) {
+                if (raw[i] == '/') {
+                    next_slash = i;
+                    break;
+                }
             }
 
             const size_t len = next_slash - pos;
