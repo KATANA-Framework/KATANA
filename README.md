@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 02.12 05:01 — ci: disable io_uring backend matrix (b54b5d1)
+* 02.12 05:27 —  docs(stage2): add comprehensive router and openapi documentation (522bc8d)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
