@@ -130,6 +130,12 @@ if(ENABLE_EXAMPLES)
 
     add_executable(simple_rest_api examples/simple_rest_api.cpp)
     target_link_libraries(simple_rest_api katana_core)
+
+    add_executable(router_rest_api examples/router_rest_api.cpp)
+    target_link_libraries(router_rest_api katana_core)
+
+    add_executable(middleware_examples examples/middleware_examples.cpp)
+    target_link_libraries(middleware_examples katana_core)
 endif()
 add_executable(debug_test debug_test.cpp)
 target_link_libraries(debug_test PRIVATE katana_core)
