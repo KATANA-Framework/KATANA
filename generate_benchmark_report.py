@@ -103,6 +103,10 @@ class BenchmarkCollector:
                 if lat_p999:
                     metrics['Latency p999'] = (float(lat_p999.group(1)), 'us')
 
+                errors_match = re.search(r'Errors:\s+([\d.]+)', data)
+                if errors_match:
+                    metrics['Errors'] = (float(errors_match.group(1)), 'count')
+
                 if category not in self.results:
                     self.results[category] = {}
                 self.results[category][bench_name] = metrics
@@ -294,6 +298,7 @@ def main():
         ("timer_benchmark", "Timer System", collector.parse_standard_benchmark, False),
         ("headers_benchmark", "HTTP Headers", collector.parse_standard_benchmark, False),
         ("io_buffer_benchmark", "IO Buffer", collector.parse_standard_benchmark, False),
+        ("router_benchmark", "Router Dispatch", collector.parse_standard_benchmark, False),
     ]
 
     print("Running all benchmarks...\n")

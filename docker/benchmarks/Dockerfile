@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /workspace
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y --no-recommends \
         build-essential \
         cmake \
         ninja-build \
@@ -19,4 +19,5 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Expect repository to be mounted to /workspace.
+# Bench harness builds with ENABLE_BENCHMARKS=ON and includes router_benchmark.
 CMD ["bash", "-lc", "cd /workspace && ./run_benchmarks.sh"]

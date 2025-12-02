@@ -79,6 +79,7 @@ add_library(katana_core STATIC
     katana/core/src/io_buffer.cpp
     katana/core/src/arena.cpp
     katana/core/src/problem.cpp
+    katana/core/src/openapi_loader.cpp
     katana/core/src/http.cpp
     katana/core/src/http_field.cpp
     katana/core/src/system_limits.cpp

@@ -241,6 +241,10 @@ enum class error_code : int {
     invalid_fd = 4,
     reactor_stopped = 5,
     timeout = 6,
+    not_found = 7,
+    method_not_allowed = 8,
+    openapi_parse_error = 9,
+    openapi_invalid_spec = 10,
 };
 
 class error_category : public std::error_category {
@@ -264,6 +268,14 @@ public:
             return "reactor is stopped";
         case ec::timeout:
             return "operation timed out";
+        case ec::not_found:
+            return "route not found";
+        case ec::method_not_allowed:
+            return "method not allowed";
+        case ec::openapi_parse_error:
+            return "failed to parse OpenAPI document";
+        case ec::openapi_invalid_spec:
+            return "invalid or unsupported OpenAPI document";
         default:
             return "unknown error";
         }

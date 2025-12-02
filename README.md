@@ -392,10 +392,69 @@ Thread pinning (опциональная оптимизация):
 
 **Цель**: любые расхождения API → ошибки компиляции; property-тесты валидаторов.
 
+**Подэтапы и DoD**
+
+1. Роутер + middleware-каркас
+   - compile-time таблица маршрутов без аллокаций в hot-path; поддержка path params, 404/405/415.
+   - middleware-chain с единым ABI (`req, ctx → result<response>`), конвейер без virtual/heap в критике.
+   - тесты: path matching, приоритет статических/динамических сегментов, бенч dispatch-only.
+2. Парсер OpenAPI → AST
+   - YAML/JSON загрузка (без тяжёлых зависимостей), валидация спецификации, `$ref`-resolution, лимиты.
+   - AST для paths/schemas/params/responses с нормализацией типов/format.
+   - тесты: фикстуры валидных/битых спецификаций, property-тесты инвариантов AST.
+3. DTO + валидация + JSON ser/deser
+   - DTO на `std::pmr`/arena, `string_view` по умолчанию, enums → `enum class`.
+   - валидаторы для required/ranges/pattern/uniqueItems/custom formats; nullable/optional корректно разведены.
+   - JSON: zero-copy/ondemand профиль по умолчанию, streaming serializer; round-trip/property/fuzz тесты.
+4. Генерация роутов и интерфейсов контроллеров
+   - compile-time привязка метода/пути к сигнатурам контроллеров; статические ошибки при расхождении.
+   - автоген интерфейсов контроллеров (виртуальный/CRTP слой), ручной код реализует только бизнес-логику.
+   - тесты: negative compile-time кейсы, интеграция на фиктивной спецификации.
+5. Интеграция в runtime + контрактные проверки
+   - подключение роутера к HTTP серверу, хуки для auth/logging/tracing (пока no-op), дедлайны/лимиты.
+   - conformance-тесты по OpenAPI фикстурам, latency/alloc бенч (dispatch+parse без бизнес-кода).
+   - DoD: p99 dispatch не хуже текущего baseline, 0 heap alloc в hot-path, CI preset с unit+property+perf smoke.
+
+**Stage 2.1 (router + middleware skeleton)**
+- API: `katana/core/router.hpp`
+  - `path_pattern::from_literal<"/users/{id}">()` — compile-time парсинг, приоритет статических сегментов над параметрами, query string отрезается.
+  - `handler_fn` сигнатура: `(const http::request&, http::request_context&) -> result<http::response>`.
+  - `middleware_fn` сигнатура: `(req, ctx, next_fn) -> result<http::response>`; `make_middleware_chain(std::array<middleware_fn, N>)` собирает цепочку без heap.
+  - `request_context` содержит `monotonic_arena&` и `path_params` (lookup по имени без аллокаций).
+  - Ошибки: `not_found` (404) и `method_not_allowed` (405) через `katana::error_code` без исключений; `dispatch_or_problem` мапит их в RFC7807 + `Allow` header.
+  - `router_handler` — адаптер к харнесам/серверу: `(req, arena) -> response`, zero-alloc hot-path.
+- Минимальный скелет исполнения без привязки к серверу; готов для подключения к HTTP loop и future OpenAPI codegen.
+- Инварианты hot-path: без виртуальных вызовов/heap-alloc, линейное сканирование таблицы маршрутов со специфичностью по числу literal-сегментов.
+- Бенч: `router_benchmark` (ENABLE_BENCHMARKS=ON) — dispatch hits/misses/405 без аллокаций.
+
+Пример использования:
+
+```cpp
+using namespace katana::http;
+
+route_entry routes[] = {
+  {method::get,
+   path_pattern::from_literal<"/users/{id}">(),
+   handler_fn([](const request& req, request_context& ctx) {
+     auto id = ctx.params.get("id").value_or("");
+     return response::ok(std::string{id});
+   })}
+};
+
+router r(routes);
+monotonic_arena arena;
+request_context ctx{arena};
+request req;
+req.http_method = method::get;
+req.uri = "/users/42";
+auto res = dispatch_or_problem(r, req, ctx); // 404/405 → ProblemDetails + Allow
+```
+
 - [ ] Парсер OpenAPI 3.x
   - [ ] Загрузка YAML/JSON спецификации
   - [ ] Валидация соответствия стандарту OpenAPI
-  - [ ] Построение AST (paths, schemas, parameters)
+  - [x] Построение базового AST (paths, schemas, parameters) — `katana/core/openapi_ast.hpp` (arena-backed)
+  - [x] Лоадер-каркас: `load_from_string` проверяет OpenAPI 3.x версию и возвращает AST-заготовку
 - [ ] Генерация роутов
   - [ ] Compile-time таблица маршрутов (constexpr map)
   - [ ] Path templates → regex/prefix trees
