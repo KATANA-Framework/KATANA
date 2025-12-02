@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 01.12 06:59 — Fix io_buffer aligned storage definition and deleter (0cc9a9f)
+* 02.12 05:01 — ci: disable io_uring backend matrix (b54b5d1)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
