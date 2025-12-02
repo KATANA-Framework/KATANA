@@ -23,7 +23,25 @@ KATANA — серверный фреймворк на C++ для разрабо�
 
 ## Текущее состояние (реальность)
 
-Репозиторий сейчас содержит минимальное runtime-ядро: epoll/io_uring reactor + reactor_pool, арены/IO-буфера, HTTP/1.1 парсер/сериализацию, wheel timer, TCP listener/socket хелперы, несколько примеров и набор unit/integration/fuzz тестов. Нет роутера/кодогенерации/SQL/Redis/Tracing/Logging/Metrics — разделы README/ARCHITECTURE описывают целевое состояние, а не реализованный функционал.
+**Реализовано (Stage 1 + Stage 2.1 + 2.2):**
+- ✅ Epoll/io_uring reactor + reactor_pool
+- ✅ Арены/IO-буфера
+- ✅ HTTP/1.1 парсер/сериализация
+- ✅ Wheel timer
+- ✅ TCP listener/socket helpers
+- ✅ **Router** — compile-time routing с middleware
+- ✅ **OpenAPI loader** — парсинг JSON/YAML спецификаций
+- ✅ Unit/integration/fuzz тесты
+
+**В разработке / не реализовано:**
+- ⏳ OpenAPI → DTO/validator кодогенерация
+- ⏳ SQL генерация/libpq
+- ⏳ Redis клиент
+- ⏳ OpenTelemetry tracing
+- ⏳ Prometheus metrics
+- ⏳ Structured logging
+
+Разделы README/ARCHITECTURE описывают целевое состояние фреймворка. То, что уже работает — помечено ✅ выше.
 
 ## Getting Started (сегодня)
 
@@ -34,6 +52,143 @@ KATANA — серверный фреймворк на C++ для разрабо�
 5. Примеры: `cmake --build --preset examples && ./build/examples/hello_world_server`.
 6. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && ./build/bench/benchmark/performance_benchmark`.
 7. Удобно через Makefile: `make build PRESET=debug`, `make test PRESET=debug`, `make bench`, `make fuzz`, `make profile`.
+
+## Router Quick Start (Stage 2)
+
+KATANA Router — compile-time, zero-allocation HTTP роутер с автоматической обработкой ошибок и middleware.
+
+### Простейший пример
+
+```cpp
+#include "katana/core/router.hpp"
+#include "katana/core/http.hpp"
+
+using namespace katana::http;
+
+// Определяем роуты
+route_entry routes[] = {
+    {method::get,
+     path_pattern::from_literal<"/">(),
+     handler_fn([](const request& req, request_context& ctx) {
+         return response::ok("Hello, World!");
+     })},
+
+    {method::get,
+     path_pattern::from_literal<"/users/{id}">(),
+     handler_fn([](const request& req, request_context& ctx) {
+         auto id = ctx.params.get("id").value_or("unknown");
+         return response::ok(std::string("User: ") + std::string(id));
+     })},
+};
+
+router r(routes);
+
+// Dispatch запроса
+monotonic_arena arena;
+request_context ctx{arena};
+request req;
+req.http_method = method::get;
+req.uri = "/users/42";
+
+response resp = dispatch_or_problem(r, req, ctx);
+// resp.status == 200, resp.body == "User: 42"
+```
+
+### Middleware пример
+
+```cpp
+// Logging middleware
+middleware_fn logging([](const request& req, request_context& ctx, next_fn next) {
+    std::cout << "[" << method_to_string(req.http_method) << "] " << req.uri << "\n";
+    return next();
+});
+
+// Auth middleware
+middleware_fn auth([](const request& req, request_context& ctx, next_fn next) {
+    auto token = req.headers.get("Authorization");
+    if (!token || !validate(*token)) {
+        return response::error(problem_details::unauthorized("Invalid token"));
+    }
+    return next();
+});
+
+// Применяем middleware
+std::array<middleware_fn, 2> chain = {logging, auth};
+
+route_entry routes[] = {
+    {method::get,
+     path_pattern::from_literal<"/protected">(),
+     protected_handler,
+     make_middleware_chain(chain)},
+};
+```
+
+### Автоматические ошибки
+
+- **404 Not Found** — автоматически возвращается для несуществующих путей
+- **405 Method Not Allowed** — с автоматическим `Allow` header
+- **RFC 7807 Problem Details** — стандартизированный формат ошибок
+
+### Примеры
+
+- `examples/router_rest_api.cpp` — полный REST API с CRUD
+- `examples/middleware_examples.cpp` — примеры всех middleware (logging, auth, CORS, rate limiting)
+- `examples/hello_world_server.cpp` — минимальный HTTP сервер
+
+📖 **Подробная документация:** [docs/ROUTER.md](docs/ROUTER.md)
+
+---
+
+## OpenAPI Loader (Stage 2)
+
+Arena-backed парсер OpenAPI 3.x спецификаций (JSON/YAML).
+
+### Quick Start
+
+```cpp
+#include "katana/core/openapi_loader.hpp"
+#include "katana/core/arena.hpp"
+
+const std::string spec = R"({
+  "openapi": "3.0.0",
+  "info": {"title": "My API", "version": "1.0"},
+  "paths": {
+    "/users/{id}": {
+      "get": {
+        "operationId": "getUser",
+        "parameters": [{"name": "id", "in": "path", "required": true}]
+      }
+    }
+  }
+})";
+
+monotonic_arena arena;
+auto result = katana::openapi::load_from_string(spec, arena);
+
+if (result) {
+    std::cout << "API: " << result->info_title << "\n";
+    for (const auto& path : result->paths) {
+        std::cout << "  " << path.path << "\n";
+    }
+}
+```
+
+**Поддерживается:**
+- ✅ JSON и YAML форматы
+- ✅ Paths, operations, parameters
+- ✅ Request body и responses
+- ✅ Schemas (object, array, string, number, etc.)
+- ✅ Validation constraints (minLength, pattern, required, etc.)
+
+**В разработке:**
+- ⏳ `$ref` resolution
+- ⏳ DTO codegen
+- ⏳ Validator codegen
+- ⏳ Route table codegen
+
+📖 **Подробная документация:** [docs/OPENAPI.md](docs/OPENAPI.md)
+
+---
 
 ## Разработка и стиль
 
