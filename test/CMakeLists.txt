@@ -16,6 +16,8 @@ add_executable(unit_tests
     unit/test_system_limits.cpp
     unit/test_shutdown.cpp
     unit/test_problem.cpp
+    unit/test_router.cpp
+    unit/test_openapi_ast.cpp
 )
 
 target_link_libraries(unit_tests

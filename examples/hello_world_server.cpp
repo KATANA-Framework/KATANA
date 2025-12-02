@@ -132,6 +132,30 @@ void write_active_response(connection& conn) {
     conn.writing_response = false;
 }
 
+response dispatch_request(const http::request& req, monotonic_arena& arena) {
+    // Simple router: GET /hello/{name?}
+    http::router r({
+        {http::method::get,
+         http::path_pattern::from_literal<"/">(),
+         http::handler_fn([](const http::request&, http::request_context&) {
+             return http::response::ok("Hello, World!");
+         })},
+        {http::method::get,
+         http::path_pattern::from_literal<"/hello/{name}">(),
+         http::handler_fn([](const http::request&, http::request_context& ctx) {
+             auto name = ctx.params.get("name").value_or("world");
+             std::string body;
+             body.reserve(6 + name.size());
+             body.append("Hello ");
+             body.append(name);
+             body.push_back('!');
+             return http::response::ok(std::move(body));
+         })},
+    });
+    http::request_context ctx{arena};
+    return http::dispatch_or_problem(r, req, ctx);
+}
+
 void handle_client(connection& conn) {
     int32_t fd_val = conn.fd.load(std::memory_order_relaxed);
     if (fd_val < 0) {
@@ -212,7 +236,24 @@ void handle_client(connection& conn) {
             should_close = true;
         }
 
-        conn.active_response = should_close ? RESPONSE_CLOSE : RESPONSE_KEEPALIVE;
+        http::response resp = dispatch_request(req, conn.arena);
+        std::string serialized = resp.serialize();
+
+        // Connection header handling
+        bool has_conn_close = false;
+        if (auto conn_hdr = req.header("Connection")) {
+            has_conn_close = ci_equal(*conn_hdr, "close");
+        }
+        if (has_conn_close) {
+            resp.set_header("Connection", "close");
+            serialized = resp.serialize();
+            should_close = true;
+        } else {
+            resp.set_header("Connection", "keep-alive");
+            serialized = resp.serialize();
+        }
+
+        conn.active_response = serialized;
         conn.write_pos = 0;
         conn.should_close_after_write = should_close;
 

@@ -81,3 +81,17 @@ target_link_libraries(io_buffer_benchmark
         katana_core
         pthread
 )
+
+add_executable(router_benchmark router_benchmark.cpp)
+
+target_compile_options(router_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_link_libraries(router_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
