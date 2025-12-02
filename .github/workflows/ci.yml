@@ -42,10 +42,18 @@ jobs:
           sudo apt-get update
         fi
         if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
-          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} clang-tools-18 liburing-dev libc++-18-dev libc++abi-18-dev
+          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} clang-tools-18 liburing-dev libc++-18-dev libc++abi-18-dev ccache
         else
-          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} liburing-dev
+          sudo apt-get install -y cmake ninja-build ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }} liburing-dev ccache
         fi
+
+    - name: Cache ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ${{ runner.os }}-${{ matrix.compiler.cc }}-${{ matrix.build_type }}-${{ matrix.sanitizer }}-ccache-${{ github.run_id }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.compiler.cc }}-${{ matrix.build_type }}-${{ matrix.sanitizer }}-ccache-
 
     - name: Configure CMake
       run: |
@@ -80,6 +88,8 @@ jobs:
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
           -DCMAKE_CXX_FLAGS="$SANITIZER_FLAGS" \
           -DCMAKE_EXE_LINKER_FLAGS="$LINKER_FLAGS" \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DENABLE_TESTING=ON \
           ${SCAN_DEPS_FLAGS}
 
@@ -88,7 +98,51 @@ jobs:
 
     - name: Run Tests
       working-directory: ${{github.workspace}}/build
-      run: ctest -C ${{ matrix.build_type }} --output-on-failure --verbose
+      run: ctest -C ${{ matrix.build_type }} --output-on-failure --verbose -j$(nproc)
+
+  backends:
+    name: Backend Matrix
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        poll: [epoll, io_uring]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-18 clang++-18 clang-tools-18 cmake ninja-build liburing-dev ccache
+
+    - name: Cache ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ${{ runner.os }}-backend-${{ matrix.poll }}-ccache-${{ github.run_id }}
+        restore-keys: |
+          ${{ runner.os }}-backend-${{ matrix.poll }}-ccache-
+
+    - name: Configure
+      run: |
+        SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
+        cmake -B ${{github.workspace}}/build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER=clang-18 \
+          -DCMAKE_CXX_COMPILER=clang++-18 \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -DKATANA_POLL=${{ matrix.poll }} \
+          -DENABLE_TESTING=ON \
+          ${SCAN_DEPS_FLAGS}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build -j$(nproc)
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest --output-on-failure -j$(nproc)
 
   fuzzing:
     runs-on: ubuntu-24.04

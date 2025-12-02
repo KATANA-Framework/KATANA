@@ -22,7 +22,16 @@ jobs:
           ninja-build \
           g++-13 \
           liburing-dev \
-          lcov
+          lcov \
+          ccache
+
+    - name: Cache ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ${{ runner.os }}-coverage-ccache-${{ github.run_id }}
+        restore-keys: |
+          ${{ runner.os }}-coverage-ccache-
 
     - name: Configure CMake with coverage
       run: |
@@ -34,6 +43,8 @@ jobs:
           -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -fprofile-update=atomic" \
           -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage -fprofile-update=atomic" \
           -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DENABLE_TESTING=ON
 
     - name: Build
@@ -41,12 +52,12 @@ jobs:
 
     - name: Run tests
       working-directory: ${{github.workspace}}/build
-      run: ctest --output-on-failure --verbose
+      run: ctest --output-on-failure --verbose -j$(nproc)
 
     - name: Generate coverage report
       run: |
         # Capture coverage data
-        lcov --directory build --capture --output-file coverage.info
+        lcov --rc geninfo_unexecuted_blocks=1 --directory build --capture --output-file coverage.info
 
         # Remove external dependencies and test code from coverage
         if ! lcov --remove coverage.info \
