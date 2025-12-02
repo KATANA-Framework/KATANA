@@ -220,8 +220,8 @@ struct yaml_node {
 
     kind k{kind::scalar};
     std::string scalar;
-    std::vector<std::pair<std::string, yaml_node>> object;
-    std::vector<yaml_node> array;
+    std::vector<std::pair<std::string, std::unique_ptr<yaml_node>>> object;
+    std::vector<std::unique_ptr<yaml_node>> array;
 
     static yaml_node scalar_node(std::string value) {
         yaml_node n;
@@ -299,12 +299,12 @@ void emit_json(const yaml_node& n, std::string& out) {
             if (i != 0) {
                 out.push_back(',');
             }
-            auto& kv = n.object[i];
+            const auto& kv = n.object[i];
             out.push_back('\"');
             out.append(escape_json_string(kv.first));
             out.push_back('\"');
             out.push_back(':');
-            emit_json(kv.second, out);
+            emit_json(*kv.second, out);
         }
         out.push_back('}');
         break;
@@ -315,7 +315,7 @@ void emit_json(const yaml_node& n, std::string& out) {
             if (i != 0) {
                 out.push_back(',');
             }
-            emit_json(n.array[i], out);
+            emit_json(*n.array[i], out);
         }
         out.push_back(']');
         break;
@@ -408,7 +408,8 @@ yaml_node parse_yaml_block(const std::vector<yaml_line>& lines, size_t& idx, int
             ++idx;
 
             if (item.empty()) {
-                node.array.push_back(parse_yaml_block(lines, idx, indent + 2));
+                node.array.push_back(
+                    std::make_unique<yaml_node>(parse_yaml_block(lines, idx, indent + 2)));
                 continue;
             }
 
@@ -418,15 +419,18 @@ yaml_node parse_yaml_block(const std::vector<yaml_line>& lines, size_t& idx, int
                 std::string_view val = trim_view(item.substr(colon_pos + 1));
                 yaml_node obj = yaml_node::object_node();
                 if (val.empty()) {
-                    obj.object.emplace_back(std::move(key),
-                                            parse_yaml_block(lines, idx, indent + 2));
+                    obj.object.emplace_back(
+                        std::move(key),
+                        std::make_unique<yaml_node>(parse_yaml_block(lines, idx, indent + 2)));
                 } else {
-                    obj.object.emplace_back(std::move(key),
-                                            yaml_node::scalar_node(std::string(val)));
+                    obj.object.emplace_back(
+                        std::move(key),
+                        std::make_unique<yaml_node>(yaml_node::scalar_node(std::string(val))));
                 }
-                node.array.push_back(std::move(obj));
+                node.array.push_back(std::make_unique<yaml_node>(std::move(obj)));
             } else {
-                node.array.push_back(yaml_node::scalar_node(std::string(item)));
+                node.array.push_back(
+                    std::make_unique<yaml_node>(yaml_node::scalar_node(std::string(item))));
             }
         } else {
             auto colon_pos = content.find(':');
@@ -444,7 +448,7 @@ yaml_node parse_yaml_block(const std::vector<yaml_line>& lines, size_t& idx, int
             }
 
             yaml_node child = parse_yaml_value(val, lines, idx, indent);
-            node.object.emplace_back(std::move(key), std::move(child));
+            node.object.emplace_back(std::move(key), std::make_unique<yaml_node>(std::move(child)));
         }
     }
 
