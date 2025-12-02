@@ -1,6 +1,7 @@
 #include "katana/core/openapi_ast.hpp"
 #include "katana/core/openapi_loader.hpp"
 
+#include <cmath>
 #include <gtest/gtest.h>
 
 using namespace katana;
@@ -177,4 +178,94 @@ TEST(OpenAPILoader, ParsesSchemasShallowObjectArrayString) {
     ASSERT_NE(body, nullptr);
     EXPECT_EQ(body->content_type, "application/json");
     // We don't yet materialize schema tree into request_body; placeholder test to ensure no crash.
+}
+
+TEST(OpenAPILoader, AcceptsYamlVersionHint) {
+    const std::string spec = R"(openapi: 3.0.0
+info:
+  title: svc
+  version: 2.0
+paths: {}
+)";
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    ASSERT_TRUE(res);
+    EXPECT_EQ(res->openapi_version, "3.x");
+    EXPECT_TRUE(res->paths.empty());
+    EXPECT_EQ(res->info_title, "svc");
+    EXPECT_EQ(res->info_version, "2.0");
+}
+
+TEST(OpenAPILoader, ParsesYamlWithArraysAndSchemas) {
+    const std::string spec = R"(openapi: 3.0.0
+info:
+  title: svc
+  version: 1.1
+paths:
+  /items:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  pattern: "^[a-z]+$"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  uniqueItems: true
+                price:
+                  type: number
+                  multipleOf: 0.01
+              required:
+                - name
+              additionalProperties: false
+              discriminator: kind
+      responses:
+        '200':
+          description: ok
+)";
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    ASSERT_TRUE(res);
+    ASSERT_EQ(res->paths.size(), 1U);
+    ASSERT_EQ(res->paths[0].operations.size(), 1U);
+    const auto& op = res->paths[0].operations[0];
+    ASSERT_NE(op.body, nullptr);
+    ASSERT_NE(op.body->body, nullptr);
+    EXPECT_EQ(op.body->content_type, "application/json");
+    auto* schema = op.body->body;
+    ASSERT_EQ(schema->properties.size(), 3U);
+    const openapi::schema* name_schema = nullptr;
+    const openapi::schema* tags = nullptr;
+    const openapi::schema* price = nullptr;
+    for (const auto& p : schema->properties) {
+        if (p.name == "name") {
+            name_schema = p.type;
+            EXPECT_TRUE(p.required);
+        } else if (p.name == "tags") {
+            tags = p.type;
+        } else if (p.name == "price") {
+            price = p.type;
+        }
+    }
+    ASSERT_NE(name_schema, nullptr);
+    ASSERT_NE(tags, nullptr);
+    EXPECT_EQ(tags->kind, schema_kind::array);
+    EXPECT_TRUE(tags->unique_items);
+    ASSERT_NE(tags->items, nullptr);
+    EXPECT_EQ(tags->items->kind, schema_kind::string);
+    ASSERT_NE(price, nullptr);
+    EXPECT_EQ(price->kind, schema_kind::number);
+    ASSERT_TRUE(price->multiple_of.has_value());
+    EXPECT_TRUE(std::fabs(*price->multiple_of - 0.01) < 1e-6);
+    EXPECT_FALSE(schema->additional_properties_allowed);
+    EXPECT_EQ(schema->discriminator, "kind");
+    ASSERT_EQ(op.responses.size(), 1U);
+    EXPECT_EQ(op.responses[0].status, 200);
+    EXPECT_EQ(op.responses[0].description, "ok");
 }
