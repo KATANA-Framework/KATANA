@@ -295,9 +295,9 @@ std::string cpp_type_from_schema(const katana::openapi::schema* s, bool use_pmr)
 }
 
 void generate_dto_for_schema(std::ostream& out,
-                              const katana::openapi::schema& s,
-                              bool use_pmr,
-                              size_t indent = 0) {
+                             const katana::openapi::schema& s,
+                             bool use_pmr,
+                             size_t indent = 0) {
     std::string ind(static_cast<size_t>(indent), ' ');
     if (s.name.empty() || s.properties.empty()) {
         return;
