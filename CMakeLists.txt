@@ -82,6 +82,7 @@ add_library(katana_core STATIC
     katana/core/src/openapi_loader.cpp
     katana/core/src/http.cpp
     katana/core/src/http_field.cpp
+    katana/core/src/http_server.cpp
     katana/core/src/system_limits.cpp
     katana/core/src/shutdown.cpp
     katana/core/src/tcp_socket.cpp
@@ -137,6 +138,9 @@ if(ENABLE_EXAMPLES)
 
     add_executable(middleware_examples examples/middleware_examples.cpp)
     target_link_libraries(middleware_examples katana_core)
+
+    # Codegen examples
+    add_subdirectory(examples/codegen/simple_crud)
 endif()
 
 if(ENABLE_TOOLS)

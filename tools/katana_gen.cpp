@@ -753,6 +753,58 @@ void generate_json_serializer_for_schema(std::ostream& out, const katana::openap
     out << "}\n\n";
 }
 
+void generate_json_array_parser(std::ostream& out,
+                                const katana::openapi::schema& s,
+                                [[maybe_unused]] bool use_pmr) {
+    if (s.name.empty() || s.properties.empty()) {
+        return;
+    }
+
+    // Generate array parser: parse_Type_array(string_view, arena*) -> optional<vector<Type>>
+    out << "inline std::optional<std::vector<" << s.name << ">> parse_" << s.name
+        << "_array(std::string_view json, monotonic_arena* arena) {\n";
+    out << "    using katana::serde::json_cursor;\n";
+    out << "    json_cursor cur{json.data(), json.data() + json.size()};\n";
+    out << "    if (!cur.try_array_start()) return std::nullopt;\n\n";
+    out << "    std::vector<" << s.name << "> result;\n";
+    out << "    while (!cur.eof()) {\n";
+    out << "        cur.skip_ws();\n";
+    out << "        if (cur.try_array_end()) break;\n";
+    out << "        \n";
+    out << "        // Parse object at current position\n";
+    out << "        size_t obj_start = cur.pos();\n";
+    out << "        cur.skip_value();\n";
+    out << "        size_t obj_end = cur.pos();\n";
+    out << "        std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);\n";
+    out << "        \n";
+    out << "        auto obj = parse_" << s.name << "(obj_json, arena);\n";
+    out << "        if (!obj) return std::nullopt;\n";
+    out << "        result.push_back(std::move(*obj));\n";
+    out << "        \n";
+    out << "        cur.try_comma();\n";
+    out << "    }\n";
+    out << "    return result;\n";
+    out << "}\n\n";
+}
+
+void generate_json_array_serializer(std::ostream& out, const katana::openapi::schema& s) {
+    if (s.name.empty() || s.properties.empty()) {
+        return;
+    }
+
+    // Generate array serializer: serialize_Type_array(const std::vector<Type>&)
+    out << "inline std::string serialize_" << s.name << "_array(const std::vector<" << s.name
+        << ">& arr) {\n";
+    out << "    std::string json = \"[\";\n";
+    out << "    for (size_t i = 0; i < arr.size(); ++i) {\n";
+    out << "        json += serialize_" << s.name << "(arr[i]);\n";
+    out << "        if (i < arr.size() - 1) json += \",\";\n";
+    out << "    }\n";
+    out << "    json += \"]\";\n";
+    out << "    return json;\n";
+    out << "}\n\n";
+}
+
 std::string generate_json_parsers(const document& doc, bool use_pmr) {
     std::ostringstream out;
     out << "#pragma once\n\n";
@@ -760,7 +812,8 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "#include \"katana/core/serde.hpp\"\n";
     out << "#include <optional>\n";
     out << "#include <string>\n";
-    out << "#include <charconv>\n\n";
+    out << "#include <charconv>\n";
+    out << "#include <vector>\n\n";
     out << "using katana::monotonic_arena;\n\n";
 
     for (const auto& schema : doc.schemas) {
@@ -768,6 +821,13 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     }
     for (const auto& schema : doc.schemas) {
         generate_json_serializer_for_schema(out, schema);
+    }
+    // Generate array parsers and serializers for all schemas
+    for (const auto& schema : doc.schemas) {
+        generate_json_array_parser(out, schema, use_pmr);
+    }
+    for (const auto& schema : doc.schemas) {
+        generate_json_array_serializer(out, schema);
     }
 
     return out.str();

@@ -56,6 +56,45 @@ struct response {
         headers.set_view(name, value);
     }
 
+    // Fluent interface for building responses (lvalue overloads)
+    response& header(std::string_view name, std::string_view value) & {
+        set_header(name, value);
+        return *this;
+    }
+
+    response& with_status(int32_t s) & {
+        status = s;
+        return *this;
+    }
+
+    response& with_body(std::string b) & {
+        body = std::move(b);
+        return *this;
+    }
+
+    response& content_type(std::string_view ct) & { return header("Content-Type", ct); }
+
+    // Fluent interface for building responses (rvalue overloads for chaining)
+    response&& header(std::string_view name, std::string_view value) && {
+        set_header(name, value);
+        return std::move(*this);
+    }
+
+    response&& with_status(int32_t s) && {
+        status = s;
+        return std::move(*this);
+    }
+
+    response&& with_body(std::string b) && {
+        body = std::move(b);
+        return std::move(*this);
+    }
+
+    response&& content_type(std::string_view ct) && {
+        set_header("Content-Type", ct);
+        return std::move(*this);
+    }
+
     void serialize_into(std::string& out) const;
     [[nodiscard]] std::string serialize() const;
     [[nodiscard]] std::string serialize_chunked(size_t chunk_size = 4096) const;

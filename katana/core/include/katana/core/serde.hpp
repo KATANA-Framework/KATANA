@@ -26,8 +26,13 @@ inline std::string_view trim_view(std::string_view sv) noexcept {
 struct json_cursor {
     const char* ptr;
     const char* end;
+    const char* start; // Track start for position calculation
+
+    json_cursor(const char* p, const char* e) : ptr(p), end(e), start(p) {}
 
     bool eof() const noexcept { return ptr >= end; }
+
+    size_t pos() const noexcept { return static_cast<size_t>(ptr - start); }
 
     void skip_ws() noexcept {
         while (!eof() && std::isspace(static_cast<unsigned char>(*ptr))) {
@@ -50,7 +55,7 @@ struct json_cursor {
             return std::nullopt;
         }
         ++ptr;
-        const char* start = ptr;
+        const char* str_start = ptr;
         while (!eof() && *ptr != '\"') {
             if (*ptr == '\\' && (ptr + 1) < end) {
                 ptr += 2;
@@ -63,7 +68,7 @@ struct json_cursor {
         }
         const char* stop = ptr;
         ++ptr; // consume closing quote
-        return std::string_view(start, static_cast<size_t>(stop - start));
+        return std::string_view(str_start, static_cast<size_t>(stop - str_start));
     }
 
     bool try_object_start() noexcept { return consume('{'); }
