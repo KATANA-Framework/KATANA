@@ -140,14 +140,14 @@ struct path_pattern {
         return pattern;
     }
 
-    [[nodiscard]] bool match(std::string_view path, path_params& out) const noexcept {
-        if (segment_count == 0 && (path == "/" || path.empty())) {
-            return true;
-        }
+    struct split_result {
+        std::array<std::string_view, MAX_ROUTE_SEGMENTS> parts{};
+        size_t count{0};
+        bool overflow{false};
+    };
 
-        std::array<std::string_view, MAX_ROUTE_SEGMENTS> path_segments{};
-        size_t path_segment_count = 0;
-
+    [[nodiscard]] static split_result split_path(std::string_view path) noexcept {
+        split_result out{};
         size_t pos = 0;
         while (pos < path.size()) {
             if (path[pos] == '/') {
@@ -158,13 +158,22 @@ struct path_pattern {
             if (next == std::string_view::npos) {
                 next = path.size();
             }
-            if (path_segment_count >= MAX_ROUTE_SEGMENTS) {
-                return false;
+            if (out.count >= MAX_ROUTE_SEGMENTS) {
+                out.overflow = true;
+                return out;
             }
-            path_segments[path_segment_count++] = path.substr(pos, next - pos);
+            out.parts[out.count++] = path.substr(pos, next - pos);
             pos = next;
         }
+        return out;
+    }
 
+    [[nodiscard]] bool match_segments(std::span<const std::string_view> path_segments,
+                                      size_t path_segment_count,
+                                      path_params& out) const noexcept {
+        if (segment_count == 0 && path_segment_count == 0) {
+            return true;
+        }
         if (path_segment_count != segment_count) {
             return false;
         }
@@ -188,6 +197,22 @@ struct path_pattern {
         }
 
         return true;
+    }
+
+    [[nodiscard]] bool match(std::string_view path, path_params& out) const noexcept {
+        if (segment_count == 0 && (path == "/" || path.empty())) {
+            return true;
+        }
+
+        auto split = split_path(path);
+        if (split.overflow) {
+            return false;
+        }
+        if (split.count != segment_count) {
+            return false;
+        }
+        std::span<const std::string_view> parts(split.parts.data(), split.count);
+        return match_segments(parts, split.count, out);
     }
 
     [[nodiscard]] int specificity_score() const noexcept {
@@ -299,6 +324,13 @@ public:
 
     dispatch_result dispatch_with_info(const request& req, request_context& ctx) const {
         auto path = strip_query(req.uri);
+        auto split = path_pattern::split_path(path);
+        if (split.overflow) {
+            return dispatch_result{
+                std::unexpected(make_error_code(error_code::not_found)), false, 0};
+        }
+        std::span<const std::string_view> path_segments(split.parts.data(), split.count);
+
         const route_entry* best_route = nullptr;
         path_params best_params;
         int best_score = -1;
@@ -307,7 +339,7 @@ public:
 
         for (const auto& entry : routes_) {
             path_params candidate_params{};
-            if (!entry.pattern.match(path, candidate_params)) {
+            if (!entry.pattern.match_segments(path_segments, split.count, candidate_params)) {
                 continue;
             }
 

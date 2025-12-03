@@ -432,6 +432,14 @@ public:
         return known_size_ == 0 && unknown_entries_.empty();
     }
 
+    void reset(monotonic_arena* arena) noexcept {
+        arena_ = arena;
+        fallback_arena_ = arena_ ? nullptr : &owned_arena_;
+        known_entries_.fill({});
+        known_size_ = 0;
+        unknown_entries_.clear();
+    }
+
 private:
     monotonic_arena* arena_;
     monotonic_arena* fallback_arena_;

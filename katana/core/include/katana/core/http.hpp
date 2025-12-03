@@ -56,6 +56,7 @@ struct response {
         headers.set_view(name, value);
     }
 
+    void serialize_into(std::string& out) const;
     [[nodiscard]] std::string serialize() const;
     [[nodiscard]] std::string serialize_chunked(size_t chunk_size = 4096) const;
 
@@ -86,6 +87,7 @@ public:
     [[nodiscard]] bool is_complete() const noexcept { return state_ == state::complete; }
     [[nodiscard]] const request& get_request() const noexcept { return request_; }
     request&& take_request() { return std::move(request_); }
+    void reset(monotonic_arena* arena) noexcept;
 
 private:
     result<state> parse_request_line_state();

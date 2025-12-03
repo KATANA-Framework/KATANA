@@ -121,35 +121,43 @@ std::string response::serialize() const {
     if (chunked) {
         return serialize_chunked();
     }
+    std::string out;
+    serialize_into(out);
+    return out;
+}
+
+void response::serialize_into(std::string& out) const {
+    if (chunked) {
+        out = serialize_chunked();
+        return;
+    }
 
     size_t headers_size = 0;
     for (const auto& [name, value] : headers) {
         headers_size += name.size() + HEADER_SEPARATOR.size() + value.size() + CRLF.size();
     }
 
-    std::string result;
-    result.reserve(32 + reason.size() + headers_size + body.size());
+    out.clear();
+    out.reserve(32 + reason.size() + headers_size + body.size());
 
     char status_buf[16];
     auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
 
-    result.append(HTTP_VERSION_PREFIX);
-    result.append(status_buf, static_cast<size_t>(ptr - status_buf));
-    result.push_back(' ');
-    result.append(reason);
-    result.append(CRLF);
+    out.append(HTTP_VERSION_PREFIX);
+    out.append(status_buf, static_cast<size_t>(ptr - status_buf));
+    out.push_back(' ');
+    out.append(reason);
+    out.append(CRLF);
 
     for (const auto& [name, value] : headers) {
-        result.append(name);
-        result.append(HEADER_SEPARATOR);
-        result.append(value);
-        result.append(CRLF);
+        out.append(name);
+        out.append(HEADER_SEPARATOR);
+        out.append(value);
+        out.append(CRLF);
     }
 
-    result.append(CRLF);
-    result.append(body);
-
-    return result;
+    out.append(CRLF);
+    out.append(body);
 }
 
 std::string response::serialize_chunked(size_t chunk_size) const {
@@ -206,7 +214,9 @@ response response::ok(std::string body, std::string content_type) {
     res.status = 200;
     res.reason = "OK";
     res.body = std::move(body);
-    res.set_header("Content-Length", std::to_string(res.body.size()));
+    char len_buf[21];
+    auto [ptr, ec] = std::to_chars(len_buf, len_buf + sizeof(len_buf), res.body.size());
+    res.set_header("Content-Length", std::string_view(len_buf, static_cast<size_t>(ptr - len_buf)));
     res.set_header("Content-Type", std::move(content_type));
     return res;
 }
@@ -220,7 +230,9 @@ response response::error(const problem_details& problem) {
     res.status = problem.status;
     res.reason = problem.title;
     res.body = problem.to_json();
-    res.set_header("Content-Length", std::to_string(res.body.size()));
+    char len_buf[21];
+    auto [ptr, ec] = std::to_chars(len_buf, len_buf + sizeof(len_buf), res.body.size());
+    res.set_header("Content-Length", std::string_view(len_buf, static_cast<size_t>(ptr - len_buf)));
     res.set_header("Content-Type", "application/problem+json");
     return res;
 }
@@ -665,6 +677,33 @@ void parser::compact_buffer() {
         std::memmove(buffer_, buffer_ + parse_pos_, buffer_size_ - parse_pos_);
         buffer_size_ -= parse_pos_;
         parse_pos_ = 0;
+    }
+}
+
+void parser::reset(monotonic_arena* arena) noexcept {
+    arena_ = arena;
+    state_ = state::request_line;
+    request_.http_method = method::unknown;
+    request_.uri = {};
+    request_.body = {};
+    request_.headers.reset(arena_);
+    buffer_size_ = 0;
+    buffer_capacity_ = 0;
+    parse_pos_ = 0;
+    content_length_ = 0;
+    current_chunk_size_ = 0;
+    header_count_ = 0;
+    is_chunked_ = false;
+    chunked_body_ = nullptr;
+    chunked_body_size_ = 0;
+    last_header_field_ = field::unknown;
+    last_header_name_ = nullptr;
+    last_header_name_len_ = 0;
+    if (arena_) {
+        buffer_ = static_cast<char*>(arena_->allocate(MAX_BUFFER_SIZE, 1));
+        buffer_capacity_ = MAX_BUFFER_SIZE;
+    } else {
+        buffer_ = nullptr;
     }
 }
 

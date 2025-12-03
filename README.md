@@ -23,18 +23,26 @@ KATANA — серверный фреймворк на C++ для разрабо�
 
 ## Текущее состояние (реальность)
 
-**Реализовано (Stage 1 + Stage 2.1 + 2.2):**
+**Реализовано (Stage 1 + Stage 2):**
 - ✅ Epoll/io_uring reactor + reactor_pool
 - ✅ Арены/IO-буфера
 - ✅ HTTP/1.1 парсер/сериализация
 - ✅ Wheel timer
 - ✅ TCP listener/socket helpers
 - ✅ **Router** — compile-time routing с middleware
-- ✅ **OpenAPI loader** — парсинг JSON/YAML спецификаций
+- ✅ **OpenAPI loader** — парсинг JSON/YAML спецификаций с $ref resolution
+- ✅ **katana_gen** — кодогенератор из OpenAPI spec
+  - DTO с pmr allocators
+  - JSON parsers и serializers (katana::serde)
+  - Validators с полной поддержкой OpenAPI constraints
+  - Enum → enum class codegen
+  - Format validators (email, uuid, date-time, uri, etc.)
+  - Handler interfaces
+  - Constexpr route tables с compile-time type safety
+  - x-katana-* extensions
 - ✅ Unit/integration/fuzz тесты
 
 **В разработке / не реализовано:**
-- ⏳ OpenAPI → DTO/validator кодогенерация
 - ⏳ SQL генерация/libpq
 - ⏳ Redis клиент
 - ⏳ OpenTelemetry tracing
@@ -139,18 +147,40 @@ route_entry routes[] = {
 
 ---
 
-## OpenAPI Loader (Stage 2)
+## OpenAPI Code Generator (Stage 2)
 
-Arena-backed парсер OpenAPI 3.x спецификаций (JSON/YAML).
+Arena-backed парсер OpenAPI 3.x спецификаций (JSON/YAML) + кодогенератор.
 
-### CLI (ранний доступ)
+### katana_gen CLI
 
-```
+```bash
+# Сборка
 cmake --build --preset debug --target katana_gen
+
+# Генерация всего (DTOs + JSON parsers + route table)
+./build/debug/katana_gen openapi -i api/openapi.yaml -o gen --emit all
+
+# Только DTOs с pmr аллокаторами
+./build/debug/katana_gen openapi -i api/openapi.yaml -o gen --emit dto --alloc pmr
+
+# Только route table (constexpr)
+./build/debug/katana_gen openapi -i api/openapi.yaml -o gen --emit router
+
+# С AST дампом для отладки
 ./build/debug/katana_gen openapi -i api/openapi.yaml -o gen --dump-ast
 ```
 
-Команда валидирует спецификацию, выводит сводку и может сохранить JSON-дамп AST (`openapi_ast.json`). Флаги будут расширяться в следующих итерациях (генерация DTO/валидаторов/роутов).
+**Флаги:**
+- `--emit <targets>` — что генерировать: `dto`, `serdes`, `router`, `all` (default: `all`)
+- `--alloc <type>` — тип аллокатора: `pmr`, `std` (default: `pmr`)
+- `--layer <mode>` — архитектура: `flat`, `layered` (default: `flat`)
+- `--dump-ast` — сохранить AST в JSON для отладки
+- `--strict` — строгая валидация, не игнорировать ошибки
+
+**Генерируемые файлы:**
+- `generated_dtos.hpp` — C++ структуры с arena allocators
+- `generated_json.hpp` — JSON parsers через katana::serde
+- `generated_routes.hpp` — constexpr route table для router
 
 ### Quick Start
 
@@ -182,18 +212,25 @@ if (result) {
 }
 ```
 
-**Поддерживается:**
+**Парсинг поддерживает:**
 - ✅ JSON и YAML форматы
-- ✅ Paths, operations, parameters
+- ✅ Paths, operations, parameters (с style/explode)
 - ✅ Request body и responses
-- ✅ Schemas (object, array, string, number, etc.)
-- ✅ Validation constraints (minLength, pattern, required, etc.)
+- ✅ Schemas (object, array, string, number, boolean, enum, etc.)
+- ✅ $ref resolution с cycle detection
+- ✅ allOf merge (most restrictive constraints)
+- ✅ Validation constraints (minLength/maxLength, min/max, pattern, required, etc.)
+- ✅ Specification validation (version 3.x, operationId uniqueness, HTTP codes)
 
-**В разработке:**
-- ⏳ `$ref` resolution
-- ⏳ DTO codegen
-- ⏳ Validator codegen
-- ⏳ Route table codegen
+**Кодогенерация:**
+- ✅ DTOs с pmr arena allocators
+- ✅ JSON parsers и serializers с katana::serde (zero-copy где возможно)
+- ✅ Validators с полной поддержкой OpenAPI constraints (minLength/maxLength, pattern, min/max, enum, format validators, uniqueItems)
+- ✅ Enum → enum class codegen с to_string/from_string
+- ✅ Format validators (email, uuid, date-time, uri, ipv4, hostname)
+- ✅ Handler interfaces из OpenAPI operations
+- ✅ Constexpr route tables с compile-time metadata для type safety
+- ✅ x-katana-* extensions (cache, alloc, rate-limit)
 
 📖 **Подробная документация:** [docs/OPENAPI.md](docs/OPENAPI.md)
 
@@ -558,19 +595,19 @@ Thread pinning (опциональная оптимизация):
 
 **Подэтапы и DoD**
 
-1. Роутер + middleware-каркас
+1. ✅ Роутер + middleware-каркас
    - compile-time таблица маршрутов без аллокаций в hot-path; поддержка path params, 404/405/415.
    - middleware-chain с единым ABI (`req, ctx → result<response>`), конвейер без virtual/heap в критике.
    - тесты: path matching, приоритет статических/динамических сегментов, бенч dispatch-only.
-2. Парсер OpenAPI → AST
+2. ✅ Парсер OpenAPI → AST
    - YAML/JSON загрузка (без тяжёлых зависимостей), валидация спецификации, `$ref`-resolution, лимиты.
    - AST для paths/schemas/params/responses с нормализацией типов/format.
    - тесты: фикстуры валидных/битых спецификаций, property-тесты инвариантов AST.
-3. DTO + валидация + JSON ser/deser
+3. ✅ DTO + валидация + JSON ser/deser
    - DTO на `std::pmr`/arena, `string_view` по умолчанию, enums → `enum class`.
    - валидаторы для required/ranges/pattern/uniqueItems/custom formats; nullable/optional корректно разведены.
    - JSON: zero-copy/ondemand профиль по умолчанию, streaming serializer; round-trip/property/fuzz тесты.
-4. Генерация роутов и интерфейсов контроллеров
+4. ✅ Генерация роутов и интерфейсов контроллеров
    - compile-time привязка метода/пути к сигнатурам контроллеров; статические ошибки при расхождении.
    - автоген интерфейсов контроллеров (виртуальный/CRTP слой), ручной код реализует только бизнес-логику.
    - тесты: negative compile-time кейсы, интеграция на фиктивной спецификации.

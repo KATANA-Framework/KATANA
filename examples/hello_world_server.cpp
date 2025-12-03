@@ -3,10 +3,13 @@
 #include "katana/core/http_headers.hpp"
 #include "katana/core/io_buffer.hpp"
 #include "katana/core/reactor_pool.hpp"
+#include "katana/core/router.hpp"
 #include "katana/core/shutdown.hpp"
 #include "katana/core/system_limits.hpp"
 
+#include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
@@ -19,7 +22,7 @@
 using namespace katana;
 using katana::http::ci_equal;
 
-constexpr uint16_t PORT = 8080;
+constexpr uint16_t DEFAULT_PORT = 18080;
 constexpr size_t BUFFER_SIZE = 16384;
 constexpr size_t ARENA_BLOCK_SIZE = 8192;
 constexpr size_t MAX_CONNECTIONS = 10000;
@@ -28,7 +31,17 @@ static std::atomic<size_t> active_connections{0};
 static std::atomic<size_t> total_requests{0};
 static std::atomic<size_t> keepalive_reuses{0};
 
-int32_t create_listener() {
+uint16_t server_port() {
+    if (const char* env = std::getenv("HELLO_PORT")) {
+        int v = std::atoi(env);
+        if (v > 0 && v <= 65535) {
+            return static_cast<uint16_t>(v);
+        }
+    }
+    return DEFAULT_PORT;
+}
+
+int32_t create_listener(uint16_t port) {
     int32_t sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (sockfd < 0) {
         return -1;
@@ -41,7 +54,7 @@ int32_t create_listener() {
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(PORT);
+    addr.sin_port = htons(port);
 
     if (bind(sockfd, static_cast<sockaddr*>(static_cast<void*>(&addr)), sizeof(addr)) < 0) {
         close(sockfd);
@@ -71,19 +84,59 @@ static constexpr std::string_view RESPONSE_CLOSE = "HTTP/1.1 200 OK\r\n"
                                                    "\r\n"
                                                    "Hello, World!";
 
+void build_response_header(std::string& out,
+                           size_t body_len,
+                           bool close_after,
+                           bool include_keepalive) {
+    constexpr std::string_view status = "HTTP/1.1 200 OK\r\n";
+    constexpr std::string_view content_type = "Content-Type: text/plain\r\n";
+    constexpr std::string_view conn_keep = "Connection: keep-alive\r\n";
+    constexpr std::string_view conn_close = "Connection: close\r\n";
+    constexpr std::string_view keepalive_hdr = "Keep-Alive: timeout=60, max=1000\r\n";
+
+    char len_buf[16];
+    auto [ptr, ec] = std::to_chars(len_buf, len_buf + sizeof(len_buf), body_len);
+    const size_t len_len = static_cast<size_t>(ptr - len_buf);
+
+    out.clear();
+    out.reserve(status.size() + content_type.size() + len_len + 64 + body_len);
+
+    out.append(status);
+    out.append("Content-Length: ");
+    out.append(len_buf, len_len);
+    out.append("\r\n");
+    out.append(content_type);
+    out.append(close_after ? conn_close : conn_keep);
+    if (!close_after && include_keepalive) {
+        out.append(keepalive_hdr);
+    }
+    out.append("\r\n");
+}
+
+void build_simple_response(std::string& out,
+                           std::string_view body,
+                           bool close_after,
+                           bool include_keepalive) {
+    build_response_header(out, body.size(), close_after, include_keepalive);
+    out.append(body);
+}
+
 struct connection {
     std::atomic<int32_t> fd{-1};
     monotonic_arena arena;
     http::parser parser;
     std::vector<uint8_t> read_buffer;
-    std::string_view active_response;
+    std::string active_response;
     size_t write_pos = 0;
     size_t requests_on_connection = 0;
     bool writing_response = false;
     bool should_close_after_write = false;
     reactor* reactor_ptr = nullptr;
 
-    connection() : arena(ARENA_BLOCK_SIZE), parser(&arena) { read_buffer.resize(BUFFER_SIZE); }
+    connection() : arena(ARENA_BLOCK_SIZE), parser(&arena) {
+        read_buffer.resize(BUFFER_SIZE);
+        active_response.reserve(512);
+    }
 
     void safe_close() {
         int32_t expected_fd = fd.exchange(-1, std::memory_order_acq_rel);
@@ -132,9 +185,9 @@ void write_active_response(connection& conn) {
     conn.writing_response = false;
 }
 
-response dispatch_request(const http::request& req, monotonic_arena& arena) {
+const http::router& hello_router() {
     // Simple router: GET /hello/{name?}
-    http::router r({
+    static const http::route_entry routes[] = {
         {http::method::get,
          http::path_pattern::from_literal<"/">(),
          http::handler_fn([](const http::request&, http::request_context&) {
@@ -151,9 +204,14 @@ response dispatch_request(const http::request& req, monotonic_arena& arena) {
              body.push_back('!');
              return http::response::ok(std::move(body));
          })},
-    });
+    };
+    static const http::router r(routes);
+    return r;
+}
+
+http::response dispatch_request(const http::request& req, monotonic_arena& arena) {
     http::request_context ctx{arena};
-    return http::dispatch_or_problem(r, req, ctx);
+    return http::dispatch_or_problem(hello_router(), req, ctx);
 }
 
 void handle_client(connection& conn) {
@@ -236,26 +294,46 @@ void handle_client(connection& conn) {
             should_close = true;
         }
 
-        http::response resp = dispatch_request(req, conn.arena);
-        std::string serialized = resp.serialize();
+        const bool has_conn_close = connection_header && ci_equal(*connection_header, "close");
+        const bool final_close = should_close || has_conn_close;
 
-        // Connection header handling
-        bool has_conn_close = false;
-        if (auto conn_hdr = req.header("Connection")) {
-            has_conn_close = ci_equal(*conn_hdr, "close");
+        bool handled_fast_path = false;
+        if (req.http_method == http::method::get) {
+            if (req.uri == "/") {
+                conn.active_response.clear();
+                if (has_conn_close || final_close) {
+                    conn.active_response.append(RESPONSE_CLOSE.data(), RESPONSE_CLOSE.size());
+                } else {
+                    conn.active_response.append(RESPONSE_KEEPALIVE.data(),
+                                                RESPONSE_KEEPALIVE.size());
+                }
+                handled_fast_path = true;
+            } else if (req.uri.size() > 7 && req.uri.rfind("/hello/", 0) == 0) {
+                std::string_view name = req.uri.substr(7);
+                if (!name.empty() && name.size() < 256) {
+                    constexpr std::string_view prefix = "Hello ";
+                    constexpr std::string_view suffix = "!";
+                    const size_t body_len = prefix.size() + name.size() + suffix.size();
+                    build_response_header(conn.active_response, body_len, final_close, true);
+                    conn.active_response.append(prefix);
+                    conn.active_response.append(name);
+                    conn.active_response.append(suffix);
+                    handled_fast_path = true;
+                }
+            }
         }
-        if (has_conn_close) {
-            resp.set_header("Connection", "close");
-            serialized = resp.serialize();
-            should_close = true;
+
+        if (!handled_fast_path) {
+            http::response resp = dispatch_request(req, conn.arena);
+            resp.set_header("Connection", has_conn_close ? "close" : "keep-alive");
+            conn.active_response.clear();
+            resp.serialize_into(conn.active_response);
         } else {
-            resp.set_header("Connection", "keep-alive");
-            serialized = resp.serialize();
+            conn.active_response.reserve(conn.active_response.size());
         }
 
-        conn.active_response = serialized;
         conn.write_pos = 0;
-        conn.should_close_after_write = should_close;
+        conn.should_close_after_write = final_close || has_conn_close;
 
         write_active_response(conn);
 
@@ -263,15 +341,15 @@ void handle_client(connection& conn) {
             return;
         }
 
-        if (should_close) {
+        if (final_close) {
             conn.safe_close();
             return;
         }
 
         conn.arena.reset();
-        conn.parser = http::parser(&conn.arena);
+        conn.parser.reset(&conn.arena);
         conn.write_pos = 0;
-        conn.active_response = {};
+        conn.active_response.clear();
     }
 }
 
@@ -341,13 +419,15 @@ int32_t main() {
         std::cerr << "Failed to set max FDs: " << limits_result.error().message() << "\n";
     }
 
-    int32_t listener_fd = create_listener();
+    uint16_t port = server_port();
+    int32_t listener_fd = create_listener(port);
     if (listener_fd < 0) {
-        std::cerr << "Failed to create listener socket\n";
+        std::cerr << "Failed to create listener socket (errno=" << errno
+                  << "): " << std::strerror(errno) << "\n";
         return 1;
     }
 
-    std::cout << "Starting hello-world server on port " << PORT << "\n";
+    std::cout << "Starting hello-world server on port " << port << "\n";
 
     reactor_pool pool;
 

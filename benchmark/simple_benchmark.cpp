@@ -9,6 +9,7 @@
 #include <cmath>
 #include <csignal>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -709,11 +710,21 @@ void test_stress(benchmark_reporter& reporter, const std::string& host, uint16_t
 
 } // namespace
 
+uint16_t default_port() {
+    if (const char* env = std::getenv("HELLO_PORT")) {
+        int v = std::atoi(env);
+        if (v > 0 && v <= 65535) {
+            return static_cast<uint16_t>(v);
+        }
+    }
+    return 18080;
+}
+
 int32_t main(int32_t argc, char* argv[]) {
     std::signal(SIGPIPE, SIG_IGN);
 
     std::string host = "127.0.0.1";
-    uint16_t port = 8080;
+    uint16_t port = default_port();
     std::string output_file = "BENCHMARK_RESULTS.md";
 
     if (argc > 1) {

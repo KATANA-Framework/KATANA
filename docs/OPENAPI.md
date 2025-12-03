@@ -20,25 +20,26 @@ KATANA OpenAPI loader парсит OpenAPI 3.x спецификации (JSON/YA
 
 ## Current Status
 
-**Stage 2.2: Parser Foundations** ✅
+**Stage 2: OpenAPI Parser + Code Generator** ✅
 
-Реализовано:
-- ✅ Парсинг OpenAPI версий (3.0.x, 3.1.x)
+**Парсинг реализовано:**
+- ✅ Парсинг OpenAPI версий (3.0.x, 3.1.x) с валидацией
 - ✅ Парсинг info (title, version)
 - ✅ Парсинг paths и operations (GET, POST, PUT, DELETE, PATCH)
-- ✅ Парсинг parameters (path, query, header, cookie)
+- ✅ Парсинг parameters (path, query, header, cookie) с style/explode
 - ✅ Парсинг requestBody и responses
-- ✅ Shallow schema parsing (type, format, properties, items)
-- ✅ Validation constraints (min/max, minLength/maxLength, pattern, required, etc.)
-- ✅ YAML support
+- ✅ Full schema parsing (type, format, properties, items, enum as vector)
+- ✅ `$ref` resolution с cycle detection
+- ✅ `allOf` merge с "most restrictive wins" strategy
+- ✅ Validation constraints (min/max, minLength/maxLength, pattern, required, nullable, etc.)
+- ✅ Specification validation (operationId uniqueness, HTTP codes)
+- ✅ YAML support через katana::serde::yaml_to_json
 
-**Будет реализовано позже:**
-- ⏳ `$ref` resolution
-- ⏳ Full schema tree materialization
-- ⏳ `allOf`, `oneOf`, `anyOf` composition
-- ⏳ DTO codegen
-- ⏳ Validator codegen
-- ⏳ Route table codegen
+**Кодогенерация реализована:**
+- ✅ DTO codegen с pmr arena allocators
+- ✅ JSON parsers codegen через katana::serde (zero-copy где возможно)
+- ✅ Constexpr route table codegen для интеграции с router
+- ✅ katana_gen CLI с флагами --emit, --alloc, --layer
 
 ---
 

@@ -18,6 +18,7 @@ add_executable(unit_tests
     unit/test_problem.cpp
     unit/test_router.cpp
     unit/test_openapi_ast.cpp
+    unit/test_codegen_integration.cpp
 )
 
 target_link_libraries(unit_tests

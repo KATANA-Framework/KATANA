@@ -26,7 +26,13 @@ API-first подход: OpenAPI и SQL как единственные исто�
 
 Слоистая архитектура, плагины, чистые контракты между компонентами, слабые зависимости.
 
-> Статус: этот документ описывает целевую архитектуру. В текущей кодовой базе есть только core (epoll/io_uring reactor + reactor_pool, арены/IO-буфера, HTTP/1.1 парсер/ответы, wheel timer, TCP listener/socket). Роутер, middleware-chain, OpenAPI/SQL codegen, SQL/Redis, tracing/logging/metrics пока не реализованы.
+> Статус: этот документ описывает целевую архитектуру. В текущей кодовой базе есть:
+> - **Core**: epoll/io_uring reactor + reactor_pool, арены/IO-буфера, HTTP/1.1 парсер/ответы, wheel timer, TCP listener/socket
+> - **Router**: path routing с параметрами, middleware chain, content negotiation (415/406)
+> - **OpenAPI**: парсер, $ref resolver, allOf merger, codegen для DTOs/validators/JSON/routes
+> - **Codegen**: katana_gen tool для генерации кода из OpenAPI specs
+>
+> Пока не реализованы: SQL codegen, SQL/Redis drivers, distributed tracing, metrics exporter, observability infrastructure
 
 ---
 
@@ -228,25 +234,63 @@ KATANA/
 
 ## Кодогенерация (OpenAPI/SQL → код)
 
-### OpenAPI
+### OpenAPI (Реализовано)
 
-**Генерируем**: роуты, request DTO, response DTO, валидацию, сериализацию.
+**katana_gen** — инструмент для генерации C++ кода из OpenAPI 3.0 спецификаций.
 
-**Аннотации-расширения**: `x-katana-cache`, `x-katana-timeout`, `x-katana-rate-limit`.
+**Поддерживаемые фичи OpenAPI**:
+- Парсинг JSON и YAML спецификаций
+- Разрешение `$ref` ссылок на schemas (`#/components/schemas/...`)
+- Слияние `allOf` композиций с проверкой конфликтов
+- Валидация спецификаций (дубликаты operationId, некорректные HTTP коды)
+- Обнаружение циклических зависимостей в `$ref`
 
-### SQL
+**Генерируемые артефакты**:
+
+1. **DTOs** (`generated_dtos.hpp`):
+   - Структуры для всех schemas с arena allocators (pmr)
+   - Поддержка примитивов: string, integer, number, boolean, array, object
+   - Required/optional поля
+
+2. **Validators** (`generated_validators.hpp`):
+   - Функции `validate_<Schema>()` для каждой схемы
+   - Проверка constraints:
+     - String: minLength, maxLength, pattern (TODO: regex), enum
+     - Number: minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf
+     - Array: minItems, maxItems, uniqueItems (TODO)
+   - Возврат `std::optional<ValidationError>` с field + message
+
+3. **JSON Parsers/Serializers** (`generated_json.hpp`):
+   - `parse_<Schema>()` — zero-copy парсинг JSON → DTO
+   - `serialize_<Schema>()` — сериализация DTO → JSON string
+   - Поддержка escape sequences для строк
+
+4. **Route Table** (`generated_routes.hpp`):
+   - Таблица роутов с path, method, operationId
+   - Content negotiation info: consumes (Content-Type), produces (Accept)
+   - Константная таблица для O(1) lookup
+
+**Команда**:
+
+```bash
+./katana_gen openapi -i api/openapi.yaml -o gen/ --emit all
+./katana_gen openapi -i api/openapi.yaml -o gen/ --emit dto,validator
+./katana_gen openapi -i api/openapi.yaml -o gen/ --emit router --dump-ast
+```
+
+**Опции**:
+- `--emit <targets>`: dto, validator, serdes, router, all
+- `--alloc <type>`: pmr (arena), std (стандартный аллокатор)
+- `--strict`: fail on any validation error
+- `--dump-ast`: сохранить AST summary в JSON
+
+### SQL (Планируется)
 
 **Генерируем**: модели, маппинг строк, репозитории, типобезопасные параметры.
 
-### Команда
-
-```bash
-katana codegen api/openapi.yaml sql/*.sql -o gen/
-```
-
 ### Границы
 
-Весь генерируемый код уходит в `gen/`, **не редактируется вручную**; ручной код — в `src/`.
+Весь генерируемый код уходит в выходную директорию (`-o`), **не редактируется вручную**; ручной код — в `src/`.
 
 ---
 

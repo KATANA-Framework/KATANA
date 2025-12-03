@@ -25,6 +25,7 @@ using namespace std::chrono;
 
 middleware_fn logging_middleware() {
     return middleware_fn([](const request& req, request_context& ctx, next_fn next) {
+        (void)ctx;
         auto start = steady_clock::now();
 
         std::cout << "[REQUEST] " << method_to_string(req.http_method) << " " << req.uri << "\n";
@@ -53,6 +54,8 @@ middleware_fn request_id_middleware() {
     static std::atomic<uint64_t> counter{0};
 
     return middleware_fn([](const request& req, request_context& ctx, next_fn next) {
+        (void)ctx;
+        (void)ctx;
         uint64_t request_id = counter.fetch_add(1, std::memory_order_relaxed);
 
         std::cout << "[REQ-" << request_id << "] Processing " << req.uri << "\n";
@@ -74,6 +77,7 @@ middleware_fn request_id_middleware() {
 
 middleware_fn cors_middleware(std::string_view allowed_origin = "*") {
     return middleware_fn([allowed_origin](const request& req, request_context& ctx, next_fn next) {
+        (void)ctx;
         // Handle preflight OPTIONS request
         if (req.http_method == method::options) {
             response resp;
@@ -103,6 +107,7 @@ middleware_fn cors_middleware(std::string_view allowed_origin = "*") {
 
 middleware_fn auth_middleware(std::string_view valid_token = "secret-token-123") {
     return middleware_fn([valid_token](const request& req, request_context& ctx, next_fn next) {
+        (void)ctx;
         auto auth_header = req.headers.get("Authorization");
 
         if (!auth_header) {
@@ -167,10 +172,10 @@ middleware_fn rate_limit_middleware(size_t max_requests = 100,
     // This is a global rate limiter for demonstration
     auto limiter = std::make_shared<simple_rate_limiter>(max_requests, window);
 
-    return middleware_fn([limiter](const request& req, request_context& ctx, next_fn next) {
+    return middleware_fn([limiter](const request&, request_context&, next_fn next) {
         if (!limiter->allow_request()) {
-            auto problem = problem_details::too_many_requests();
-            problem.detail = "Rate limit exceeded. Please try again later.";
+            auto problem = problem_details::service_unavailable(
+                "Rate limit exceeded. Please try again later.");
 
             auto resp = response::error(problem);
             resp.set_header("Retry-After", "60");
@@ -187,6 +192,7 @@ middleware_fn rate_limit_middleware(size_t max_requests = 100,
 
 middleware_fn content_type_middleware(std::string_view required_type = "application/json") {
     return middleware_fn([required_type](const request& req, request_context& ctx, next_fn next) {
+        (void)ctx;
         // Only check POST/PUT/PATCH requests
         if (req.http_method == method::post || req.http_method == method::put ||
             req.http_method == method::patch) {
@@ -201,8 +207,8 @@ middleware_fn content_type_middleware(std::string_view required_type = "applicat
 
             // Simple check (not parsing charset, etc.)
             if (!content_type->starts_with(required_type)) {
-                auto problem = problem_details::unsupported_media_type();
-                problem.detail = "Expected Content-Type: " + std::string(required_type);
+                auto problem = problem_details::bad_request("Expected Content-Type: " +
+                                                            std::string(required_type));
                 return result<response>(response::error(problem));
             }
         }
@@ -217,6 +223,8 @@ middleware_fn content_type_middleware(std::string_view required_type = "applicat
 
 middleware_fn error_recovery_middleware() {
     return middleware_fn([](const request& req, request_context& ctx, next_fn next) {
+        (void)req;
+        (void)ctx;
         try {
             return next();
         } catch (const std::exception& e) {
@@ -398,7 +406,11 @@ int main() {
         {method::post,
          path_pattern::from_literal<"/api/echo">(),
          handler_fn([](const request& req, request_context&) {
-             return response::json("{\"echo\":\"" + req.body + "\"}");
+             std::string body = "{\"echo\":\"";
+             body.append(req.body.data(), req.body.size());
+             body.push_back('"');
+             body.push_back('}');
+             return response::json(std::move(body));
          }),
          middleware_chain},
     };

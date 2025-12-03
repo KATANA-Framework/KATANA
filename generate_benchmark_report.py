@@ -299,6 +299,7 @@ def main():
         ("headers_benchmark", "HTTP Headers", collector.parse_standard_benchmark, False),
         ("io_buffer_benchmark", "IO Buffer", collector.parse_standard_benchmark, False),
         ("router_benchmark", "Router Dispatch", collector.parse_standard_benchmark, False),
+        ("generated_api_benchmark", "Generated API", collector.parse_standard_benchmark, False),
     ]
 
     print("Running all benchmarks...\n")

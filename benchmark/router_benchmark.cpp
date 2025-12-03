@@ -87,7 +87,8 @@ benchmark_result bench_dispatch(const std::string& name,
     result.name = name;
     result.operations = iterations;
     result.duration_ms = duration_ms;
-    result.throughput = (iterations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput =
+        (static_cast<double>(iterations) * 1000.0) / static_cast<double>(duration_ms);
     result.latency_p50 = latencies[iterations / 2];
     result.latency_p99 = latencies[iterations * 99 / 100];
     result.latency_p999 = latencies[iterations * 999 / 1000];
@@ -101,7 +102,7 @@ int main() {
     };
 
     std::array<middleware_fn, 1> middleware = {
-        middleware_fn([](const request& req, request_context& ctx, next_fn next) {
+        middleware_fn([](const request&, request_context&, next_fn next) {
             // cheap middleware to ensure chain overhead is measured
             return next();
         }),

@@ -31,8 +31,8 @@ struct schema {
           default_value(arena_allocator<char>(arena)), properties(arena_allocator<property>(arena)),
           one_of(arena_allocator<const schema*>(arena)),
           any_of(arena_allocator<const schema*>(arena)),
-          all_of(arena_allocator<const schema*>(arena)), enum_values(arena_allocator<char>(arena)) {
-    }
+          all_of(arena_allocator<const schema*>(arena)),
+          enum_values(arena_allocator<arena_string<>>(arena)) {}
 
     schema_kind kind{schema_kind::object};
     arena_string<> name;
@@ -63,7 +63,7 @@ struct schema {
     std::optional<size_t> max_length;
     std::optional<size_t> min_items;
     std::optional<size_t> max_items;
-    arena_string<> enum_values; // semicolon-separated for compactness
+    arena_vector<arena_string<>> enum_values;
     bool required = false;
     bool is_ref = false;
 };
@@ -78,13 +78,16 @@ struct media_type {
 
 struct parameter {
     explicit parameter(monotonic_arena* arena = nullptr)
-        : name(arena_allocator<char>(arena)), description(arena_allocator<char>(arena)) {}
+        : name(arena_allocator<char>(arena)), description(arena_allocator<char>(arena)),
+          style(arena_allocator<char>(arena)) {}
 
     arena_string<> name;
     param_location in;
     bool required = false;
     const schema* type = nullptr;
     arena_string<> description;
+    arena_string<> style;
+    bool explode = false;
 };
 
 struct response {
@@ -123,7 +126,9 @@ struct operation {
     explicit operation(monotonic_arena* arena = nullptr)
         : operation_id(arena_allocator<char>(arena)), summary(arena_allocator<char>(arena)),
           description(arena_allocator<char>(arena)), parameters(arena_allocator<parameter>(arena)),
-          responses(arena_allocator<response>(arena)) {}
+          responses(arena_allocator<response>(arena)), x_katana_cache(arena_allocator<char>(arena)),
+          x_katana_alloc(arena_allocator<char>(arena)),
+          x_katana_rate_limit(arena_allocator<char>(arena)) {}
 
     http::method method = http::method::unknown;
     arena_string<> operation_id;
@@ -132,6 +137,11 @@ struct operation {
     arena_vector<parameter> parameters;
     request_body* body = nullptr;
     arena_vector<response> responses;
+
+    // x-katana-* extensions
+    arena_string<> x_katana_cache;      // e.g., "300s", "5m", "true"
+    arena_string<> x_katana_alloc;      // e.g., "4096", "pool"
+    arena_string<> x_katana_rate_limit; // e.g., "100/s", "1000/m"
 };
 
 struct path_item {

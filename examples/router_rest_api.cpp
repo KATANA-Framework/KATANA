@@ -149,7 +149,7 @@ public:
     result<response> get_user(const request&, request_context& ctx) {
         auto id_str = ctx.params.get("id");
         if (!id_str) {
-            return std::unexpected(make_error_code(error_code::bad_request));
+            return response::error(problem_details::bad_request("Missing user ID"));
         }
 
         int id = 0;
@@ -185,7 +185,7 @@ public:
     result<response> update_user(const request& req, request_context& ctx) {
         auto id_str = ctx.params.get("id");
         if (!id_str) {
-            return std::unexpected(make_error_code(error_code::bad_request));
+            return response::error(problem_details::bad_request("Missing user ID"));
         }
 
         int id = 0;
@@ -211,7 +211,7 @@ public:
     result<response> delete_user(const request&, request_context& ctx) {
         auto id_str = ctx.params.get("id");
         if (!id_str) {
-            return std::unexpected(make_error_code(error_code::bad_request));
+            return response::error(problem_details::bad_request("Missing user ID"));
         }
 
         int id = 0;

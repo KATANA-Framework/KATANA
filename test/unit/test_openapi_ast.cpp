@@ -479,3 +479,147 @@ TEST(OpenAPILoader, HandlesMissingSchemaRef) {
     auto res = openapi::load_from_string(spec, arena);
     ASSERT_TRUE(res);
 }
+
+TEST(OpenAPILoader, MergesAllOfSchemas) {
+    const std::string spec = R"({
+      "openapi": "3.0.0",
+      "info": { "title": "test", "version": "1.0" },
+      "components": {
+        "schemas": {
+          "Base": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "created": { "type": "string", "format": "date-time" }
+            },
+            "required": ["id"]
+          },
+          "WithName": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+            },
+            "required": ["name"]
+          },
+          "User": {
+            "allOf": [
+              { "$ref": "#/components/schemas/Base" },
+              { "$ref": "#/components/schemas/WithName" },
+              {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "paths": {}
+    })";
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    ASSERT_TRUE(res);
+
+    const schema* user = nullptr;
+    for (const auto& s : res->schemas) {
+        if (s.name == "User") {
+            user = &s;
+            break;
+        }
+    }
+    ASSERT_NE(user, nullptr);
+    EXPECT_EQ(user->kind, schema_kind::object);
+
+    // After merge, User should have properties from all allOf schemas
+    EXPECT_EQ(user->properties.size(), 4U);
+
+    bool has_id = false, has_name = false, has_email = false, has_created = false;
+    for (const auto& prop : user->properties) {
+        if (prop.name == "id") {
+            has_id = true;
+            EXPECT_EQ(prop.type->kind, schema_kind::integer);
+        } else if (prop.name == "name") {
+            has_name = true;
+            EXPECT_EQ(prop.type->kind, schema_kind::string);
+            EXPECT_EQ(prop.type->min_length, 1U);
+            EXPECT_EQ(prop.type->max_length, 100U);
+        } else if (prop.name == "email") {
+            has_email = true;
+            EXPECT_EQ(prop.type->kind, schema_kind::string);
+            EXPECT_EQ(prop.type->format, "email");
+        } else if (prop.name == "created") {
+            has_created = true;
+            EXPECT_EQ(prop.type->kind, schema_kind::string);
+            EXPECT_EQ(prop.type->format, "date-time");
+        }
+    }
+    EXPECT_TRUE(has_id);
+    EXPECT_TRUE(has_name);
+    EXPECT_TRUE(has_email);
+    EXPECT_TRUE(has_created);
+
+    // allOf should be cleared after merge
+    EXPECT_TRUE(user->all_of.empty());
+}
+
+TEST(OpenAPILoader, RejectsDuplicateOperationId) {
+    const std::string spec = R"({
+      "openapi": "3.0.0",
+      "info": { "title": "test", "version": "1.0" },
+      "paths": {
+        "/users": {
+          "get": { "operationId": "getUser", "responses": { "200": { "description": "ok" } } }
+        },
+        "/items": {
+          "get": { "operationId": "getUser", "responses": { "200": { "description": "ok" } } }
+        }
+      }
+    })";
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    EXPECT_FALSE(res);
+    EXPECT_EQ(res.error(), make_error_code(error_code::openapi_invalid_spec));
+}
+
+TEST(OpenAPILoader, RejectsInvalidHttpCode) {
+    const std::string spec = R"({
+      "openapi": "3.0.0",
+      "info": { "title": "test", "version": "1.0" },
+      "paths": {
+        "/users": {
+          "get": {
+            "responses": {
+              "999": { "description": "invalid code" }
+            }
+          }
+        }
+      }
+    })";
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    EXPECT_FALSE(res);
+    EXPECT_EQ(res.error(), make_error_code(error_code::openapi_invalid_spec));
+}
+
+TEST(OpenAPILoader, AcceptsValidHttpCodes) {
+    const std::string spec = R"({
+      "openapi": "3.0.0",
+      "info": { "title": "test", "version": "1.0" },
+      "paths": {
+        "/users": {
+          "get": {
+            "responses": {
+              "200": { "description": "ok" },
+              "404": { "description": "not found" },
+              "500": { "description": "error" },
+              "default": { "description": "default" }
+            }
+          }
+        }
+      }
+    })";
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    ASSERT_TRUE(res);
+}

@@ -219,6 +219,133 @@ void resolve_all_refs_in_schema(schema* s, ref_resolution_context& ctx) {
     }
 }
 
+// Merge allOf schemas into parent schema (most restrictive constraints win)
+void merge_all_of_schemas(schema* s, monotonic_arena* arena) {
+    if (!s || s->all_of.empty()) {
+        return;
+    }
+
+    // Recursively merge nested allOf first
+    for (const auto* child : s->all_of) {
+        merge_all_of_schemas(const_cast<schema*>(child), arena);
+    }
+
+    // Merge properties from all schemas
+    for (const auto* child : s->all_of) {
+        if (!child) {
+            continue;
+        }
+
+        // Merge properties - child props take precedence, but keep required flags if already set
+        for (const auto& child_prop : child->properties) {
+            bool found = false;
+            for (auto& existing : s->properties) {
+                if (existing.name == child_prop.name) {
+                    existing.type = child_prop.type;
+                    existing.required = existing.required || child_prop.required;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                s->properties.push_back(child_prop);
+            }
+        }
+
+        // Merge format
+        if (!child->format.empty() && s->format.empty()) {
+            s->format = child->format;
+        }
+
+        // Merge description if parent doesn't have one
+        if (!child->description.empty() && s->description.empty()) {
+            s->description = child->description;
+        }
+
+        // Type: if child has type and parent doesn't, use child's
+        if (child->kind != schema_kind::object && s->kind == schema_kind::object) {
+            s->kind = child->kind;
+        }
+
+        // String constraints: most restrictive wins
+        if (child->min_length > s->min_length) {
+            s->min_length = child->min_length;
+        }
+        if (child->max_length > 0 && (s->max_length == 0 || child->max_length < s->max_length)) {
+            s->max_length = child->max_length;
+        }
+        if (!child->pattern.empty()) {
+            s->pattern = child->pattern;
+        }
+
+        // Numeric constraints: most restrictive wins
+        if (child->minimum.has_value()) {
+            if (!s->minimum.has_value() || *child->minimum > *s->minimum) {
+                s->minimum = child->minimum;
+            }
+        }
+        if (child->maximum.has_value()) {
+            if (!s->maximum.has_value() || *child->maximum < *s->maximum) {
+                s->maximum = child->maximum;
+            }
+        }
+        if (child->exclusive_minimum.has_value()) {
+            if (!s->exclusive_minimum.has_value() ||
+                *child->exclusive_minimum > *s->exclusive_minimum) {
+                s->exclusive_minimum = child->exclusive_minimum;
+            }
+        }
+        if (child->exclusive_maximum.has_value()) {
+            if (!s->exclusive_maximum.has_value() ||
+                *child->exclusive_maximum < *s->exclusive_maximum) {
+                s->exclusive_maximum = child->exclusive_maximum;
+            }
+        }
+        if (child->multiple_of.has_value()) {
+            s->multiple_of = child->multiple_of;
+        }
+
+        // Array constraints: most restrictive wins
+        if (child->min_items > s->min_items) {
+            s->min_items = child->min_items;
+        }
+        if (child->max_items > 0 && (s->max_items == 0 || child->max_items < s->max_items)) {
+            s->max_items = child->max_items;
+        }
+        if (child->unique_items) {
+            s->unique_items = true;
+        }
+        if (child->items && !s->items) {
+            s->items = child->items;
+        }
+
+        // Additional properties
+        if (child->additional_properties && !s->additional_properties) {
+            s->additional_properties = child->additional_properties;
+        }
+        if (!child->additional_properties_allowed) {
+            s->additional_properties_allowed = false;
+        }
+
+        // Boolean flags
+        if (child->nullable) {
+            s->nullable = true;
+        }
+        if (child->deprecated) {
+            s->deprecated = true;
+        }
+
+        // Enum values: merge if compatible
+        if (!child->enum_values.empty()) {
+            if (s->enum_values.empty()) {
+                s->enum_values = child->enum_values;
+            }
+        }
+    }
+
+    s->all_of.clear();
+}
+
 schema*
 parse_schema(json_cursor& cur, schema_arena_pool& pool, const schema_index& index, int depth = 0);
 
@@ -369,18 +496,14 @@ schema* parse_schema_object(json_cursor& cur,
         } else if (*key == "enum") {
             auto* s = ensure_schema(schema_kind::string);
             if (cur.try_array_start()) {
-                bool first = true;
                 while (!cur.eof()) {
                     cur.skip_ws();
                     if (cur.try_array_end()) {
                         break;
                     }
                     if (auto ev = cur.string()) {
-                        if (!first) {
-                            s->enum_values.push_back(';');
-                        }
-                        s->enum_values.append(ev->data(), ev->size());
-                        first = false;
+                        s->enum_values.emplace_back(
+                            ev->begin(), ev->end(), arena_allocator<char>(pool.arena));
                     } else {
                         ++cur.ptr;
                     }
@@ -662,6 +785,16 @@ std::optional<parameter> parse_parameter_object(json_cursor& cur,
                 auto raw = parse_unquoted_string(cur);
                 param.description =
                     arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
+            }
+        } else if (*key == "style") {
+            if (auto v = cur.string()) {
+                param.style = arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+            }
+        } else if (*key == "explode") {
+            if (auto v = parse_bool(cur)) {
+                param.explode = *v;
+            } else {
+                cur.skip_value();
             }
         } else if (*key == "$ref") {
             if (auto v = cur.string()) {
@@ -1057,6 +1190,33 @@ void parse_operation_object(json_cursor& cur,
             parse_responses(cur, op, arena, pool, index, rindex);
         } else if (*key == "requestBody") {
             op.body = parse_request_body(cur, arena, pool, index, rbindex);
+        } else if (*key == "x-katana-cache") {
+            if (auto v = cur.string()) {
+                op.x_katana_cache =
+                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+            } else if (auto b = parse_bool(cur)) {
+                op.x_katana_cache =
+                    arena_string<>(*b ? "true" : "false", arena_allocator<char>(&arena));
+            } else {
+                cur.skip_value();
+            }
+        } else if (*key == "x-katana-alloc") {
+            if (auto v = cur.string()) {
+                op.x_katana_alloc =
+                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+            } else {
+                // Could be a number
+                auto raw = parse_unquoted_string(cur);
+                op.x_katana_alloc =
+                    arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
+            }
+        } else if (*key == "x-katana-rate-limit") {
+            if (auto v = cur.string()) {
+                op.x_katana_rate_limit =
+                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+            } else {
+                cur.skip_value();
+            }
         } else {
             cur.skip_value();
         }
@@ -1279,7 +1439,8 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
     document doc(arena);
     doc.openapi_version = arena_string<>(
         openapi_version->begin(), openapi_version->end(), arena_allocator<char>(&arena));
-    doc.schemas.reserve(256);
+    // Reserve full allowed schema budget to keep pointers stable in indexes.
+    doc.schemas.reserve(kMaxSchemaCount);
 
     schema_arena_pool pool(&doc, &arena);
     schema_index index;
@@ -1431,9 +1592,83 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
         cur.try_comma();
     }
 
+    // Pass 2: Resolve all $refs
     ref_resolution_context ref_ctx{index, {}, {}};
     for (auto& s : doc.schemas) {
         resolve_all_refs_in_schema(&s, ref_ctx);
+    }
+
+    // Pass 3: Merge allOf schemas after refs are resolved
+    for (auto& s : doc.schemas) {
+        merge_all_of_schemas(&s, &arena);
+    }
+
+    // Pass 4: Ensure path params exist in operations even if missing in OpenAPI (fallback)
+    for (auto& path : doc.paths) {
+        std::vector<std::string_view> path_param_names;
+        std::string_view path_str{path.path.data(), path.path.size()};
+        size_t pos = 0;
+        while (pos < path_str.size()) {
+            auto open = path_str.find('{', pos);
+            if (open == std::string_view::npos) {
+                break;
+            }
+            auto close = path_str.find('}', open);
+            if (close == std::string_view::npos || close <= open + 1) {
+                break;
+            }
+            path_param_names.push_back(path_str.substr(open + 1, close - open - 1));
+            pos = close + 1;
+        }
+
+        for (auto& op : path.operations) {
+            for (auto name : path_param_names) {
+                bool exists = false;
+                for (const auto& p : op.parameters) {
+                    if (p.in == param_location::path && p.name == name) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    auto& inline_schema = doc.add_inline_schema();
+                    inline_schema.kind = schema_kind::string;
+
+                    op.parameters.emplace_back(doc.arena_);
+                    auto& p = op.parameters.back();
+                    p.name =
+                        arena_string<>(name.begin(), name.end(), arena_allocator<char>(doc.arena_));
+                    p.in = param_location::path;
+                    p.required = true;
+                    p.type = &inline_schema;
+                }
+            }
+        }
+    }
+
+    // Pass 5: Validate specification
+    std::unordered_set<std::string_view> operation_ids;
+    for (const auto& path : doc.paths) {
+        for (const auto& op : path.operations) {
+            // Check operationId uniqueness
+            if (!op.operation_id.empty()) {
+                std::string_view op_id_view{op.operation_id.data(), op.operation_id.size()};
+                if (operation_ids.contains(op_id_view)) {
+                    return std::unexpected(make_error_code(error_code::openapi_invalid_spec));
+                }
+                operation_ids.insert(op_id_view);
+            }
+
+            // Validate HTTP response codes
+            for (const auto& resp : op.responses) {
+                if (!resp.is_default && resp.status != 0) {
+                    int code = resp.status;
+                    if (code < 100 || code >= 600) {
+                        return std::unexpected(make_error_code(error_code::openapi_invalid_spec));
+                    }
+                }
+            }
+        }
     }
 
     return doc;

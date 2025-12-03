@@ -28,7 +28,18 @@ echo -e "${GREEN}[1/3] Configuring build system...${NC}"
 cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_BENCHMARKS=ON -DENABLE_EXAMPLES=ON ..
 
 echo -e "${GREEN}[2/3] Building benchmarks...${NC}"
-cmake --build . --target simple_benchmark performance_benchmark mpsc_benchmark timer_benchmark headers_benchmark io_buffer_benchmark router_benchmark hello_world_server -j$(nproc)
+cmake --build . --target \
+  simple_benchmark \
+  performance_benchmark \
+  mpsc_benchmark \
+  timer_benchmark \
+  headers_benchmark \
+  io_buffer_benchmark \
+  router_benchmark \
+  openapi_benchmark \
+  generated_api_benchmark \
+  hello_world_server \
+  -j$(nproc)
 
 mkdir -p "${RESULTS_DIR}"
 
@@ -38,7 +49,7 @@ echo ""
 cd "${SCRIPT_DIR}"
 
 if [ -f "generate_benchmark_report.py" ]; then
-    python3 generate_benchmark_report.py
+    HELLO_PORT=${HELLO_PORT:-18080} python3 generate_benchmark_report.py
 
     echo ""
     echo -e "${GREEN}========================================${NC}"
