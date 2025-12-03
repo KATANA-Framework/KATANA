@@ -204,7 +204,9 @@ for (const auto& path : doc.paths) {
 
         // Request body
         if (op.body) {
-            std::cout << "    Body: " << op.body->content_type << "\n";
+            if (const auto* media = op.body->first_media()) {
+                std::cout << "    Body: " << media->content_type << "\n";
+            }
         }
 
         // Responses
@@ -258,13 +260,23 @@ for (const auto& param : op.parameters) {
 
 ## Request Body
 
+### Media Type
+
+```cpp
+struct media_type {
+    arena_string<> content_type; // "application/json"
+    const schema* type;          // Схема для контента (nullable)
+};
+```
+
 ### Request Body
 
 ```cpp
 struct request_body {
-    arena_string<> description;        // Описание
-    arena_string<> content_type;       // "application/json"
-    const schema* body;                // Схема тела
+    arena_string<> description;         // Описание
+    arena_vector<media_type> content;   // Список media types
+
+    const media_type* first_media() const; // helper, возвращает первый media type или nullptr
 };
 ```
 
@@ -272,11 +284,13 @@ struct request_body {
 ```cpp
 if (op.body) {
     std::cout << "Request Body:\n";
-    std::cout << "  Content-Type: " << op.body->content_type << "\n";
-    std::cout << "  Description: " << op.body->description << "\n";
+    if (const auto* media = op.body->first_media()) {
+        std::cout << "  Content-Type: " << media->content_type << "\n";
+        std::cout << "  Description: " << op.body->description << "\n";
 
-    if (op.body->body) {
-        std::cout << "  Schema: " << op.body->body->kind << "\n";
+        if (media->type) {
+            std::cout << "  Schema: " << media->type->kind << "\n";
+        }
     }
 }
 ```
@@ -289,9 +303,12 @@ if (op.body) {
 
 ```cpp
 struct response {
-    int status;                        // 200, 404, etc.
-    arena_string<> description;        // "User found"
-    const schema* body;                // Схема тела (nullable)
+    int status;                         // 200, 404, etc.
+    bool is_default;                    // true если это "default" ветка
+    arena_string<> description;         // "User found"
+    arena_vector<media_type> content;   // Media types для ответа
+
+    const media_type* first_media() const; // helper
 };
 ```
 
@@ -301,13 +318,10 @@ for (const auto& resp : op.responses) {
     std::cout << "Response " << resp.status << ":\n";
     std::cout << "  Description: " << resp.description << "\n";
 
-    if (resp.body) {
-        std::cout << "  Schema type: ";
-        switch (resp.body->kind) {
-            case schema_kind::object:  std::cout << "object\n"; break;
-            case schema_kind::array:   std::cout << "array\n"; break;
-            case schema_kind::string:  std::cout << "string\n"; break;
-            // etc.
+    for (const auto& media : resp.content) {
+        std::cout << "  Content-Type: " << media.content_type << "\n";
+        if (media.type) {
+            std::cout << "    Schema kind: " << static_cast<int>(media.type->kind) << "\n";
         }
     }
 }
@@ -785,7 +799,9 @@ auto doc = load_from_string(spec, arena);
 ```cpp
 // Schema fields могут быть nullptr
 if (op.body) {
-    std::cout << "Body: " << op.body->content_type << "\n";
+    if (const auto* media = op.body->first_media()) {
+        std::cout << "Body: " << media->content_type << "\n";
+    }
 }
 
 if (schema->items) {

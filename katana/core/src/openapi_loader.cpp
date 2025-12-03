@@ -1,470 +1,61 @@
 #include "katana/core/openapi_loader.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <charconv>
-#include <cstdlib>
 #include <fstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
+
+#include "katana/core/serde.hpp"
 
 namespace katana::openapi {
 
 namespace {
 
-bool contains_version(std::string_view text, std::string_view version) noexcept {
-    auto pos = text.find("\"openapi\"");
-    if (pos == std::string_view::npos) {
-        return false;
+using serde::json_cursor;
+using serde::parse_bool;
+using serde::parse_double;
+using serde::parse_size;
+using serde::parse_unquoted_string;
+using serde::trim_view;
+using serde::yaml_to_json;
+
+constexpr int kMaxSchemaDepth = 64;
+constexpr size_t kMaxSchemaCount = 10000;
+
+std::optional<std::string_view> extract_openapi_version(std::string_view json_view) noexcept {
+    json_cursor cur{json_view.data(), json_view.data() + json_view.size()};
+    cur.skip_ws();
+    if (!cur.try_object_start()) {
+        return std::nullopt;
     }
-    auto tail = text.substr(pos);
-    auto vpos = tail.find(version);
-    return vpos != std::string_view::npos;
-}
-
-std::string_view trim(std::string_view sv) noexcept {
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) {
-        sv.remove_prefix(1);
-    }
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.back()))) {
-        sv.remove_suffix(1);
-    }
-    return sv;
-}
-
-struct json_cursor {
-    const char* ptr;
-    const char* end;
-
-    bool eof() const noexcept { return ptr >= end; }
-
-    void skip_ws() noexcept {
-        while (!eof() && std::isspace(static_cast<unsigned char>(*ptr))) {
-            ++ptr;
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_object_end()) {
+            break;
         }
-    }
-
-    bool consume(char c) noexcept {
-        skip_ws();
-        if (eof() || *ptr != c) {
-            return false;
+        auto key = cur.string();
+        if (!key) {
+            ++cur.ptr;
+            continue;
         }
-        ++ptr;
-        return true;
-    }
-
-    std::optional<std::string_view> string() noexcept {
-        skip_ws();
-        if (eof() || *ptr != '\"') {
+        if (!cur.consume(':')) {
+            break;
+        }
+        if (*key == "openapi") {
+            if (auto v = cur.string()) {
+                return trim_view(*v);
+            }
             return std::nullopt;
         }
-        ++ptr;
-        const char* start = ptr;
-        while (!eof() && *ptr != '\"') {
-            if (*ptr == '\\' && (ptr + 1) < end) {
-                ptr += 2;
-                continue;
-            }
-            ++ptr;
-        }
-        if (eof()) {
-            return std::nullopt;
-        }
-        const char* stop = ptr;
-        ++ptr; // consume closing quote
-        return std::string_view(start, static_cast<size_t>(stop - start));
+        cur.skip_value();
+        cur.try_comma();
     }
-
-    bool try_object_start() noexcept { return consume('{'); }
-    bool try_object_end() noexcept { return consume('}'); }
-    bool try_array_start() noexcept { return consume('['); }
-    bool try_array_end() noexcept { return consume(']'); }
-    bool try_comma() noexcept { return consume(','); }
-
-    void skip_value() noexcept {
-        skip_ws();
-        if (try_object_start()) {
-            int depth = 1;
-            while (!eof() && depth > 0) {
-                if (try_object_start()) {
-                    ++depth;
-                } else if (try_object_end()) {
-                    --depth;
-                } else {
-                    ++ptr;
-                }
-            }
-            return;
-        }
-        if (try_array_start()) {
-            int depth = 1;
-            while (!eof() && depth > 0) {
-                if (try_array_start()) {
-                    ++depth;
-                } else if (try_array_end()) {
-                    --depth;
-                } else {
-                    ++ptr;
-                }
-            }
-            return;
-        }
-        if (!eof() && *ptr == '\"') {
-            (void)string();
-            return;
-        }
-        while (!eof() && *ptr != ',' && *ptr != '}' && *ptr != ']') {
-            ++ptr;
-        }
-    }
-};
-
-std::optional<size_t> parse_size(json_cursor& cur) noexcept {
-    cur.skip_ws();
-    if (cur.eof()) {
-        return std::nullopt;
-    }
-    if (*cur.ptr == '\"') {
-        if (auto sv = cur.string()) {
-            size_t value = 0;
-            auto fc = std::from_chars(sv->data(), sv->data() + sv->size(), value);
-            if (fc.ec == std::errc()) {
-                return value;
-            }
-        }
-        return std::nullopt;
-    }
-    const char* start = cur.ptr;
-    const char* p = start;
-    if (p < cur.end && (*p == '+' || *p == '-')) {
-        ++p;
-    }
-    while (p < cur.end && std::isdigit(static_cast<unsigned char>(*p))) {
-        ++p;
-    }
-    if (p == start) {
-        return std::nullopt;
-    }
-    size_t value = 0;
-    auto fc = std::from_chars(start, p, value);
-    if (fc.ec != std::errc()) {
-        return std::nullopt;
-    }
-    cur.ptr = p;
-    return value;
-}
-
-std::optional<double> parse_double(json_cursor& cur) noexcept {
-    cur.skip_ws();
-    if (cur.eof()) {
-        return std::nullopt;
-    }
-    if (*cur.ptr == '\"') {
-        if (auto sv = cur.string()) {
-            double val = 0.0;
-            auto [ptr, ec] = std::from_chars(sv->data(), sv->data() + sv->size(), val);
-            if (ec == std::errc()) {
-                return val;
-            }
-            char* endptr = nullptr;
-            val = std::strtod(sv->data(), &endptr);
-            if (endptr != sv->data()) {
-                return val;
-            }
-        }
-        return std::nullopt;
-    }
-    const char* start = cur.ptr;
-    char* endptr = nullptr;
-    double v = std::strtod(start, &endptr);
-    if (endptr == start) {
-        return std::nullopt;
-    }
-    cur.ptr = endptr;
-    return v;
-}
-
-std::string_view trim_view(std::string_view sv) noexcept {
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) {
-        sv.remove_prefix(1);
-    }
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.back()))) {
-        sv.remove_suffix(1);
-    }
-    return sv;
-}
-
-bool is_bool_literal(std::string_view sv) noexcept {
-    return sv == "true" || sv == "false";
-}
-
-bool is_null_literal(std::string_view sv) noexcept {
-    return sv == "null";
-}
-
-std::string_view parse_unquoted_string(json_cursor& cur) {
-    cur.skip_ws();
-    const char* start = cur.ptr;
-    while (!cur.eof() && *cur.ptr != ',' && *cur.ptr != '}' && *cur.ptr != ']') {
-        ++cur.ptr;
-    }
-    const char* end = cur.ptr;
-    auto sv = std::string_view(start, static_cast<size_t>(end - start));
-    return trim_view(sv);
-}
-
-struct yaml_node {
-    enum class kind { scalar, object, array };
-
-    kind k{kind::scalar};
-    std::string scalar;
-    std::vector<std::pair<std::string, std::unique_ptr<yaml_node>>> object;
-    std::vector<std::unique_ptr<yaml_node>> array;
-
-    static yaml_node scalar_node(std::string value) {
-        yaml_node n;
-        n.k = kind::scalar;
-        n.scalar = std::move(value);
-        return n;
-    }
-
-    static yaml_node object_node() {
-        yaml_node n;
-        n.k = kind::object;
-        return n;
-    }
-
-    static yaml_node array_node() {
-        yaml_node n;
-        n.k = kind::array;
-        return n;
-    }
-};
-
-std::string escape_json_string(std::string_view sv) {
-    std::string out;
-    out.reserve(sv.size() + 8);
-    for (char c : sv) {
-        switch (c) {
-        case '\\':
-            out += "\\\\";
-            break;
-        case '\"':
-            out += "\\\"";
-            break;
-        case '\n':
-            out += "\\n";
-            break;
-        case '\r':
-            out += "\\r";
-            break;
-        case '\t':
-            out += "\\t";
-            break;
-        default:
-            out.push_back(c);
-            break;
-        }
-    }
-    return out;
-}
-
-void emit_json(const yaml_node& n, std::string& out);
-
-void emit_scalar(const std::string& v, std::string& out) {
-    std::string_view sv = trim_view(v);
-    if (is_bool_literal(sv) || is_null_literal(sv)) {
-        out.append(sv);
-        return;
-    }
-    if (sv.size() >= 2 &&
-        ((sv.front() == '\"' && sv.back() == '\"') || (sv.front() == '\'' && sv.back() == '\''))) {
-        sv = sv.substr(1, sv.size() - 2);
-    }
-    out.push_back('\"');
-    out.append(escape_json_string(sv));
-    out.push_back('\"');
-}
-
-void emit_json(const yaml_node& n, std::string& out) {
-    switch (n.k) {
-    case yaml_node::kind::scalar:
-        emit_scalar(n.scalar, out);
-        break;
-    case yaml_node::kind::object: {
-        out.push_back('{');
-        for (size_t i = 0; i < n.object.size(); ++i) {
-            if (i != 0) {
-                out.push_back(',');
-            }
-            const auto& kv = n.object[i];
-            out.push_back('\"');
-            out.append(escape_json_string(kv.first));
-            out.push_back('\"');
-            out.push_back(':');
-            emit_json(*kv.second, out);
-        }
-        out.push_back('}');
-        break;
-    }
-    case yaml_node::kind::array: {
-        out.push_back('[');
-        for (size_t i = 0; i < n.array.size(); ++i) {
-            if (i != 0) {
-                out.push_back(',');
-            }
-            emit_json(*n.array[i], out);
-        }
-        out.push_back(']');
-        break;
-    }
-    }
-}
-
-struct yaml_line {
-    int indent;
-    std::string_view content;
-};
-
-std::vector<yaml_line> tokenize_yaml(std::string_view text) {
-    std::vector<yaml_line> lines;
-    size_t pos = 0;
-    while (pos < text.size()) {
-        size_t end = text.find('\n', pos);
-        if (end == std::string_view::npos) {
-            end = text.size();
-        }
-        std::string_view line = text.substr(pos, end - pos);
-        pos = end + 1;
-        if (line.empty()) {
-            continue;
-        }
-        int indent = 0;
-        for (char c : line) {
-            if (c == ' ') {
-                ++indent;
-            } else {
-                break;
-            }
-        }
-        std::string_view content = line.substr(static_cast<size_t>(indent));
-        content = trim_view(content);
-        if (content.empty() || content.front() == '#') {
-            continue;
-        }
-        lines.push_back({indent, content});
-    }
-    return lines;
-}
-
-std::string normalize_key(std::string_view key) {
-    auto trimmed = trim_view(key);
-    if (trimmed.size() >= 2 && ((trimmed.front() == '\"' && trimmed.back() == '\"') ||
-                                (trimmed.front() == '\'' && trimmed.back() == '\''))) {
-        trimmed = trimmed.substr(1, trimmed.size() - 2);
-    }
-    return std::string(trimmed);
-}
-
-yaml_node parse_yaml_block(const std::vector<yaml_line>& lines, size_t& idx, int indent);
-
-yaml_node parse_yaml_value(std::string_view value,
-                           const std::vector<yaml_line>& lines,
-                           size_t& idx,
-                           int indent) {
-    yaml_node child;
-    auto trimmed_val = trim_view(value);
-    if (trimmed_val.empty()) {
-        child = parse_yaml_block(lines, idx, indent + 2);
-    } else {
-        child = yaml_node::scalar_node(std::string(trimmed_val));
-    }
-    return child;
-}
-
-yaml_node parse_yaml_block(const std::vector<yaml_line>& lines, size_t& idx, int indent) {
-    yaml_node node = yaml_node::object_node();
-
-    while (idx < lines.size()) {
-        const auto& ln = lines[idx];
-        if (ln.indent < indent) {
-            break;
-        }
-        if (ln.indent > indent) {
-            ++idx;
-            continue;
-        }
-
-        std::string_view content = ln.content;
-        if (content.size() >= 2 && content[0] == '-' && content[1] == ' ') {
-            if (node.k != yaml_node::kind::array) {
-                node.k = yaml_node::kind::array;
-                node.array.clear();
-            }
-
-            std::string_view item = trim_view(content.substr(2));
-            ++idx;
-
-            if (item.empty()) {
-                node.array.push_back(
-                    std::make_unique<yaml_node>(parse_yaml_block(lines, idx, indent + 2)));
-                continue;
-            }
-
-            auto colon_pos = item.find(':');
-            if (colon_pos != std::string_view::npos) {
-                std::string key = normalize_key(item.substr(0, colon_pos));
-                std::string_view val = trim_view(item.substr(colon_pos + 1));
-                yaml_node obj = yaml_node::object_node();
-                if (val.empty()) {
-                    obj.object.emplace_back(
-                        std::move(key),
-                        std::make_unique<yaml_node>(parse_yaml_block(lines, idx, indent + 2)));
-                } else {
-                    obj.object.emplace_back(
-                        std::move(key),
-                        std::make_unique<yaml_node>(yaml_node::scalar_node(std::string(val))));
-                }
-                node.array.push_back(std::make_unique<yaml_node>(std::move(obj)));
-            } else {
-                node.array.push_back(
-                    std::make_unique<yaml_node>(yaml_node::scalar_node(std::string(item))));
-            }
-        } else {
-            auto colon_pos = content.find(':');
-            if (colon_pos == std::string_view::npos) {
-                ++idx;
-                continue;
-            }
-            std::string key = normalize_key(content.substr(0, colon_pos));
-            std::string_view val = trim_view(content.substr(colon_pos + 1));
-            ++idx;
-
-            if (node.k != yaml_node::kind::object) {
-                node.k = yaml_node::kind::object;
-                node.object.clear();
-            }
-
-            yaml_node child = parse_yaml_value(val, lines, idx, indent);
-            node.object.emplace_back(std::move(key), std::make_unique<yaml_node>(std::move(child)));
-        }
-    }
-
-    return node;
-}
-
-std::optional<std::string> yaml_to_json(std::string_view text) {
-    auto lines = tokenize_yaml(text);
-    if (lines.empty()) {
-        return std::nullopt;
-    }
-    size_t idx = 0;
-    yaml_node root = parse_yaml_block(lines, idx, lines.front().indent);
-    std::string out;
-    emit_json(root, out);
-    return out;
+    return std::nullopt;
 }
 
 struct schema_arena_pool {
@@ -511,7 +102,122 @@ using request_body_index = std::unordered_map<std::string_view,
                                               std::hash<std::string_view>,
                                               std::equal_to<>>;
 
-constexpr int kMaxSchemaDepth = 64;
+struct ref_resolution_context {
+    const schema_index& index;
+    std::unordered_set<const schema*> visiting;
+    std::unordered_set<const schema*> visited;
+};
+
+const schema* resolve_schema_ref(schema* s, ref_resolution_context& ctx) {
+    if (!s || !s->is_ref || s->ref.empty()) {
+        return s;
+    }
+
+    if (ctx.visiting.contains(s)) {
+        return nullptr;
+    }
+
+    if (ctx.visited.contains(s)) {
+        return s;
+    }
+
+    ctx.visiting.insert(s);
+
+    constexpr std::string_view prefix = "#/components/schemas/";
+    std::string_view ref_path{s->ref.data(), s->ref.size()};
+
+    if (ref_path.starts_with(prefix)) {
+        auto name_view = ref_path.substr(prefix.size());
+        auto it = ctx.index.find(name_view);
+        if (it != ctx.index.end()) {
+            const schema* resolved = it->second;
+
+            if (resolved && resolved->is_ref) {
+                resolved = resolve_schema_ref(const_cast<schema*>(resolved), ctx);
+            }
+
+            ctx.visiting.erase(s);
+            ctx.visited.insert(s);
+            return resolved;
+        }
+    }
+
+    ctx.visiting.erase(s);
+    ctx.visited.insert(s);
+    return s;
+}
+
+void resolve_all_refs_in_schema(schema* s, ref_resolution_context& ctx) {
+    if (!s || ctx.visited.contains(s)) {
+        return;
+    }
+
+    ctx.visited.insert(s);
+
+    for (auto& prop : s->properties) {
+        if (prop.type && prop.type->is_ref && !prop.type->ref.empty()) {
+            const schema* resolved = resolve_schema_ref(const_cast<schema*>(prop.type), ctx);
+            if (resolved && resolved != prop.type) {
+                prop.type = resolved;
+            }
+        }
+        if (prop.type) {
+            resolve_all_refs_in_schema(const_cast<schema*>(prop.type), ctx);
+        }
+    }
+
+    if (s->items && s->items->is_ref && !s->items->ref.empty()) {
+        const schema* resolved = resolve_schema_ref(const_cast<schema*>(s->items), ctx);
+        if (resolved && resolved != s->items) {
+            s->items = resolved;
+        }
+    }
+    if (s->items) {
+        resolve_all_refs_in_schema(const_cast<schema*>(s->items), ctx);
+    }
+
+    if (s->additional_properties && s->additional_properties->is_ref &&
+        !s->additional_properties->ref.empty()) {
+        const schema* resolved =
+            resolve_schema_ref(const_cast<schema*>(s->additional_properties), ctx);
+        if (resolved && resolved != s->additional_properties) {
+            s->additional_properties = resolved;
+        }
+    }
+    if (s->additional_properties) {
+        resolve_all_refs_in_schema(const_cast<schema*>(s->additional_properties), ctx);
+    }
+
+    for (size_t i = 0; i < s->one_of.size(); ++i) {
+        if (s->one_of[i] && s->one_of[i]->is_ref && !s->one_of[i]->ref.empty()) {
+            const schema* resolved = resolve_schema_ref(const_cast<schema*>(s->one_of[i]), ctx);
+            if (resolved && resolved != s->one_of[i]) {
+                s->one_of[i] = resolved;
+            }
+        }
+        resolve_all_refs_in_schema(const_cast<schema*>(s->one_of[i]), ctx);
+    }
+
+    for (size_t i = 0; i < s->any_of.size(); ++i) {
+        if (s->any_of[i] && s->any_of[i]->is_ref && !s->any_of[i]->ref.empty()) {
+            const schema* resolved = resolve_schema_ref(const_cast<schema*>(s->any_of[i]), ctx);
+            if (resolved && resolved != s->any_of[i]) {
+                s->any_of[i] = resolved;
+            }
+        }
+        resolve_all_refs_in_schema(const_cast<schema*>(s->any_of[i]), ctx);
+    }
+
+    for (size_t i = 0; i < s->all_of.size(); ++i) {
+        if (s->all_of[i] && s->all_of[i]->is_ref && !s->all_of[i]->ref.empty()) {
+            const schema* resolved = resolve_schema_ref(const_cast<schema*>(s->all_of[i]), ctx);
+            if (resolved && resolved != s->all_of[i]) {
+                s->all_of[i] = resolved;
+            }
+        }
+        resolve_all_refs_in_schema(const_cast<schema*>(s->all_of[i]), ctx);
+    }
+}
 
 schema*
 parse_schema(json_cursor& cur, schema_arena_pool& pool, const schema_index& index, int depth = 0);
@@ -568,8 +274,9 @@ schema* parse_schema_object(json_cursor& cur,
                     auto name_view = v->substr(prefix.size());
                     auto it = index.find(name_view);
                     if (it != index.end()) {
-                        // Return resolved schema if available.
-                        cur.skip_value();
+                        while (!cur.eof() && !cur.try_object_end()) {
+                            ++cur.ptr;
+                        }
                         return const_cast<schema*>(it->second);
                     }
                 }
@@ -577,7 +284,6 @@ schema* parse_schema_object(json_cursor& cur,
                 cur.skip_value();
             }
 
-            // Skip rest of object
             while (!cur.eof() && !cur.try_object_end()) {
                 ++cur.ptr;
             }
@@ -622,7 +328,19 @@ schema* parse_schema_object(json_cursor& cur,
                 ensure_schema(schema_kind::object)->description =
                     arena_string<>(v->begin(), v->end(), arena_allocator<char>(pool.arena));
             } else {
-                cur.skip_value();
+                auto raw = parse_unquoted_string(cur);
+                ensure_schema(schema_kind::object)->description =
+                    arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(pool.arena));
+            }
+        } else if (*key == "default") {
+            auto* s = ensure_schema(schema_kind::object);
+            if (auto v = cur.string()) {
+                s->default_value =
+                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(pool.arena));
+            } else {
+                auto raw = parse_unquoted_string(cur);
+                s->default_value =
+                    arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(pool.arena));
             }
         } else if (*key == "pattern") {
             auto* s = ensure_schema(schema_kind::string);
@@ -635,11 +353,19 @@ schema* parse_schema_object(json_cursor& cur,
                     arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(pool.arena));
             }
         } else if (*key == "nullable") {
-            ensure_schema(schema_kind::object)->nullable = true;
-            cur.skip_value();
+            auto* s = ensure_schema(schema_kind::object);
+            if (auto v = parse_bool(cur)) {
+                s->nullable = *v;
+            } else {
+                cur.skip_value();
+            }
         } else if (*key == "deprecated") {
-            ensure_schema(schema_kind::object)->deprecated = true;
-            cur.skip_value();
+            auto* s = ensure_schema(schema_kind::object);
+            if (auto v = parse_bool(cur)) {
+                s->deprecated = *v;
+            } else {
+                cur.skip_value();
+            }
         } else if (*key == "enum") {
             auto* s = ensure_schema(schema_kind::string);
             if (cur.try_array_start()) {
@@ -728,10 +454,8 @@ schema* parse_schema_object(json_cursor& cur,
             }
         } else if (*key == "uniqueItems") {
             auto* s = ensure_schema(schema_kind::array);
-            cur.skip_ws();
-            if (!cur.eof() && (*cur.ptr == 't' || *cur.ptr == 'T')) {
-                s->unique_items = true;
-                cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(4), cur.end);
+            if (auto v = parse_bool(cur)) {
+                s->unique_items = *v;
             } else {
                 cur.skip_value();
             }
@@ -817,35 +541,11 @@ schema* parse_schema_object(json_cursor& cur,
             if (cur.try_object_start()) {
                 obj->additional_properties =
                     parse_schema_object(cur, pool, index, std::nullopt, depth + 1);
-            } else if (!cur.eof() && (*cur.ptr == 'f' || *cur.ptr == 'F')) {
-                obj->additional_properties_allowed = false;
-                cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(5), cur.end);
-            } else if (!cur.eof() && (*cur.ptr == 't' || *cur.ptr == 'T')) {
-                obj->additional_properties_allowed = true;
-                cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(4), cur.end);
-            } else {
-                cur.skip_value();
-            }
-        } else if (*key == "discriminator") {
-            auto* obj = ensure_schema(schema_kind::object);
-            if (auto v = cur.string()) {
-                obj->discriminator =
-                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(pool.arena));
-            } else {
-                cur.skip_value();
-            }
-        } else if (*key == "additionalProperties") {
-            auto* obj = ensure_schema(schema_kind::object);
-            cur.skip_ws();
-            if (cur.try_object_start()) {
-                obj->additional_properties =
-                    parse_schema_object(cur, pool, index, std::nullopt, depth + 1);
-            } else if (!cur.eof() && (*cur.ptr == 'f' || *cur.ptr == 'F')) {
-                obj->additional_properties_allowed = false;
-                cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(5), cur.end);
-            } else if (!cur.eof() && (*cur.ptr == 't' || *cur.ptr == 'T')) {
-                obj->additional_properties_allowed = true;
-                cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(4), cur.end);
+            } else if (auto v = parse_bool(cur)) {
+                obj->additional_properties_allowed = *v;
+                if (!*v) {
+                    obj->additional_properties = nullptr;
+                }
             } else {
                 cur.skip_value();
             }
@@ -946,17 +646,23 @@ std::optional<parameter> parse_parameter_object(json_cursor& cur,
                 }
             }
         } else if (*key == "required") {
-            cur.skip_ws();
-            if (!cur.eof() && (*cur.ptr == 't' || *cur.ptr == 'T')) {
-                param.required = true;
-                // advance over true
-                cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(4), cur.end);
+            if (auto v = parse_bool(cur)) {
+                param.required = *v;
+                in_required = true;
             } else {
-                param.required = false;
+                cur.skip_value();
             }
-            in_required = true;
         } else if (*key == "schema") {
             param.type = parse_schema(cur, pool, index);
+        } else if (*key == "description") {
+            if (auto v = cur.string()) {
+                param.description =
+                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+            } else {
+                auto raw = parse_unquoted_string(cur);
+                param.description =
+                    arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
+            }
         } else if (*key == "$ref") {
             if (auto v = cur.string()) {
                 constexpr std::string_view prefix = "#/components/parameters/";
@@ -987,12 +693,14 @@ std::optional<parameter> parse_parameter_object(json_cursor& cur,
 
 std::optional<response> parse_response_object(json_cursor& cur,
                                               int status,
+                                              bool is_default,
                                               monotonic_arena& arena,
                                               schema_arena_pool& pool,
                                               const schema_index& index,
                                               const response_index& rindex) {
     response resp(&arena);
     resp.status = status;
+    resp.is_default = is_default;
 
     cur.skip_ws();
     if (!cur.try_object_start()) {
@@ -1036,6 +744,10 @@ std::optional<response> parse_response_object(json_cursor& cur,
             if (auto desc = cur.string()) {
                 resp.description =
                     arena_string<>(desc->begin(), desc->end(), arena_allocator<char>(&arena));
+            } else {
+                auto raw = parse_unquoted_string(cur);
+                resp.description =
+                    arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
             }
         } else if (*rkey == "content") {
             cur.skip_ws();
@@ -1055,7 +767,7 @@ std::optional<response> parse_response_object(json_cursor& cur,
                     if (!cur.consume(':')) {
                         break;
                     }
-                    resp.body = nullptr;
+                    const schema* body_schema = nullptr;
                     auto media_depth = 1;
                     if (cur.try_object_start()) {
                         while (!cur.eof() && media_depth > 0) {
@@ -1073,7 +785,7 @@ std::optional<response> parse_response_object(json_cursor& cur,
                                 break;
                             }
                             if (*mkey == "schema") {
-                                resp.body = parse_schema(cur, pool, index);
+                                body_schema = parse_schema(cur, pool, index);
                             } else {
                                 cur.skip_value();
                             }
@@ -1082,6 +794,11 @@ std::optional<response> parse_response_object(json_cursor& cur,
                     } else {
                         cur.skip_value();
                     }
+                    media_type mt(&arena);
+                    mt.content_type =
+                        arena_string<>(ctype->begin(), ctype->end(), arena_allocator<char>(&arena));
+                    mt.type = body_schema;
+                    resp.content.push_back(std::move(mt));
                     cur.try_comma();
                 }
             } else {
@@ -1122,15 +839,22 @@ void parse_responses(json_cursor& cur,
         }
 
         int status = 0;
+        bool is_default = false;
         auto status_sv = *code_key;
         auto fc = std::from_chars(status_sv.data(), status_sv.data() + status_sv.size(), status);
         if (fc.ec != std::errc()) {
-            cur.skip_value();
-            cur.try_comma();
-            continue;
+            if (status_sv == "default") {
+                is_default = true;
+                status = 0;
+            } else {
+                cur.skip_value();
+                cur.try_comma();
+                continue;
+            }
         }
 
-        if (auto resp = parse_response_object(cur, status, arena, pool, index, rindex)) {
+        if (auto resp =
+                parse_response_object(cur, status, is_default, arena, pool, index, rindex)) {
             op.responses.push_back(std::move(*resp));
         } else {
             cur.skip_value();
@@ -1199,6 +923,10 @@ request_body* parse_request_body(json_cursor& cur,
             if (auto v = cur.string()) {
                 body->description =
                     arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+            } else {
+                auto raw = parse_unquoted_string(cur);
+                body->description =
+                    arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
             }
         } else if (*key == "content") {
             if (!body) {
@@ -1227,7 +955,8 @@ request_body* parse_request_body(json_cursor& cur,
                     if (!cur.consume(':')) {
                         break;
                     }
-                    body->content_type =
+                    media_type mt(&arena);
+                    mt.content_type =
                         arena_string<>(ctype->begin(), ctype->end(), arena_allocator<char>(&arena));
                     if (cur.try_object_start()) {
                         int media_depth = 1;
@@ -1246,7 +975,7 @@ request_body* parse_request_body(json_cursor& cur,
                                 break;
                             }
                             if (*mkey == "schema") {
-                                body->body = parse_schema(cur, pool, index);
+                                mt.type = parse_schema(cur, pool, index);
                             } else {
                                 cur.skip_value();
                             }
@@ -1255,6 +984,7 @@ request_body* parse_request_body(json_cursor& cur,
                     } else {
                         cur.skip_value();
                     }
+                    body->content.push_back(std::move(mt));
                     cur.try_comma();
                 }
             } else {
@@ -1474,7 +1204,8 @@ void parse_components(json_cursor& cur,
                     if (!cur.consume(':')) {
                         break;
                     }
-                    if (auto resp = parse_response_object(cur, 0, arena, pool, sindex, rindex)) {
+                    if (auto resp =
+                            parse_response_object(cur, 0, false, arena, pool, sindex, rindex)) {
                         void* mem = arena.allocate(sizeof(response), alignof(response));
                         if (mem) {
                             auto* stored = new (mem) response(*resp);
@@ -1522,7 +1253,7 @@ void parse_components(json_cursor& cur,
 } // namespace
 
 result<document> load_from_string(std::string_view spec_text, monotonic_arena& arena) {
-    auto trimmed_input = trim(spec_text);
+    auto trimmed_input = trim_view(spec_text);
     if (trimmed_input.empty()) {
         return std::unexpected(make_error_code(error_code::openapi_parse_error));
     }
@@ -1540,13 +1271,16 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
         json_view = trim_view(storage);
     }
 
-    // Extremely small guard: ensure this looks like an OpenAPI 3 document.
-    if (!contains_version(json_view, "3.")) {
+    auto openapi_version = extract_openapi_version(json_view);
+    if (!openapi_version || !openapi_version->starts_with("3.")) {
         return std::unexpected(make_error_code(error_code::openapi_invalid_spec));
     }
 
     document doc(arena);
-    doc.openapi_version = arena_string<>("3.x", arena_allocator<char>(&arena));
+    doc.openapi_version = arena_string<>(
+        openapi_version->begin(), openapi_version->end(), arena_allocator<char>(&arena));
+    doc.schemas.reserve(256);
+
     schema_arena_pool pool(&doc, &arena);
     schema_index index;
     parameter_index pindex;
@@ -1576,7 +1310,9 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
         }
     }
 
-    // Minimal paths walker: adds path stubs and single GET/POST operations if present.
+    if (doc.schemas.size() > kMaxSchemaCount) {
+        return std::unexpected(make_error_code(error_code::openapi_invalid_spec));
+    }
     json_cursor cur{json_view.data(), json_view.data() + json_view.size()};
     cur.skip_ws();
     cur.try_object_start();
@@ -1693,6 +1429,11 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
             cur.skip_value();
         }
         cur.try_comma();
+    }
+
+    ref_resolution_context ref_ctx{index, {}, {}};
+    for (auto& s : doc.schemas) {
+        resolve_all_refs_in_schema(&s, ref_ctx);
     }
 
     return doc;

@@ -143,6 +143,15 @@ route_entry routes[] = {
 
 Arena-backed парсер OpenAPI 3.x спецификаций (JSON/YAML).
 
+### CLI (ранний доступ)
+
+```
+cmake --build --preset debug --target katana_gen
+./build/debug/katana_gen openapi -i api/openapi.yaml -o gen --dump-ast
+```
+
+Команда валидирует спецификацию, выводит сводку и может сохранить JSON-дамп AST (`openapi_ast.json`). Флаги будут расширяться в следующих итерациях (генерация DTO/валидаторов/роутов).
+
 ### Quick Start
 
 ```cpp
@@ -632,7 +641,7 @@ auto res = dispatch_or_problem(r, req, ctx); // 404/405 → ProblemDetails + All
   - [ ] `x-katana-alloc: {arena|pmr|heap}`
   - [ ] `x-katana-json: {ondemand|dom|zero-copy}`
   - [ ] `x-katana-cache`, `x-katana-rate-limit`
-- [ ] CLI команда `katana gen openapi`
+- [x] CLI команда `katana gen openapi`
   - [ ] Опции: `-i`, `-o`, `--layer`, `--strict`
   - [ ] Вывод статистики генерации
 - [ ] Тесты

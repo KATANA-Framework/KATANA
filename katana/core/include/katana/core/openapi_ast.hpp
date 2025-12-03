@@ -68,6 +68,14 @@ struct schema {
     bool is_ref = false;
 };
 
+struct media_type {
+    explicit media_type(monotonic_arena* arena = nullptr)
+        : content_type(arena_allocator<char>(arena)) {}
+
+    arena_string<> content_type;
+    const schema* type = nullptr;
+};
+
 struct parameter {
     explicit parameter(monotonic_arena* arena = nullptr)
         : name(arena_allocator<char>(arena)), description(arena_allocator<char>(arena)) {}
@@ -81,20 +89,34 @@ struct parameter {
 
 struct response {
     explicit response(monotonic_arena* arena = nullptr)
-        : description(arena_allocator<char>(arena)) {}
+        : description(arena_allocator<char>(arena)), content(arena_allocator<media_type>(arena)) {}
 
     int status = 200;
+    bool is_default = false; // true если "default" response
     arena_string<> description;
-    const schema* body = nullptr;
+    arena_vector<media_type> content;
+
+    [[nodiscard]] const media_type* first_media() const noexcept {
+        if (content.empty()) {
+            return nullptr;
+        }
+        return &content.front();
+    }
 };
 
 struct request_body {
     explicit request_body(monotonic_arena* arena = nullptr)
-        : description(arena_allocator<char>(arena)), content_type(arena_allocator<char>(arena)) {}
+        : description(arena_allocator<char>(arena)), content(arena_allocator<media_type>(arena)) {}
 
     arena_string<> description;
-    arena_string<> content_type;
-    const schema* body = nullptr;
+    arena_vector<media_type> content;
+
+    [[nodiscard]] const media_type* first_media() const noexcept {
+        if (content.empty()) {
+            return nullptr;
+        }
+        return &content.front();
+    }
 };
 
 struct operation {
