@@ -32,7 +32,9 @@ struct schema {
           one_of(arena_allocator<const schema*>(arena)),
           any_of(arena_allocator<const schema*>(arena)),
           all_of(arena_allocator<const schema*>(arena)),
-          enum_values(arena_allocator<arena_string<>>(arena)) {}
+          enum_values(arena_allocator<arena_string<>>(arena)),
+          parent_context(arena_allocator<char>(arena)),
+          field_context(arena_allocator<char>(arena)) {}
 
     schema_kind kind{schema_kind::object};
     arena_string<> name;
@@ -64,6 +66,11 @@ struct schema {
     std::optional<size_t> min_items;
     std::optional<size_t> max_items;
     arena_vector<arena_string<>> enum_values;
+
+    // Context tracking for intelligent naming (e.g., Task.title → Task_Title_t)
+    arena_string<> parent_context; // Parent schema name (Task, CreateTaskRequest, etc.)
+    arena_string<> field_context;  // Field name within parent (title, description, etc.)
+
     bool required = false;
     bool is_ref = false;
 };

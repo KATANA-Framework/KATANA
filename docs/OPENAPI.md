@@ -15,6 +15,8 @@ KATANA OpenAPI loader парсит OpenAPI 3.x спецификации (JSON/YA
 - ✅ **Validation constraints** — minLength, pattern, required, nullable, etc.
 - ✅ **Move-only semantics** — нет случайных копирований
 - ✅ **Zero dependencies** — легковесный парсер без тяжёлых библиотек
+- ✅ **Content negotiation aware bindings** — Content-Type/Accept, optional параметры, осмысленные имена inline-схем
+- ✅ **AST dump** — включает схемы для отладки (openapi_ast.json)
 
 ---
 
@@ -31,15 +33,19 @@ KATANA OpenAPI loader парсит OpenAPI 3.x спецификации (JSON/YA
 - ✅ Full schema parsing (type, format, properties, items, enum as vector)
 - ✅ `$ref` resolution с cycle detection
 - ✅ `allOf` merge с "most restrictive wins" strategy
-- ✅ Validation constraints (min/max, minLength/maxLength, pattern, required, nullable, etc.)
+- ✅ Validation constraints (min/max, minLength/maxLength, pattern, required, nullable, uniqueItems, enum)
 - ✅ Specification validation (operationId uniqueness, HTTP codes)
 - ✅ YAML support через katana::serde::yaml_to_json
+- ℹ️ YAML parser — лёгкий, без anchors/tags; дубликаты ключей считаются ошибкой с указанием строки (для сложных YAML стоит использовать JSON или плоский YAML)
 
 **Кодогенерация реализована:**
 - ✅ DTO codegen с pmr arena allocators
 - ✅ JSON parsers codegen через katana::serde (zero-copy где возможно)
 - ✅ Constexpr route table codegen для интеграции с router
 - ✅ katana_gen CLI с флагами --emit, --alloc, --layer
+- ✅ Handler interfaces + router bindings: optional параметры, санитизация имён, Content-Type/Accept negotiation, парсинг тела по медиатипу
+- ✅ Unified validation errors (`katana/core/validation.hpp`) и compile-time metadata в DTO; валидация использует одни и те же коды ошибок во всех артефактах
+- ✅ Descriptor-based JSON parser (`katana/core/json_parser.hpp`) для сгенерированных парсеров: zero-alloc, аренный ввод/вывод, проверки min/max длины и массивов
 
 ---
 

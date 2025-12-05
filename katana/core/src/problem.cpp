@@ -77,6 +77,26 @@ problem_details problem_details::method_not_allowed(std::string_view detail) {
     return p;
 }
 
+problem_details problem_details::not_acceptable(std::string_view detail) {
+    problem_details p;
+    p.status = 406;
+    p.title = "Not Acceptable";
+    if (!detail.empty()) {
+        p.detail = std::string(detail);
+    }
+    return p;
+}
+
+problem_details problem_details::unsupported_media_type(std::string_view detail) {
+    problem_details p;
+    p.status = 415;
+    p.title = "Unsupported Media Type";
+    if (!detail.empty()) {
+        p.detail = std::string(detail);
+    }
+    return p;
+}
+
 problem_details problem_details::conflict(std::string_view detail) {
     problem_details p;
     p.status = 409;

@@ -19,6 +19,8 @@ add_executable(unit_tests
     unit/test_router.cpp
     unit/test_openapi_ast.cpp
     unit/test_codegen_integration.cpp
+    unit/test_codegen_snapshots.cpp
+    unit/test_json_parser.cpp
 )
 
 target_link_libraries(unit_tests

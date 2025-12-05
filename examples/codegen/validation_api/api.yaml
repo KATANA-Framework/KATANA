@@ -1,0 +1,42 @@
+openapi: 3.0.0
+info:
+  title: Validation API
+  version: 1.0.0
+paths:
+  /user/register:
+    post:
+      operationId: register_user
+      summary: Register user with strict validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+components:
+  schemas:
+    RegisterUserRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+        age:
+          type: integer
+          minimum: 0
+          maximum: 120
+          nullable: true

@@ -345,7 +345,7 @@ int main() {
 }
 ```
 
-See the [Simple CRUD example](../examples/codegen/simple_crud/) for a complete integration example.
+See the [Compute API codegen example](../examples/codegen/compute_api/) for a complete integration example.
 
 ## Performance Considerations
 

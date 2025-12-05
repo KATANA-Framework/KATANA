@@ -19,3 +19,5 @@ BENCHMARK_FINAL*.md
 /build_bench_tmp
 /.docker_build
 *.script
+/__pycache__
+build-windows/

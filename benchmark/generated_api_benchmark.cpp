@@ -15,13 +15,11 @@ using namespace katana::http;
 using namespace std::chrono;
 
 struct bench_handler : generated::api_handler {
-    response health(const request&, request_context&) override { return response::ok("ok"); }
+    response health() override { return response::ok("ok"); }
 
-    response list_users(const request&, request_context&) override {
-        return response::json(R"([{"id":1,"name":"Alice"}])");
-    }
+    response list_users() override { return response::json(R"([{"id":1,"name":"Alice"}])"); }
 
-    response create_user(const request&, request_context&, const UserInput& body) override {
+    response create_user(const UserInput& body) override {
         (void)body;
         auto resp = response::json(R"({"id":42})");
         resp.status = 201;
@@ -29,15 +27,14 @@ struct bench_handler : generated::api_handler {
         return resp;
     }
 
-    response get_user(const request&, request_context&, std::string_view id) override {
-        std::string payload = std::string("{\"id\":") + std::string(id) + ",\"name\":\"User\"}";
+    response get_user(int64_t id) override {
+        std::string payload = std::string("{\"id\":") + std::to_string(id) + ",\"name\":\"User\"}";
         return response::json(std::move(payload));
     }
 
-    response
-    update_user(const request&, request_context&, std::string_view id, const UserInput&) override {
+    response update_user(int64_t id, const UserInput&) override {
         std::string payload =
-            std::string("{\"id\":") + std::string(id) + ",\"status\":\"updated\"}";
+            std::string("{\"id\":") + std::to_string(id) + ",\"status\":\"updated\"}";
         return response::json(std::move(payload));
     }
 };
@@ -73,6 +70,7 @@ request make_request(std::string_view uri, method m, std::string_view body = "")
     req.http_method = m;
     req.uri = uri;
     req.headers = headers_map(nullptr);
+    req.headers.set(field::accept, "application/json");
     req.body = body;
     return req;
 }

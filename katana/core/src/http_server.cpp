@@ -1,31 +1,67 @@
 #include "katana/core/http_server.hpp"
 #include "katana/core/problem.hpp"
 
+#include <cerrno>
 #include <iostream>
+#include <sys/socket.h>
 
 namespace katana {
 namespace http {
 
 void server::handle_connection(connection_state& state, [[maybe_unused]] reactor& r) {
-    while (true) {
-        auto buf = state.read_buffer.writable_span(4096);
-        auto read_result = state.socket.read(buf);
+    if (!state.write_buffer.empty()) {
+        while (!state.write_buffer.empty()) {
+            auto data = state.write_buffer.readable_span();
+            auto write_result = state.socket.write(data);
 
-        if (!read_result) {
-            if (read_result.error().value() == EAGAIN ||
-                read_result.error().value() == EWOULDBLOCK) {
+            if (!write_result) {
+                if (write_result.error().value() == EAGAIN ||
+                    write_result.error().value() == EWOULDBLOCK) {
+                    return;
+                }
+                state.watch.reset();
+                return;
+            }
+
+            if (write_result.value() == 0) {
                 break;
             }
-            state.watch.reset();
+
+            state.write_buffer.consume(write_result.value());
+        }
+
+        if (!state.write_buffer.empty()) {
             return;
         }
 
-        if (read_result->empty()) {
-            state.watch.reset();
-            return;
-        }
+        state.arena.reset();
+        state.http_parser.reset(&state.arena);
+        state.write_buffer.clear();
+        state.watch->modify(event_type::readable);
+        return;
+    }
 
-        state.read_buffer.commit(read_result->size());
+    while (true) {
+        if (state.read_buffer.empty()) {
+            auto buf = state.read_buffer.writable_span(4096);
+            auto read_result = state.socket.read(buf);
+
+            if (!read_result) {
+                if (read_result.error().value() == EAGAIN ||
+                    read_result.error().value() == EWOULDBLOCK) {
+                    break;
+                }
+                state.watch.reset();
+                return;
+            }
+
+            if (read_result->empty()) {
+                state.watch.reset();
+                return;
+            }
+
+            state.read_buffer.commit(read_result->size());
+        }
 
         auto readable = state.read_buffer.readable_span();
         auto parse_result = state.http_parser.parse(readable);
@@ -41,13 +77,23 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             continue;
         }
 
+        size_t parsed_bytes = state.http_parser.bytes_parsed();
+        state.read_buffer.consume(parsed_bytes);
+
         const auto& req = state.http_parser.get_request();
         request_context ctx{state.arena};
         auto resp = dispatch_or_problem(router_, req, ctx);
 
-        // Call on_request callback if set
         if (on_request_callback_) {
             on_request_callback_(req, resp);
+        }
+
+        auto connection_header = req.headers.get("Connection");
+        bool close_connection =
+            connection_header && (*connection_header == "close" || *connection_header == "Close");
+
+        if (!resp.headers.get("Connection")) {
+            resp.set_header("Connection", close_connection ? "close" : "keep-alive");
         }
 
         state.write_buffer.append(resp.serialize());
@@ -59,7 +105,8 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             if (!write_result) {
                 if (write_result.error().value() == EAGAIN ||
                     write_result.error().value() == EWOULDBLOCK) {
-                    break;
+                    state.watch->modify(event_type::writable);
+                    return;
                 }
                 state.watch.reset();
                 return;
@@ -72,11 +119,18 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             state.write_buffer.consume(write_result.value());
         }
 
-        if (state.write_buffer.empty()) {
-            state.watch.reset();
+        if (!state.write_buffer.empty()) {
+            state.watch->modify(event_type::writable);
+            return;
         }
 
-        return;
+        if (close_connection) {
+            state.watch.reset();
+            return;
+        }
+
+        state.arena.reset();
+        state.http_parser.reset(&state.arena);
     }
 }
 
@@ -101,30 +155,57 @@ void server::accept_connection(reactor& r,
 }
 
 int server::run() {
-    // Create TCP listener
-    tcp_listener listener(port_);
-    if (!listener) {
-        std::cerr << "Failed to create listener on port " << port_ << "\n";
-        return 1;
-    }
-
-    listener.set_reuseport(reuseport_).set_backlog(backlog_);
-
-    // Setup reactor pool
     reactor_pool_config config;
     config.reactor_count = static_cast<uint32_t>(worker_count_);
+    config.enable_adaptive_balancing = true;
     reactor_pool pool(config);
 
-    std::vector<std::unique_ptr<connection_state>> connections;
-    std::unique_ptr<fd_watch> accept_watch;
+    std::vector<std::shared_ptr<fd_watch>> accept_watches;
 
-    auto& r = pool.get_reactor(0);
-    accept_watch = std::make_unique<fd_watch>(r,
-                                              listener.native_handle(),
-                                              event_type::readable,
-                                              [this, &r, &listener, &connections](event_type) {
-                                                  accept_connection(r, listener, connections);
-                                              });
+    auto accept_handler = [this](reactor& r, int listener_fd) {
+        while (true) {
+            int fd = ::accept4(listener_fd, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
+            if (fd < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    break;
+                }
+                return;
+            }
+
+            auto state = std::make_shared<connection_state>(tcp_socket(fd));
+            auto state_ptr = state.get();
+
+            state->watch = std::make_unique<fd_watch>(
+                r, fd, event_type::readable, [this, state, state_ptr, &r](event_type) {
+                    handle_connection(*state_ptr, r);
+                });
+        }
+    };
+
+    if (reuseport_) {
+        auto res = pool.start_listening(port_, accept_handler);
+        if (!res) {
+            std::cerr << "Failed to start listeners on port " << port_ << ": "
+                      << res.error().message() << "\n";
+            return 1;
+        }
+    } else {
+        // Fallback: single listener on reactor 0
+        tcp_listener listener(port_);
+        if (!listener) {
+            std::cerr << "Failed to create listener on port " << port_ << "\n";
+            return 1;
+        }
+        listener.set_reuseport(false).set_backlog(backlog_);
+
+        auto& r = pool.get_reactor(0);
+        auto listen_fd = listener.native_handle();
+        auto listen_watch = std::make_shared<fd_watch>(
+            r, listen_fd, event_type::readable, [this, &r, &listener, accept_handler](event_type) {
+                accept_handler(r, listener.native_handle());
+            });
+        accept_watches.push_back(std::move(listen_watch));
+    }
 
     // Setup signal handlers for graceful shutdown
     shutdown_manager::instance().setup_signal_handlers();
@@ -144,10 +225,8 @@ int server::run() {
         std::cout << "Press Ctrl+C to stop\n\n";
     }
 
-    // Run the server
     pool.start();
     pool.wait();
-
     return 0;
 }
 

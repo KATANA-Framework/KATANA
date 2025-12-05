@@ -125,6 +125,7 @@ public:
 
     [[nodiscard]] bool is_complete() const noexcept { return state_ == state::complete; }
     [[nodiscard]] const request& get_request() const noexcept { return request_; }
+    [[nodiscard]] size_t bytes_parsed() const noexcept { return parse_pos_; }
     request&& take_request() { return std::move(request_); }
     void reset(monotonic_arena* arena) noexcept;
 

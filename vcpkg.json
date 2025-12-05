@@ -1,7 +1,7 @@
 {
   "name": "katana",
   "version": "0.1.0",
-  "description": "High-performance async C++ framework with reactor-per-core architecture",
+  "description": "High-performance async C++ framework with reactor-per-core architecture (includes codegen examples: compute_api, validation_api)",
   "homepage": "https://github.com/KATANA-Framework/KATANA",
   "license": "MIT",
   "supports": "linux",

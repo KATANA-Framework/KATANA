@@ -39,6 +39,8 @@ cmake --build . --target \
   openapi_benchmark \
   generated_api_benchmark \
   hello_world_server \
+  compute_api \
+  validation_api \
   -j$(nproc)
 
 mkdir -p "${RESULTS_DIR}"

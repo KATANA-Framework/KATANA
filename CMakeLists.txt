@@ -83,6 +83,7 @@ add_library(katana_core STATIC
     katana/core/src/http.cpp
     katana/core/src/http_field.cpp
     katana/core/src/http_server.cpp
+    katana/core/src/handler_context.cpp
     katana/core/src/system_limits.cpp
     katana/core/src/shutdown.cpp
     katana/core/src/tcp_socket.cpp
@@ -140,11 +141,22 @@ if(ENABLE_EXAMPLES)
     target_link_libraries(middleware_examples katana_core)
 
     # Codegen examples
-    add_subdirectory(examples/codegen/simple_crud)
+    add_subdirectory(examples/codegen/compute_api)
+    add_subdirectory(examples/codegen/validation_api)
 endif()
 
 if(ENABLE_TOOLS)
-    add_executable(katana_gen tools/katana_gen.cpp)
+    add_executable(katana_gen
+        tools/katana_gen.cpp
+        tools/katana_gen/options.cpp
+        tools/katana_gen/generator_utils.cpp
+        tools/katana_gen/ast_dump.cpp
+        tools/katana_gen/dto_generator.cpp
+        tools/katana_gen/json_generator.cpp
+        tools/katana_gen/validator_generator.cpp
+        tools/katana_gen/router_generator.cpp
+    )
+    target_include_directories(katana_gen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tools)
     target_link_libraries(katana_gen katana_core)
     target_compile_features(katana_gen PRIVATE cxx_std_20)
     target_compile_options(katana_gen PRIVATE -Wall -Wextra -Werror -Wpedantic)

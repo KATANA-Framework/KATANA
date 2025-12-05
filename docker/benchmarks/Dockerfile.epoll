@@ -40,6 +40,8 @@ RUN apt-get update && apt-get install -y \
     python3 \
     libstdc++6 \
     ca-certificates \
+    wrk \
+    nghttp2-client \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/katana

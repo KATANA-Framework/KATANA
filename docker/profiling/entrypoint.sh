@@ -54,6 +54,7 @@ echo "==> Configuring (${KATANA_POLL})..."
 cmake -S "${ROOT}" -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DENABLE_BENCHMARKS=ON \
+    -DENABLE_EXAMPLES=ON \
     -DENABLE_TESTING=OFF \
     -DKATANA_POLL="${KATANA_POLL}"
 

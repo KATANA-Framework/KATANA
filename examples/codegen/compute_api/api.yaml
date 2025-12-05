@@ -1,0 +1,29 @@
+openapi: 3.0.0
+info:
+  title: Compute API
+  version: 1.0.0
+paths:
+  /compute/sum:
+    post:
+      operationId: compute_sum
+      summary: Compute sum of numbers
+      description: Accepts an array of numbers and returns their sum.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: number
+                format: double
+              minItems: 1
+              maxItems: 1024
+      responses:
+        '200':
+          description: Sum result
+          content:
+            application/json:
+              schema:
+                type: number
+                format: double

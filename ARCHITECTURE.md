@@ -255,9 +255,9 @@ KATANA/
 2. **Validators** (`generated_validators.hpp`):
    - Функции `validate_<Schema>()` для каждой схемы
    - Проверка constraints:
-     - String: minLength, maxLength, pattern (TODO: regex), enum
+     - String: minLength, maxLength, pattern, enum
      - Number: minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf
-     - Array: minItems, maxItems, uniqueItems (TODO)
+     - Array: minItems, maxItems, uniqueItems
    - Возврат `std::optional<ValidationError>` с field + message
 
 3. **JSON Parsers/Serializers** (`generated_json.hpp`):
@@ -269,6 +269,11 @@ KATANA/
    - Таблица роутов с path, method, operationId
    - Content negotiation info: consumes (Content-Type), produces (Accept)
    - Константная таблица для O(1) lookup
+
+5. **Handlers + Bindings** (`generated_handlers.hpp`, `generated_router_bindings.hpp`):
+   - Типизированные сигнатуры с optional для необязательных параметров
+   - Glue для разбора path/query/header/cookie, Content-Type/Accept negotiation
+   - Парсинг тела запроса по согласованному media type
 
 **Команда**:
 

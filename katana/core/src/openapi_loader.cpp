@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <charconv>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -346,14 +347,20 @@ void merge_all_of_schemas(schema* s, monotonic_arena* arena) {
     s->all_of.clear();
 }
 
-schema*
-parse_schema(json_cursor& cur, schema_arena_pool& pool, const schema_index& index, int depth = 0);
+schema* parse_schema(json_cursor& cur,
+                     schema_arena_pool& pool,
+                     const schema_index& index,
+                     int depth = 0,
+                     std::optional<std::string_view> parent_ctx = std::nullopt,
+                     std::optional<std::string_view> field_ctx = std::nullopt);
 
 schema* parse_schema_object(json_cursor& cur,
                             schema_arena_pool& pool,
                             const schema_index& index,
                             std::optional<std::string_view> name = std::nullopt,
-                            int depth = 0) {
+                            int depth = 0,
+                            std::optional<std::string_view> parent_ctx = std::nullopt,
+                            std::optional<std::string_view> field_ctx = std::nullopt) {
     if (depth > kMaxSchemaDepth) {
         cur.skip_value();
         return nullptr;
@@ -369,6 +376,15 @@ schema* parse_schema_object(json_cursor& cur,
     auto ensure_schema = [&](schema_kind kind) -> schema* {
         if (!result) {
             result = pool.make(kind, name);
+            // Set context for intelligent naming immediately upon creation
+            if (parent_ctx && !parent_ctx->empty()) {
+                result->parent_context = arena_string<>(
+                    parent_ctx->begin(), parent_ctx->end(), arena_allocator<char>(pool.arena));
+            }
+            if (field_ctx && !field_ctx->empty()) {
+                result->field_context = arena_string<>(
+                    field_ctx->begin(), field_ctx->end(), arena_allocator<char>(pool.arena));
+            }
         } else if (result->kind == schema_kind::object && kind != schema_kind::object) {
             result->kind = kind;
         }
@@ -584,7 +600,9 @@ schema* parse_schema_object(json_cursor& cur,
             }
         } else if (*key == "items") {
             auto* s = ensure_schema(schema_kind::array);
-            s->items = parse_schema(cur, pool, index, depth + 1);
+            // Pass parent context for array items (e.g., Tasks → Tasks_Item_t)
+            std::optional<std::string_view> items_parent = name ? name : parent_ctx;
+            s->items = parse_schema(cur, pool, index, depth + 1, items_parent, "item");
         } else if (*key == "properties") {
             auto* obj = ensure_schema(schema_kind::object);
             if (!cur.try_object_start()) {
@@ -603,7 +621,10 @@ schema* parse_schema_object(json_cursor& cur,
                     if (!cur.consume(':')) {
                         break;
                     }
-                    if (auto* child = parse_schema(cur, pool, index, depth + 1)) {
+                    // Pass parent schema name and property name for context-aware naming
+                    std::optional<std::string_view> prop_parent = name ? name : parent_ctx;
+                    if (auto* child =
+                            parse_schema(cur, pool, index, depth + 1, prop_parent, *prop_name)) {
                         property p{arena_string<>(prop_name->begin(),
                                                   prop_name->end(),
                                                   arena_allocator<char>(pool.arena)),
@@ -641,7 +662,10 @@ schema* parse_schema_object(json_cursor& cur,
                     if (cur.try_array_end()) {
                         break;
                     }
-                    if (auto* sub = parse_schema(cur, pool, index, depth + 1)) {
+                    // Pass context for polymorphic types
+                    std::optional<std::string_view> poly_parent = name ? name : parent_ctx;
+                    if (auto* sub =
+                            parse_schema(cur, pool, index, depth + 1, poly_parent, std::nullopt)) {
                         auto* obj = ensure_schema(schema_kind::object);
                         if (*key == "oneOf") {
                             obj->one_of.push_back(sub);
@@ -662,8 +686,9 @@ schema* parse_schema_object(json_cursor& cur,
             auto* obj = ensure_schema(schema_kind::object);
             cur.skip_ws();
             if (cur.try_object_start()) {
-                obj->additional_properties =
-                    parse_schema_object(cur, pool, index, std::nullopt, depth + 1);
+                std::optional<std::string_view> addl_parent = name ? name : parent_ctx;
+                obj->additional_properties = parse_schema_object(
+                    cur, pool, index, std::nullopt, depth + 1, addl_parent, "additionalProperty");
             } else if (auto v = parse_bool(cur)) {
                 obj->additional_properties_allowed = *v;
                 if (!*v) {
@@ -690,6 +715,15 @@ schema* parse_schema_object(json_cursor& cur,
 
     if (!result) {
         result = pool.make(schema_kind::object, name);
+        // Set context for intelligent naming
+        if (parent_ctx && !parent_ctx->empty()) {
+            result->parent_context = arena_string<>(
+                parent_ctx->begin(), parent_ctx->end(), arena_allocator<char>(pool.arena));
+        }
+        if (field_ctx && !field_ctx->empty()) {
+            result->field_context = arena_string<>(
+                field_ctx->begin(), field_ctx->end(), arena_allocator<char>(pool.arena));
+        }
     }
 
     if (!required_names.empty()) {
@@ -706,14 +740,18 @@ schema* parse_schema_object(json_cursor& cur,
     return result;
 }
 
-schema*
-parse_schema(json_cursor& cur, schema_arena_pool& pool, const schema_index& index, int depth) {
+schema* parse_schema(json_cursor& cur,
+                     schema_arena_pool& pool,
+                     const schema_index& index,
+                     int depth,
+                     std::optional<std::string_view> parent_ctx,
+                     std::optional<std::string_view> field_ctx) {
     cur.skip_ws();
     if (cur.eof() || depth > kMaxSchemaDepth) {
         return nullptr;
     }
     if (*cur.ptr == '{') {
-        return parse_schema_object(cur, pool, index, std::nullopt, depth);
+        return parse_schema_object(cur, pool, index, std::nullopt, depth, parent_ctx, field_ctx);
     }
     cur.skip_value();
     return nullptr;
@@ -776,7 +814,12 @@ std::optional<parameter> parse_parameter_object(json_cursor& cur,
                 cur.skip_value();
             }
         } else if (*key == "schema") {
-            param.type = parse_schema(cur, pool, index);
+            // Use parameter name as context if available
+            std::optional<std::string_view> param_ctx =
+                param.name.empty() ? std::nullopt
+                                   : std::optional<std::string_view>(
+                                         std::string_view(param.name.data(), param.name.size()));
+            param.type = parse_schema(cur, pool, index, 0, param_ctx, std::nullopt);
         } else if (*key == "description") {
             if (auto v = cur.string()) {
                 param.description =
@@ -918,7 +961,8 @@ std::optional<response> parse_response_object(json_cursor& cur,
                                 break;
                             }
                             if (*mkey == "schema") {
-                                body_schema = parse_schema(cur, pool, index);
+                                body_schema =
+                                    parse_schema(cur, pool, index, 0, std::nullopt, std::nullopt);
                             } else {
                                 cur.skip_value();
                             }
@@ -1108,7 +1152,8 @@ request_body* parse_request_body(json_cursor& cur,
                                 break;
                             }
                             if (*mkey == "schema") {
-                                mt.type = parse_schema(cur, pool, index);
+                                mt.type =
+                                    parse_schema(cur, pool, index, 0, std::nullopt, std::nullopt);
                             } else {
                                 cur.skip_value();
                             }
@@ -1423,8 +1468,12 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
     bool is_json =
         !trimmed_input.empty() && (trimmed_input.front() == '{' || trimmed_input.front() == '[');
     if (!is_json) {
-        auto maybe_json = yaml_to_json(trimmed_input);
+        std::string yaml_error;
+        auto maybe_json = yaml_to_json(trimmed_input, &yaml_error);
         if (!maybe_json) {
+            if (!yaml_error.empty()) {
+                std::cerr << "[openapi][yaml] " << yaml_error << "\n";
+            }
             return std::unexpected(make_error_code(error_code::openapi_parse_error));
         }
         storage = std::move(*maybe_json);

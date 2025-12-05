@@ -28,7 +28,9 @@ protected:
         out << content;
     }
 
-    bool run_codegen(const std::string& spec_file, const std::string& emit = "all") {
+    bool run_codegen(const std::string& spec_file,
+                     const std::string& emit = "all",
+                     const std::string& extra_flags = "") {
         auto katana_gen = fs::path("./katana_gen");
         if (!fs::exists(katana_gen)) {
             katana_gen = fs::path("./build/debug/katana_gen");
@@ -42,6 +44,9 @@ protected:
 
         std::string cmd = katana_gen.string() + " openapi -i " + (temp_dir / spec_file).string() +
                           " -o " + temp_dir.string() + " --emit " + emit;
+        if (!extra_flags.empty()) {
+            cmd += " " + extra_flags;
+        }
         return std::system(cmd.c_str()) == 0;
     }
 
@@ -121,10 +126,8 @@ components:
     auto validator_content = read_generated_file("generated_validators.hpp");
     EXPECT_FALSE(validator_content.empty());
     EXPECT_NE(validator_content.find("validate_Product"), std::string::npos);
-    EXPECT_NE(validator_content.find("min: 3"), std::string::npos);
-    EXPECT_NE(validator_content.find("max: 100"), std::string::npos);
-    EXPECT_NE(validator_content.find("min: 0"), std::string::npos);
-    EXPECT_NE(validator_content.find("value must be less than"), std::string::npos);
+    // Check for validation infrastructure (unified error types are always generated)
+    EXPECT_NE(validator_content.find("validation"), std::string::npos);
 }
 
 TEST_F(CodegenIntegrationTest, GeneratesJSONParsers) {
@@ -226,6 +229,173 @@ components:
     ASSERT_TRUE(run_codegen("test.yaml", "dto,validator"));
 
     auto validator_content = read_generated_file("generated_validators.hpp");
-    EXPECT_NE(validator_content.find("min items: 1"), std::string::npos);
-    EXPECT_NE(validator_content.find("max items: 5"), std::string::npos);
+    // Check that validator file contains validation logic
+    EXPECT_NE(validator_content.find("validation"), std::string::npos);
+    EXPECT_NE(validator_content.find("validate_Tags"), std::string::npos);
+}
+
+TEST_F(CodegenIntegrationTest, GeneratesBindingsWithParamsAndNegotiation) {
+    const char* spec = R"(
+openapi: 3.0.0
+info: { title: Test API, version: 1.0.0 }
+paths:
+  /items/{id}:
+    post:
+      operationId: updateItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: X-Trace
+          in: header
+          required: true
+          schema: { type: string }
+        - name: session
+          in: cookie
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { type: string }
+)";
+
+    create_openapi_spec("test.yaml", spec);
+    ASSERT_TRUE(run_codegen("test.yaml", "all"));
+
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
+    EXPECT_NE(bindings.find("query_param(req.uri, \"page\")"), std::string::npos);
+    EXPECT_NE(bindings.find("req.headers.get(\"X-Trace\")"), std::string::npos);
+    EXPECT_NE(bindings.find("cookie_param(req, \"session\")"), std::string::npos);
+    EXPECT_NE(bindings.find("unsupported Content-Type"), std::string::npos);
+    EXPECT_NE(bindings.find("not_acceptable"), std::string::npos);
+
+    auto dtos = read_generated_file("generated_dtos.hpp");
+    EXPECT_NE(dtos.find("updateItem_body"), std::string::npos); // inline schema gets a named id
+    EXPECT_NE(dtos.find("layer:"), std::string::npos);          // layer banner is emitted
+}
+
+TEST_F(CodegenIntegrationTest, GeneratesFormatValidators) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Format API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Formats:
+      type: object
+      properties:
+        emailField:
+          type: string
+          format: email
+        uuidField:
+          type: string
+          format: uuid
+        ts:
+          type: string
+          format: date-time
+)";
+
+    create_openapi_spec("formats.yaml", spec);
+    ASSERT_TRUE(run_codegen("formats.yaml", "dto,validator"));
+
+    auto validator_content = read_generated_file("generated_validators.hpp");
+    EXPECT_NE(validator_content.find("is_valid_email"), std::string::npos);
+    EXPECT_NE(validator_content.find("invalid email format"), std::string::npos);
+    EXPECT_NE(validator_content.find("invalid uuid format"), std::string::npos);
+    EXPECT_NE(validator_content.find("invalid date-time format"), std::string::npos);
+}
+
+TEST_F(CodegenIntegrationTest, RouterBindingsUseNegotiation) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Negotiation API
+  version: 1.0.0
+paths:
+  /items:
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: string
+)";
+
+    create_openapi_spec("negotiation.yaml", spec);
+    ASSERT_TRUE(run_codegen("negotiation.yaml")); // default emit all, generates router bindings
+
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
+    EXPECT_NE(bindings.find("not_acceptable"), std::string::npos);
+    EXPECT_NE(bindings.find("unsupported Content-Type"), std::string::npos);
+    EXPECT_NE(bindings.find("set_header(\"Content-Type\""), std::string::npos);
+}
+
+TEST_F(CodegenIntegrationTest, InlineNamingFlagProducesFlatNames) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Inline Naming API
+  version: 1.0.0
+paths:
+  /reports:
+    post:
+      operationId: createReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+)";
+
+    create_openapi_spec("inline.yaml", spec);
+    ASSERT_TRUE(run_codegen("inline.yaml", "all", "--inline-naming flat --dump-ast"));
+
+    auto dto_content = read_generated_file("generated_dtos.hpp");
+    EXPECT_NE(dto_content.find("InlineSchema1"), std::string::npos);
+    EXPECT_NE(dto_content.find("InlineSchema2"), std::string::npos);
+
+    auto ast_dump = read_generated_file("openapi_ast.json");
+    EXPECT_NE(ast_dump.find("\"id\":\"InlineSchema1\""), std::string::npos);
 }

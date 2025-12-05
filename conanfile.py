@@ -8,7 +8,10 @@ class KatanaConan(ConanFile):
     license = "MIT"
     author = "VisageDvachevsky"
     url = "https://github.com/KATANA-Framework/KATANA"
-    description = "High-performance async C++ framework with reactor-per-core architecture"
+    description = (
+        "High-performance async C++ framework with reactor-per-core architecture "
+        "(includes codegen compute/validation examples)"
+    )
     topics = ("async", "reactor", "networking", "http", "performance")
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False], "fPIC": [True, False]}

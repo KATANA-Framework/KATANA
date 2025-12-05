@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 03.12 11:51 — Update BENCHMARK_RESULTS.md (ef7696b)
+* 04.12 14:46 — CRUD bench overhaul, katana_gen validation/JSON updates
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
@@ -34,10 +34,9 @@ KATANA — серверный фреймворк на C++ для разрабо�
 - ✅ **katana_gen** — кодогенератор из OpenAPI spec
   - DTO с pmr allocators
   - JSON parsers и serializers (katana::serde)
-  - Validators с полной поддержкой OpenAPI constraints
+  - Validators для ключевых OpenAPI constraints (min/max, minLength/maxLength, pattern, enum, uniqueItems)
   - Enum → enum class codegen
-  - Format validators (email, uuid, date-time, uri, etc.)
-  - Handler interfaces
+  - Handler interfaces и router bindings с content negotiation и optional-параметрами
   - Constexpr route tables с compile-time type safety
   - x-katana-* extensions
 - ✅ Unit/integration/fuzz тесты
@@ -48,6 +47,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 - ⏳ OpenTelemetry tracing
 - ⏳ Prometheus metrics
 - ⏳ Structured logging
+- ⏳ Media type registry (CBOR/MessagePack) — отнесено в Stage 3
 
 Разделы README/ARCHITECTURE описывают целевое состояние фреймворка. То, что уже работает — помечено ✅ выше.
 
@@ -60,6 +60,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 5. Примеры: `cmake --build --preset examples && ./build/examples/hello_world_server`.
 6. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && ./build/bench/benchmark/performance_benchmark`.
 7. Удобно через Makefile: `make build PRESET=debug`, `make test PRESET=debug`, `make bench`, `make fuzz`, `make profile`.
+8. CRUD бенч: по умолчанию in-memory; для высокого RPS можно задать `KATANA_CRUD_BACKEND=memcached` (опционально `MEMCACHED_HOST`/`MEMCACHED_PORT`). Docker бенч-сборка поднимает memcached автоматически.
 
 ## Router Quick Start (Stage 2)
 
@@ -174,6 +175,8 @@ cmake --build --preset debug --target katana_gen
 - `--emit <targets>` — что генерировать: `dto`, `serdes`, `router`, `all` (default: `all`)
 - `--alloc <type>` — тип аллокатора: `pmr`, `std` (default: `pmr`)
 - `--layer <mode>` — архитектура: `flat`, `layered` (default: `flat`)
+- `--inline-naming <style>` — именование inline-схем: `operation` (default), `flat`
+- `--check` — только валидация спецификации без генерации файлов
 - `--dump-ast` — сохранить AST в JSON для отладки
 - `--strict` — строгая валидация, не игнорировать ошибки
 
@@ -181,6 +184,8 @@ cmake --build --preset debug --target katana_gen
 - `generated_dtos.hpp` — C++ структуры с arena allocators
 - `generated_json.hpp` — JSON parsers через katana::serde
 - `generated_routes.hpp` — constexpr route table для router
+- `generated_handlers.hpp` — интерфейсы хендлеров с типизированными параметрами
+- `generated_router_bindings.hpp` — glue с разбором path/query/header/cookie, optional-значениями и Content-Type/Accept negotiation
 
 ### Quick Start
 
@@ -691,6 +696,11 @@ auto res = dispatch_or_problem(r, req, ctx); // 404/405 → ProblemDetails + All
 ### Этап 3 — SQL-генерация
 
 **Цель**: отсутствует N+1 в демо-сервисе; стабильный p99 CRUD.
+
+- [ ] Media type registry + бинарные кодеки (CBOR/MessagePack)
+  - [ ] Централизованное сопоставление MIME→кодек (request/response)
+  - [ ] Content negotiation для JSON/CBOR/MessagePack
+  - [ ] Интеграция в codegen и runtime (body parse/serialize)
 
 - [ ] Парсер SQL-файлов
   - [ ] Аннотации `-- name: <query_name> :one|:many|:exec`
