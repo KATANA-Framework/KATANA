@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 05.12 08:13 — Merge remote-tracking branch 'origin/main' into main (9f3399f)
+* 05.12 05:14 — chore: sync README with benchmark results (6c2c975)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
