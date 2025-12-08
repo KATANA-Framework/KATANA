@@ -1,0 +1,139 @@
+{
+  "_metadata": {
+    "version": "1.0.0",
+    "description": "KATANA Framework Performance Baseline - Stage 2 Final",
+    "generated": "2025-12-09",
+    "commit": "beaf046",
+    "notes": "Pre-Stage 3 baseline after all Stage 1-2 optimizations"
+  },
+  "core_performance": {
+    "arena_allocations_64b_throughput": {
+      "value": 6172839.51,
+      "unit": "ops/sec",
+      "description": "Arena allocator throughput for 64-byte objects"
+    },
+    "circular_buffer_throughput": {
+      "value": 250000000.0,
+      "unit": "ops/sec",
+      "description": "Circular buffer operations throughput"
+    },
+    "http_parser_complete_throughput": {
+      "value": 1111111.11,
+      "unit": "ops/sec",
+      "description": "HTTP parser throughput for complete requests"
+    },
+    "http_parser_fragmented_throughput": {
+      "value": 1162790.70,
+      "unit": "ops/sec",
+      "description": "HTTP parser throughput for fragmented requests"
+    },
+    "ring_buffer_single_thread_throughput": {
+      "value": 200000000.0,
+      "unit": "ops/sec",
+      "description": "Ring buffer SPSC throughput"
+    },
+    "ring_buffer_concurrent_4x4_throughput": {
+      "value": 17241379.31,
+      "unit": "ops/sec",
+      "description": "Ring buffer MPMC 4x4 threads throughput"
+    },
+    "ring_buffer_high_contention_8x8_throughput": {
+      "value": 8474576.27,
+      "unit": "ops/sec",
+      "description": "Ring buffer MPMC 8x8 threads throughput"
+    }
+  },
+  "latency": {
+    "http_parser_complete_p50": {
+      "value": 0.862,
+      "unit": "us",
+      "description": "HTTP parser p50 latency for complete requests"
+    },
+    "http_parser_complete_p99": {
+      "value": 1.811,
+      "unit": "us",
+      "description": "HTTP parser p99 latency for complete requests"
+    },
+    "http_parser_fragmented_p50": {
+      "value": 0.821,
+      "unit": "us",
+      "description": "HTTP parser p50 latency for fragmented requests"
+    },
+    "http_parser_fragmented_p99": {
+      "value": 1.788,
+      "unit": "us",
+      "description": "HTTP parser p99 latency for fragmented requests"
+    },
+    "simd_crlf_1_5kb_p99": {
+      "value": 0.050,
+      "unit": "us",
+      "description": "SIMD CRLF search p99 for 1.5KB buffer"
+    },
+    "simd_crlf_16kb_p99": {
+      "value": 0.444,
+      "unit": "us",
+      "description": "SIMD CRLF search p99 for 16KB buffer"
+    },
+    "circular_buffer_p99": {
+      "value": 0.008,
+      "unit": "us",
+      "description": "Circular buffer p99 latency"
+    },
+    "ring_buffer_single_thread_p99": {
+      "value": 0.008,
+      "unit": "us",
+      "description": "Ring buffer SPSC p99 latency"
+    },
+    "keepalive_p99": {
+      "value": 0.195,
+      "unit": "ms",
+      "description": "HTTP keepalive p99 latency"
+    }
+  },
+  "scalability": {
+    "thread_scaling_8_threads_throughput": {
+      "value": 173386.5,
+      "unit": "req/s",
+      "description": "HTTP server throughput with 8 threads"
+    },
+    "fanout_256_connections_throughput": {
+      "value": 256921.2,
+      "unit": "req/s",
+      "description": "HTTP server throughput with 256 concurrent connections"
+    },
+    "connection_churn_4_threads_throughput": {
+      "value": 15672.0,
+      "unit": "req/s",
+      "description": "Connection close-after-each-request throughput"
+    },
+    "stability_sustained_throughput": {
+      "value": 39304.196,
+      "unit": "req/s",
+      "description": "Sustained throughput under continuous load"
+    }
+  },
+  "simd": {
+    "crlf_search_1_5kb_throughput": {
+      "value": 50000000.0,
+      "unit": "ops/sec",
+      "description": "SIMD CRLF search throughput for 1.5KB buffers"
+    },
+    "crlf_search_16kb_throughput": {
+      "value": 3846153.85,
+      "unit": "ops/sec",
+      "description": "SIMD CRLF search throughput for 16KB buffers"
+    }
+  },
+  "timer": {
+    "wheel_timer_add_throughput": {
+      "value": 5000000.0,
+      "unit": "ops/sec",
+      "description": "Timer wheel add operation throughput"
+    },
+    "wheel_timer_tick_throughput": {
+      "value": 10000000.0,
+      "unit": "ops/sec",
+      "description": "Timer wheel tick processing throughput"
+    }
+  }
+}

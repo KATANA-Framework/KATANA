@@ -36,11 +36,6 @@ struct serialize_gen_context {
     int indent;              // Indentation level
 };
 
-// Helper: Generate indentation
-inline std::string ind(int level) {
-    return std::string(static_cast<size_t>(level * 4), ' ');
-}
-
 void generate_json_parser_for_schema(std::ostream& out,
                                      const document& doc,
                                      const katana::openapi::schema& s,

@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -24,20 +24,24 @@ struct latency_stats {
     void sort() { std::sort(samples.begin(), samples.end()); }
 
     [[nodiscard]] double percentile(double p) const {
-        if (samples.empty()) return 0.0;
-        if (samples.size() == 1) return static_cast<double>(samples.front()) / 1e6;
+        if (samples.empty())
+            return 0.0;
+        if (samples.size() == 1)
+            return static_cast<double>(samples.front()) / 1e6;
 
         double rank = (p / 100.0) * static_cast<double>(samples.size() - 1);
         size_t lower = static_cast<size_t>(std::floor(rank));
         size_t upper = static_cast<size_t>(std::ceil(rank));
         double weight = rank - static_cast<double>(lower);
-        double interpolated = static_cast<double>(samples[lower]) +
-                            (static_cast<double>(samples[upper]) - static_cast<double>(samples[lower])) * weight;
+        double interpolated =
+            static_cast<double>(samples[lower]) +
+            (static_cast<double>(samples[upper]) - static_cast<double>(samples[lower])) * weight;
         return interpolated / 1e6;
     }
 
     [[nodiscard]] double avg() const {
-        if (samples.empty()) return 0.0;
+        if (samples.empty())
+            return 0.0;
         return static_cast<double>(sum_ns) / static_cast<double>(samples.size()) / 1e6;
     }
 
@@ -52,7 +56,8 @@ void bench_json_string_encode(size_t iterations) {
     latency_stats stats_large;
 
     std::string small = "Hello";
-    std::string medium = "The quick brown fox jumps over the lazy dog multiple times to make this longer";
+    std::string medium =
+        "The quick brown fox jumps over the lazy dog multiple times to make this longer";
     std::string large(1000, 'x');
 
     // Warmup
@@ -94,10 +99,14 @@ void bench_json_string_encode(size_t iterations) {
         double duration_ms = static_cast<double>(stats.sum_ns) / 1e6;
         double ops_per_sec = static_cast<double>(ops) / (duration_ms / 1000.0);
         std::cout << "  " << label << ":\n";
-        std::cout << "    Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6 << " M ops/s\n";
-        std::cout << "    p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0) << " ms\n";
-        std::cout << "    p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0) << " ms\n";
-        std::cout << "    p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9) << " ms\n";
+        std::cout << "    Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6
+                  << " M ops/s\n";
+        std::cout << "    p50:        " << std::fixed << std::setprecision(3)
+                  << stats.percentile(50.0) << " ms\n";
+        std::cout << "    p99:        " << std::fixed << std::setprecision(3)
+                  << stats.percentile(99.0) << " ms\n";
+        std::cout << "    p999:       " << std::fixed << std::setprecision(3)
+                  << stats.percentile(99.9) << " ms\n";
     };
 
     print_stats("Small (5 bytes)", stats_small, iterations);
@@ -150,10 +159,14 @@ void bench_json_object(size_t iterations) {
 
     std::cout << "\n=== JSON Object Serialization ===\n";
     std::cout << "  Operations: " << iterations << "\n";
-    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6 << " M ops/s\n";
-    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0) << " ms\n";
-    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0) << " ms\n";
-    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9) << " ms\n";
+    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6
+              << " M ops/s\n";
+    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0)
+              << " ms\n";
+    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0)
+              << " ms\n";
+    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9)
+              << " ms\n";
 }
 
 // Test: JSON array serialization
@@ -169,7 +182,8 @@ void bench_json_array(size_t iterations) {
     for (size_t i = 0; i < 10000; ++i) {
         std::string json = "[";
         for (size_t j = 0; j < small_array.size(); ++j) {
-            if (j > 0) json += ",";
+            if (j > 0)
+                json += ",";
             json += std::to_string(small_array[j]);
         }
         json += "]";
@@ -181,7 +195,8 @@ void bench_json_array(size_t iterations) {
 
         std::string json = "[";
         for (size_t j = 0; j < small_array.size(); ++j) {
-            if (j > 0) json += ",";
+            if (j > 0)
+                json += ",";
             json += std::to_string(small_array[j]);
         }
         json += "]";
@@ -196,7 +211,8 @@ void bench_json_array(size_t iterations) {
 
         std::string json = "[";
         for (size_t j = 0; j < large_array.size(); ++j) {
-            if (j > 0) json += ",";
+            if (j > 0)
+                json += ",";
             json += std::to_string(large_array[j]);
         }
         json += "]";
@@ -214,9 +230,12 @@ void bench_json_array(size_t iterations) {
         double duration_ms = static_cast<double>(stats.sum_ns) / 1e6;
         double ops_per_sec = static_cast<double>(ops) / (duration_ms / 1000.0);
         std::cout << "  " << label << ":\n";
-        std::cout << "    Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6 << " M ops/s\n";
-        std::cout << "    p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0) << " ms\n";
-        std::cout << "    p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0) << " ms\n";
+        std::cout << "    Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6
+                  << " M ops/s\n";
+        std::cout << "    p50:        " << std::fixed << std::setprecision(3)
+                  << stats.percentile(50.0) << " ms\n";
+        std::cout << "    p99:        " << std::fixed << std::setprecision(3)
+                  << stats.percentile(99.0) << " ms\n";
     };
 
     print_stats("Small array (5 elements)", stats_small, iterations);
@@ -248,10 +267,14 @@ void bench_number_conversion(size_t iterations) {
 
     std::cout << "\n=== Number to String Conversion ===\n";
     std::cout << "  Operations: " << iterations << "\n";
-    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6 << " M ops/s\n";
-    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0) << " ms\n";
-    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0) << " ms\n";
-    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9) << " ms\n";
+    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6
+              << " M ops/s\n";
+    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0)
+              << " ms\n";
+    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0)
+              << " ms\n";
+    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9)
+              << " ms\n";
 }
 
 int main() {

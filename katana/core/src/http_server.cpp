@@ -201,7 +201,7 @@ int server::run() {
         auto& r = pool.get_reactor(0);
         auto listen_fd = listener.native_handle();
         auto listen_watch = std::make_shared<fd_watch>(
-            r, listen_fd, event_type::readable, [this, &r, &listener, accept_handler](event_type) {
+            r, listen_fd, event_type::readable, [&r, &listener, accept_handler](event_type) {
                 accept_handler(r, listener.native_handle());
             });
         accept_watches.push_back(std::move(listen_watch));
