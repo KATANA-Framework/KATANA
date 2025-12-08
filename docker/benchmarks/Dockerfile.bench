@@ -1,0 +1,130 @@
+# Optimized Dockerfile for reproducible benchmarking
+# Features:
+# - Release build with -march=native
+# - Disabled logging for minimal overhead
+# - Pinned CPU topology support
+# - sysctl/ulimit configurations for performance
+
+FROM ubuntu:24.04 AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    pkg-config \
+    python3 \
+    liburing-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/katana
+COPY . .
+
+# Clean any cached build artifacts
+RUN rm -rf build
+
+# Configure with optimized Release settings
+# - CMAKE_BUILD_TYPE=Release: -O3 -DNDEBUG -march=native -mtune=native
+# - LTO enabled via CMAKE_INTERPROCEDURAL_OPTIMIZATION
+# - All benchmarks enabled
+RUN cmake -S . -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_TESTING=OFF \
+    -DENABLE_BENCHMARKS=ON \
+    -DENABLE_EXAMPLES=OFF \
+    -DKATANA_POLL=epoll
+
+# Build with all available cores
+RUN cmake --build build --target all -j"$(nproc)"
+
+FROM ubuntu:24.04 AS runner
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    KATANA_POLL=epoll \
+    LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8
+
+# Install runtime dependencies and performance tools
+RUN apt-get update && apt-get install -y \
+    libstdc++6 \
+    ca-certificates \
+    python3 \
+    numactl \
+    util-linux \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/katana
+
+# Copy benchmarks and tools
+COPY --from=build /opt/katana/build/benchmark ./build/benchmark
+COPY --from=build /opt/katana/generate_benchmark_report.py .
+
+# System-level performance tuning script
+RUN echo '#!/bin/bash\n\
+# Apply performance tuning for benchmarking\n\
+set -e\n\
+\n\
+echo "=== Applying system-level performance tuning ==="\n\
+\n\
+# Increase file descriptor limits\n\
+ulimit -n 1048576 2>/dev/null || echo "Warning: Could not set ulimit -n"\n\
+\n\
+# Disable transparent huge pages (can cause latency spikes)\n\
+if [ -f /sys/kernel/mm/transparent_hugepage/enabled ]; then\n\
+    echo never | tee /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo "Warning: Could not disable THP"\n\
+fi\n\
+\n\
+# TCP buffer tuning (if allowed)\n\
+sysctl -w net.core.rmem_max=16777216 2>/dev/null || true\n\
+sysctl -w net.core.wmem_max=16777216 2>/dev/null || true\n\
+sysctl -w net.ipv4.tcp_rmem="4096 87380 16777216" 2>/dev/null || true\n\
+sysctl -w net.ipv4.tcp_wmem="4096 65536 16777216" 2>/dev/null || true\n\
+\n\
+# Increase local port range\n\
+sysctl -w net.ipv4.ip_local_port_range="1024 65535" 2>/dev/null || true\n\
+\n\
+# Enable SO_REUSEPORT\n\
+sysctl -w net.core.somaxconn=65535 2>/dev/null || true\n\
+\n\
+echo "=== Tuning complete ==="\n\
+echo ""\n\
+' > /usr/local/bin/tune-system.sh && chmod +x /usr/local/bin/tune-system.sh
+
+# Benchmark runner script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Apply system tuning (best-effort)\n\
+/usr/local/bin/tune-system.sh || echo "Warning: Some tuning steps failed (may need --privileged)"\n\
+\n\
+echo "=== Running KATANA Benchmark Suite ==="\n\
+echo "Build: Release -O3 -march=native -mtune=native + LTO"\n\
+echo ""\n\
+\n\
+cd /opt/katana/build/benchmark\n\
+\n\
+# Run all benchmarks\n\
+for bench in performance_benchmark mpsc_benchmark timer_benchmark headers_benchmark \\\n\
+             io_buffer_benchmark router_benchmark generated_api_benchmark \\\n\
+             products_api_benchmark; do\n\
+    if [ -f "./$bench" ]; then\n\
+        echo ""\n\
+        echo "=== Running $bench ==="\n\
+        ./"$bench" || echo "Warning: $bench failed"\n\
+    fi\n\
+done\n\
+\n\
+echo ""\n\
+echo "=== Benchmark suite completed ==="\n\
+' > /usr/local/bin/run-benchmarks.sh && chmod +x /usr/local/bin/run-benchmarks.sh
+
+# Entry point
+CMD ["/usr/local/bin/run-benchmarks.sh"]
+
+# Notes for optimal usage:
+# - Run with --privileged for full system tuning
+# - Use --cpuset-cpus="0-3" to pin to specific cores
+# - Set CPU governor to performance: sudo cpupower frequency-set -g performance
+# - Disable turbo boost for consistency: echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
