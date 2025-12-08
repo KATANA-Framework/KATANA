@@ -5,17 +5,17 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <numeric>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "katana/core/arena.hpp"
-#include "katana/core/router.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/problem.hpp"
+#include "katana/core/router.hpp"
 
 using namespace katana;
 using namespace katana::http;
@@ -32,8 +32,10 @@ struct latency_stats {
     [[nodiscard]] size_t count() const { return samples.size(); }
 
     [[nodiscard]] double percentile(double p) const {
-        if (samples.empty()) return 0.0;
-        if (samples.size() == 1) return static_cast<double>(samples.front()) / 1e6;
+        if (samples.empty())
+            return 0.0;
+        if (samples.size() == 1)
+            return static_cast<double>(samples.front()) / 1e6;
 
         double rank = (p / 100.0) * static_cast<double>(samples.size() - 1);
         size_t lower_index = static_cast<size_t>(std::floor(rank));
@@ -46,7 +48,8 @@ struct latency_stats {
     }
 
     [[nodiscard]] double avg() const {
-        if (samples.empty()) return 0.0;
+        if (samples.empty())
+            return 0.0;
         return static_cast<double>(sum_ns) / static_cast<double>(samples.size()) / 1e6;
     }
 
@@ -68,7 +71,8 @@ class product_store {
 public:
     std::optional<minimal_product> get(int64_t id) {
         auto it = products_.find(id);
-        if (it == products_.end()) return std::nullopt;
+        if (it == products_.end())
+            return std::nullopt;
         return it->second;
     }
 
@@ -80,15 +84,14 @@ public:
 
     bool update(int64_t id, double price, int32_t stock) {
         auto it = products_.find(id);
-        if (it == products_.end()) return false;
+        if (it == products_.end())
+            return false;
         it->second.price = price;
         it->second.stock = stock;
         return true;
     }
 
-    bool remove(int64_t id) {
-        return products_.erase(id) > 0;
-    }
+    bool remove(int64_t id) { return products_.erase(id) > 0; }
 
     void clear() {
         products_.clear();
@@ -105,26 +108,21 @@ product_store global_store;
 // Benchmark: Routing-only mode (no business logic)
 void bench_routing_only(size_t iterations) {
     route_entry routes[] = {
-        {method::get, path_pattern::from_literal<"/products">(),
-         handler_fn([](const request&, request_context&) {
-             return response::ok("[]");
-         })},
-        {method::post, path_pattern::from_literal<"/products">(),
-         handler_fn([](const request&, request_context&) {
-             return response{201, "{}"};
-         })},
-        {method::get, path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context&) {
-             return response::ok("{}");
-         })},
-        {method::put, path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context&) {
-             return response::ok("{}");
-         })},
-        {method::del, path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context&) {
-             return response{204, ""};
-         })},
+        {method::get,
+         path_pattern::from_literal<"/products">(),
+         handler_fn([](const request&, request_context&) { return response::ok("[]"); })},
+        {method::post,
+         path_pattern::from_literal<"/products">(),
+         handler_fn([](const request&, request_context&) { return response{201, "{}"}; })},
+        {method::get,
+         path_pattern::from_literal<"/products/{id}">(),
+         handler_fn([](const request&, request_context&) { return response::ok("{}"); })},
+        {method::put,
+         path_pattern::from_literal<"/products/{id}">(),
+         handler_fn([](const request&, request_context&) { return response::ok("{}"); })},
+        {method::del,
+         path_pattern::from_literal<"/products/{id}">(),
+         handler_fn([](const request&, request_context&) { return response{204, ""}; })},
     };
 
     router r(routes);
@@ -148,11 +146,26 @@ void bench_routing_only(size_t iterations) {
 
         // Mix of routes
         switch (i % 5) {
-            case 0: req.http_method = method::get; req.uri = "/products"; break;
-            case 1: req.http_method = method::post; req.uri = "/products"; break;
-            case 2: req.http_method = method::get; req.uri = "/products/123"; break;
-            case 3: req.http_method = method::put; req.uri = "/products/123"; break;
-            case 4: req.http_method = method::del; req.uri = "/products/123"; break;
+        case 0:
+            req.http_method = method::get;
+            req.uri = "/products";
+            break;
+        case 1:
+            req.http_method = method::post;
+            req.uri = "/products";
+            break;
+        case 2:
+            req.http_method = method::get;
+            req.uri = "/products/123";
+            break;
+        case 3:
+            req.http_method = method::put;
+            req.uri = "/products/123";
+            break;
+        case 4:
+            req.http_method = method::del;
+            req.uri = "/products/123";
+            break;
         }
 
         auto start = std::chrono::steady_clock::now();
@@ -169,29 +182,31 @@ void bench_routing_only(size_t iterations) {
     std::cout << "\n=== Routing-Only Mode (No Business Logic) ===\n";
     std::cout << "  Operations: " << iterations << "\n";
     std::cout << "  Duration:   " << std::fixed << std::setprecision(2) << duration_ms << " ms\n";
-    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6 << " M ops/s\n";
-    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0) << " ms\n";
-    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0) << " ms\n";
-    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9) << " ms\n";
+    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6
+              << " M ops/s\n";
+    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0)
+              << " ms\n";
+    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0)
+              << " ms\n";
+    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9)
+              << " ms\n";
 }
 
 // Benchmark: Validation-heavy mode (simulate validation overhead)
 void bench_validation_heavy(size_t iterations) {
     auto validate_sku = [](std::string_view sku) -> bool {
-        if (sku.length() < 3 || sku.length() > 20) return false;
+        if (sku.length() < 3 || sku.length() > 20)
+            return false;
         for (char c : sku) {
-            if (!std::isalnum(c) && c != '-') return false;
+            if (!std::isalnum(c) && c != '-')
+                return false;
         }
         return true;
     };
 
-    auto validate_price = [](double price) -> bool {
-        return price >= 0.0;
-    };
+    auto validate_price = [](double price) -> bool { return price >= 0.0; };
 
-    auto validate_stock = [](int32_t stock) -> bool {
-        return stock >= 0 && stock <= 1000000;
-    };
+    auto validate_stock = [](int32_t stock) -> bool { return stock >= 0 && stock <= 1000000; };
 
     latency_stats stats_valid;
     latency_stats stats_invalid;
@@ -206,12 +221,11 @@ void bench_validation_heavy(size_t iterations) {
     // Measurement - valid requests
     for (size_t i = 0; i < iterations / 2; ++i) {
         auto start = std::chrono::steady_clock::now();
-        bool valid = validate_sku("PROD-001") &&
-                    validate_price(199.99) &&
-                    validate_stock(50);
+        bool valid = validate_sku("PROD-001") && validate_price(199.99) && validate_stock(50);
         auto end = std::chrono::steady_clock::now();
 
-        if (!valid) std::cerr << "Validation failed unexpectedly\n";
+        if (!valid)
+            std::cerr << "Validation failed unexpectedly\n";
         stats_valid.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }
 
@@ -222,16 +236,30 @@ void bench_validation_heavy(size_t iterations) {
         int32_t stock;
 
         switch (i % 3) {
-            case 0: sku = "X"; price = 99.99; stock = 50; break;  // Invalid SKU
-            case 1: sku = "PROD-001"; price = -10.0; stock = 50; break;  // Invalid price
-            case 2: sku = "PROD-001"; price = 99.99; stock = -5; break;  // Invalid stock
+        case 0:
+            sku = "X";
+            price = 99.99;
+            stock = 50;
+            break; // Invalid SKU
+        case 1:
+            sku = "PROD-001";
+            price = -10.0;
+            stock = 50;
+            break; // Invalid price
+        case 2:
+            sku = "PROD-001";
+            price = 99.99;
+            stock = -5;
+            break; // Invalid stock
         }
 
         auto start = std::chrono::steady_clock::now();
-        [[maybe_unused]] bool valid = validate_sku(sku) && validate_price(price) && validate_stock(stock);
+        [[maybe_unused]] bool valid =
+            validate_sku(sku) && validate_price(price) && validate_stock(stock);
         auto end = std::chrono::steady_clock::now();
 
-        stats_invalid.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+        stats_invalid.add(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }
 
     stats_valid.sort();
@@ -240,37 +268,47 @@ void bench_validation_heavy(size_t iterations) {
     double duration_valid_ms = static_cast<double>(stats_valid.sum_ns) / 1e6;
     double duration_invalid_ms = static_cast<double>(stats_invalid.sum_ns) / 1e6;
     double ops_per_sec_valid = static_cast<double>(iterations / 2) / (duration_valid_ms / 1000.0);
-    double ops_per_sec_invalid = static_cast<double>(iterations / 2) / (duration_invalid_ms / 1000.0);
+    double ops_per_sec_invalid =
+        static_cast<double>(iterations / 2) / (duration_invalid_ms / 1000.0);
 
     std::cout << "\n=== Validation-Heavy Mode ===\n";
     std::cout << "\n  Valid Requests:\n";
     std::cout << "    Operations: " << iterations / 2 << "\n";
-    std::cout << "    Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec_valid / 1e6 << " M ops/s\n";
-    std::cout << "    p50:        " << std::fixed << std::setprecision(3) << stats_valid.percentile(50.0) << " ms\n";
-    std::cout << "    p99:        " << std::fixed << std::setprecision(3) << stats_valid.percentile(99.0) << " ms\n";
+    std::cout << "    Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec_valid / 1e6
+              << " M ops/s\n";
+    std::cout << "    p50:        " << std::fixed << std::setprecision(3)
+              << stats_valid.percentile(50.0) << " ms\n";
+    std::cout << "    p99:        " << std::fixed << std::setprecision(3)
+              << stats_valid.percentile(99.0) << " ms\n";
 
     std::cout << "\n  Invalid Requests:\n";
     std::cout << "    Operations: " << iterations / 2 << "\n";
-    std::cout << "    Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec_invalid / 1e6 << " M ops/s\n";
-    std::cout << "    p50:        " << std::fixed << std::setprecision(3) << stats_invalid.percentile(50.0) << " ms\n";
-    std::cout << "    p99:        " << std::fixed << std::setprecision(3) << stats_invalid.percentile(99.0) << " ms\n";
+    std::cout << "    Throughput: " << std::fixed << std::setprecision(2)
+              << ops_per_sec_invalid / 1e6 << " M ops/s\n";
+    std::cout << "    p50:        " << std::fixed << std::setprecision(3)
+              << stats_invalid.percentile(50.0) << " ms\n";
+    std::cout << "    p99:        " << std::fixed << std::setprecision(3)
+              << stats_invalid.percentile(99.0) << " ms\n";
 }
 
 // Benchmark: Mixed CRUD workload
 void bench_mixed_crud(size_t iterations) {
     route_entry routes[] = {
-        {method::get, path_pattern::from_literal<"/products">(),
+        {method::get,
+         path_pattern::from_literal<"/products">(),
          handler_fn([](const request&, request_context&) {
              // Simulate list operation
              return response::ok("{\"items\":[],\"total\":0}");
          })},
-        {method::post, path_pattern::from_literal<"/products">(),
+        {method::post,
+         path_pattern::from_literal<"/products">(),
          handler_fn([](const request&, request_context&) {
              // Simulate create
              int64_t id = global_store.create("PROD-001", "Product", 99.99, 100);
              return response{201, "{\"id\":" + std::to_string(id) + "}"};
          })},
-        {method::get, path_pattern::from_literal<"/products/{id}">(),
+        {method::get,
+         path_pattern::from_literal<"/products/{id}">(),
          handler_fn([](const request&, request_context& ctx) {
              // Simulate get by ID
              auto id_str = ctx.params.get("id").value_or("0");
@@ -281,7 +319,8 @@ void bench_mixed_crud(size_t iterations) {
              }
              return response::ok("{\"id\":" + std::to_string(product->id) + "}");
          })},
-        {method::put, path_pattern::from_literal<"/products/{id}">(),
+        {method::put,
+         path_pattern::from_literal<"/products/{id}">(),
          handler_fn([](const request&, request_context& ctx) {
              // Simulate update
              auto id_str = ctx.params.get("id").value_or("0");
@@ -292,7 +331,8 @@ void bench_mixed_crud(size_t iterations) {
              }
              return response::ok("{\"id\":" + std::to_string(id) + "}");
          })},
-        {method::del, path_pattern::from_literal<"/products/{id}">(),
+        {method::del,
+         path_pattern::from_literal<"/products/{id}">(),
          handler_fn([](const request&, request_context& ctx) {
              // Simulate delete
              auto id_str = ctx.params.get("id").value_or("0");
@@ -370,13 +410,18 @@ void bench_mixed_crud(size_t iterations) {
     double duration_ms = static_cast<double>(stats.sum_ns) / 1e6;
     double ops_per_sec = static_cast<double>(iterations) / (duration_ms / 1000.0);
 
-    std::cout << "\n=== Mixed CRUD Workload (40% GET list, 30% GET id, 15% POST, 10% PUT, 5% DELETE) ===\n";
+    std::cout << "\n=== Mixed CRUD Workload (40% GET list, 30% GET id, 15% POST, 10% PUT, 5% "
+                 "DELETE) ===\n";
     std::cout << "  Operations: " << iterations << "\n";
     std::cout << "  Duration:   " << std::fixed << std::setprecision(2) << duration_ms << " ms\n";
-    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6 << " M ops/s\n";
-    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0) << " ms\n";
-    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0) << " ms\n";
-    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9) << " ms\n";
+    std::cout << "  Throughput: " << std::fixed << std::setprecision(2) << ops_per_sec / 1e6
+              << " M ops/s\n";
+    std::cout << "  p50:        " << std::fixed << std::setprecision(3) << stats.percentile(50.0)
+              << " ms\n";
+    std::cout << "  p99:        " << std::fixed << std::setprecision(3) << stats.percentile(99.0)
+              << " ms\n";
+    std::cout << "  p999:       " << std::fixed << std::setprecision(3) << stats.percentile(99.9)
+              << " ms\n";
 }
 
 int main() {
