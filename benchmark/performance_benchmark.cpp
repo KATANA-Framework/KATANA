@@ -162,11 +162,11 @@ benchmark_result benchmark_ring_buffer_high_contention() {
     auto start = steady_clock::now();
 
     std::vector<std::thread> prod_threads;
-    prod_threads.reserve(producers);
+    prod_threads.reserve(static_cast<size_t>(producers));
     for (int p = 0; p < producers; ++p) {
         prod_threads.emplace_back([&, p] {
-            for (size_t i = 0; i < num_operations / producers; ++i) {
-                const int val = static_cast<int>(p * 1000000 + i);
+            for (size_t i = 0; i < num_operations / static_cast<size_t>(producers); ++i) {
+                const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
                 while (!queue.try_push(val)) {
                     std::this_thread::yield();
                 }
@@ -175,14 +175,12 @@ benchmark_result benchmark_ring_buffer_high_contention() {
     }
 
     std::vector<std::thread> cons_threads;
-    cons_threads.reserve(consumers);
+    cons_threads.reserve(static_cast<size_t>(consumers));
     for (int c = 0; c < consumers; ++c) {
         cons_threads.emplace_back([&] {
-            size_t local = 0;
             while (total_done.load(std::memory_order_relaxed) < num_operations) {
                 int val;
                 if (queue.try_pop(val)) {
-                    ++local;
                     total_done.fetch_add(1, std::memory_order_relaxed);
                 } else {
                     std::this_thread::yield();
