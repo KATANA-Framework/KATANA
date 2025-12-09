@@ -1,0 +1,140 @@
+name: Manual Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark_type:
+        description: 'Type of benchmark to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - micro
+          - products_api
+          - json
+          - performance
+      iterations:
+        description: 'Number of iterations (for microbenchmarks)'
+        required: false
+        default: '200000'
+      duration:
+        description: 'Duration in seconds (for load tests)'
+        required: false
+        default: '300'
+      concurrency:
+        description: 'Concurrency level (for load tests)'
+        required: false
+        default: '64'
+
+permissions:
+  contents: read
+
+jobs:
+  run-benchmarks:
+    name: Run Benchmarks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            python3 \
+            wrk
+
+      - name: System tuning (best-effort)
+        run: |
+          # Note: Some tuning may fail in CI environment
+          sudo sysctl -w net.core.rmem_max=16777216 || true
+          sudo sysctl -w net.core.wmem_max=16777216 || true
+          sudo sysctl -w net.ipv4.tcp_rmem="4096 87380 16777216" || true
+          sudo sysctl -w net.ipv4.tcp_wmem="4096 65536 16777216" || true
+          sudo sysctl -w net.ipv4.ip_local_port_range="1024 65535" || true
+          sudo sysctl -w net.core.somaxconn=65535 || true
+          ulimit -n 65535 || true
+
+      - name: Configure CMake (Release)
+        run: |
+          cmake --preset bench
+
+      - name: Build benchmarks
+        run: |
+          cmake --build --preset bench -j$(nproc)
+
+      - name: Run microbenchmarks
+        if: ${{ inputs.benchmark_type == 'all' || inputs.benchmark_type == 'micro' }}
+        run: |
+          echo "=== Running All Microbenchmarks ==="
+          cd build/bench/benchmark
+          for bench in performance_benchmark mpsc_benchmark timer_benchmark \
+                       headers_benchmark io_buffer_benchmark router_benchmark \
+                       generated_api_benchmark products_api_benchmark json_benchmark; do
+            if [ -f "./$bench" ]; then
+              echo ""
+              echo "=== Running $bench ==="
+              ./"$bench" || echo "Warning: $bench failed"
+            fi
+          done
+
+      - name: Run products_api benchmark only
+        if: ${{ inputs.benchmark_type == 'products_api' }}
+        run: |
+          ./build/bench/benchmark/products_api_benchmark
+
+      - name: Run JSON benchmark only
+        if: ${{ inputs.benchmark_type == 'json' }}
+        run: |
+          ./build/bench/benchmark/json_benchmark
+
+      - name: Run performance benchmark only
+        if: ${{ inputs.benchmark_type == 'performance' }}
+        run: |
+          ./build/bench/benchmark/performance_benchmark
+
+      - name: Build examples (for load tests)
+        if: ${{ inputs.benchmark_type == 'all' }}
+        run: |
+          cmake --preset examples
+          cmake --build --preset examples --target products_api -j$(nproc)
+
+      - name: Run load tests
+        if: ${{ inputs.benchmark_type == 'all' }}
+        env:
+          TEST_DURATION: ${{ inputs.duration }}
+          CONCURRENCY: ${{ inputs.concurrency }}
+        run: |
+          if [ -f "./test/load/products_api_load_test.sh" ]; then
+            echo "=== Running Load Tests ==="
+            chmod +x ./test/load/products_api_load_test.sh
+            ./test/load/products_api_load_test.sh || echo "Warning: Load test failed"
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_number }}
+          path: |
+            profiling_results/
+            *.txt
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Benchmark Type: ${{ inputs.benchmark_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "Duration: ${{ inputs.duration }}s" >> $GITHUB_STEP_SUMMARY
+          echo "Concurrency: ${{ inputs.concurrency }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Results uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
