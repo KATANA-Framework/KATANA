@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 09.12 03:52 — chore: sync README with benchmark results (83aeaa0)
+* 10.12 03:56 — chore: sync README with benchmark results (8089fde)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
