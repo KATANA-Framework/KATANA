@@ -589,7 +589,7 @@ end
             status_hist = {size: {} for size in sizes}
             stop_event = threading.Event()
 
-            connections_per_thread = max(4, min(32, thread_count * 4))
+            connections_per_thread = max(64, min(128, thread_count * 16))
 
             def make_socket():
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -832,7 +832,7 @@ end
             latencies = {"valid": [], "invalid": []}
             status_hist = {"valid": {}, "invalid": {}}
             stop_event = threading.Event()
-            connections_per_thread = max(8, min(32, thread_count * 2))
+            connections_per_thread = max(64, min(128, thread_count * 16))
 
             def make_socket():
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

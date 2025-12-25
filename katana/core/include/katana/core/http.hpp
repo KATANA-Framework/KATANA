@@ -2,6 +2,7 @@
 
 #include "arena.hpp"
 #include "http_headers.hpp"
+#include "io_buffer.hpp"
 #include "problem.hpp"
 #include "result.hpp"
 
@@ -56,6 +57,9 @@ struct response {
         headers.set_view(name, value);
     }
 
+    // Optimized: avoid string_to_field() lookup
+    void set_header(http::field f, std::string_view value) { headers.set_known(f, value); }
+
     // Fluent interface for building responses (lvalue overloads)
     response& header(std::string_view name, std::string_view value) & {
         set_header(name, value);
@@ -96,6 +100,7 @@ struct response {
     }
 
     void serialize_into(std::string& out) const;
+    void serialize_into(io_buffer& out) const;
     [[nodiscard]] std::string serialize() const;
     [[nodiscard]] std::string serialize_chunked(size_t chunk_size = 4096) const;
 

@@ -60,7 +60,7 @@ inline std::optional<std::string_view> query_param(std::string_view uri, std::st
 
 inline std::optional<std::string_view> cookie_param(const katana::http::request& req,
                                                     std::string_view key) {
-    auto cookie = req.headers.get("Cookie");
+    auto cookie = req.headers.get(katana::http::field::cookie);
     if (!cookie)
         return std::nullopt;
     std::string_view rest = *cookie;
@@ -101,7 +101,7 @@ negotiate_response_type(const katana::http::request& req,
                         std::span<const content_type_info> produces) {
     if (produces.empty())
         return std::nullopt;
-    auto accept = req.headers.get("Accept");
+    auto accept = req.headers.get(katana::http::field::accept);
     // Fast path: no Accept header or */*, return first
     if (!accept || accept->empty() || *accept == "*/*") {
         return produces.front().mime_type;
@@ -164,6 +164,60 @@ inline katana::http::response format_validation_error(const validation_error& er
         katana::problem_details::bad_request(std::move(error_msg)));
 }
 
+// Hash-based routing optimization (FNV-1a)
+constexpr uint64_t hash_string(std::string_view str) noexcept {
+    uint64_t hash = 14695981039346656037ull;
+    for (char c : str) {
+        hash ^= static_cast<uint64_t>(c);
+        hash *= 1099511628211ull;
+    }
+    return hash;
+}
+
+// Pre-computed path hashes for static routes
+constexpr uint64_t HASH_COMPUTE_SUM = hash_string("/compute/sum");
+
+// Inline dispatch for /compute/sum
+inline katana::result<katana::http::response> dispatch_compute_sum(
+    const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler) {
+    auto negotiated_response = negotiate_response_type(req, route_0_produces);
+    if (!negotiated_response) {
+        return katana::http::response::error(
+            katana::problem_details::not_acceptable("unsupported Accept header"));
+    }
+    auto matched_ct =
+        find_content_type(req.headers.get(katana::http::field::content_type), route_0_consumes);
+    if (!matched_ct)
+        return katana::http::response::error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+    std::optional<compute_sum_body_0> parsed_body;
+    switch (*matched_ct) {
+    case 0: {
+        auto candidate = parse_compute_sum_body_0(req.body, &ctx.arena);
+        if (!candidate)
+            return katana::http::response::error(
+                katana::problem_details::bad_request("invalid request body"));
+        parsed_body = std::move(*candidate);
+        break;
+    }
+    default:
+        return katana::http::response::error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+    }
+
+    // Automatic validation (optimized: single allocation)
+    if (auto validation_error = validate_compute_sum_body_0(*parsed_body)) {
+        return format_validation_error(*validation_error);
+    }
+    // Set handler context for zero-boilerplate access
+    katana::http::handler_context::scope context_scope(req, ctx);
+    auto generated_response = handler.compute_sum(*parsed_body);
+    if (negotiated_response && !generated_response.headers.get(katana::http::field::content_type)) {
+        generated_response.set_header("Content-Type", *negotiated_response);
+    }
+    return generated_response;
+}
+
 inline const katana::http::router& make_router(api_handler& handler) {
     using katana::http::handler_fn;
     using katana::http::path_pattern;
@@ -180,8 +234,8 @@ inline const katana::http::router& make_router(api_handler& handler) {
                         return katana::http::response::error(
                             katana::problem_details::not_acceptable("unsupported Accept header"));
                     }
-                    auto matched_ct =
-                        find_content_type(req.headers.get("Content-Type"), route_0_consumes);
+                    auto matched_ct = find_content_type(
+                        req.headers.get(katana::http::field::content_type), route_0_consumes);
                     if (!matched_ct)
                         return katana::http::response::error(
                             katana::problem_details::unsupported_media_type(
@@ -208,7 +262,8 @@ inline const katana::http::router& make_router(api_handler& handler) {
                     // Set handler context for zero-boilerplate access
                     katana::http::handler_context::scope context_scope(req, ctx);
                     auto generated_response = handler.compute_sum(*parsed_body);
-                    if (negotiated_response && !generated_response.headers.get("Content-Type")) {
+                    if (negotiated_response &&
+                        !generated_response.headers.get(katana::http::field::content_type)) {
                         generated_response.set_header("Content-Type", *negotiated_response);
                     }
                     return generated_response;
@@ -216,6 +271,51 @@ inline const katana::http::router& make_router(api_handler& handler) {
     };
     static katana::http::router router_instance(route_entries);
     return router_instance;
+}
+
+// Optimized router with hash-based O(1) dispatch for static routes
+class fast_router {
+public:
+    explicit fast_router(api_handler& handler, const katana::http::router& fallback)
+        : handler_(handler), fallback_router_(fallback) {}
+
+    katana::result<katana::http::response> operator()(const katana::http::request& req,
+                                                      katana::http::request_context& ctx) const {
+        // Strip query string for matching
+        std::string_view path = req.uri;
+        auto query_pos = path.find('?');
+        if (query_pos != std::string_view::npos) {
+            path = path.substr(0, query_pos);
+        }
+
+        // Fast path: O(1) hash-based dispatch for static routes
+        uint64_t path_hash = hash_string(path);
+        switch (path_hash) {
+        case HASH_COMPUTE_SUM:
+            if (path == "/compute/sum" && req.http_method == katana::http::method::post) {
+                // Hash matched, path matched, method matched - inline dispatch!
+                return dispatch_compute_sum(req, ctx, handler_);
+            }
+            break;
+        default:
+            break;
+        }
+
+        // Fallback to standard router for:
+        // - Dynamic routes (with path parameters)
+        // - Hash collisions
+        // - Method mismatches
+        return fallback_router_.dispatch(req, ctx);
+    }
+
+private:
+    api_handler& handler_;
+    const katana::http::router& fallback_router_;
+};
+
+// Create optimized router (recommended for production)
+inline fast_router make_fast_router(api_handler& handler) {
+    return fast_router(handler, make_router(handler));
 }
 
 // Zero-boilerplate server creation

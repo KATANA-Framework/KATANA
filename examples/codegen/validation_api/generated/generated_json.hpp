@@ -191,12 +191,22 @@ inline std::string serialize_RegisterUserRequest(const RegisterUserRequest& obj)
 }
 
 inline std::string serialize_RegisterUserRequest_Email_t(const RegisterUserRequest_Email_t& obj) {
-    return std::string("\"") + katana::serde::escape_json_string(obj) + "\"";
+    std::string json;
+    json.reserve(obj.size() + 16);
+    json.push_back('"');
+    json.append(katana::serde::escape_json_string(obj));
+    json.push_back('"');
+    return json;
 }
 
 inline std::string
 serialize_RegisterUserRequest_Password_t(const RegisterUserRequest_Password_t& obj) {
-    return std::string("\"") + katana::serde::escape_json_string(obj) + "\"";
+    std::string json;
+    json.reserve(obj.size() + 16);
+    json.push_back('"');
+    json.append(katana::serde::escape_json_string(obj));
+    json.push_back('"');
+    return json;
 }
 
 inline std::string serialize_RegisterUserRequest_Age_t(const RegisterUserRequest_Age_t& obj) {
@@ -208,7 +218,12 @@ inline std::string serialize_RegisterUserRequest_Age_t(const RegisterUserRequest
 }
 
 inline std::string serialize_register_user_resp_200_0(const register_user_resp_200_0& obj) {
-    return std::string("\"") + katana::serde::escape_json_string(obj) + "\"";
+    std::string json;
+    json.reserve(obj.size() + 16);
+    json.push_back('"');
+    json.append(katana::serde::escape_json_string(obj));
+    json.push_back('"');
+    return json;
 }
 
 inline std::optional<std::vector<RegisterUserRequest>>
@@ -358,120 +373,140 @@ parse_register_user_resp_200_0_array(std::string_view json, monotonic_arena* are
 
 inline std::string
 serialize_RegisterUserRequest_array(const std::vector<RegisterUserRequest>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest(arr[i]);
+        json.append(serialize_RegisterUserRequest(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_RegisterUserRequest_array(const arena_vector<RegisterUserRequest>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest(arr[i]);
+        json.append(serialize_RegisterUserRequest(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_RegisterUserRequest_Email_t_array(const std::vector<RegisterUserRequest_Email_t>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest_Email_t(arr[i]);
+        json.append(serialize_RegisterUserRequest_Email_t(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_RegisterUserRequest_Email_t_array(const arena_vector<RegisterUserRequest_Email_t>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest_Email_t(arr[i]);
+        json.append(serialize_RegisterUserRequest_Email_t(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string serialize_RegisterUserRequest_Password_t_array(
     const std::vector<RegisterUserRequest_Password_t>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest_Password_t(arr[i]);
+        json.append(serialize_RegisterUserRequest_Password_t(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string serialize_RegisterUserRequest_Password_t_array(
     const arena_vector<RegisterUserRequest_Password_t>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest_Password_t(arr[i]);
+        json.append(serialize_RegisterUserRequest_Password_t(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_RegisterUserRequest_Age_t_array(const std::vector<RegisterUserRequest_Age_t>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest_Age_t(arr[i]);
+        json.append(serialize_RegisterUserRequest_Age_t(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_RegisterUserRequest_Age_t_array(const arena_vector<RegisterUserRequest_Age_t>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_RegisterUserRequest_Age_t(arr[i]);
+        json.append(serialize_RegisterUserRequest_Age_t(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_register_user_resp_200_0_array(const std::vector<register_user_resp_200_0>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_register_user_resp_200_0(arr[i]);
+        json.append(serialize_register_user_resp_200_0(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_register_user_resp_200_0_array(const arena_vector<register_user_resp_200_0>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_register_user_resp_200_0(arr[i]);
+        json.append(serialize_register_user_resp_200_0(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
