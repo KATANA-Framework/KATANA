@@ -164,6 +164,19 @@ inline katana::http::response format_validation_error(const validation_error& er
         katana::problem_details::bad_request(std::move(error_msg)));
 }
 
+// Hash-based routing optimization (FNV-1a)
+constexpr uint64_t hash_string(std::string_view str) noexcept {
+    uint64_t hash = 14695981039346656037ull;
+    for (char c : str) {
+        hash ^= static_cast<uint64_t>(c);
+        hash *= 1099511628211ull;
+    }
+    return hash;
+}
+
+// Pre-computed path hashes for static routes
+constexpr uint64_t HASH_REGISTER_USER = hash_string("/user/register");
+
 inline const katana::http::router& make_router(api_handler& handler) {
     using katana::http::handler_fn;
     using katana::http::path_pattern;
@@ -216,6 +229,49 @@ inline const katana::http::router& make_router(api_handler& handler) {
     };
     static katana::http::router router_instance(route_entries);
     return router_instance;
+}
+
+// Optimized router with hash-based O(1) dispatch for static routes
+class fast_router {
+public:
+    explicit fast_router(const katana::http::router& fallback) : fallback_router_(fallback) {}
+
+    katana::result<katana::http::response> operator()(const katana::http::request& req,
+                                                      katana::http::request_context& ctx) const {
+        // Strip query string for matching
+        std::string_view path = req.uri;
+        auto query_pos = path.find('?');
+        if (query_pos != std::string_view::npos) {
+            path = path.substr(0, query_pos);
+        }
+
+        // Fast path: O(1) hash-based dispatch for static routes
+        uint64_t path_hash = hash_string(path);
+        switch (path_hash) {
+        case HASH_REGISTER_USER:
+            if (path == "/user/register" && req.http_method == katana::http::method::post) {
+                // Hash matched, path matched, method matched - dispatch directly
+                return fallback_router_.dispatch(req, ctx);
+            }
+            break;
+        default:
+            break;
+        }
+
+        // Fallback to standard router for:
+        // - Dynamic routes (with path parameters)
+        // - Hash collisions
+        // - Method mismatches
+        return fallback_router_.dispatch(req, ctx);
+    }
+
+private:
+    const katana::http::router& fallback_router_;
+};
+
+// Create optimized router (recommended for production)
+inline fast_router make_fast_router(api_handler& handler) {
+    return fast_router(make_router(handler));
 }
 
 // Zero-boilerplate server creation

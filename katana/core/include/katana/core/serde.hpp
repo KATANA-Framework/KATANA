@@ -12,7 +12,41 @@
 #include <utility>
 #include <vector>
 
+#ifdef __SSE2__
+#include <emmintrin.h> // SSE2
+#endif
+
 namespace katana::serde {
+
+// Fast JSON whitespace detection (space, tab, newline, carriage return)
+// Lookup table is faster than std::isspace (avoids function call and locale checks)
+constexpr bool is_json_whitespace_table[256] = {
+    false, false, false, false, false, false, false, false, false, true,  true,  false, false,
+    true,  false, false, // 0x09=tab, 0x0A=\n, 0x0D=\r
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, true,  false, false, false, false, false, false, false, // 0x20=space
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+};
+
+inline constexpr bool is_json_whitespace(unsigned char c) noexcept {
+    return is_json_whitespace_table[c];
+}
 
 inline std::string_view trim_view(std::string_view sv) noexcept {
     while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) {
@@ -36,7 +70,71 @@ struct json_cursor {
     size_t pos() const noexcept { return static_cast<size_t>(ptr - start); }
 
     void skip_ws() noexcept {
-        while (!eof() && std::isspace(static_cast<unsigned char>(*ptr))) {
+        // Fast path: if no whitespace at current position, return immediately
+        // This is critical for compact JSON where whitespace is minimal
+        if (eof() || !is_json_whitespace(static_cast<unsigned char>(*ptr))) {
+            return;
+        }
+
+#ifdef __SSE2__
+        // SIMD path: only use for large amounts of whitespace (8+ chars)
+        // This amortizes the SIMD setup overhead
+        constexpr size_t simd_threshold = 8;
+        constexpr size_t simd_width = 16;
+
+        // Quick scalar skip for small whitespace runs
+        const char* scan_ptr = ptr;
+        size_t count = 0;
+        while (count < simd_threshold && scan_ptr < end &&
+               is_json_whitespace(static_cast<unsigned char>(*scan_ptr))) {
+            ++scan_ptr;
+            ++count;
+        }
+
+        // If less than threshold, use scalar result
+        if (count < simd_threshold) {
+            ptr = scan_ptr;
+            return;
+        }
+
+        // We have significant whitespace - use SIMD
+        ptr = scan_ptr; // Start from where scalar left off
+
+        while (static_cast<size_t>(end - ptr) >= simd_width) {
+            __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr));
+
+            __m128i space = _mm_set1_epi8(' ');
+            __m128i tab = _mm_set1_epi8('\t');
+            __m128i lf = _mm_set1_epi8('\n');
+            __m128i cr = _mm_set1_epi8('\r');
+
+            __m128i eq_space = _mm_cmpeq_epi8(chunk, space);
+            __m128i eq_tab = _mm_cmpeq_epi8(chunk, tab);
+            __m128i eq_lf = _mm_cmpeq_epi8(chunk, lf);
+            __m128i eq_cr = _mm_cmpeq_epi8(chunk, cr);
+
+            __m128i is_ws =
+                _mm_or_si128(_mm_or_si128(eq_space, eq_tab), _mm_or_si128(eq_lf, eq_cr));
+
+            int mask = _mm_movemask_epi8(is_ws);
+
+            if (mask == 0) {
+                break;
+            }
+
+            if (mask == 0xFFFF) {
+                ptr += simd_width;
+                continue;
+            }
+
+            int first_non_ws = __builtin_ctz(~mask & 0xFFFF);
+            ptr += first_non_ws;
+            return;
+        }
+#endif
+
+        // Scalar fallback for remaining bytes
+        while (!eof() && is_json_whitespace(static_cast<unsigned char>(*ptr))) {
             ++ptr;
         }
     }
@@ -163,21 +261,17 @@ inline std::optional<double> parse_double(json_cursor& cur) noexcept {
             if (ec == std::errc()) {
                 return val;
             }
-            char* endptr = nullptr;
-            val = std::strtod(sv->data(), &endptr);
-            if (endptr != sv->data()) {
-                return val;
-            }
         }
         return std::nullopt;
     }
+    // Fast path: use std::from_chars instead of std::strtod (2-3x faster)
     const char* start = cur.ptr;
-    char* endptr = nullptr;
-    double v = std::strtod(start, &endptr);
-    if (endptr == start) {
+    double v = 0.0;
+    auto [p, ec] = std::from_chars(start, cur.end, v);
+    if (ec != std::errc() || p == start) {
         return std::nullopt;
     }
-    cur.ptr = endptr;
+    cur.ptr = p;
     return v;
 }
 

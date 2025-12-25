@@ -188,6 +188,92 @@ void response::serialize_into(std::string& out) const {
     out.append(body);
 }
 
+void response::serialize_into(io_buffer& out) const {
+    if (chunked) {
+        out.append(serialize_chunked());
+        return;
+    }
+
+    // Calculate Content-Length if not already set
+    char content_length_buf[32];
+    std::string_view content_length_value;
+    bool has_content_length = headers.get("Content-Length").has_value();
+
+    if (!has_content_length) {
+        auto [ptr, ec] = std::to_chars(
+            content_length_buf, content_length_buf + sizeof(content_length_buf), body.size());
+        if (ec == std::errc()) {
+            content_length_value =
+                std::string_view(content_length_buf, static_cast<size_t>(ptr - content_length_buf));
+        }
+    }
+
+    // Calculate total size in single pass
+    size_t headers_size = 0;
+    for (const auto& [name, value] : headers) {
+        headers_size += name.size() + HEADER_SEPARATOR.size() + value.size() + CRLF.size();
+    }
+
+    if (!content_length_value.empty()) {
+        headers_size += 14 + HEADER_SEPARATOR.size() + content_length_value.size() + CRLF.size();
+    }
+
+    char status_buf[16];
+    auto [ptr, ec] = std::to_chars(status_buf, status_buf + sizeof(status_buf), status);
+    size_t status_len = static_cast<size_t>(ptr - status_buf);
+
+    // Calculate total size
+    size_t total_size = HTTP_VERSION_PREFIX.size() + status_len + 1 + reason.size() + CRLF.size() +
+                        headers_size + CRLF.size() + body.size();
+
+    // Get writable buffer and write directly into it (zero-copy)
+    auto buf = out.writable_span(total_size);
+    uint8_t* write_ptr = buf.data();
+
+    // Write status line
+    std::memcpy(write_ptr, HTTP_VERSION_PREFIX.data(), HTTP_VERSION_PREFIX.size());
+    write_ptr += HTTP_VERSION_PREFIX.size();
+    std::memcpy(write_ptr, status_buf, status_len);
+    write_ptr += status_len;
+    *write_ptr++ = ' ';
+    std::memcpy(write_ptr, reason.data(), reason.size());
+    write_ptr += reason.size();
+    std::memcpy(write_ptr, CRLF.data(), CRLF.size());
+    write_ptr += CRLF.size();
+
+    // Write headers
+    for (const auto& [name, value] : headers) {
+        std::memcpy(write_ptr, name.data(), name.size());
+        write_ptr += name.size();
+        std::memcpy(write_ptr, HEADER_SEPARATOR.data(), HEADER_SEPARATOR.size());
+        write_ptr += HEADER_SEPARATOR.size();
+        std::memcpy(write_ptr, value.data(), value.size());
+        write_ptr += value.size();
+        std::memcpy(write_ptr, CRLF.data(), CRLF.size());
+        write_ptr += CRLF.size();
+    }
+
+    // Write Content-Length if needed
+    if (!content_length_value.empty()) {
+        std::memcpy(write_ptr, "Content-Length", 14);
+        write_ptr += 14;
+        std::memcpy(write_ptr, HEADER_SEPARATOR.data(), HEADER_SEPARATOR.size());
+        write_ptr += HEADER_SEPARATOR.size();
+        std::memcpy(write_ptr, content_length_value.data(), content_length_value.size());
+        write_ptr += content_length_value.size();
+        std::memcpy(write_ptr, CRLF.data(), CRLF.size());
+        write_ptr += CRLF.size();
+    }
+
+    // Write final CRLF and body
+    std::memcpy(write_ptr, CRLF.data(), CRLF.size());
+    write_ptr += CRLF.size();
+    std::memcpy(write_ptr, body.data(), body.size());
+    write_ptr += body.size();
+
+    out.commit(total_size);
+}
+
 std::string response::serialize_chunked(size_t chunk_size) const {
     size_t headers_size = 0;
     for (const auto& [name, value] : headers) {
@@ -244,8 +330,9 @@ response response::ok(std::string body, std::string content_type) {
     res.body = std::move(body);
     char len_buf[21];
     auto [ptr, ec] = std::to_chars(len_buf, len_buf + sizeof(len_buf), res.body.size());
-    res.set_header("Content-Length", std::string_view(len_buf, static_cast<size_t>(ptr - len_buf)));
-    res.set_header("Content-Type", std::move(content_type));
+    res.set_header(http::field::content_length,
+                   std::string_view(len_buf, static_cast<size_t>(ptr - len_buf)));
+    res.set_header(http::field::content_type, std::move(content_type));
     return res;
 }
 
@@ -260,8 +347,9 @@ response response::error(const problem_details& problem) {
     res.body = problem.to_json();
     char len_buf[21];
     auto [ptr, ec] = std::to_chars(len_buf, len_buf + sizeof(len_buf), res.body.size());
-    res.set_header("Content-Length", std::string_view(len_buf, static_cast<size_t>(ptr - len_buf)));
-    res.set_header("Content-Type", "application/problem+json");
+    res.set_header(http::field::content_length,
+                   std::string_view(len_buf, static_cast<size_t>(ptr - len_buf)));
+    res.set_header(http::field::content_type, "application/problem+json");
     return res;
 }
 

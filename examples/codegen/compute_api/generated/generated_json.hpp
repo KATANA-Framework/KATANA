@@ -47,11 +47,11 @@ inline std::optional<compute_sum_body_0> parse_compute_sum_body_0(std::string_vi
         cur.skip_ws();
         if (cur.try_array_end())
             break;
-        auto start = cur.ptr;
-        cur.skip_value();
-        std::string_view elem(start, static_cast<size_t>(cur.ptr - start));
-        if (auto parsed = parse_schema(elem, arena))
-            result.push_back(*parsed);
+        if (auto v = katana::serde::parse_double(cur)) {
+            result.push_back(*v);
+        } else {
+            cur.skip_value();
+        }
         cur.try_comma();
     }
     return result;
@@ -78,11 +78,13 @@ inline std::optional<compute_sum_resp_200_0> parse_compute_sum_resp_200_0(std::s
 
 inline std::string serialize_compute_sum_body_0(const compute_sum_body_0& obj) {
     const auto& arr = obj;
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 16 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
         if (i > 0)
             json.push_back(',');
-        json += serialize_schema(arr[i]);
+        json.append(serialize_schema(arr[i]));
     }
     json.push_back(']');
     return json;
@@ -192,69 +194,81 @@ parse_compute_sum_resp_200_0_array(std::string_view json, monotonic_arena* arena
 }
 
 inline std::string serialize_compute_sum_body_0_array(const std::vector<compute_sum_body_0>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_compute_sum_body_0(arr[i]);
+        json.append(serialize_compute_sum_body_0(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string serialize_compute_sum_body_0_array(const arena_vector<compute_sum_body_0>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_compute_sum_body_0(arr[i]);
+        json.append(serialize_compute_sum_body_0(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string serialize_schema_array(const std::vector<schema>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_schema(arr[i]);
+        json.append(serialize_schema(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string serialize_schema_array(const arena_vector<schema>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_schema(arr[i]);
+        json.append(serialize_schema(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_compute_sum_resp_200_0_array(const std::vector<compute_sum_resp_200_0>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_compute_sum_resp_200_0(arr[i]);
+        json.append(serialize_compute_sum_resp_200_0(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }
 
 inline std::string
 serialize_compute_sum_resp_200_0_array(const arena_vector<compute_sum_resp_200_0>& arr) {
-    std::string json = "[";
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json += serialize_compute_sum_resp_200_0(arr[i]);
+        json.append(serialize_compute_sum_resp_200_0(arr[i]));
         if (i < arr.size() - 1)
-            json += ",";
+            json.push_back(',');
     }
-    json += "]";
+    json.push_back(']');
     return json;
 }

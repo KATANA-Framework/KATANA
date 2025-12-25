@@ -104,11 +104,45 @@ void generate_json_parser_for_schema(std::ostream& out,
             out << "    while (!cur.eof()) {\n";
             out << "        cur.skip_ws();\n";
             out << "        if (cur.try_array_end()) break;\n";
-            out << "        auto start = cur.ptr;\n";
-            out << "        cur.skip_value();\n";
-            out << "        std::string_view elem(start, static_cast<size_t>(cur.ptr - start));\n";
-            out << "        if (auto parsed = parse_" << schema_identifier(doc, s.items)
-                << "(elem, arena)) result.push_back(*parsed);\n";
+
+            // Optimized: direct parsing for primitives (no intermediate string_view)
+            switch (s.items->kind) {
+            case schema_kind::number:
+                out << "        if (auto v = katana::serde::parse_double(cur)) {\n";
+                out << "            result.push_back(*v);\n";
+                out << "        } else { cur.skip_value(); }\n";
+                break;
+            case schema_kind::integer:
+                out << "        if (auto v = katana::serde::parse_size(cur)) {\n";
+                out << "            result.push_back(static_cast<int64_t>(*v));\n";
+                out << "        } else { cur.skip_value(); }\n";
+                break;
+            case schema_kind::boolean:
+                out << "        if (auto v = katana::serde::parse_bool(cur)) {\n";
+                out << "            result.push_back(*v);\n";
+                out << "        } else { cur.skip_value(); }\n";
+                break;
+            case schema_kind::string:
+                out << "        if (auto v = cur.string()) {\n";
+                if (use_pmr) {
+                    out << "            result.emplace_back(v->begin(), v->end(), "
+                           "arena_allocator<char>(arena));\n";
+                } else {
+                    out << "            result.emplace_back(v->begin(), v->end());\n";
+                }
+                out << "        } else { cur.skip_value(); }\n";
+                break;
+            default:
+                // For complex types (objects, nested arrays), use string_view approach
+                out << "        auto start = cur.ptr;\n";
+                out << "        cur.skip_value();\n";
+                out << "        std::string_view elem(start, static_cast<size_t>(cur.ptr - "
+                       "start));\n";
+                out << "        if (auto parsed = parse_" << schema_identifier(doc, s.items)
+                    << "(elem, arena)) result.push_back(*parsed);\n";
+                break;
+            }
+
             out << "        cur.try_comma();\n";
             out << "    }\n";
             out << "    return result;\n";
@@ -318,12 +352,19 @@ void generate_json_serializer_for_schema(std::ostream& out,
         case schema_kind::string:
             if (s.nullable) {
                 out << "    if (!obj) return std::string(\"null\");\n";
-                out << "    return std::string(\"\\\"\") + katana::serde::escape_json_string(*obj) "
-                       "+ \"\\\"\";\n";
+                out << "    std::string json;\n";
+                out << "    json.reserve(obj->size() + 16);\n";
+                out << "    json.push_back('\"');\n";
+                out << "    json.append(katana::serde::escape_json_string(*obj));\n";
+                out << "    json.push_back('\"');\n";
+                out << "    return json;\n";
             } else {
-                out << "    return std::string(\"\\\"\") + katana::serde::escape_json_string(obj) "
-                       "+ "
-                       "\"\\\"\";\n";
+                out << "    std::string json;\n";
+                out << "    json.reserve(obj.size() + 16);\n";
+                out << "    json.push_back('\"');\n";
+                out << "    json.append(katana::serde::escape_json_string(obj));\n";
+                out << "    json.push_back('\"');\n";
+                out << "    return json;\n";
             }
             out << "}\n\n";
             return;
@@ -371,10 +412,13 @@ void generate_json_serializer_for_schema(std::ostream& out,
                 out << "    if (!obj) return std::string(\"null\");\n";
             }
             out << "    const auto& arr = " << (s.nullable ? "*obj" : "obj") << ";\n";
-            out << "    std::string json = \"[\";\n";
+            out << "    std::string json;\n";
+            out << "    json.reserve(arr.size() * 16 + 2);\n";
+            out << "    json.push_back('[');\n";
             out << "    for (size_t i = 0; i < arr.size(); ++i) {\n";
             out << "        if (i > 0) json.push_back(',');\n";
-            out << "        json += serialize_" << schema_identifier(doc, s.items) << "(arr[i]);\n";
+            out << "        json.append(serialize_" << schema_identifier(doc, s.items)
+                << "(arr[i]));\n";
             out << "    }\n";
             out << "    json.push_back(']');\n";
             out << "    return json;\n";
@@ -610,24 +654,28 @@ void generate_json_array_serializer(std::ostream& out,
     auto struct_name = schema_identifier(doc, &s);
     out << "inline std::string serialize_" << struct_name << "_array(const std::vector<"
         << struct_name << ">& arr) {\n";
-    out << "    std::string json = \"[\";\n";
+    out << "    std::string json;\n";
+    out << "    json.reserve(arr.size() * 32 + 2);\n";
+    out << "    json.push_back('[');\n";
     out << "    for (size_t i = 0; i < arr.size(); ++i) {\n";
-    out << "        json += serialize_" << struct_name << "(arr[i]);\n";
-    out << "        if (i < arr.size() - 1) json += \",\";\n";
+    out << "        json.append(serialize_" << struct_name << "(arr[i]));\n";
+    out << "        if (i < arr.size() - 1) json.push_back(',');\n";
     out << "    }\n";
-    out << "    json += \"]\";\n";
+    out << "    json.push_back(']');\n";
     out << "    return json;\n";
     out << "}\n\n";
 
     if (use_pmr) {
         out << "inline std::string serialize_" << struct_name << "_array(const arena_vector<"
             << struct_name << ">& arr) {\n";
-        out << "    std::string json = \"[\";\n";
+        out << "    std::string json;\n";
+        out << "    json.reserve(arr.size() * 32 + 2);\n";
+        out << "    json.push_back('[');\n";
         out << "    for (size_t i = 0; i < arr.size(); ++i) {\n";
-        out << "        json += serialize_" << struct_name << "(arr[i]);\n";
-        out << "        if (i < arr.size() - 1) json += \",\";\n";
+        out << "        json.append(serialize_" << struct_name << "(arr[i]));\n";
+        out << "        if (i < arr.size() - 1) json.push_back(',');\n";
         out << "    }\n";
-        out << "    json += \"]\";\n";
+        out << "    json.push_back(']');\n";
         out << "    return json;\n";
         out << "}\n\n";
     }
