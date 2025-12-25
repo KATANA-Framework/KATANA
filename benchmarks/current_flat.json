@@ -1,0 +1,98 @@
+{
+  "core_performance_arena_allocations_64b_throughput": {
+    "value": 6944444.44,
+    "unit": "ops/sec"
+  },
+  "core_performance_circular_buffer_throughput": {
+    "value": 250000000.0,
+    "unit": "ops/sec"
+  },
+  "core_performance_http_parser_complete_throughput": {
+    "value": 1250000.0,
+    "unit": "ops/sec"
+  },
+  "core_performance_http_parser_fragmented_throughput": {
+    "value": 1282051.28,
+    "unit": "ops/sec"
+  },
+  "core_performance_ring_buffer_single_thread_throughput": {
+    "value": 250000000.0,
+    "unit": "ops/sec"
+  },
+  "core_performance_ring_buffer_concurrent_4x4_throughput": {
+    "value": 16393442.62,
+    "unit": "ops/sec"
+  },
+  "core_performance_ring_buffer_high_contention_8x8_throughput": {
+    "value": 13888888.89,
+    "unit": "ops/sec"
+  },
+  "latency_http_parser_complete_p50": {
+    "value": 0.783,
+    "unit": "us"
+  },
+  "latency_http_parser_complete_p99": {
+    "value": 1.322,
+    "unit": "us"
+  },
+  "latency_http_parser_fragmented_p50": {
+    "value": 0.751,
+    "unit": "us"
+  },
+  "latency_http_parser_fragmented_p99": {
+    "value": 1.358,
+    "unit": "us"
+  },
+  "latency_simd_crlf_1_5kb_p99": {
+    "value": 0.022,
+    "unit": "us"
+  },
+  "latency_simd_crlf_16kb_p99": {
+    "value": 0.318,
+    "unit": "us"
+  },
+  "latency_circular_buffer_p99": {
+    "value": 0.005,
+    "unit": "us"
+  },
+  "latency_ring_buffer_single_thread_p99": {
+    "value": 0.004,
+    "unit": "us"
+  },
+  "latency_keepalive_p99": {
+    "value": 0.164,
+    "unit": "ms"
+  },
+  "scalability_thread_scaling_8_threads_throughput": {
+    "value": 175527.5,
+    "unit": "req/s"
+  },
+  "scalability_fanout_256_connections_throughput": {
+    "value": 273870.8,
+    "unit": "req/s"
+  },
+  "scalability_connection_churn_4_threads_throughput": {
+    "value": 16011.333,
+    "unit": "req/s"
+  },
+  "scalability_stability_sustained_throughput": {
+    "value": 42067.649,
+    "unit": "req/s"
+  },
+  "simd_crlf_search_1_5kb_throughput": {
+    "value": 100000000.0,
+    "unit": "ops/sec"
+  },
+  "simd_crlf_search_16kb_throughput": {
+    "value": 4545454.55,
+    "unit": "ops/sec"
+  },
+  "timer_wheel_timer_add_throughput": {
+    "value": 6250000.0,
+    "unit": "ops/sec"
+  },
+  "timer_wheel_timer_tick_throughput": {
+    "value": 16666666.67,
+    "unit": "ops/sec"
+  }
+}

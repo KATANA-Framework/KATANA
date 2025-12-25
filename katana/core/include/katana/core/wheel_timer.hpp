@@ -24,7 +24,10 @@ public:
 
     wheel_timer() : current_slot_(0), last_tick_(clock::now()) {
         slots_.resize(WHEEL_SIZE);
-        entries_.reserve(WHEEL_SIZE);
+        for (auto& bucket : slots_) {
+            bucket.handles.reserve(256); // reduce reallocations on steady workloads
+        }
+        entries_.reserve(WHEEL_SIZE * 256); // avoid frequent reallocations on bursty add
     }
 
     timeout_id add(duration timeout, callback_fn cb) {

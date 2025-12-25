@@ -62,13 +62,13 @@ void bench_json_string_encode(size_t iterations) {
 
     // Warmup
     for (size_t i = 0; i < 10000; ++i) {
-        [[maybe_unused]] auto encoded = serde::encode_string(small);
+        [[maybe_unused]] auto encoded = serde::escape_json_string(small);
     }
 
     // Benchmark small strings
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
-        [[maybe_unused]] auto encoded = serde::encode_string(small);
+        [[maybe_unused]] auto encoded = serde::escape_json_string(small);
         auto end = std::chrono::steady_clock::now();
         stats_small.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }
@@ -76,7 +76,7 @@ void bench_json_string_encode(size_t iterations) {
     // Benchmark medium strings
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
-        [[maybe_unused]] auto encoded = serde::encode_string(medium);
+        [[maybe_unused]] auto encoded = serde::escape_json_string(medium);
         auto end = std::chrono::steady_clock::now();
         stats_medium.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }
@@ -84,7 +84,7 @@ void bench_json_string_encode(size_t iterations) {
     // Benchmark large strings
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
-        [[maybe_unused]] auto encoded = serde::encode_string(large);
+        [[maybe_unused]] auto encoded = serde::escape_json_string(large);
         auto end = std::chrono::steady_clock::now();
         stats_large.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }

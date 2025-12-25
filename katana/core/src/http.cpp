@@ -132,9 +132,29 @@ void response::serialize_into(std::string& out) const {
         return;
     }
 
+    // Calculate Content-Length if not already set
+    char content_length_buf[32];
+    std::string_view content_length_value;
+    bool has_content_length = headers.get("Content-Length").has_value();
+
+    if (!has_content_length) {
+        auto [ptr, ec] = std::to_chars(
+            content_length_buf, content_length_buf + sizeof(content_length_buf), body.size());
+        if (ec == std::errc()) {
+            content_length_value =
+                std::string_view(content_length_buf, static_cast<size_t>(ptr - content_length_buf));
+        }
+    }
+
     size_t headers_size = 0;
     for (const auto& [name, value] : headers) {
         headers_size += name.size() + HEADER_SEPARATOR.size() + value.size() + CRLF.size();
+    }
+
+    // Add space for Content-Length header if we're adding it
+    if (!content_length_value.empty()) {
+        headers_size += 14 + HEADER_SEPARATOR.size() + content_length_value.size() +
+                        CRLF.size(); // "Content-Length"
     }
 
     out.clear();
@@ -153,6 +173,14 @@ void response::serialize_into(std::string& out) const {
         out.append(name);
         out.append(HEADER_SEPARATOR);
         out.append(value);
+        out.append(CRLF);
+    }
+
+    // Add Content-Length header if needed
+    if (!content_length_value.empty()) {
+        out.append("Content-Length");
+        out.append(HEADER_SEPARATOR);
+        out.append(content_length_value);
         out.append(CRLF);
     }
 
