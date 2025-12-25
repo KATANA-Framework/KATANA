@@ -5,10 +5,23 @@
 #include <iostream>
 #include <sys/socket.h>
 
+// Debug logging disabled for performance
+#define DEBUG_LOG(fmt, ...)                                                                        \
+    do {                                                                                           \
+    } while (0)
+
 namespace katana {
 namespace http {
 
 void server::handle_connection(connection_state& state, [[maybe_unused]] reactor& r) {
+    // DEBUG: Track iterations
+    static thread_local int iter_count = 0;
+    ++iter_count;
+    DEBUG_LOG("[DEBUG] handle_connection iter=%d write_buf_empty=%d read_buf_empty=%d\n",
+              iter_count,
+              state.write_buffer.empty() ? 1 : 0,
+              state.read_buffer.empty() ? 1 : 0);
+
     if (!state.write_buffer.empty()) {
         while (!state.write_buffer.empty()) {
             auto data = state.write_buffer.readable_span();
@@ -49,17 +62,22 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             if (!read_result) {
                 if (read_result.error().value() == EAGAIN ||
                     read_result.error().value() == EWOULDBLOCK) {
+                    DEBUG_LOG("[DEBUG] Read EAGAIN, breaking from loop\n");
                     break;
                 }
+                DEBUG_LOG("[DEBUG] Read error=%d, closing connection\n",
+                          read_result.error().value());
                 state.watch.reset();
                 return;
             }
 
             if (read_result->empty()) {
+                DEBUG_LOG("[DEBUG] Read returned 0 (EOF), closing connection\n");
                 state.watch.reset();
                 return;
             }
 
+            DEBUG_LOG("[DEBUG] Read %zu bytes\n", read_result->size());
             state.read_buffer.commit(read_result->size());
         }
 
@@ -80,6 +98,9 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         size_t parsed_bytes = state.http_parser.bytes_parsed();
         state.read_buffer.consume(parsed_bytes);
 
+        DEBUG_LOG("[DEBUG] Request parsed, read_buf_size_after_consume=%zu\n",
+                  state.read_buffer.readable_span().size());
+
         const auto& req = state.http_parser.get_request();
         request_context ctx{state.arena};
         auto resp = dispatch_or_problem(router_, req, ctx);
@@ -98,6 +119,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 
         state.write_buffer.append(resp.serialize());
 
+        size_t total_sent = 0;
         while (!state.write_buffer.empty()) {
             auto data = state.write_buffer.readable_span();
             auto write_result = state.socket.write(data);
@@ -105,33 +127,50 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             if (!write_result) {
                 if (write_result.error().value() == EAGAIN ||
                     write_result.error().value() == EWOULDBLOCK) {
+                    DEBUG_LOG("[DEBUG] Write EAGAIN, total_sent=%zu, remaining=%zu\n",
+                              total_sent,
+                              state.write_buffer.readable_span().size());
                     state.watch->modify(event_type::writable);
                     return;
                 }
+                DEBUG_LOG("[DEBUG] Write error=%d, total_sent=%zu\n",
+                          write_result.error().value(),
+                          total_sent);
                 state.watch.reset();
                 return;
             }
 
             if (write_result.value() == 0) {
+                DEBUG_LOG("[DEBUG] Write returned 0, total_sent=%zu\n", total_sent);
                 break;
             }
 
+            total_sent += write_result.value();
             state.write_buffer.consume(write_result.value());
         }
 
         if (!state.write_buffer.empty()) {
+            DEBUG_LOG("[DEBUG] Write incomplete, total_sent=%zu, remaining=%zu\n",
+                      total_sent,
+                      state.write_buffer.readable_span().size());
             state.watch->modify(event_type::writable);
             return;
         }
 
+        DEBUG_LOG("[DEBUG] Write complete, total_sent=%zu bytes\n", total_sent);
+
         if (close_connection) {
+            DEBUG_LOG("[DEBUG] Close connection requested, exiting\n");
             state.watch.reset();
             return;
         }
 
+        DEBUG_LOG("[DEBUG] Response sent, continuing keep-alive loop\n");
+
         state.arena.reset();
         state.http_parser.reset(&state.arena);
     }
+    DEBUG_LOG("[DEBUG] Exiting handle_connection (while loop ended)\n");
 }
 
 void server::accept_connection(reactor& r,

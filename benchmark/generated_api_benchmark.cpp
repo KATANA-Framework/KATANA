@@ -71,6 +71,9 @@ request make_request(std::string_view uri, method m, std::string_view body = "")
     req.uri = uri;
     req.headers = headers_map(nullptr);
     req.headers.set(field::accept, "application/json");
+    if (!body.empty()) {
+        req.headers.set(field::content_type, "application/json");
+    }
     req.body = body;
     return req;
 }

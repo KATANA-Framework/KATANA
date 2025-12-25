@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <iomanip>
@@ -10,6 +11,7 @@
 #include <numeric>
 #include <random>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "katana/core/arena.hpp"
@@ -113,7 +115,9 @@ void bench_routing_only(size_t iterations) {
          handler_fn([](const request&, request_context&) { return response::ok("[]"); })},
         {method::post,
          path_pattern::from_literal<"/products">(),
-         handler_fn([](const request&, request_context&) { return response{201, "{}"}; })},
+         handler_fn([](const request&, request_context&) {
+             return response{}.with_status(201).with_body("{}");
+         })},
         {method::get,
          path_pattern::from_literal<"/products/{id}">(),
          handler_fn([](const request&, request_context&) { return response::ok("{}"); })},
@@ -122,7 +126,9 @@ void bench_routing_only(size_t iterations) {
          handler_fn([](const request&, request_context&) { return response::ok("{}"); })},
         {method::del,
          path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context&) { return response{204, ""}; })},
+         handler_fn([](const request&, request_context&) {
+             return response{}.with_status(204).with_body("");
+         })},
     };
 
     router r(routes);
@@ -135,7 +141,7 @@ void bench_routing_only(size_t iterations) {
         request req;
         req.http_method = method::get;
         req.uri = "/products/123";
-        [[maybe_unused]] auto resp = r.handle(req, ctx);
+        [[maybe_unused]] auto resp = dispatch_or_problem(r, req, ctx);
     }
 
     // Measurement
@@ -169,7 +175,7 @@ void bench_routing_only(size_t iterations) {
         }
 
         auto start = std::chrono::steady_clock::now();
-        [[maybe_unused]] auto resp = r.handle(req, ctx);
+        [[maybe_unused]] auto resp = dispatch_or_problem(r, req, ctx);
         auto end = std::chrono::steady_clock::now();
 
         stats.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
@@ -305,7 +311,7 @@ void bench_mixed_crud(size_t iterations) {
          handler_fn([](const request&, request_context&) {
              // Simulate create
              int64_t id = global_store.create("PROD-001", "Product", 99.99, 100);
-             return response{201, "{\"id\":" + std::to_string(id) + "}"};
+             return response{}.with_status(201).with_body("{\"id\":" + std::to_string(id) + "}");
          })},
         {method::get,
          path_pattern::from_literal<"/products/{id}">(),
@@ -315,7 +321,7 @@ void bench_mixed_crud(size_t iterations) {
              int64_t id = std::strtoll(id_str.data(), nullptr, 10);
              auto product = global_store.get(id);
              if (!product) {
-                 return response{404, "{\"error\":\"not found\"}"};
+                 return response{}.with_status(404).with_body("{\"error\":\"not found\"}");
              }
              return response::ok("{\"id\":" + std::to_string(product->id) + "}");
          })},
@@ -327,7 +333,7 @@ void bench_mixed_crud(size_t iterations) {
              int64_t id = std::strtoll(id_str.data(), nullptr, 10);
              bool updated = global_store.update(id, 89.99, 90);
              if (!updated) {
-                 return response{404, "{\"error\":\"not found\"}"};
+                 return response{}.with_status(404).with_body("{\"error\":\"not found\"}");
              }
              return response::ok("{\"id\":" + std::to_string(id) + "}");
          })},
@@ -338,7 +344,7 @@ void bench_mixed_crud(size_t iterations) {
              auto id_str = ctx.params.get("id").value_or("0");
              int64_t id = std::strtoll(id_str.data(), nullptr, 10);
              [[maybe_unused]] bool deleted = global_store.remove(id);
-             return response{204, ""};
+             return response{}.with_status(204).with_body("");
          })},
     };
 
@@ -358,7 +364,7 @@ void bench_mixed_crud(size_t iterations) {
         request req;
         req.http_method = method::get;
         req.uri = "/products/50";
-        [[maybe_unused]] auto resp = r.handle(req, ctx);
+        [[maybe_unused]] auto resp = dispatch_or_problem(r, req, ctx);
     }
 
     // Measurement - Mixed workload: 40% GET list, 30% GET id, 15% POST, 10% PUT, 5% DELETE
@@ -370,6 +376,7 @@ void bench_mixed_crud(size_t iterations) {
         monotonic_arena arena;
         request_context ctx{arena};
         request req;
+        arena_string<char> uri_storage{arena_allocator<char>(&arena)};
 
         int op = op_dist(rng);
         if (op <= 40) {
@@ -380,7 +387,8 @@ void bench_mixed_crud(size_t iterations) {
             // GET by ID (30%)
             req.http_method = method::get;
             int id = id_dist(rng);
-            req.uri = "/products/" + std::to_string(id);
+            uri_storage = "/products/" + std::to_string(id);
+            req.uri = uri_storage;
         } else if (op <= 85) {
             // POST create (15%)
             req.http_method = method::post;
@@ -390,17 +398,19 @@ void bench_mixed_crud(size_t iterations) {
             // PUT update (10%)
             req.http_method = method::put;
             int id = id_dist(rng);
-            req.uri = "/products/" + std::to_string(id);
+            uri_storage = "/products/" + std::to_string(id);
+            req.uri = uri_storage;
             req.body = "{\"price\":79.99,\"stock\":40}";
         } else {
             // DELETE (5%)
             req.http_method = method::del;
             int id = id_dist(rng);
-            req.uri = "/products/" + std::to_string(id);
+            uri_storage = "/products/" + std::to_string(id);
+            req.uri = uri_storage;
         }
 
         auto start = std::chrono::steady_clock::now();
-        [[maybe_unused]] auto resp = r.handle(req, ctx);
+        [[maybe_unused]] auto resp = dispatch_or_problem(r, req, ctx);
         auto end = std::chrono::steady_clock::now();
 
         stats.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
