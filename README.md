@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 25.12 15:30 — fix: resolve critical HTTP bugs in benchmarks and response serialization (e66c8ea)
+* 26.12 02:29 — perf: eliminate HTTP header string lookup overhead (+12-38% throughput) (9f01ee0)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
@@ -252,10 +252,10 @@ if (result) {
 ### 📈 Качество бенчмарков
 
 <!-- BENCH_SUMMARY_START -->
-* Отчёт сгенерирован 2025-12-25 15:17:18.
-* Keep-alive: throughput 9886.652 req/s, p99 0.17 ms, 315910 samples.
-* Масштабирование: 128 коннектов — 281326 req/s; 8 потоков — 228876 req/s.
-* Устойчивость: sustained 40258.969 req/s, всего 201307 requests.
+* Отчёт сгенерирован 2025-12-26 02:22:40.
+* Keep-alive: throughput 11765.683 req/s, p99 0.093 ms, 484589 samples.
+* Масштабирование: 128 коннектов — 262348.8 req/s; 8 потоков — 240454.5 req/s.
+* Устойчивость: sustained 40963.94 req/s, всего 204830 requests.
 <!-- BENCH_SUMMARY_END -->
 
 ---
