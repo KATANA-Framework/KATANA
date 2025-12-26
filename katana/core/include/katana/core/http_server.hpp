@@ -105,6 +105,7 @@ private:
         monotonic_arena arena;
         parser http_parser;
         std::unique_ptr<fd_watch> watch;
+        bool close_requested = false; // Track if connection should close after response
 
         explicit connection_state(tcp_socket sock)
             : socket(std::move(sock)), read_buffer(8192), write_buffer(8192), arena(8192),
