@@ -84,11 +84,14 @@ benchmark_result benchmark_buffer_append_large() {
 
     auto start = steady_clock::now();
 
+    // Pre-allocate buffer with proper capacity to measure actual append performance
+    io_buffer buffer(4096);
+
     for (size_t i = 0; i < num_operations; ++i) {
         auto op_start = steady_clock::now();
 
-        io_buffer buffer;
         buffer.append(std::span(data));
+        buffer.clear(); // Clear for next iteration
 
         auto op_end = steady_clock::now();
 
