@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 26.12 02:29 — perf: eliminate HTTP header string lookup overhead (+12-38% throughput) (9f01ee0)
+* 26.12 02:30 — Delete BENCHMARK_COMPARISON.md (29782aa)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
