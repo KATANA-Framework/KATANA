@@ -62,8 +62,7 @@ private:
 
     static constexpr size_t COMPACT_THRESHOLD = 4096;
     static constexpr size_t INITIAL_CAPACITY = 64;
-    static constexpr size_t STATIC_SCRATCH_CAPACITY = 65536; // 64 KB scratch reused per thread
-    alignas(64) static thread_local uint8_t static_scratch_[STATIC_SCRATCH_CAPACITY];
+    static constexpr size_t STATIC_SCRATCH_CAPACITY = 65536; // 64 KB legacy scratch (unused)
 };
 
 class scatter_gather_read {
