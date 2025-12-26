@@ -60,7 +60,7 @@ inline std::optional<std::string_view> query_param(std::string_view uri, std::st
 
 inline std::optional<std::string_view> cookie_param(const katana::http::request& req,
                                                     std::string_view key) {
-    auto cookie = req.headers.get("Cookie");
+    auto cookie = req.headers.get(katana::http::field::cookie);
     if (!cookie)
         return std::nullopt;
     std::string_view rest = *cookie;
@@ -101,7 +101,7 @@ negotiate_response_type(const katana::http::request& req,
                         std::span<const content_type_info> produces) {
     if (produces.empty())
         return std::nullopt;
-    auto accept = req.headers.get("Accept");
+    auto accept = req.headers.get(katana::http::field::accept);
     // Fast path: no Accept header or */*, return first
     if (!accept || accept->empty() || *accept == "*/*") {
         return produces.front().mime_type;
@@ -177,6 +177,47 @@ constexpr uint64_t hash_string(std::string_view str) noexcept {
 // Pre-computed path hashes for static routes
 constexpr uint64_t HASH_REGISTER_USER = hash_string("/user/register");
 
+// Inline dispatch for /user/register
+inline katana::result<katana::http::response> dispatch_register_user(
+    const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler) {
+    auto negotiated_response = negotiate_response_type(req, route_0_produces);
+    if (!negotiated_response) {
+        return katana::http::response::error(
+            katana::problem_details::not_acceptable("unsupported Accept header"));
+    }
+    auto matched_ct =
+        find_content_type(req.headers.get(katana::http::field::content_type), route_0_consumes);
+    if (!matched_ct)
+        return katana::http::response::error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+    std::optional<RegisterUserRequest> parsed_body;
+    switch (*matched_ct) {
+    case 0: {
+        auto candidate = parse_RegisterUserRequest(req.body, &ctx.arena);
+        if (!candidate)
+            return katana::http::response::error(
+                katana::problem_details::bad_request("invalid request body"));
+        parsed_body = std::move(*candidate);
+        break;
+    }
+    default:
+        return katana::http::response::error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+    }
+
+    // Automatic validation (optimized: single allocation)
+    if (auto validation_error = validate_RegisterUserRequest(*parsed_body)) {
+        return format_validation_error(*validation_error);
+    }
+    // Set handler context for zero-boilerplate access
+    katana::http::handler_context::scope context_scope(req, ctx);
+    auto generated_response = handler.register_user(*parsed_body);
+    if (negotiated_response && !generated_response.headers.get(katana::http::field::content_type)) {
+        generated_response.set_header("Content-Type", *negotiated_response);
+    }
+    return generated_response;
+}
+
 inline const katana::http::router& make_router(api_handler& handler) {
     using katana::http::handler_fn;
     using katana::http::path_pattern;
@@ -193,8 +234,8 @@ inline const katana::http::router& make_router(api_handler& handler) {
                         return katana::http::response::error(
                             katana::problem_details::not_acceptable("unsupported Accept header"));
                     }
-                    auto matched_ct =
-                        find_content_type(req.headers.get("Content-Type"), route_0_consumes);
+                    auto matched_ct = find_content_type(
+                        req.headers.get(katana::http::field::content_type), route_0_consumes);
                     if (!matched_ct)
                         return katana::http::response::error(
                             katana::problem_details::unsupported_media_type(
@@ -221,7 +262,8 @@ inline const katana::http::router& make_router(api_handler& handler) {
                     // Set handler context for zero-boilerplate access
                     katana::http::handler_context::scope context_scope(req, ctx);
                     auto generated_response = handler.register_user(*parsed_body);
-                    if (negotiated_response && !generated_response.headers.get("Content-Type")) {
+                    if (negotiated_response &&
+                        !generated_response.headers.get(katana::http::field::content_type)) {
                         generated_response.set_header("Content-Type", *negotiated_response);
                     }
                     return generated_response;
@@ -234,7 +276,8 @@ inline const katana::http::router& make_router(api_handler& handler) {
 // Optimized router with hash-based O(1) dispatch for static routes
 class fast_router {
 public:
-    explicit fast_router(const katana::http::router& fallback) : fallback_router_(fallback) {}
+    explicit fast_router(api_handler& handler, const katana::http::router& fallback)
+        : handler_(handler), fallback_router_(fallback) {}
 
     katana::result<katana::http::response> operator()(const katana::http::request& req,
                                                       katana::http::request_context& ctx) const {
@@ -250,8 +293,8 @@ public:
         switch (path_hash) {
         case HASH_REGISTER_USER:
             if (path == "/user/register" && req.http_method == katana::http::method::post) {
-                // Hash matched, path matched, method matched - dispatch directly
-                return fallback_router_.dispatch(req, ctx);
+                // Hash matched, path matched, method matched - inline dispatch!
+                return dispatch_register_user(req, ctx, handler_);
             }
             break;
         default:
@@ -266,12 +309,13 @@ public:
     }
 
 private:
+    api_handler& handler_;
     const katana::http::router& fallback_router_;
 };
 
 // Create optimized router (recommended for production)
 inline fast_router make_fast_router(api_handler& handler) {
-    return fast_router(make_router(handler));
+    return fast_router(handler, make_router(handler));
 }
 
 // Zero-boilerplate server creation

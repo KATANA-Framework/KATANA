@@ -589,7 +589,8 @@ end
             status_hist = {size: {} for size in sizes}
             stop_event = threading.Event()
 
-            connections_per_thread = max(64, min(128, thread_count * 16))
+            # Reduced from 64-128 to 4-8 per thread for realistic load
+            connections_per_thread = max(4, min(8, thread_count * 2))
 
             def make_socket():
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -601,37 +602,57 @@ end
             def worker():
                 rng = random.Random()
                 socks = []
+                # Create initial pool of connections
                 for _ in range(connections_per_thread):
                     try:
                         socks.append(make_socket())
                     except Exception:
                         pass
+
                 idx = 0
                 while not stop_event.is_set():
                     size = sizes[rng.randrange(len(sizes))]
                     req_bytes = request_cache[size]
                     sock = None
+
+                    # Try to get a socket from pool
                     if socks:
                         sock = socks[idx % len(socks)]
                         idx += 1
+
                     try:
+                        # Create new socket if pool is empty
                         if not sock:
                             sock = make_socket()
                             socks.append(sock)
+
                         start = time.perf_counter()
                         sock.sendall(req_bytes)
                         status, _ = read_response(sock)
                         latency_ms = (time.perf_counter() - start) * 1000.0
+
                         totals[size] += 1
-                        status_hist[size][status] = status_hist[size].get(status, 0) + 1
-                        if collect_stats and status == 200:
-                            latencies[size].append(latency_ms)
-                        elif status != 200:
+                        if status is not None:
+                            status_hist[size][status] = status_hist[size].get(status, 0) + 1
+                        else:
+                            status_hist[size][0] = status_hist[size].get(0, 0) + 1
+
+                        if status == 200:
+                            if collect_stats:
+                                latencies[size].append(latency_ms)
+                        else:
                             errors[size] += 1
+                            # On error, close and remove bad socket
+                            if sock in socks:
+                                sock.close()
+                                socks.remove(sock)
+                                sock = None
+
                     except Exception:
                         errors[size] += 1
+                        # On exception, close and remove bad socket
                         try:
-                            if sock:
+                            if sock and sock in socks:
                                 sock.close()
                                 socks.remove(sock)
                         except Exception:
@@ -832,7 +853,8 @@ end
             latencies = {"valid": [], "invalid": []}
             status_hist = {"valid": {}, "invalid": {}}
             stop_event = threading.Event()
-            connections_per_thread = max(64, min(128, thread_count * 16))
+            # Reduced from 64-128 to 4-8 per thread for realistic load
+            connections_per_thread = max(4, min(8, thread_count * 2))
 
             def make_socket():
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -844,30 +866,42 @@ end
             def worker():
                 rng = random.Random()
                 socks = []
+                # Create initial pool of connections
                 for _ in range(connections_per_thread):
                     try:
                         socks.append(make_socket())
                     except Exception:
                         pass
+
                 idx = 0
                 while not stop_event.is_set():
                     use_valid = rng.random() < 0.6
                     req_bytes = request_valid if use_valid else rng.choice(request_invalid)
                     key = "valid" if use_valid else "invalid"
                     sock = None
+
+                    # Try to get a socket from pool
                     if socks:
                         sock = socks[idx % len(socks)]
                         idx += 1
+
                     try:
+                        # Create new socket if pool is empty
                         if not sock:
                             sock = make_socket()
                             socks.append(sock)
+
                         start = time.perf_counter()
                         sock.sendall(req_bytes)
                         status, _ = read_response(sock)
                         latency_ms = (time.perf_counter() - start) * 1000.0
+
                         totals[key] += 1
-                        status_hist[key][status] = status_hist[key].get(status, 0) + 1
+                        if status is not None:
+                            status_hist[key][status] = status_hist[key].get(status, 0) + 1
+                        else:
+                            status_hist[key][0] = status_hist[key].get(0, 0) + 1
+
                         if not collect_stats:
                             if status is None or status >= 500:
                                 errors[key] += 1
@@ -878,15 +912,27 @@ end
                                 latencies[key].append(latency_ms)
                             else:
                                 errors[key] += 1
+                                # On error, close and remove bad socket
+                                if sock in socks:
+                                    sock.close()
+                                    socks.remove(sock)
+                                    sock = None
                         else:
                             if status in (400, 422):
                                 latencies[key].append(latency_ms)
                             else:
                                 errors[key] += 1
+                                # On error, close and remove bad socket
+                                if sock in socks:
+                                    sock.close()
+                                    socks.remove(sock)
+                                    sock = None
+
                     except Exception:
                         errors[key] += 1
+                        # On exception, close and remove bad socket
                         try:
-                            if sock:
+                            if sock and sock in socks:
                                 sock.close()
                                 socks.remove(sock)
                         except Exception:

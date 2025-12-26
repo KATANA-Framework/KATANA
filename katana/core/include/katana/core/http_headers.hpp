@@ -8,9 +8,11 @@
 #include <cctype>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #if defined(__x86_64__) || defined(_M_X64)
@@ -212,14 +214,49 @@ private:
     static constexpr size_t UNKNOWN_HEADERS_INLINE_SIZE = 8;
     static constexpr size_t KNOWN_HEADERS_COUNT = static_cast<size_t>(field::MAX_FIELD_VALUE);
 
+    struct known_headers_storage {
+        std::array<known_entry, KNOWN_HEADERS_COUNT> entries{};
+    };
+
 public:
     explicit headers_map(monotonic_arena* arena = nullptr) noexcept
-        : arena_(arena), fallback_arena_(arena ? nullptr : &owned_arena_) {
-        unknown_entries_.reserve(UNKNOWN_HEADERS_INLINE_SIZE);
+        : arena_(arena), fallback_arena_(arena ? nullptr : &owned_arena_),
+          known_entries_(std::make_unique<known_headers_storage>()) {}
+
+    headers_map(headers_map&& other) noexcept
+        : arena_(other.arena_ == &other.owned_arena_ ? nullptr : other.arena_),
+          fallback_arena_(nullptr), owned_arena_(std::move(other.owned_arena_)),
+          known_entries_(std::move(other.known_entries_)), known_size_(other.known_size_),
+          unknown_entries_(std::move(other.unknown_entries_)),
+          known_touched_indices_(other.known_touched_indices_),
+          known_touched_flags_(other.known_touched_flags_),
+          known_touched_count_(other.known_touched_count_) {
+        fallback_arena_ = arena_ ? nullptr : &owned_arena_;
+        other.arena_ = nullptr;
+        other.fallback_arena_ = &other.owned_arena_;
+        other.known_size_ = 0;
+        other.known_touched_count_ = 0;
     }
 
-    headers_map(headers_map&&) noexcept = default;
-    headers_map& operator=(headers_map&&) noexcept = default;
+    headers_map& operator=(headers_map&& other) noexcept {
+        if (this != &other) {
+            arena_ = other.arena_ == &other.owned_arena_ ? nullptr : other.arena_;
+            owned_arena_ = std::move(other.owned_arena_);
+            known_entries_ = std::move(other.known_entries_);
+            known_size_ = other.known_size_;
+            unknown_entries_ = std::move(other.unknown_entries_);
+            known_touched_indices_ = other.known_touched_indices_;
+            known_touched_flags_ = other.known_touched_flags_;
+            known_touched_count_ = other.known_touched_count_;
+            fallback_arena_ = arena_ ? nullptr : &owned_arena_;
+
+            other.arena_ = nullptr;
+            other.fallback_arena_ = &other.owned_arena_;
+            other.known_size_ = 0;
+            other.known_touched_count_ = 0;
+        }
+        return *this;
+    }
 
     headers_map(const headers_map&) = delete;
     headers_map& operator=(const headers_map&) = delete;
@@ -237,8 +274,12 @@ public:
         if (!value_ptr)
             return;
 
-        auto& entry = known_entries_[idx];
+        auto& entry = known_entries_->entries[idx];
         if (!entry.value) {
+            if (!known_touched_flags_[idx]) {
+                known_touched_flags_[idx] = 1;
+                known_touched_indices_[known_touched_count_++] = static_cast<uint16_t>(idx);
+            }
             ++known_size_;
         }
         entry.value = value_ptr;
@@ -281,7 +322,7 @@ public:
             return std::nullopt;
         }
 
-        const auto& entry = known_entries_[static_cast<size_t>(f)];
+        const auto& entry = known_entries_->entries[static_cast<size_t>(f)];
         if (!entry.value) {
             return std::nullopt;
         }
@@ -311,7 +352,7 @@ public:
             return false;
         }
 
-        return known_entries_[idx].value != nullptr;
+        return known_entries_->entries[idx].value != nullptr;
     }
 
     [[nodiscard]] bool contains(std::string_view name) const noexcept {
@@ -337,7 +378,7 @@ public:
             return;
         }
 
-        auto& entry = known_entries_[idx];
+        auto& entry = known_entries_->entries[idx];
         if (entry.value) {
             entry = {};
             if (known_size_ > 0) {
@@ -366,9 +407,12 @@ public:
     }
 
     void clear() noexcept {
-        for (auto& entry : known_entries_) {
-            entry = {};
+        for (size_t i = 0; i < known_touched_count_; ++i) {
+            auto idx = static_cast<size_t>(known_touched_indices_[i]);
+            known_entries_->entries[idx] = {};
+            known_touched_flags_[idx] = 0;
         }
+        known_touched_count_ = 0;
         known_size_ = 0;
         unknown_entries_.clear();
     }
@@ -379,7 +423,8 @@ public:
         bool in_known;
 
         void advance_known() noexcept {
-            while (in_known && index < KNOWN_HEADERS_COUNT && !map->known_entries_[index].value) {
+            while (in_known && index < KNOWN_HEADERS_COUNT &&
+                   !map->known_entries_->entries[index].value) {
                 ++index;
             }
 
@@ -405,7 +450,7 @@ public:
 
         std::pair<std::string_view, std::string_view> operator*() const {
             if (in_known) {
-                const auto& e = map->known_entries_[index];
+                const auto& e = map->known_entries_->entries[index];
                 return {field_to_string(static_cast<field>(index)),
                         std::string_view(e.value, e.length)};
             }
@@ -435,7 +480,12 @@ public:
     void reset(monotonic_arena* arena) noexcept {
         arena_ = arena;
         fallback_arena_ = arena_ ? nullptr : &owned_arena_;
-        known_entries_.fill({});
+        for (size_t i = 0; i < known_touched_count_; ++i) {
+            auto idx = static_cast<size_t>(known_touched_indices_[i]);
+            known_entries_->entries[idx] = {};
+            known_touched_flags_[idx] = 0;
+        }
+        known_touched_count_ = 0;
         known_size_ = 0;
         unknown_entries_.clear();
     }
@@ -444,9 +494,12 @@ private:
     monotonic_arena* arena_;
     monotonic_arena* fallback_arena_;
     monotonic_arena owned_arena_{4096};
-    std::array<known_entry, KNOWN_HEADERS_COUNT> known_entries_{};
+    std::unique_ptr<known_headers_storage> known_entries_;
     size_t known_size_ = 0;
     std::vector<unknown_entry> unknown_entries_;
+    std::array<uint16_t, KNOWN_HEADERS_COUNT> known_touched_indices_{};
+    std::array<uint8_t, KNOWN_HEADERS_COUNT> known_touched_flags_{};
+    size_t known_touched_count_ = 0;
 };
 
 } // namespace katana::http

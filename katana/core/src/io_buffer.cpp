@@ -26,22 +26,18 @@ std::unique_ptr<uint8_t[], io_buffer::aligned_delete> allocate_raw(size_t n) {
 }
 } // namespace
 
-alignas(64) thread_local uint8_t io_buffer::static_scratch_[io_buffer::STATIC_SCRATCH_CAPACITY];
-
 io_buffer::io_buffer() {
-    // Default to the per-thread scratch arena to avoid heap work on the hot path.
-    data_ = static_scratch_;
-    capacity_ = STATIC_SCRATCH_CAPACITY;
+    capacity_ = INITIAL_CAPACITY;
+    owner_ = allocate_raw(capacity_);
+    data_ = owner_.get();
 }
 
 io_buffer::io_buffer(size_t capacity) : capacity_(capacity) {
-    if (capacity_ == 0 || capacity_ <= STATIC_SCRATCH_CAPACITY) {
-        data_ = static_scratch_;
-        capacity_ = STATIC_SCRATCH_CAPACITY;
-    } else {
-        owner_ = allocate_raw(capacity_);
-        data_ = owner_.get();
+    if (capacity_ == 0) {
+        capacity_ = INITIAL_CAPACITY;
     }
+    owner_ = allocate_raw(capacity_);
+    data_ = owner_.get();
 }
 
 void io_buffer::append(std::span<const uint8_t> data) {
