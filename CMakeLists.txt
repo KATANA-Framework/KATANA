@@ -143,6 +143,7 @@ if(ENABLE_EXAMPLES)
     # Codegen examples
     add_subdirectory(examples/codegen/compute_api)
     add_subdirectory(examples/codegen/validation_api)
+    add_subdirectory(examples/codegen/text_api)
 endif()
 
 if(ENABLE_TOOLS)

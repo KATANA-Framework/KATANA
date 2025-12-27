@@ -52,6 +52,22 @@ void generate_json_parser_for_schema(std::ostream& out,
     // Scalars and arrays
     if (s.properties.empty()) {
         using katana::openapi::schema_kind;
+
+        // Check if this is an enum type (string with enum_values)
+        bool is_enum = s.kind == schema_kind::string && !s.enum_values.empty();
+
+        if (is_enum) {
+            // Generate enum parser
+            out << "    (void)arena;\n";
+            out << "    if (auto v = cur.string()) {\n";
+            out << "        return " << struct_name
+                << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
+            out << "    }\n";
+            out << "    return std::nullopt;\n";
+            out << "}\n\n";
+            return;
+        }
+
         switch (s.kind) {
         case schema_kind::string:
             out << "    if (auto v = cur.string()) {\n";
@@ -348,6 +364,23 @@ void generate_json_serializer_for_schema(std::ostream& out,
         << "& obj) {\n";
     if (s.properties.empty()) {
         using katana::openapi::schema_kind;
+
+        // Check if this is an enum type
+        bool is_enum = s.kind == schema_kind::string && !s.enum_values.empty();
+
+        if (is_enum) {
+            // Generate enum serializer
+            out << "    std::string json;\n";
+            out << "    auto str = to_string(obj);\n";
+            out << "    json.reserve(str.size() + 2);\n";
+            out << "    json.push_back('\"');\n";
+            out << "    json.append(str);\n";
+            out << "    json.push_back('\"');\n";
+            out << "    return json;\n";
+            out << "}\n\n";
+            return;
+        }
+
         switch (s.kind) {
         case schema_kind::string:
             if (s.nullable) {

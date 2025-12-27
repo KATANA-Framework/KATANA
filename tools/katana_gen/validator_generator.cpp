@@ -91,6 +91,57 @@ void generate_validator_for_schema(std::ostream& out,
     out << "inline std::optional<validation_error> validate_" << struct_name << "(const "
         << struct_name << "& obj) {\n";
 
+    // Check if there's any actual validation logic needed
+    bool has_validation = false;
+    for (const auto& prop : s.properties) {
+        if (!prop.type)
+            continue;
+        bool is_enum = prop.type->kind == schema_kind::string && !prop.type->enum_values.empty();
+
+        // Check if this property needs any validation
+        if (prop.required && !is_enum) {
+            has_validation = true;
+            break;
+        }
+        if (prop.type->min_length || prop.type->max_length) {
+            has_validation = true;
+            break;
+        }
+        if (prop.type->format == "email" || prop.type->format == "uuid" ||
+            prop.type->format == "date-time") {
+            has_validation = true;
+            break;
+        }
+        if (!prop.type->pattern.empty()) {
+            has_validation = true;
+            break;
+        }
+        if (prop.type->minimum || prop.type->maximum) {
+            has_validation = true;
+            break;
+        }
+        if (prop.type->exclusive_minimum || prop.type->exclusive_maximum) {
+            has_validation = true;
+            break;
+        }
+        if (prop.type->multiple_of) {
+            has_validation = true;
+            break;
+        }
+        if (prop.type->min_items || prop.type->max_items) {
+            has_validation = true;
+            break;
+        }
+        if (prop.type->unique_items) {
+            has_validation = true;
+            break;
+        }
+    }
+
+    if (!has_validation) {
+        out << "    (void)obj;\n";
+    }
+
     for (const auto& prop : s.properties) {
         if (!prop.type) {
             continue;
@@ -108,7 +159,10 @@ void generate_validator_for_schema(std::ostream& out,
         const std::string deref_prefix = "*obj." + prop_name_str;
         bool is_optional = prop.type->nullable;
 
-        if (prop.required && prop.type->kind == schema_kind::string) {
+        // Skip required check for enums - they're strongly typed and can't be empty
+        bool is_enum = prop.type->kind == schema_kind::string && !prop.type->enum_values.empty();
+
+        if (prop.required && prop.type->kind == schema_kind::string && !is_enum) {
             if (is_optional) {
                 out << "    if (!obj." << prop.name << ") {\n";
                 out << "        return validation_error{\"" << prop.name
@@ -132,7 +186,8 @@ void generate_validator_for_schema(std::ostream& out,
             out << "    }\n";
         }
 
-        if (prop.type->kind == schema_kind::string) {
+        // Skip all string validations for enums (they're strongly typed, validated at parse time)
+        if (prop.type->kind == schema_kind::string && !is_enum) {
             if (prop.type->min_length) {
                 out << "    if ("
                     << (is_optional ? obj_prefix + " && !" + obj_prefix + "->empty() && " +
@@ -189,19 +244,8 @@ void generate_validator_for_schema(std::ostream& out,
                     << "\", validation_error_code::invalid_datetime_format};\n";
                 out << "    }\n";
             }
-            if (!prop.type->enum_values.empty()) {
-                out << "    {\n";
-                out << "        bool valid = false;\n";
-                for (const auto& enum_val : prop.type->enum_values) {
-                    out << "        if (obj." << prop.name << " == \"" << enum_val
-                        << "\") valid = true;\n";
-                }
-                out << "        if (!valid) {\n";
-                out << "            return validation_error{\"" << prop.name
-                    << "\", validation_error_code::invalid_enum_value};\n";
-                out << "        }\n";
-                out << "    }\n";
-            }
+            // Skip enum validation - enums are strongly typed and validated at parse time
+            // (the !is_enum check prevents generating validation for enum types)
             if (!prop.type->pattern.empty()) {
                 out << "    {\n";
                 out << "        static const std::regex re_{\""
