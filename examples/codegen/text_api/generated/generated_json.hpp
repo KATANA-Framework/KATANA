@@ -1,4 +1,20 @@
 // layer: flat
+// Auto-generated JSON parsers and serializers from OpenAPI specification
+//
+// This file contains:
+//   - parse_<Type>() functions: JSON string → C++ struct
+//   - serialize_<Type>() functions: C++ struct → JSON string
+//
+// Features:
+//   - Zero-copy parsing using arena allocators
+//   - Streaming JSON generation without intermediate buffers
+//   - Type-safe enum conversion
+//   - Automatic null handling for optional fields
+//
+// All parse functions return std::optional<T>:
+//   - std::nullopt on parse error (invalid JSON, wrong type, etc.)
+//   - Parsed object on success
+//
 #pragma once
 
 #include "katana/core/arena.hpp"
@@ -10,201 +26,255 @@
 
 using katana::monotonic_arena;
 
-inline std::optional<text_uppercase_body_0> parse_text_uppercase_body_0(std::string_view json,
-                                                                        monotonic_arena* arena);
-inline std::optional<schema> parse_schema(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_uppercase_resp_200_0>
-parse_text_uppercase_resp_200_0(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_1> parse_schema_1(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_lowercase_body_0> parse_text_lowercase_body_0(std::string_view json,
-                                                                        monotonic_arena* arena);
-inline std::optional<schema_2> parse_schema_2(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_lowercase_resp_200_0>
-parse_text_lowercase_resp_200_0(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_3> parse_schema_3(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_reverse_body_0> parse_text_reverse_body_0(std::string_view json,
-                                                                    monotonic_arena* arena);
-inline std::optional<schema_4> parse_schema_4(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_reverse_resp_200_0> parse_text_reverse_resp_200_0(std::string_view json,
+inline std::optional<text_uppercase_request> parse_text_uppercase_request(std::string_view json,
+                                                                          monotonic_arena* arena);
+inline std::optional<text_uppercase_request_Text>
+parse_text_uppercase_request_Text(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_uppercase_response> parse_text_uppercase_response(std::string_view json,
                                                                             monotonic_arena* arena);
-inline std::optional<schema_5> parse_schema_5(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_stats_body_0> parse_text_stats_body_0(std::string_view json,
-                                                                monotonic_arena* arena);
-inline std::optional<schema_6> parse_schema_6(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_stats_resp_200_0> parse_text_stats_resp_200_0(std::string_view json,
+inline std::optional<text_uppercase_response_Result>
+parse_text_uppercase_response_Result(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_lowercase_request> parse_text_lowercase_request(std::string_view json,
+                                                                          monotonic_arena* arena);
+inline std::optional<text_lowercase_request_Text>
+parse_text_lowercase_request_Text(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_lowercase_response> parse_text_lowercase_response(std::string_view json,
+                                                                            monotonic_arena* arena);
+inline std::optional<text_lowercase_response_Result>
+parse_text_lowercase_response_Result(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_reverse_request> parse_text_reverse_request(std::string_view json,
+                                                                      monotonic_arena* arena);
+inline std::optional<text_reverse_request_Text>
+parse_text_reverse_request_Text(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_reverse_response> parse_text_reverse_response(std::string_view json,
                                                                         monotonic_arena* arena);
-inline std::optional<schema_7> parse_schema_7(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_8> parse_schema_8(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_9> parse_schema_9(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_transform_body_0> parse_text_transform_body_0(std::string_view json,
-                                                                        monotonic_arena* arena);
-inline std::optional<schema_10> parse_schema_10(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_11> parse_schema_11(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_12> parse_schema_12(std::string_view json, monotonic_arena* arena);
-inline std::optional<text_transform_resp_200_0>
-parse_text_transform_resp_200_0(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_13> parse_schema_13(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_14> parse_schema_14(std::string_view json, monotonic_arena* arena);
-inline std::optional<schema_15> parse_schema_15(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_reverse_response_Result>
+parse_text_reverse_response_Result(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_stats_request> parse_text_stats_request(std::string_view json,
+                                                                  monotonic_arena* arena);
+inline std::optional<text_stats_request_Text> parse_text_stats_request_Text(std::string_view json,
+                                                                            monotonic_arena* arena);
+inline std::optional<text_stats_response> parse_text_stats_response(std::string_view json,
+                                                                    monotonic_arena* arena);
+inline std::optional<text_stats_response_Chars>
+parse_text_stats_response_Chars(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_stats_response_Words>
+parse_text_stats_response_Words(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_stats_response_Lines>
+parse_text_stats_response_Lines(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_transform_request> parse_text_transform_request(std::string_view json,
+                                                                          monotonic_arena* arena);
+inline std::optional<text_transform_request_Text>
+parse_text_transform_request_Text(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_transform_operation>
+parse_text_transform_operation(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_transform_request_Trim>
+parse_text_transform_request_Trim(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_transform_response> parse_text_transform_response(std::string_view json,
+                                                                            monotonic_arena* arena);
+inline std::optional<text_transform_response_Original_length>
+parse_text_transform_response_Original_length(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_transform_response_Result>
+parse_text_transform_response_Result(std::string_view json, monotonic_arena* arena);
+inline std::optional<text_transform_response_Operation_applied>
+parse_text_transform_response_Operation_applied(std::string_view json, monotonic_arena* arena);
 
-inline std::string serialize_text_uppercase_body_0(const text_uppercase_body_0& obj);
-inline std::string serialize_schema(const schema& obj);
-inline std::string serialize_text_uppercase_resp_200_0(const text_uppercase_resp_200_0& obj);
-inline std::string serialize_schema_1(const schema_1& obj);
-inline std::string serialize_text_lowercase_body_0(const text_lowercase_body_0& obj);
-inline std::string serialize_schema_2(const schema_2& obj);
-inline std::string serialize_text_lowercase_resp_200_0(const text_lowercase_resp_200_0& obj);
-inline std::string serialize_schema_3(const schema_3& obj);
-inline std::string serialize_text_reverse_body_0(const text_reverse_body_0& obj);
-inline std::string serialize_schema_4(const schema_4& obj);
-inline std::string serialize_text_reverse_resp_200_0(const text_reverse_resp_200_0& obj);
-inline std::string serialize_schema_5(const schema_5& obj);
-inline std::string serialize_text_stats_body_0(const text_stats_body_0& obj);
-inline std::string serialize_schema_6(const schema_6& obj);
-inline std::string serialize_text_stats_resp_200_0(const text_stats_resp_200_0& obj);
-inline std::string serialize_schema_7(const schema_7& obj);
-inline std::string serialize_schema_8(const schema_8& obj);
-inline std::string serialize_schema_9(const schema_9& obj);
-inline std::string serialize_text_transform_body_0(const text_transform_body_0& obj);
-inline std::string serialize_schema_10(const schema_10& obj);
-inline std::string serialize_schema_11(const schema_11& obj);
-inline std::string serialize_schema_12(const schema_12& obj);
-inline std::string serialize_text_transform_resp_200_0(const text_transform_resp_200_0& obj);
-inline std::string serialize_schema_13(const schema_13& obj);
-inline std::string serialize_schema_14(const schema_14& obj);
-inline std::string serialize_schema_15(const schema_15& obj);
+inline std::string serialize_text_uppercase_request(const text_uppercase_request& obj);
+inline std::string serialize_text_uppercase_request_Text(const text_uppercase_request_Text& obj);
+inline std::string serialize_text_uppercase_response(const text_uppercase_response& obj);
+inline std::string
+serialize_text_uppercase_response_Result(const text_uppercase_response_Result& obj);
+inline std::string serialize_text_lowercase_request(const text_lowercase_request& obj);
+inline std::string serialize_text_lowercase_request_Text(const text_lowercase_request_Text& obj);
+inline std::string serialize_text_lowercase_response(const text_lowercase_response& obj);
+inline std::string
+serialize_text_lowercase_response_Result(const text_lowercase_response_Result& obj);
+inline std::string serialize_text_reverse_request(const text_reverse_request& obj);
+inline std::string serialize_text_reverse_request_Text(const text_reverse_request_Text& obj);
+inline std::string serialize_text_reverse_response(const text_reverse_response& obj);
+inline std::string serialize_text_reverse_response_Result(const text_reverse_response_Result& obj);
+inline std::string serialize_text_stats_request(const text_stats_request& obj);
+inline std::string serialize_text_stats_request_Text(const text_stats_request_Text& obj);
+inline std::string serialize_text_stats_response(const text_stats_response& obj);
+inline std::string serialize_text_stats_response_Chars(const text_stats_response_Chars& obj);
+inline std::string serialize_text_stats_response_Words(const text_stats_response_Words& obj);
+inline std::string serialize_text_stats_response_Lines(const text_stats_response_Lines& obj);
+inline std::string serialize_text_transform_request(const text_transform_request& obj);
+inline std::string serialize_text_transform_request_Text(const text_transform_request_Text& obj);
+inline std::string serialize_text_transform_operation(const text_transform_operation& obj);
+inline std::string serialize_text_transform_request_Trim(const text_transform_request_Trim& obj);
+inline std::string serialize_text_transform_response(const text_transform_response& obj);
+inline std::string serialize_text_transform_response_Original_length(
+    const text_transform_response_Original_length& obj);
+inline std::string
+serialize_text_transform_response_Result(const text_transform_response_Result& obj);
+inline std::string serialize_text_transform_response_Operation_applied(
+    const text_transform_response_Operation_applied& obj);
 
-inline std::optional<std::vector<text_uppercase_body_0>>
-parse_text_uppercase_body_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema>> parse_schema_array(std::string_view json,
-                                                             monotonic_arena* arena);
-inline std::optional<std::vector<text_uppercase_resp_200_0>>
-parse_text_uppercase_resp_200_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_1>> parse_schema_1_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<text_lowercase_body_0>>
-parse_text_lowercase_body_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_2>> parse_schema_2_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<text_lowercase_resp_200_0>>
-parse_text_lowercase_resp_200_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_3>> parse_schema_3_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<text_reverse_body_0>>
-parse_text_reverse_body_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_4>> parse_schema_4_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<text_reverse_resp_200_0>>
-parse_text_reverse_resp_200_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_5>> parse_schema_5_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<text_stats_body_0>>
-parse_text_stats_body_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_6>> parse_schema_6_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<text_stats_resp_200_0>>
-parse_text_stats_resp_200_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_7>> parse_schema_7_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<schema_8>> parse_schema_8_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<schema_9>> parse_schema_9_array(std::string_view json,
-                                                                 monotonic_arena* arena);
-inline std::optional<std::vector<text_transform_body_0>>
-parse_text_transform_body_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_10>> parse_schema_10_array(std::string_view json,
-                                                                   monotonic_arena* arena);
-inline std::optional<std::vector<schema_11>> parse_schema_11_array(std::string_view json,
-                                                                   monotonic_arena* arena);
-inline std::optional<std::vector<schema_12>> parse_schema_12_array(std::string_view json,
-                                                                   monotonic_arena* arena);
-inline std::optional<std::vector<text_transform_resp_200_0>>
-parse_text_transform_resp_200_0_array(std::string_view json, monotonic_arena* arena);
-inline std::optional<std::vector<schema_13>> parse_schema_13_array(std::string_view json,
-                                                                   monotonic_arena* arena);
-inline std::optional<std::vector<schema_14>> parse_schema_14_array(std::string_view json,
-                                                                   monotonic_arena* arena);
-inline std::optional<std::vector<schema_15>> parse_schema_15_array(std::string_view json,
-                                                                   monotonic_arena* arena);
+inline std::optional<std::vector<text_uppercase_request>>
+parse_text_uppercase_request_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_uppercase_request_Text>>
+parse_text_uppercase_request_Text_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_uppercase_response>>
+parse_text_uppercase_response_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_uppercase_response_Result>>
+parse_text_uppercase_response_Result_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_lowercase_request>>
+parse_text_lowercase_request_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_lowercase_request_Text>>
+parse_text_lowercase_request_Text_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_lowercase_response>>
+parse_text_lowercase_response_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_lowercase_response_Result>>
+parse_text_lowercase_response_Result_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_reverse_request>>
+parse_text_reverse_request_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_reverse_request_Text>>
+parse_text_reverse_request_Text_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_reverse_response>>
+parse_text_reverse_response_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_reverse_response_Result>>
+parse_text_reverse_response_Result_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_stats_request>>
+parse_text_stats_request_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_stats_request_Text>>
+parse_text_stats_request_Text_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_stats_response>>
+parse_text_stats_response_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_stats_response_Chars>>
+parse_text_stats_response_Chars_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_stats_response_Words>>
+parse_text_stats_response_Words_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_stats_response_Lines>>
+parse_text_stats_response_Lines_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_request>>
+parse_text_transform_request_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_request_Text>>
+parse_text_transform_request_Text_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_operation>>
+parse_text_transform_operation_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_request_Trim>>
+parse_text_transform_request_Trim_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_response>>
+parse_text_transform_response_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_response_Original_length>>
+parse_text_transform_response_Original_length_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_response_Result>>
+parse_text_transform_response_Result_array(std::string_view json, monotonic_arena* arena);
+inline std::optional<std::vector<text_transform_response_Operation_applied>>
+parse_text_transform_response_Operation_applied_array(std::string_view json,
+                                                      monotonic_arena* arena);
 
 inline std::string
-serialize_text_uppercase_body_0_array(const std::vector<text_uppercase_body_0>& arr);
+serialize_text_uppercase_request_array(const std::vector<text_uppercase_request>& arr);
 inline std::string
-serialize_text_uppercase_body_0_array(const arena_vector<text_uppercase_body_0>& arr);
-inline std::string serialize_schema_array(const std::vector<schema>& arr);
-inline std::string serialize_schema_array(const arena_vector<schema>& arr);
+serialize_text_uppercase_request_array(const arena_vector<text_uppercase_request>& arr);
 inline std::string
-serialize_text_uppercase_resp_200_0_array(const std::vector<text_uppercase_resp_200_0>& arr);
+serialize_text_uppercase_request_Text_array(const std::vector<text_uppercase_request_Text>& arr);
 inline std::string
-serialize_text_uppercase_resp_200_0_array(const arena_vector<text_uppercase_resp_200_0>& arr);
-inline std::string serialize_schema_1_array(const std::vector<schema_1>& arr);
-inline std::string serialize_schema_1_array(const arena_vector<schema_1>& arr);
+serialize_text_uppercase_request_Text_array(const arena_vector<text_uppercase_request_Text>& arr);
 inline std::string
-serialize_text_lowercase_body_0_array(const std::vector<text_lowercase_body_0>& arr);
+serialize_text_uppercase_response_array(const std::vector<text_uppercase_response>& arr);
 inline std::string
-serialize_text_lowercase_body_0_array(const arena_vector<text_lowercase_body_0>& arr);
-inline std::string serialize_schema_2_array(const std::vector<schema_2>& arr);
-inline std::string serialize_schema_2_array(const arena_vector<schema_2>& arr);
+serialize_text_uppercase_response_array(const arena_vector<text_uppercase_response>& arr);
+inline std::string serialize_text_uppercase_response_Result_array(
+    const std::vector<text_uppercase_response_Result>& arr);
+inline std::string serialize_text_uppercase_response_Result_array(
+    const arena_vector<text_uppercase_response_Result>& arr);
 inline std::string
-serialize_text_lowercase_resp_200_0_array(const std::vector<text_lowercase_resp_200_0>& arr);
+serialize_text_lowercase_request_array(const std::vector<text_lowercase_request>& arr);
 inline std::string
-serialize_text_lowercase_resp_200_0_array(const arena_vector<text_lowercase_resp_200_0>& arr);
-inline std::string serialize_schema_3_array(const std::vector<schema_3>& arr);
-inline std::string serialize_schema_3_array(const arena_vector<schema_3>& arr);
-inline std::string serialize_text_reverse_body_0_array(const std::vector<text_reverse_body_0>& arr);
+serialize_text_lowercase_request_array(const arena_vector<text_lowercase_request>& arr);
 inline std::string
-serialize_text_reverse_body_0_array(const arena_vector<text_reverse_body_0>& arr);
-inline std::string serialize_schema_4_array(const std::vector<schema_4>& arr);
-inline std::string serialize_schema_4_array(const arena_vector<schema_4>& arr);
+serialize_text_lowercase_request_Text_array(const std::vector<text_lowercase_request_Text>& arr);
 inline std::string
-serialize_text_reverse_resp_200_0_array(const std::vector<text_reverse_resp_200_0>& arr);
+serialize_text_lowercase_request_Text_array(const arena_vector<text_lowercase_request_Text>& arr);
 inline std::string
-serialize_text_reverse_resp_200_0_array(const arena_vector<text_reverse_resp_200_0>& arr);
-inline std::string serialize_schema_5_array(const std::vector<schema_5>& arr);
-inline std::string serialize_schema_5_array(const arena_vector<schema_5>& arr);
-inline std::string serialize_text_stats_body_0_array(const std::vector<text_stats_body_0>& arr);
-inline std::string serialize_text_stats_body_0_array(const arena_vector<text_stats_body_0>& arr);
-inline std::string serialize_schema_6_array(const std::vector<schema_6>& arr);
-inline std::string serialize_schema_6_array(const arena_vector<schema_6>& arr);
+serialize_text_lowercase_response_array(const std::vector<text_lowercase_response>& arr);
 inline std::string
-serialize_text_stats_resp_200_0_array(const std::vector<text_stats_resp_200_0>& arr);
+serialize_text_lowercase_response_array(const arena_vector<text_lowercase_response>& arr);
+inline std::string serialize_text_lowercase_response_Result_array(
+    const std::vector<text_lowercase_response_Result>& arr);
+inline std::string serialize_text_lowercase_response_Result_array(
+    const arena_vector<text_lowercase_response_Result>& arr);
 inline std::string
-serialize_text_stats_resp_200_0_array(const arena_vector<text_stats_resp_200_0>& arr);
-inline std::string serialize_schema_7_array(const std::vector<schema_7>& arr);
-inline std::string serialize_schema_7_array(const arena_vector<schema_7>& arr);
-inline std::string serialize_schema_8_array(const std::vector<schema_8>& arr);
-inline std::string serialize_schema_8_array(const arena_vector<schema_8>& arr);
-inline std::string serialize_schema_9_array(const std::vector<schema_9>& arr);
-inline std::string serialize_schema_9_array(const arena_vector<schema_9>& arr);
+serialize_text_reverse_request_array(const std::vector<text_reverse_request>& arr);
 inline std::string
-serialize_text_transform_body_0_array(const std::vector<text_transform_body_0>& arr);
+serialize_text_reverse_request_array(const arena_vector<text_reverse_request>& arr);
 inline std::string
-serialize_text_transform_body_0_array(const arena_vector<text_transform_body_0>& arr);
-inline std::string serialize_schema_10_array(const std::vector<schema_10>& arr);
-inline std::string serialize_schema_10_array(const arena_vector<schema_10>& arr);
-inline std::string serialize_schema_11_array(const std::vector<schema_11>& arr);
-inline std::string serialize_schema_11_array(const arena_vector<schema_11>& arr);
-inline std::string serialize_schema_12_array(const std::vector<schema_12>& arr);
-inline std::string serialize_schema_12_array(const arena_vector<schema_12>& arr);
+serialize_text_reverse_request_Text_array(const std::vector<text_reverse_request_Text>& arr);
 inline std::string
-serialize_text_transform_resp_200_0_array(const std::vector<text_transform_resp_200_0>& arr);
+serialize_text_reverse_request_Text_array(const arena_vector<text_reverse_request_Text>& arr);
 inline std::string
-serialize_text_transform_resp_200_0_array(const arena_vector<text_transform_resp_200_0>& arr);
-inline std::string serialize_schema_13_array(const std::vector<schema_13>& arr);
-inline std::string serialize_schema_13_array(const arena_vector<schema_13>& arr);
-inline std::string serialize_schema_14_array(const std::vector<schema_14>& arr);
-inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr);
-inline std::string serialize_schema_15_array(const std::vector<schema_15>& arr);
-inline std::string serialize_schema_15_array(const arena_vector<schema_15>& arr);
+serialize_text_reverse_response_array(const std::vector<text_reverse_response>& arr);
+inline std::string
+serialize_text_reverse_response_array(const arena_vector<text_reverse_response>& arr);
+inline std::string
+serialize_text_reverse_response_Result_array(const std::vector<text_reverse_response_Result>& arr);
+inline std::string
+serialize_text_reverse_response_Result_array(const arena_vector<text_reverse_response_Result>& arr);
+inline std::string serialize_text_stats_request_array(const std::vector<text_stats_request>& arr);
+inline std::string serialize_text_stats_request_array(const arena_vector<text_stats_request>& arr);
+inline std::string
+serialize_text_stats_request_Text_array(const std::vector<text_stats_request_Text>& arr);
+inline std::string
+serialize_text_stats_request_Text_array(const arena_vector<text_stats_request_Text>& arr);
+inline std::string serialize_text_stats_response_array(const std::vector<text_stats_response>& arr);
+inline std::string
+serialize_text_stats_response_array(const arena_vector<text_stats_response>& arr);
+inline std::string
+serialize_text_stats_response_Chars_array(const std::vector<text_stats_response_Chars>& arr);
+inline std::string
+serialize_text_stats_response_Chars_array(const arena_vector<text_stats_response_Chars>& arr);
+inline std::string
+serialize_text_stats_response_Words_array(const std::vector<text_stats_response_Words>& arr);
+inline std::string
+serialize_text_stats_response_Words_array(const arena_vector<text_stats_response_Words>& arr);
+inline std::string
+serialize_text_stats_response_Lines_array(const std::vector<text_stats_response_Lines>& arr);
+inline std::string
+serialize_text_stats_response_Lines_array(const arena_vector<text_stats_response_Lines>& arr);
+inline std::string
+serialize_text_transform_request_array(const std::vector<text_transform_request>& arr);
+inline std::string
+serialize_text_transform_request_array(const arena_vector<text_transform_request>& arr);
+inline std::string
+serialize_text_transform_request_Text_array(const std::vector<text_transform_request_Text>& arr);
+inline std::string
+serialize_text_transform_request_Text_array(const arena_vector<text_transform_request_Text>& arr);
+inline std::string
+serialize_text_transform_operation_array(const std::vector<text_transform_operation>& arr);
+inline std::string
+serialize_text_transform_operation_array(const arena_vector<text_transform_operation>& arr);
+inline std::string
+serialize_text_transform_request_Trim_array(const std::vector<text_transform_request_Trim>& arr);
+inline std::string
+serialize_text_transform_request_Trim_array(const arena_vector<text_transform_request_Trim>& arr);
+inline std::string
+serialize_text_transform_response_array(const std::vector<text_transform_response>& arr);
+inline std::string
+serialize_text_transform_response_array(const arena_vector<text_transform_response>& arr);
+inline std::string serialize_text_transform_response_Original_length_array(
+    const std::vector<text_transform_response_Original_length>& arr);
+inline std::string serialize_text_transform_response_Original_length_array(
+    const arena_vector<text_transform_response_Original_length>& arr);
+inline std::string serialize_text_transform_response_Result_array(
+    const std::vector<text_transform_response_Result>& arr);
+inline std::string serialize_text_transform_response_Result_array(
+    const arena_vector<text_transform_response_Result>& arr);
+inline std::string serialize_text_transform_response_Operation_applied_array(
+    const std::vector<text_transform_response_Operation_applied>& arr);
+inline std::string serialize_text_transform_response_Operation_applied_array(
+    const arena_vector<text_transform_response_Operation_applied>& arr);
 
-inline std::optional<text_uppercase_body_0> parse_text_uppercase_body_0(std::string_view json,
-                                                                        monotonic_arena* arena) {
+inline std::optional<text_uppercase_request> parse_text_uppercase_request(std::string_view json,
+                                                                          monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_object_start())
         return std::nullopt;
 
-    text_uppercase_body_0 obj(arena);
+    text_uppercase_request obj(arena);
     bool has_text = false;
 
     while (!cur.eof()) {
@@ -232,23 +302,25 @@ inline std::optional<text_uppercase_body_0> parse_text_uppercase_body_0(std::str
     return obj;
 }
 
-inline std::optional<schema> parse_schema(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_uppercase_request_Text>
+parse_text_uppercase_request_Text(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (auto v = cur.string()) {
-        return schema{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+        return text_uppercase_request_Text{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
     }
     return std::nullopt;
 }
 
-inline std::optional<text_uppercase_resp_200_0>
-parse_text_uppercase_resp_200_0(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_uppercase_response>
+parse_text_uppercase_response(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_object_start())
         return std::nullopt;
 
-    text_uppercase_resp_200_0 obj(arena);
+    text_uppercase_response obj(arena);
 
     while (!cur.eof()) {
         cur.skip_ws();
@@ -272,23 +344,25 @@ parse_text_uppercase_resp_200_0(std::string_view json, monotonic_arena* arena) {
     return obj;
 }
 
-inline std::optional<schema_1> parse_schema_1(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_uppercase_response_Result>
+parse_text_uppercase_response_Result(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (auto v = cur.string()) {
-        return schema_1{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+        return text_uppercase_response_Result{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
     }
     return std::nullopt;
 }
 
-inline std::optional<text_lowercase_body_0> parse_text_lowercase_body_0(std::string_view json,
-                                                                        monotonic_arena* arena) {
+inline std::optional<text_lowercase_request> parse_text_lowercase_request(std::string_view json,
+                                                                          monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_object_start())
         return std::nullopt;
 
-    text_lowercase_body_0 obj(arena);
+    text_lowercase_request obj(arena);
     bool has_text = false;
 
     while (!cur.eof()) {
@@ -316,23 +390,25 @@ inline std::optional<text_lowercase_body_0> parse_text_lowercase_body_0(std::str
     return obj;
 }
 
-inline std::optional<schema_2> parse_schema_2(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_lowercase_request_Text>
+parse_text_lowercase_request_Text(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (auto v = cur.string()) {
-        return schema_2{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+        return text_lowercase_request_Text{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
     }
     return std::nullopt;
 }
 
-inline std::optional<text_lowercase_resp_200_0>
-parse_text_lowercase_resp_200_0(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_lowercase_response>
+parse_text_lowercase_response(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_object_start())
         return std::nullopt;
 
-    text_lowercase_resp_200_0 obj(arena);
+    text_lowercase_response obj(arena);
 
     while (!cur.eof()) {
         cur.skip_ws();
@@ -356,151 +432,159 @@ parse_text_lowercase_resp_200_0(std::string_view json, monotonic_arena* arena) {
     return obj;
 }
 
-inline std::optional<schema_3> parse_schema_3(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_lowercase_response_Result>
+parse_text_lowercase_response_Result(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (auto v = cur.string()) {
-        return schema_3{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+        return text_lowercase_response_Result{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
     }
     return std::nullopt;
 }
 
-inline std::optional<text_reverse_body_0> parse_text_reverse_body_0(std::string_view json,
+inline std::optional<text_reverse_request> parse_text_reverse_request(std::string_view json,
+                                                                      monotonic_arena* arena) {
+    using katana::serde::json_cursor;
+    json_cursor cur{json.data(), json.data() + json.size()};
+    if (!cur.try_object_start())
+        return std::nullopt;
+
+    text_reverse_request obj(arena);
+    bool has_text = false;
+
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_object_end())
+            break;
+        auto key = cur.string();
+        if (!key || !cur.consume(':'))
+            break;
+
+        if (*key == "text") {
+            has_text = true;
+            if (auto v = cur.string()) {
+                obj.text = arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena));
+            } else {
+                cur.skip_value();
+            }
+        } else {
+            cur.skip_value();
+        }
+        cur.try_comma();
+    }
+    if (!has_text)
+        return std::nullopt;
+    return obj;
+}
+
+inline std::optional<text_reverse_request_Text>
+parse_text_reverse_request_Text(std::string_view json, monotonic_arena* arena) {
+    using katana::serde::json_cursor;
+    json_cursor cur{json.data(), json.data() + json.size()};
+    if (auto v = cur.string()) {
+        return text_reverse_request_Text{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+    }
+    return std::nullopt;
+}
+
+inline std::optional<text_reverse_response> parse_text_reverse_response(std::string_view json,
+                                                                        monotonic_arena* arena) {
+    using katana::serde::json_cursor;
+    json_cursor cur{json.data(), json.data() + json.size()};
+    if (!cur.try_object_start())
+        return std::nullopt;
+
+    text_reverse_response obj(arena);
+
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_object_end())
+            break;
+        auto key = cur.string();
+        if (!key || !cur.consume(':'))
+            break;
+
+        if (*key == "result") {
+            if (auto v = cur.string()) {
+                obj.result = arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena));
+            } else {
+                cur.skip_value();
+            }
+        } else {
+            cur.skip_value();
+        }
+        cur.try_comma();
+    }
+    return obj;
+}
+
+inline std::optional<text_reverse_response_Result>
+parse_text_reverse_response_Result(std::string_view json, monotonic_arena* arena) {
+    using katana::serde::json_cursor;
+    json_cursor cur{json.data(), json.data() + json.size()};
+    if (auto v = cur.string()) {
+        return text_reverse_response_Result{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+    }
+    return std::nullopt;
+}
+
+inline std::optional<text_stats_request> parse_text_stats_request(std::string_view json,
+                                                                  monotonic_arena* arena) {
+    using katana::serde::json_cursor;
+    json_cursor cur{json.data(), json.data() + json.size()};
+    if (!cur.try_object_start())
+        return std::nullopt;
+
+    text_stats_request obj(arena);
+    bool has_text = false;
+
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_object_end())
+            break;
+        auto key = cur.string();
+        if (!key || !cur.consume(':'))
+            break;
+
+        if (*key == "text") {
+            has_text = true;
+            if (auto v = cur.string()) {
+                obj.text = arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena));
+            } else {
+                cur.skip_value();
+            }
+        } else {
+            cur.skip_value();
+        }
+        cur.try_comma();
+    }
+    if (!has_text)
+        return std::nullopt;
+    return obj;
+}
+
+inline std::optional<text_stats_request_Text>
+parse_text_stats_request_Text(std::string_view json, monotonic_arena* arena) {
+    using katana::serde::json_cursor;
+    json_cursor cur{json.data(), json.data() + json.size()};
+    if (auto v = cur.string()) {
+        return text_stats_request_Text{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+    }
+    return std::nullopt;
+}
+
+inline std::optional<text_stats_response> parse_text_stats_response(std::string_view json,
                                                                     monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_object_start())
         return std::nullopt;
 
-    text_reverse_body_0 obj(arena);
-    bool has_text = false;
-
-    while (!cur.eof()) {
-        cur.skip_ws();
-        if (cur.try_object_end())
-            break;
-        auto key = cur.string();
-        if (!key || !cur.consume(':'))
-            break;
-
-        if (*key == "text") {
-            has_text = true;
-            if (auto v = cur.string()) {
-                obj.text = arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena));
-            } else {
-                cur.skip_value();
-            }
-        } else {
-            cur.skip_value();
-        }
-        cur.try_comma();
-    }
-    if (!has_text)
-        return std::nullopt;
-    return obj;
-}
-
-inline std::optional<schema_4> parse_schema_4(std::string_view json, monotonic_arena* arena) {
-    using katana::serde::json_cursor;
-    json_cursor cur{json.data(), json.data() + json.size()};
-    if (auto v = cur.string()) {
-        return schema_4{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
-    }
-    return std::nullopt;
-}
-
-inline std::optional<text_reverse_resp_200_0>
-parse_text_reverse_resp_200_0(std::string_view json, monotonic_arena* arena) {
-    using katana::serde::json_cursor;
-    json_cursor cur{json.data(), json.data() + json.size()};
-    if (!cur.try_object_start())
-        return std::nullopt;
-
-    text_reverse_resp_200_0 obj(arena);
-
-    while (!cur.eof()) {
-        cur.skip_ws();
-        if (cur.try_object_end())
-            break;
-        auto key = cur.string();
-        if (!key || !cur.consume(':'))
-            break;
-
-        if (*key == "result") {
-            if (auto v = cur.string()) {
-                obj.result = arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena));
-            } else {
-                cur.skip_value();
-            }
-        } else {
-            cur.skip_value();
-        }
-        cur.try_comma();
-    }
-    return obj;
-}
-
-inline std::optional<schema_5> parse_schema_5(std::string_view json, monotonic_arena* arena) {
-    using katana::serde::json_cursor;
-    json_cursor cur{json.data(), json.data() + json.size()};
-    if (auto v = cur.string()) {
-        return schema_5{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
-    }
-    return std::nullopt;
-}
-
-inline std::optional<text_stats_body_0> parse_text_stats_body_0(std::string_view json,
-                                                                monotonic_arena* arena) {
-    using katana::serde::json_cursor;
-    json_cursor cur{json.data(), json.data() + json.size()};
-    if (!cur.try_object_start())
-        return std::nullopt;
-
-    text_stats_body_0 obj(arena);
-    bool has_text = false;
-
-    while (!cur.eof()) {
-        cur.skip_ws();
-        if (cur.try_object_end())
-            break;
-        auto key = cur.string();
-        if (!key || !cur.consume(':'))
-            break;
-
-        if (*key == "text") {
-            has_text = true;
-            if (auto v = cur.string()) {
-                obj.text = arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena));
-            } else {
-                cur.skip_value();
-            }
-        } else {
-            cur.skip_value();
-        }
-        cur.try_comma();
-    }
-    if (!has_text)
-        return std::nullopt;
-    return obj;
-}
-
-inline std::optional<schema_6> parse_schema_6(std::string_view json, monotonic_arena* arena) {
-    using katana::serde::json_cursor;
-    json_cursor cur{json.data(), json.data() + json.size()};
-    if (auto v = cur.string()) {
-        return schema_6{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
-    }
-    return std::nullopt;
-}
-
-inline std::optional<text_stats_resp_200_0> parse_text_stats_resp_200_0(std::string_view json,
-                                                                        monotonic_arena* arena) {
-    using katana::serde::json_cursor;
-    json_cursor cur{json.data(), json.data() + json.size()};
-    if (!cur.try_object_start())
-        return std::nullopt;
-
-    text_stats_resp_200_0 obj(arena);
+    text_stats_response obj(arena);
 
     while (!cur.eof()) {
         cur.skip_ws();
@@ -536,41 +620,44 @@ inline std::optional<text_stats_resp_200_0> parse_text_stats_resp_200_0(std::str
     return obj;
 }
 
-inline std::optional<schema_7> parse_schema_7(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_stats_response_Chars>
+parse_text_stats_response_Chars(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     (void)arena;
     if (auto v = katana::serde::parse_size(cur))
-        return schema_7{static_cast<int64_t>(*v)};
+        return text_stats_response_Chars{static_cast<int64_t>(*v)};
     return std::nullopt;
 }
 
-inline std::optional<schema_8> parse_schema_8(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_stats_response_Words>
+parse_text_stats_response_Words(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     (void)arena;
     if (auto v = katana::serde::parse_size(cur))
-        return schema_8{static_cast<int64_t>(*v)};
+        return text_stats_response_Words{static_cast<int64_t>(*v)};
     return std::nullopt;
 }
 
-inline std::optional<schema_9> parse_schema_9(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_stats_response_Lines>
+parse_text_stats_response_Lines(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     (void)arena;
     if (auto v = katana::serde::parse_size(cur))
-        return schema_9{static_cast<int64_t>(*v)};
+        return text_stats_response_Lines{static_cast<int64_t>(*v)};
     return std::nullopt;
 }
 
-inline std::optional<text_transform_body_0> parse_text_transform_body_0(std::string_view json,
-                                                                        monotonic_arena* arena) {
+inline std::optional<text_transform_request> parse_text_transform_request(std::string_view json,
+                                                                          monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_object_start())
         return std::nullopt;
 
-    text_transform_body_0 obj(arena);
+    text_transform_request obj(arena);
     bool has_text = false;
     bool has_operation = false;
 
@@ -592,7 +679,8 @@ inline std::optional<text_transform_body_0> parse_text_transform_body_0(std::str
         } else if (*key == "operation") {
             has_operation = true;
             if (auto v = cur.string()) {
-                auto enum_val = schema_11_enum_from_string(std::string_view(v->begin(), v->end()));
+                auto enum_val = text_transform_operation_enum_from_string(
+                    std::string_view(v->begin(), v->end()));
                 if (enum_val)
                     obj.operation = *enum_val;
             } else {
@@ -616,42 +704,46 @@ inline std::optional<text_transform_body_0> parse_text_transform_body_0(std::str
     return obj;
 }
 
-inline std::optional<schema_10> parse_schema_10(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_transform_request_Text>
+parse_text_transform_request_Text(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (auto v = cur.string()) {
-        return schema_10{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+        return text_transform_request_Text{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
     }
     return std::nullopt;
 }
 
-inline std::optional<schema_11> parse_schema_11(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_transform_operation>
+parse_text_transform_operation(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     (void)arena;
     if (auto v = cur.string()) {
-        return schema_11_enum_from_string(std::string_view(v->begin(), v->end()));
+        return text_transform_operation_enum_from_string(std::string_view(v->begin(), v->end()));
     }
     return std::nullopt;
 }
 
-inline std::optional<schema_12> parse_schema_12(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_transform_request_Trim>
+parse_text_transform_request_Trim(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     (void)arena;
     if (auto v = katana::serde::parse_bool(cur))
-        return schema_12{*v};
+        return text_transform_request_Trim{*v};
     return std::nullopt;
 }
 
-inline std::optional<text_transform_resp_200_0>
-parse_text_transform_resp_200_0(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_transform_response>
+parse_text_transform_response(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_object_start())
         return std::nullopt;
 
-    text_transform_resp_200_0 obj(arena);
+    text_transform_response obj(arena);
 
     while (!cur.eof()) {
         cur.skip_ws();
@@ -688,34 +780,39 @@ parse_text_transform_resp_200_0(std::string_view json, monotonic_arena* arena) {
     return obj;
 }
 
-inline std::optional<schema_13> parse_schema_13(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_transform_response_Original_length>
+parse_text_transform_response_Original_length(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     (void)arena;
     if (auto v = katana::serde::parse_size(cur))
-        return schema_13{static_cast<int64_t>(*v)};
+        return text_transform_response_Original_length{static_cast<int64_t>(*v)};
     return std::nullopt;
 }
 
-inline std::optional<schema_14> parse_schema_14(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_transform_response_Result>
+parse_text_transform_response_Result(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (auto v = cur.string()) {
-        return schema_14{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+        return text_transform_response_Result{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
     }
     return std::nullopt;
 }
 
-inline std::optional<schema_15> parse_schema_15(std::string_view json, monotonic_arena* arena) {
+inline std::optional<text_transform_response_Operation_applied>
+parse_text_transform_response_Operation_applied(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (auto v = cur.string()) {
-        return schema_15{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
+        return text_transform_response_Operation_applied{
+            arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};
     }
     return std::nullopt;
 }
 
-inline std::string serialize_text_uppercase_body_0(const text_uppercase_body_0& obj) {
+inline std::string serialize_text_uppercase_request(const text_uppercase_request& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -732,7 +829,7 @@ inline std::string serialize_text_uppercase_body_0(const text_uppercase_body_0& 
     return json;
 }
 
-inline std::string serialize_schema(const schema& obj) {
+inline std::string serialize_text_uppercase_request_Text(const text_uppercase_request_Text& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -741,7 +838,7 @@ inline std::string serialize_schema(const schema& obj) {
     return json;
 }
 
-inline std::string serialize_text_uppercase_resp_200_0(const text_uppercase_resp_200_0& obj) {
+inline std::string serialize_text_uppercase_response(const text_uppercase_response& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -758,7 +855,8 @@ inline std::string serialize_text_uppercase_resp_200_0(const text_uppercase_resp
     return json;
 }
 
-inline std::string serialize_schema_1(const schema_1& obj) {
+inline std::string
+serialize_text_uppercase_response_Result(const text_uppercase_response_Result& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -767,7 +865,7 @@ inline std::string serialize_schema_1(const schema_1& obj) {
     return json;
 }
 
-inline std::string serialize_text_lowercase_body_0(const text_lowercase_body_0& obj) {
+inline std::string serialize_text_lowercase_request(const text_lowercase_request& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -784,7 +882,7 @@ inline std::string serialize_text_lowercase_body_0(const text_lowercase_body_0& 
     return json;
 }
 
-inline std::string serialize_schema_2(const schema_2& obj) {
+inline std::string serialize_text_lowercase_request_Text(const text_lowercase_request_Text& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -793,7 +891,7 @@ inline std::string serialize_schema_2(const schema_2& obj) {
     return json;
 }
 
-inline std::string serialize_text_lowercase_resp_200_0(const text_lowercase_resp_200_0& obj) {
+inline std::string serialize_text_lowercase_response(const text_lowercase_response& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -810,7 +908,8 @@ inline std::string serialize_text_lowercase_resp_200_0(const text_lowercase_resp
     return json;
 }
 
-inline std::string serialize_schema_3(const schema_3& obj) {
+inline std::string
+serialize_text_lowercase_response_Result(const text_lowercase_response_Result& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -819,7 +918,7 @@ inline std::string serialize_schema_3(const schema_3& obj) {
     return json;
 }
 
-inline std::string serialize_text_reverse_body_0(const text_reverse_body_0& obj) {
+inline std::string serialize_text_reverse_request(const text_reverse_request& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -836,7 +935,7 @@ inline std::string serialize_text_reverse_body_0(const text_reverse_body_0& obj)
     return json;
 }
 
-inline std::string serialize_schema_4(const schema_4& obj) {
+inline std::string serialize_text_reverse_request_Text(const text_reverse_request_Text& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -845,7 +944,7 @@ inline std::string serialize_schema_4(const schema_4& obj) {
     return json;
 }
 
-inline std::string serialize_text_reverse_resp_200_0(const text_reverse_resp_200_0& obj) {
+inline std::string serialize_text_reverse_response(const text_reverse_response& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -862,7 +961,7 @@ inline std::string serialize_text_reverse_resp_200_0(const text_reverse_resp_200
     return json;
 }
 
-inline std::string serialize_schema_5(const schema_5& obj) {
+inline std::string serialize_text_reverse_response_Result(const text_reverse_response_Result& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -871,7 +970,7 @@ inline std::string serialize_schema_5(const schema_5& obj) {
     return json;
 }
 
-inline std::string serialize_text_stats_body_0(const text_stats_body_0& obj) {
+inline std::string serialize_text_stats_request(const text_stats_request& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -888,7 +987,7 @@ inline std::string serialize_text_stats_body_0(const text_stats_body_0& obj) {
     return json;
 }
 
-inline std::string serialize_schema_6(const schema_6& obj) {
+inline std::string serialize_text_stats_request_Text(const text_stats_request_Text& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -897,7 +996,7 @@ inline std::string serialize_schema_6(const schema_6& obj) {
     return json;
 }
 
-inline std::string serialize_text_stats_resp_200_0(const text_stats_resp_200_0& obj) {
+inline std::string serialize_text_stats_response(const text_stats_response& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -934,25 +1033,25 @@ inline std::string serialize_text_stats_resp_200_0(const text_stats_resp_200_0& 
     return json;
 }
 
-inline std::string serialize_schema_7(const schema_7& obj) {
+inline std::string serialize_text_stats_response_Chars(const text_stats_response_Chars& obj) {
     char buf[32];
     auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj);
     return std::string(buf, static_cast<size_t>(ptr - buf));
 }
 
-inline std::string serialize_schema_8(const schema_8& obj) {
+inline std::string serialize_text_stats_response_Words(const text_stats_response_Words& obj) {
     char buf[32];
     auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj);
     return std::string(buf, static_cast<size_t>(ptr - buf));
 }
 
-inline std::string serialize_schema_9(const schema_9& obj) {
+inline std::string serialize_text_stats_response_Lines(const text_stats_response_Lines& obj) {
     char buf[32];
     auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj);
     return std::string(buf, static_cast<size_t>(ptr - buf));
 }
 
-inline std::string serialize_text_transform_body_0(const text_transform_body_0& obj) {
+inline std::string serialize_text_transform_request(const text_transform_request& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -981,7 +1080,7 @@ inline std::string serialize_text_transform_body_0(const text_transform_body_0& 
     return json;
 }
 
-inline std::string serialize_schema_10(const schema_10& obj) {
+inline std::string serialize_text_transform_request_Text(const text_transform_request_Text& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -990,7 +1089,7 @@ inline std::string serialize_schema_10(const schema_10& obj) {
     return json;
 }
 
-inline std::string serialize_schema_11(const schema_11& obj) {
+inline std::string serialize_text_transform_operation(const text_transform_operation& obj) {
     std::string json;
     auto str = to_string(obj);
     json.reserve(str.size() + 2);
@@ -1000,11 +1099,11 @@ inline std::string serialize_schema_11(const schema_11& obj) {
     return json;
 }
 
-inline std::string serialize_schema_12(const schema_12& obj) {
+inline std::string serialize_text_transform_request_Trim(const text_transform_request_Trim& obj) {
     return obj ? "true" : "false";
 }
 
-inline std::string serialize_text_transform_resp_200_0(const text_transform_resp_200_0& obj) {
+inline std::string serialize_text_transform_response(const text_transform_response& obj) {
     std::string json;
     json.reserve(256);
     json.push_back('{');
@@ -1037,13 +1136,15 @@ inline std::string serialize_text_transform_resp_200_0(const text_transform_resp
     return json;
 }
 
-inline std::string serialize_schema_13(const schema_13& obj) {
+inline std::string serialize_text_transform_response_Original_length(
+    const text_transform_response_Original_length& obj) {
     char buf[32];
     auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj);
     return std::string(buf, static_cast<size_t>(ptr - buf));
 }
 
-inline std::string serialize_schema_14(const schema_14& obj) {
+inline std::string
+serialize_text_transform_response_Result(const text_transform_response_Result& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -1052,7 +1153,8 @@ inline std::string serialize_schema_14(const schema_14& obj) {
     return json;
 }
 
-inline std::string serialize_schema_15(const schema_15& obj) {
+inline std::string serialize_text_transform_response_Operation_applied(
+    const text_transform_response_Operation_applied& obj) {
     std::string json;
     json.reserve(obj.size() + 16);
     json.push_back('"');
@@ -1061,14 +1163,14 @@ inline std::string serialize_schema_15(const schema_15& obj) {
     return json;
 }
 
-inline std::optional<std::vector<text_uppercase_body_0>>
-parse_text_uppercase_body_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_uppercase_request>>
+parse_text_uppercase_request_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_uppercase_body_0> result;
+    std::vector<text_uppercase_request> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1080,7 +1182,7 @@ parse_text_uppercase_body_0_array(std::string_view json, monotonic_arena* arena)
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_uppercase_body_0(obj_json, arena);
+        auto obj = parse_text_uppercase_request(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1090,14 +1192,14 @@ parse_text_uppercase_body_0_array(std::string_view json, monotonic_arena* arena)
     return result;
 }
 
-inline std::optional<std::vector<schema>> parse_schema_array(std::string_view json,
-                                                             monotonic_arena* arena) {
+inline std::optional<std::vector<text_uppercase_request_Text>>
+parse_text_uppercase_request_Text_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema> result;
+    std::vector<text_uppercase_request_Text> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1109,7 +1211,7 @@ inline std::optional<std::vector<schema>> parse_schema_array(std::string_view js
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema(obj_json, arena);
+        auto obj = parse_text_uppercase_request_Text(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1119,14 +1221,14 @@ inline std::optional<std::vector<schema>> parse_schema_array(std::string_view js
     return result;
 }
 
-inline std::optional<std::vector<text_uppercase_resp_200_0>>
-parse_text_uppercase_resp_200_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_uppercase_response>>
+parse_text_uppercase_response_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_uppercase_resp_200_0> result;
+    std::vector<text_uppercase_response> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1138,7 +1240,7 @@ parse_text_uppercase_resp_200_0_array(std::string_view json, monotonic_arena* ar
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_uppercase_resp_200_0(obj_json, arena);
+        auto obj = parse_text_uppercase_response(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1148,14 +1250,14 @@ parse_text_uppercase_resp_200_0_array(std::string_view json, monotonic_arena* ar
     return result;
 }
 
-inline std::optional<std::vector<schema_1>> parse_schema_1_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_uppercase_response_Result>>
+parse_text_uppercase_response_Result_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_1> result;
+    std::vector<text_uppercase_response_Result> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1167,7 +1269,7 @@ inline std::optional<std::vector<schema_1>> parse_schema_1_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_1(obj_json, arena);
+        auto obj = parse_text_uppercase_response_Result(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1177,14 +1279,14 @@ inline std::optional<std::vector<schema_1>> parse_schema_1_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<text_lowercase_body_0>>
-parse_text_lowercase_body_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_lowercase_request>>
+parse_text_lowercase_request_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_lowercase_body_0> result;
+    std::vector<text_lowercase_request> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1196,7 +1298,7 @@ parse_text_lowercase_body_0_array(std::string_view json, monotonic_arena* arena)
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_lowercase_body_0(obj_json, arena);
+        auto obj = parse_text_lowercase_request(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1206,14 +1308,14 @@ parse_text_lowercase_body_0_array(std::string_view json, monotonic_arena* arena)
     return result;
 }
 
-inline std::optional<std::vector<schema_2>> parse_schema_2_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_lowercase_request_Text>>
+parse_text_lowercase_request_Text_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_2> result;
+    std::vector<text_lowercase_request_Text> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1225,7 +1327,7 @@ inline std::optional<std::vector<schema_2>> parse_schema_2_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_2(obj_json, arena);
+        auto obj = parse_text_lowercase_request_Text(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1235,14 +1337,14 @@ inline std::optional<std::vector<schema_2>> parse_schema_2_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<text_lowercase_resp_200_0>>
-parse_text_lowercase_resp_200_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_lowercase_response>>
+parse_text_lowercase_response_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_lowercase_resp_200_0> result;
+    std::vector<text_lowercase_response> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1254,7 +1356,7 @@ parse_text_lowercase_resp_200_0_array(std::string_view json, monotonic_arena* ar
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_lowercase_resp_200_0(obj_json, arena);
+        auto obj = parse_text_lowercase_response(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1264,14 +1366,14 @@ parse_text_lowercase_resp_200_0_array(std::string_view json, monotonic_arena* ar
     return result;
 }
 
-inline std::optional<std::vector<schema_3>> parse_schema_3_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_lowercase_response_Result>>
+parse_text_lowercase_response_Result_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_3> result;
+    std::vector<text_lowercase_response_Result> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1283,7 +1385,7 @@ inline std::optional<std::vector<schema_3>> parse_schema_3_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_3(obj_json, arena);
+        auto obj = parse_text_lowercase_response_Result(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1293,14 +1395,14 @@ inline std::optional<std::vector<schema_3>> parse_schema_3_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<text_reverse_body_0>>
-parse_text_reverse_body_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_reverse_request>>
+parse_text_reverse_request_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_reverse_body_0> result;
+    std::vector<text_reverse_request> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1312,7 +1414,7 @@ parse_text_reverse_body_0_array(std::string_view json, monotonic_arena* arena) {
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_reverse_body_0(obj_json, arena);
+        auto obj = parse_text_reverse_request(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1322,14 +1424,14 @@ parse_text_reverse_body_0_array(std::string_view json, monotonic_arena* arena) {
     return result;
 }
 
-inline std::optional<std::vector<schema_4>> parse_schema_4_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_reverse_request_Text>>
+parse_text_reverse_request_Text_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_4> result;
+    std::vector<text_reverse_request_Text> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1341,7 +1443,7 @@ inline std::optional<std::vector<schema_4>> parse_schema_4_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_4(obj_json, arena);
+        auto obj = parse_text_reverse_request_Text(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1351,14 +1453,14 @@ inline std::optional<std::vector<schema_4>> parse_schema_4_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<text_reverse_resp_200_0>>
-parse_text_reverse_resp_200_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_reverse_response>>
+parse_text_reverse_response_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_reverse_resp_200_0> result;
+    std::vector<text_reverse_response> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1370,7 +1472,7 @@ parse_text_reverse_resp_200_0_array(std::string_view json, monotonic_arena* aren
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_reverse_resp_200_0(obj_json, arena);
+        auto obj = parse_text_reverse_response(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1380,14 +1482,14 @@ parse_text_reverse_resp_200_0_array(std::string_view json, monotonic_arena* aren
     return result;
 }
 
-inline std::optional<std::vector<schema_5>> parse_schema_5_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_reverse_response_Result>>
+parse_text_reverse_response_Result_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_5> result;
+    std::vector<text_reverse_response_Result> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1399,7 +1501,7 @@ inline std::optional<std::vector<schema_5>> parse_schema_5_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_5(obj_json, arena);
+        auto obj = parse_text_reverse_response_Result(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1409,14 +1511,14 @@ inline std::optional<std::vector<schema_5>> parse_schema_5_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<text_stats_body_0>>
-parse_text_stats_body_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_stats_request>>
+parse_text_stats_request_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_stats_body_0> result;
+    std::vector<text_stats_request> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1428,7 +1530,7 @@ parse_text_stats_body_0_array(std::string_view json, monotonic_arena* arena) {
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_stats_body_0(obj_json, arena);
+        auto obj = parse_text_stats_request(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1438,14 +1540,14 @@ parse_text_stats_body_0_array(std::string_view json, monotonic_arena* arena) {
     return result;
 }
 
-inline std::optional<std::vector<schema_6>> parse_schema_6_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_stats_request_Text>>
+parse_text_stats_request_Text_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_6> result;
+    std::vector<text_stats_request_Text> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1457,7 +1559,7 @@ inline std::optional<std::vector<schema_6>> parse_schema_6_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_6(obj_json, arena);
+        auto obj = parse_text_stats_request_Text(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1467,14 +1569,14 @@ inline std::optional<std::vector<schema_6>> parse_schema_6_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<text_stats_resp_200_0>>
-parse_text_stats_resp_200_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_stats_response>>
+parse_text_stats_response_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_stats_resp_200_0> result;
+    std::vector<text_stats_response> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1486,7 +1588,7 @@ parse_text_stats_resp_200_0_array(std::string_view json, monotonic_arena* arena)
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_stats_resp_200_0(obj_json, arena);
+        auto obj = parse_text_stats_response(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1496,14 +1598,14 @@ parse_text_stats_resp_200_0_array(std::string_view json, monotonic_arena* arena)
     return result;
 }
 
-inline std::optional<std::vector<schema_7>> parse_schema_7_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_stats_response_Chars>>
+parse_text_stats_response_Chars_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_7> result;
+    std::vector<text_stats_response_Chars> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1515,7 +1617,7 @@ inline std::optional<std::vector<schema_7>> parse_schema_7_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_7(obj_json, arena);
+        auto obj = parse_text_stats_response_Chars(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1525,14 +1627,14 @@ inline std::optional<std::vector<schema_7>> parse_schema_7_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<schema_8>> parse_schema_8_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_stats_response_Words>>
+parse_text_stats_response_Words_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_8> result;
+    std::vector<text_stats_response_Words> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1544,7 +1646,7 @@ inline std::optional<std::vector<schema_8>> parse_schema_8_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_8(obj_json, arena);
+        auto obj = parse_text_stats_response_Words(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1554,14 +1656,14 @@ inline std::optional<std::vector<schema_8>> parse_schema_8_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<schema_9>> parse_schema_9_array(std::string_view json,
-                                                                 monotonic_arena* arena) {
+inline std::optional<std::vector<text_stats_response_Lines>>
+parse_text_stats_response_Lines_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_9> result;
+    std::vector<text_stats_response_Lines> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1573,7 +1675,7 @@ inline std::optional<std::vector<schema_9>> parse_schema_9_array(std::string_vie
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_9(obj_json, arena);
+        auto obj = parse_text_stats_response_Lines(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1583,14 +1685,14 @@ inline std::optional<std::vector<schema_9>> parse_schema_9_array(std::string_vie
     return result;
 }
 
-inline std::optional<std::vector<text_transform_body_0>>
-parse_text_transform_body_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_request>>
+parse_text_transform_request_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_transform_body_0> result;
+    std::vector<text_transform_request> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1602,7 +1704,7 @@ parse_text_transform_body_0_array(std::string_view json, monotonic_arena* arena)
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_transform_body_0(obj_json, arena);
+        auto obj = parse_text_transform_request(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1612,14 +1714,14 @@ parse_text_transform_body_0_array(std::string_view json, monotonic_arena* arena)
     return result;
 }
 
-inline std::optional<std::vector<schema_10>> parse_schema_10_array(std::string_view json,
-                                                                   monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_request_Text>>
+parse_text_transform_request_Text_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_10> result;
+    std::vector<text_transform_request_Text> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1631,7 +1733,7 @@ inline std::optional<std::vector<schema_10>> parse_schema_10_array(std::string_v
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_10(obj_json, arena);
+        auto obj = parse_text_transform_request_Text(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1641,14 +1743,14 @@ inline std::optional<std::vector<schema_10>> parse_schema_10_array(std::string_v
     return result;
 }
 
-inline std::optional<std::vector<schema_11>> parse_schema_11_array(std::string_view json,
-                                                                   monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_operation>>
+parse_text_transform_operation_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_11> result;
+    std::vector<text_transform_operation> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1660,7 +1762,7 @@ inline std::optional<std::vector<schema_11>> parse_schema_11_array(std::string_v
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_11(obj_json, arena);
+        auto obj = parse_text_transform_operation(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1670,14 +1772,14 @@ inline std::optional<std::vector<schema_11>> parse_schema_11_array(std::string_v
     return result;
 }
 
-inline std::optional<std::vector<schema_12>> parse_schema_12_array(std::string_view json,
-                                                                   monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_request_Trim>>
+parse_text_transform_request_Trim_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_12> result;
+    std::vector<text_transform_request_Trim> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1689,7 +1791,7 @@ inline std::optional<std::vector<schema_12>> parse_schema_12_array(std::string_v
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_12(obj_json, arena);
+        auto obj = parse_text_transform_request_Trim(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1699,14 +1801,14 @@ inline std::optional<std::vector<schema_12>> parse_schema_12_array(std::string_v
     return result;
 }
 
-inline std::optional<std::vector<text_transform_resp_200_0>>
-parse_text_transform_resp_200_0_array(std::string_view json, monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_response>>
+parse_text_transform_response_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<text_transform_resp_200_0> result;
+    std::vector<text_transform_response> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1718,7 +1820,7 @@ parse_text_transform_resp_200_0_array(std::string_view json, monotonic_arena* ar
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_text_transform_resp_200_0(obj_json, arena);
+        auto obj = parse_text_transform_response(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1728,14 +1830,14 @@ parse_text_transform_resp_200_0_array(std::string_view json, monotonic_arena* ar
     return result;
 }
 
-inline std::optional<std::vector<schema_13>> parse_schema_13_array(std::string_view json,
-                                                                   monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_response_Original_length>>
+parse_text_transform_response_Original_length_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_13> result;
+    std::vector<text_transform_response_Original_length> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1747,7 +1849,7 @@ inline std::optional<std::vector<schema_13>> parse_schema_13_array(std::string_v
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_13(obj_json, arena);
+        auto obj = parse_text_transform_response_Original_length(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1757,14 +1859,14 @@ inline std::optional<std::vector<schema_13>> parse_schema_13_array(std::string_v
     return result;
 }
 
-inline std::optional<std::vector<schema_14>> parse_schema_14_array(std::string_view json,
-                                                                   monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_response_Result>>
+parse_text_transform_response_Result_array(std::string_view json, monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_14> result;
+    std::vector<text_transform_response_Result> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1776,7 +1878,7 @@ inline std::optional<std::vector<schema_14>> parse_schema_14_array(std::string_v
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_14(obj_json, arena);
+        auto obj = parse_text_transform_response_Result(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1786,14 +1888,15 @@ inline std::optional<std::vector<schema_14>> parse_schema_14_array(std::string_v
     return result;
 }
 
-inline std::optional<std::vector<schema_15>> parse_schema_15_array(std::string_view json,
-                                                                   monotonic_arena* arena) {
+inline std::optional<std::vector<text_transform_response_Operation_applied>>
+parse_text_transform_response_Operation_applied_array(std::string_view json,
+                                                      monotonic_arena* arena) {
     using katana::serde::json_cursor;
     json_cursor cur{json.data(), json.data() + json.size()};
     if (!cur.try_array_start())
         return std::nullopt;
 
-    std::vector<schema_15> result;
+    std::vector<text_transform_response_Operation_applied> result;
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end())
@@ -1805,7 +1908,7 @@ inline std::optional<std::vector<schema_15>> parse_schema_15_array(std::string_v
         size_t obj_end = cur.pos();
         std::string_view obj_json(json.data() + obj_start, obj_end - obj_start);
 
-        auto obj = parse_schema_15(obj_json, arena);
+        auto obj = parse_text_transform_response_Operation_applied(obj_json, arena);
         if (!obj)
             return std::nullopt;
         result.push_back(std::move(*obj));
@@ -1816,12 +1919,12 @@ inline std::optional<std::vector<schema_15>> parse_schema_15_array(std::string_v
 }
 
 inline std::string
-serialize_text_uppercase_body_0_array(const std::vector<text_uppercase_body_0>& arr) {
+serialize_text_uppercase_request_array(const std::vector<text_uppercase_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_uppercase_body_0(arr[i]));
+        json.append(serialize_text_uppercase_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1830,38 +1933,12 @@ serialize_text_uppercase_body_0_array(const std::vector<text_uppercase_body_0>& 
 }
 
 inline std::string
-serialize_text_uppercase_body_0_array(const arena_vector<text_uppercase_body_0>& arr) {
+serialize_text_uppercase_request_array(const arena_vector<text_uppercase_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_uppercase_body_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_array(const std::vector<schema>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_array(const arena_vector<schema>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema(arr[i]));
+        json.append(serialize_text_uppercase_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1870,12 +1947,12 @@ inline std::string serialize_schema_array(const arena_vector<schema>& arr) {
 }
 
 inline std::string
-serialize_text_uppercase_resp_200_0_array(const std::vector<text_uppercase_resp_200_0>& arr) {
+serialize_text_uppercase_request_Text_array(const std::vector<text_uppercase_request_Text>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_uppercase_resp_200_0(arr[i]));
+        json.append(serialize_text_uppercase_request_Text(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1884,38 +1961,12 @@ serialize_text_uppercase_resp_200_0_array(const std::vector<text_uppercase_resp_
 }
 
 inline std::string
-serialize_text_uppercase_resp_200_0_array(const arena_vector<text_uppercase_resp_200_0>& arr) {
+serialize_text_uppercase_request_Text_array(const arena_vector<text_uppercase_request_Text>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_uppercase_resp_200_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_1_array(const std::vector<schema_1>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_1(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_1_array(const arena_vector<schema_1>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_1(arr[i]));
+        json.append(serialize_text_uppercase_request_Text(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1924,12 +1975,12 @@ inline std::string serialize_schema_1_array(const arena_vector<schema_1>& arr) {
 }
 
 inline std::string
-serialize_text_lowercase_body_0_array(const std::vector<text_lowercase_body_0>& arr) {
+serialize_text_uppercase_response_array(const std::vector<text_uppercase_response>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_lowercase_body_0(arr[i]));
+        json.append(serialize_text_uppercase_response(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1938,12 +1989,12 @@ serialize_text_lowercase_body_0_array(const std::vector<text_lowercase_body_0>& 
 }
 
 inline std::string
-serialize_text_lowercase_body_0_array(const arena_vector<text_lowercase_body_0>& arr) {
+serialize_text_uppercase_response_array(const arena_vector<text_uppercase_response>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_lowercase_body_0(arr[i]));
+        json.append(serialize_text_uppercase_response(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1951,12 +2002,13 @@ serialize_text_lowercase_body_0_array(const arena_vector<text_lowercase_body_0>&
     return json;
 }
 
-inline std::string serialize_schema_2_array(const std::vector<schema_2>& arr) {
+inline std::string serialize_text_uppercase_response_Result_array(
+    const std::vector<text_uppercase_response_Result>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_2(arr[i]));
+        json.append(serialize_text_uppercase_response_Result(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1964,26 +2016,13 @@ inline std::string serialize_schema_2_array(const std::vector<schema_2>& arr) {
     return json;
 }
 
-inline std::string serialize_schema_2_array(const arena_vector<schema_2>& arr) {
+inline std::string serialize_text_uppercase_response_Result_array(
+    const arena_vector<text_uppercase_response_Result>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_2(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string
-serialize_text_lowercase_resp_200_0_array(const std::vector<text_lowercase_resp_200_0>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_lowercase_resp_200_0(arr[i]));
+        json.append(serialize_text_uppercase_response_Result(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -1992,38 +2031,12 @@ serialize_text_lowercase_resp_200_0_array(const std::vector<text_lowercase_resp_
 }
 
 inline std::string
-serialize_text_lowercase_resp_200_0_array(const arena_vector<text_lowercase_resp_200_0>& arr) {
+serialize_text_lowercase_request_array(const std::vector<text_lowercase_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_lowercase_resp_200_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_3_array(const std::vector<schema_3>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_3(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_3_array(const arena_vector<schema_3>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_3(arr[i]));
+        json.append(serialize_text_lowercase_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2032,12 +2045,12 @@ inline std::string serialize_schema_3_array(const arena_vector<schema_3>& arr) {
 }
 
 inline std::string
-serialize_text_reverse_body_0_array(const std::vector<text_reverse_body_0>& arr) {
+serialize_text_lowercase_request_array(const arena_vector<text_lowercase_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_reverse_body_0(arr[i]));
+        json.append(serialize_text_lowercase_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2046,38 +2059,12 @@ serialize_text_reverse_body_0_array(const std::vector<text_reverse_body_0>& arr)
 }
 
 inline std::string
-serialize_text_reverse_body_0_array(const arena_vector<text_reverse_body_0>& arr) {
+serialize_text_lowercase_request_Text_array(const std::vector<text_lowercase_request_Text>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_reverse_body_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_4_array(const std::vector<schema_4>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_4(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_4_array(const arena_vector<schema_4>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_4(arr[i]));
+        json.append(serialize_text_lowercase_request_Text(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2086,12 +2073,12 @@ inline std::string serialize_schema_4_array(const arena_vector<schema_4>& arr) {
 }
 
 inline std::string
-serialize_text_reverse_resp_200_0_array(const std::vector<text_reverse_resp_200_0>& arr) {
+serialize_text_lowercase_request_Text_array(const arena_vector<text_lowercase_request_Text>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_reverse_resp_200_0(arr[i]));
+        json.append(serialize_text_lowercase_request_Text(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2100,90 +2087,12 @@ serialize_text_reverse_resp_200_0_array(const std::vector<text_reverse_resp_200_
 }
 
 inline std::string
-serialize_text_reverse_resp_200_0_array(const arena_vector<text_reverse_resp_200_0>& arr) {
+serialize_text_lowercase_response_array(const std::vector<text_lowercase_response>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_reverse_resp_200_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_5_array(const std::vector<schema_5>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_5(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_5_array(const arena_vector<schema_5>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_5(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_text_stats_body_0_array(const std::vector<text_stats_body_0>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_stats_body_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_text_stats_body_0_array(const arena_vector<text_stats_body_0>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_stats_body_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_6_array(const std::vector<schema_6>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_6(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_6_array(const arena_vector<schema_6>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_6(arr[i]));
+        json.append(serialize_text_lowercase_response(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2192,12 +2101,40 @@ inline std::string serialize_schema_6_array(const arena_vector<schema_6>& arr) {
 }
 
 inline std::string
-serialize_text_stats_resp_200_0_array(const std::vector<text_stats_resp_200_0>& arr) {
+serialize_text_lowercase_response_array(const arena_vector<text_lowercase_response>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_stats_resp_200_0(arr[i]));
+        json.append(serialize_text_lowercase_response(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_lowercase_response_Result_array(
+    const std::vector<text_lowercase_response_Result>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_lowercase_response_Result(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_lowercase_response_Result_array(
+    const arena_vector<text_lowercase_response_Result>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_lowercase_response_Result(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2206,90 +2143,12 @@ serialize_text_stats_resp_200_0_array(const std::vector<text_stats_resp_200_0>& 
 }
 
 inline std::string
-serialize_text_stats_resp_200_0_array(const arena_vector<text_stats_resp_200_0>& arr) {
+serialize_text_reverse_request_array(const std::vector<text_reverse_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_stats_resp_200_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_7_array(const std::vector<schema_7>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_7(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_7_array(const arena_vector<schema_7>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_7(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_8_array(const std::vector<schema_8>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_8(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_8_array(const arena_vector<schema_8>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_8(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_9_array(const std::vector<schema_9>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_9(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_9_array(const arena_vector<schema_9>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_9(arr[i]));
+        json.append(serialize_text_reverse_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2298,12 +2157,12 @@ inline std::string serialize_schema_9_array(const arena_vector<schema_9>& arr) {
 }
 
 inline std::string
-serialize_text_transform_body_0_array(const std::vector<text_transform_body_0>& arr) {
+serialize_text_reverse_request_array(const arena_vector<text_reverse_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_transform_body_0(arr[i]));
+        json.append(serialize_text_reverse_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2312,90 +2171,12 @@ serialize_text_transform_body_0_array(const std::vector<text_transform_body_0>& 
 }
 
 inline std::string
-serialize_text_transform_body_0_array(const arena_vector<text_transform_body_0>& arr) {
+serialize_text_reverse_request_Text_array(const std::vector<text_reverse_request_Text>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_transform_body_0(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_10_array(const std::vector<schema_10>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_10(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_10_array(const arena_vector<schema_10>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_10(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_11_array(const std::vector<schema_11>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_11(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_11_array(const arena_vector<schema_11>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_11(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_12_array(const std::vector<schema_12>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_12(arr[i]));
-        if (i < arr.size() - 1)
-            json.push_back(',');
-    }
-    json.push_back(']');
-    return json;
-}
-
-inline std::string serialize_schema_12_array(const arena_vector<schema_12>& arr) {
-    std::string json;
-    json.reserve(arr.size() * 32 + 2);
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_12(arr[i]));
+        json.append(serialize_text_reverse_request_Text(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2404,12 +2185,12 @@ inline std::string serialize_schema_12_array(const arena_vector<schema_12>& arr)
 }
 
 inline std::string
-serialize_text_transform_resp_200_0_array(const std::vector<text_transform_resp_200_0>& arr) {
+serialize_text_reverse_request_Text_array(const arena_vector<text_reverse_request_Text>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_transform_resp_200_0(arr[i]));
+        json.append(serialize_text_reverse_request_Text(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2418,12 +2199,12 @@ serialize_text_transform_resp_200_0_array(const std::vector<text_transform_resp_
 }
 
 inline std::string
-serialize_text_transform_resp_200_0_array(const arena_vector<text_transform_resp_200_0>& arr) {
+serialize_text_reverse_response_array(const std::vector<text_reverse_response>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_text_transform_resp_200_0(arr[i]));
+        json.append(serialize_text_reverse_response(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2431,12 +2212,13 @@ serialize_text_transform_resp_200_0_array(const arena_vector<text_transform_resp
     return json;
 }
 
-inline std::string serialize_schema_13_array(const std::vector<schema_13>& arr) {
+inline std::string
+serialize_text_reverse_response_array(const arena_vector<text_reverse_response>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_13(arr[i]));
+        json.append(serialize_text_reverse_response(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2444,12 +2226,13 @@ inline std::string serialize_schema_13_array(const std::vector<schema_13>& arr) 
     return json;
 }
 
-inline std::string serialize_schema_13_array(const arena_vector<schema_13>& arr) {
+inline std::string
+serialize_text_reverse_response_Result_array(const std::vector<text_reverse_response_Result>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_13(arr[i]));
+        json.append(serialize_text_reverse_response_Result(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2457,12 +2240,13 @@ inline std::string serialize_schema_13_array(const arena_vector<schema_13>& arr)
     return json;
 }
 
-inline std::string serialize_schema_14_array(const std::vector<schema_14>& arr) {
+inline std::string serialize_text_reverse_response_Result_array(
+    const arena_vector<text_reverse_response_Result>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_14(arr[i]));
+        json.append(serialize_text_reverse_response_Result(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2470,12 +2254,12 @@ inline std::string serialize_schema_14_array(const std::vector<schema_14>& arr) 
     return json;
 }
 
-inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr) {
+inline std::string serialize_text_stats_request_array(const std::vector<text_stats_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_14(arr[i]));
+        json.append(serialize_text_stats_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2483,12 +2267,12 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
     return json;
 }
 
-inline std::string serialize_schema_15_array(const std::vector<schema_15>& arr) {
+inline std::string serialize_text_stats_request_array(const arena_vector<text_stats_request>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_15(arr[i]));
+        json.append(serialize_text_stats_request(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }
@@ -2496,12 +2280,363 @@ inline std::string serialize_schema_15_array(const std::vector<schema_15>& arr) 
     return json;
 }
 
-inline std::string serialize_schema_15_array(const arena_vector<schema_15>& arr) {
+inline std::string
+serialize_text_stats_request_Text_array(const std::vector<text_stats_request_Text>& arr) {
     std::string json;
     json.reserve(arr.size() * 32 + 2);
     json.push_back('[');
     for (size_t i = 0; i < arr.size(); ++i) {
-        json.append(serialize_schema_15(arr[i]));
+        json.append(serialize_text_stats_request_Text(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_request_Text_array(const arena_vector<text_stats_request_Text>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_request_Text(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_array(const std::vector<text_stats_response>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_array(const arena_vector<text_stats_response>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_Chars_array(const std::vector<text_stats_response_Chars>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response_Chars(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_Chars_array(const arena_vector<text_stats_response_Chars>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response_Chars(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_Words_array(const std::vector<text_stats_response_Words>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response_Words(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_Words_array(const arena_vector<text_stats_response_Words>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response_Words(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_Lines_array(const std::vector<text_stats_response_Lines>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response_Lines(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_stats_response_Lines_array(const arena_vector<text_stats_response_Lines>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_stats_response_Lines(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_request_array(const std::vector<text_transform_request>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_request(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_request_array(const arena_vector<text_transform_request>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_request(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_request_Text_array(const std::vector<text_transform_request_Text>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_request_Text(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_request_Text_array(const arena_vector<text_transform_request_Text>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_request_Text(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_operation_array(const std::vector<text_transform_operation>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_operation(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_operation_array(const arena_vector<text_transform_operation>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_operation(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_request_Trim_array(const std::vector<text_transform_request_Trim>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_request_Trim(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_request_Trim_array(const arena_vector<text_transform_request_Trim>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_request_Trim(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_response_array(const std::vector<text_transform_response>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string
+serialize_text_transform_response_array(const arena_vector<text_transform_response>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_transform_response_Original_length_array(
+    const std::vector<text_transform_response_Original_length>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response_Original_length(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_transform_response_Original_length_array(
+    const arena_vector<text_transform_response_Original_length>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response_Original_length(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_transform_response_Result_array(
+    const std::vector<text_transform_response_Result>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response_Result(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_transform_response_Result_array(
+    const arena_vector<text_transform_response_Result>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response_Result(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_transform_response_Operation_applied_array(
+    const std::vector<text_transform_response_Operation_applied>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response_Operation_applied(arr[i]));
+        if (i < arr.size() - 1)
+            json.push_back(',');
+    }
+    json.push_back(']');
+    return json;
+}
+
+inline std::string serialize_text_transform_response_Operation_applied_array(
+    const arena_vector<text_transform_response_Operation_applied>& arr) {
+    std::string json;
+    json.reserve(arr.size() * 32 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < arr.size(); ++i) {
+        json.append(serialize_text_transform_response_Operation_applied(arr[i]));
         if (i < arr.size() - 1)
             json.push_back(',');
     }

@@ -1302,6 +1302,118 @@ std::string generate_handler_interfaces(const document& doc) {
     }
 
     out << "};\n\n";
+
+    // Add usage examples
+    out << "// ============================================================================\n";
+    out << "// USAGE EXAMPLES\n";
+    out << "// ============================================================================\n";
+    out << "//\n";
+    out << "// Example implementation of api_handler:\n";
+    out << "//\n";
+    out << "// class my_api : public generated::api_handler {\n";
+    out << "// public:\n";
+    out << "//     // Example 1: Simple request/response with arena allocator\n";
+
+    // Find first operation to use as example
+    for (const auto& path_item : doc.paths) {
+        for (const auto& op : path_item.operations) {
+            if (op.operation_id.empty() || !op.body || op.body->content.empty()) {
+                continue;
+            }
+
+            std::string method_name = to_snake_case(op.operation_id);
+
+            // Get body type
+            std::string body_type;
+            if (!op.body->content.empty()) {
+                body_type = schema_identifier(doc, op.body->content[0].type);
+            }
+
+            // Get response type (first 200 response)
+            std::string response_type;
+            for (const auto& resp : op.responses) {
+                if (resp.status == 200 && !resp.content.empty()) {
+                    response_type = schema_identifier(doc, resp.content[0].type);
+                    break;
+                }
+            }
+
+            if (!body_type.empty() && !response_type.empty()) {
+                out << "//     response " << method_name << "(const " << body_type
+                    << "& req) override {\n";
+                out << "//         // Access request fields\n";
+                out << "//         auto input = req.text;\n";
+                out << "//\n";
+                out << "//         // Create response using arena allocator\n";
+                out << "//         " << response_type << " resp(&katana::http::arena());\n";
+                out << "//\n";
+                out << "//         // Process and set response fields\n";
+                out << "//         // resp.result = ...your logic here...\n";
+                out << "//\n";
+                out << "//         // Serialize and return\n";
+                out << "//         return response::json(serialize_" << response_type
+                    << "(resp));\n";
+                out << "//     }\n";
+                out << "//\n";
+                break;
+            }
+        }
+        break;
+    }
+
+    out << "//     // Example 2: Error handling\n";
+    out << "//     response handle_request(const some_request& req) override {\n";
+    out << "//         if (req.value < 0) {\n";
+    out << "//             return response::bad_request(\"value must be positive\");\n";
+    out << "//         }\n";
+    out << "//         // ... normal processing ...\n";
+    out << "//         return response::json(serialize_some_response(resp));\n";
+    out << "//     }\n";
+    out << "//\n";
+    out << "//     // Example 3: Different response status codes\n";
+    out << "//     response create_item(const create_request& req) override {\n";
+    out << "//         auto item = db.create(req, &katana::http::arena());\n";
+    out << "//         if (!item) {\n";
+    out << "//             return response::internal_error(\"failed to create item\");\n";
+    out << "//         }\n";
+    out << "//         return response::created(serialize_item(*item));\n";
+    out << "//     }\n";
+    out << "//\n";
+    out << "//     // Example 4: Enum handling\n";
+    out << "//     response transform_text(const text_transform_request& req) override {\n";
+    out << "//         std::string result;\n";
+    out << "//         switch (req.operation) {\n";
+    out << "//             case text_transform_operation::upper:\n";
+    out << "//                 result = to_upper(req.text);\n";
+    out << "//                 break;\n";
+    out << "//             case text_transform_operation::lower:\n";
+    out << "//                 result = to_lower(req.text);\n";
+    out << "//                 break;\n";
+    out << "//             // ... other cases ...\n";
+    out << "//         }\n";
+    out << "//         text_transform_response resp(&katana::http::arena());\n";
+    out << "//         resp.result = result;\n";
+    out << "//         return response::json(serialize_text_transform_response(resp));\n";
+    out << "//     }\n";
+    out << "// };\n";
+    out << "//\n";
+    out << "// Available response helpers:\n";
+    out << "//   - response::ok(body, content_type = \"text/plain\")\n";
+    out << "//   - response::json(json_string)\n";
+    out << "//   - response::created(body, location = \"\")\n";
+    out << "//   - response::no_content()\n";
+    out << "//   - response::bad_request(message)\n";
+    out << "//   - response::unauthorized(message)\n";
+    out << "//   - response::forbidden(message)\n";
+    out << "//   - response::not_found(message)\n";
+    out << "//   - response::internal_error(message)\n";
+    out << "//\n";
+    out << "// Context access functions (available in handler methods):\n";
+    out << "//   - katana::http::req()    - Get current request\n";
+    out << "//   - katana::http::ctx()    - Get request context\n";
+    out << "//   - katana::http::arena()  - Get arena allocator for zero-copy strings\n";
+    out << "//\n";
+
     out << "} // namespace generated\n";
     return out.str();
 }

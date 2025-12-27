@@ -21,3 +21,4 @@ BENCHMARK_FINAL*.md
 *.script
 /__pycache__
 build-windows/
+*.out

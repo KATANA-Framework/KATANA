@@ -34,23 +34,98 @@ struct api_handler {
 
     // POST /text/uppercase
     // Convert text to uppercase
-    virtual response text_uppercase(const text_uppercase_body_0& body) = 0;
+    virtual response text_uppercase(const text_uppercase_request& body) = 0;
 
     // POST /text/lowercase
     // Convert text to lowercase
-    virtual response text_lowercase(const text_lowercase_body_0& body) = 0;
+    virtual response text_lowercase(const text_lowercase_request& body) = 0;
 
     // POST /text/reverse
     // Reverse text
-    virtual response text_reverse(const text_reverse_body_0& body) = 0;
+    virtual response text_reverse(const text_reverse_request& body) = 0;
 
     // POST /text/stats
     // Calculate text statistics
-    virtual response text_stats(const text_stats_body_0& body) = 0;
+    virtual response text_stats(const text_stats_request& body) = 0;
 
     // POST /text/transform
     // Apply multiple transformations
-    virtual response text_transform(const text_transform_body_0& body) = 0;
+    virtual response text_transform(const text_transform_request& body) = 0;
 };
 
+// ============================================================================
+// USAGE EXAMPLES
+// ============================================================================
+//
+// Example implementation of api_handler:
+//
+// class my_api : public generated::api_handler {
+// public:
+//     // Example 1: Simple request/response with arena allocator
+//     response text_uppercase(const text_uppercase_request& req) override {
+//         // Access request fields
+//         auto input = req.text;
+//
+//         // Create response using arena allocator
+//         text_uppercase_response resp(&katana::http::arena());
+//
+//         // Process and set response fields
+//         // resp.result = ...your logic here...
+//
+//         // Serialize and return
+//         return response::json(serialize_text_uppercase_response(resp));
+//     }
+//
+//     // Example 2: Error handling
+//     response handle_request(const some_request& req) override {
+//         if (req.value < 0) {
+//             return response::bad_request("value must be positive");
+//         }
+//         // ... normal processing ...
+//         return response::json(serialize_some_response(resp));
+//     }
+//
+//     // Example 3: Different response status codes
+//     response create_item(const create_request& req) override {
+//         auto item = db.create(req, &katana::http::arena());
+//         if (!item) {
+//             return response::internal_error("failed to create item");
+//         }
+//         return response::created(serialize_item(*item));
+//     }
+//
+//     // Example 4: Enum handling
+//     response transform_text(const text_transform_request& req) override {
+//         std::string result;
+//         switch (req.operation) {
+//             case text_transform_operation::upper:
+//                 result = to_upper(req.text);
+//                 break;
+//             case text_transform_operation::lower:
+//                 result = to_lower(req.text);
+//                 break;
+//             // ... other cases ...
+//         }
+//         text_transform_response resp(&katana::http::arena());
+//         resp.result = result;
+//         return response::json(serialize_text_transform_response(resp));
+//     }
+// };
+//
+// Available response helpers:
+//   - response::ok(body, content_type = "text/plain")
+//   - response::json(json_string)
+//   - response::created(body, location = "")
+//   - response::no_content()
+//   - response::bad_request(message)
+//   - response::unauthorized(message)
+//   - response::forbidden(message)
+//   - response::not_found(message)
+//   - response::internal_error(message)
+//
+// Context access functions (available in handler methods):
+//   - katana::http::req()    - Get current request
+//   - katana::http::ctx()    - Get request context
+//   - katana::http::arena()  - Get arena allocator for zero-copy strings
+//
 } // namespace generated

@@ -734,6 +734,22 @@ bool should_skip_schema(const katana::openapi::schema& s) {
 
 std::string generate_json_parsers(const document& doc, bool use_pmr) {
     std::ostringstream out;
+    out << "// Auto-generated JSON parsers and serializers from OpenAPI specification\n";
+    out << "//\n";
+    out << "// This file contains:\n";
+    out << "//   - parse_<Type>() functions: JSON string → C++ struct\n";
+    out << "//   - serialize_<Type>() functions: C++ struct → JSON string\n";
+    out << "//\n";
+    out << "// Features:\n";
+    out << "//   - Zero-copy parsing using arena allocators\n";
+    out << "//   - Streaming JSON generation without intermediate buffers\n";
+    out << "//   - Type-safe enum conversion\n";
+    out << "//   - Automatic null handling for optional fields\n";
+    out << "//\n";
+    out << "// All parse functions return std::optional<T>:\n";
+    out << "//   - std::nullopt on parse error (invalid JSON, wrong type, etc.)\n";
+    out << "//   - Parsed object on success\n";
+    out << "//\n";
     out << "#pragma once\n\n";
     out << "#include \"katana/core/arena.hpp\"\n";
     out << "#include \"katana/core/serde.hpp\"\n";

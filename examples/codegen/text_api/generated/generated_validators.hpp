@@ -1,4 +1,19 @@
 // layer: flat
+// Auto-generated validators from OpenAPI specification
+//
+// This file contains:
+//   - Validation functions for all request/response types
+//   - Format validators (email, UUID, date-time, etc.)
+//   - Constraint validators (length, range, pattern, etc.)
+//   - Enum value validators
+//
+// All validators return std::optional<validation_error>:
+//   - std::nullopt on success
+//   - validation_error with field path and error code on failure
+//
+// Validation is automatically called by router bindings before handler execution.
+// Invalid requests return 400 Bad Request with error details.
+//
 #pragma once
 
 #include "generated_dtos.hpp"
@@ -118,115 +133,115 @@ inline bool is_valid_datetime(std::string_view v) {
 }
 
 inline std::optional<validation_error>
-validate_text_uppercase_body_0(const text_uppercase_body_0& obj) {
+validate_text_uppercase_request(const text_uppercase_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_uppercase_body_0::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && obj.text.size() < text_uppercase_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_short,
-                                text_uppercase_body_0::metadata::TEXT_MIN_LENGTH};
+                                text_uppercase_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_uppercase_body_0::metadata::TEXT_MAX_LENGTH) {
+    if (obj.text.size() > text_uppercase_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_long,
-                                text_uppercase_body_0::metadata::TEXT_MAX_LENGTH};
+                                text_uppercase_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_uppercase_resp_200_0(const text_uppercase_resp_200_0& obj) {
+validate_text_uppercase_response(const text_uppercase_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_lowercase_body_0(const text_lowercase_body_0& obj) {
+validate_text_lowercase_request(const text_lowercase_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_lowercase_body_0::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && obj.text.size() < text_lowercase_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_short,
-                                text_lowercase_body_0::metadata::TEXT_MIN_LENGTH};
+                                text_lowercase_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_lowercase_body_0::metadata::TEXT_MAX_LENGTH) {
+    if (obj.text.size() > text_lowercase_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_long,
-                                text_lowercase_body_0::metadata::TEXT_MAX_LENGTH};
+                                text_lowercase_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_lowercase_resp_200_0(const text_lowercase_resp_200_0& obj) {
+validate_text_lowercase_response(const text_lowercase_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_reverse_body_0(const text_reverse_body_0& obj) {
+validate_text_reverse_request(const text_reverse_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_reverse_body_0::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && obj.text.size() < text_reverse_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_short,
-                                text_reverse_body_0::metadata::TEXT_MIN_LENGTH};
+                                text_reverse_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_reverse_body_0::metadata::TEXT_MAX_LENGTH) {
+    if (obj.text.size() > text_reverse_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_long,
-                                text_reverse_body_0::metadata::TEXT_MAX_LENGTH};
+                                text_reverse_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_reverse_resp_200_0(const text_reverse_resp_200_0& obj) {
+validate_text_reverse_response(const text_reverse_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
-inline std::optional<validation_error> validate_text_stats_body_0(const text_stats_body_0& obj) {
+inline std::optional<validation_error> validate_text_stats_request(const text_stats_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (obj.text.size() > text_stats_body_0::metadata::TEXT_MAX_LENGTH) {
+    if (obj.text.size() > text_stats_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_long,
-                                text_stats_body_0::metadata::TEXT_MAX_LENGTH};
+                                text_stats_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_stats_resp_200_0(const text_stats_resp_200_0& obj) {
+validate_text_stats_response(const text_stats_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_transform_body_0(const text_transform_body_0& obj) {
+validate_text_transform_request(const text_transform_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_transform_body_0::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && obj.text.size() < text_transform_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_short,
-                                text_transform_body_0::metadata::TEXT_MIN_LENGTH};
+                                text_transform_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_transform_body_0::metadata::TEXT_MAX_LENGTH) {
+    if (obj.text.size() > text_transform_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text",
                                 validation_error_code::string_too_long,
-                                text_transform_body_0::metadata::TEXT_MAX_LENGTH};
+                                text_transform_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
 inline std::optional<validation_error>
-validate_text_transform_resp_200_0(const text_transform_resp_200_0& obj) {
+validate_text_transform_response(const text_transform_response& obj) {
     (void)obj;
     return std::nullopt;
 }

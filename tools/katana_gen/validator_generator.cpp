@@ -415,6 +415,21 @@ void generate_validator_for_schema(std::ostream& out,
 
 std::string generate_validators(const document& doc) {
     std::ostringstream out;
+    out << "// Auto-generated validators from OpenAPI specification\n";
+    out << "//\n";
+    out << "// This file contains:\n";
+    out << "//   - Validation functions for all request/response types\n";
+    out << "//   - Format validators (email, UUID, date-time, etc.)\n";
+    out << "//   - Constraint validators (length, range, pattern, etc.)\n";
+    out << "//   - Enum value validators\n";
+    out << "//\n";
+    out << "// All validators return std::optional<validation_error>:\n";
+    out << "//   - std::nullopt on success\n";
+    out << "//   - validation_error with field path and error code on failure\n";
+    out << "//\n";
+    out << "// Validation is automatically called by router bindings before handler execution.\n";
+    out << "// Invalid requests return 400 Bad Request with error details.\n";
+    out << "//\n";
     out << "#pragma once\n\n";
     out << "#include \"generated_dtos.hpp\"\n";
     out << "#include \"katana/core/validation.hpp\"\n";
