@@ -1,0 +1,161 @@
+openapi: 3.0.0
+info:
+  title: Text Processing API
+  version: 1.0.0
+  description: |
+    Text transformation API to test katana_gen code generation.
+    Tests: multiple endpoints, different input/output schemas, validation, string operations.
+
+paths:
+  /text/uppercase:
+    post:
+      operationId: text_uppercase
+      summary: Convert text to uppercase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+      responses:
+        '200':
+          description: Uppercased text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+
+  /text/lowercase:
+    post:
+      operationId: text_lowercase
+      summary: Convert text to lowercase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+      responses:
+        '200':
+          description: Lowercased text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+
+  /text/reverse:
+    post:
+      operationId: text_reverse
+      summary: Reverse text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+      responses:
+        '200':
+          description: Reversed text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+
+  /text/stats:
+    post:
+      operationId: text_stats
+      summary: Calculate text statistics
+      description: Returns character count, word count, and line count
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 100000
+      responses:
+        '200':
+          description: Text statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chars:
+                    type: integer
+                    format: int64
+                  words:
+                    type: integer
+                    format: int64
+                  lines:
+                    type: integer
+                    format: int64
+
+  /text/transform:
+    post:
+      operationId: text_transform
+      summary: Apply multiple transformations
+      description: Tests complex input schema with enums and optional fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, operation]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+                operation:
+                  type: string
+                  enum: [upper, lower, reverse, title]
+                trim:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Transformed text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  original_length:
+                    type: integer
+                  result:
+                    type: string
+                  operation_applied:
+                    type: string

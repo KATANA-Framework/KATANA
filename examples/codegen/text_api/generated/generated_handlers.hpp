@@ -1,0 +1,56 @@
+// layer: flat
+// Auto-generated handler interfaces from OpenAPI specification
+//
+// Zero-boilerplate design:
+//   - Clean signatures: response method(params) - no request& or context&
+//   - Automatic validation: schema constraints checked before handler call
+//   - Auto parameter binding: path/query/header/body → typed arguments
+//   - Context access: use katana::http::req(), ctx(), arena() for access
+//
+// Example:
+//   response get_user(int64_t id) override {
+//       auto user = db.find(id, &arena());  // arena() from context
+//       return response::json(serialize_User(user));
+//   }
+#pragma once
+
+#include "generated_dtos.hpp"
+#include "katana/core/http.hpp"
+#include "katana/core/router.hpp"
+#include <optional>
+#include <string_view>
+#include <variant>
+
+using katana::http::request;
+using katana::http::request_context;
+using katana::http::response;
+
+namespace generated {
+
+// Base handler interface for all API operations
+// Implement these methods to handle requests - validation is automatic!
+struct api_handler {
+    virtual ~api_handler() = default;
+
+    // POST /text/uppercase
+    // Convert text to uppercase
+    virtual response text_uppercase(const text_uppercase_body_0& body) = 0;
+
+    // POST /text/lowercase
+    // Convert text to lowercase
+    virtual response text_lowercase(const text_lowercase_body_0& body) = 0;
+
+    // POST /text/reverse
+    // Reverse text
+    virtual response text_reverse(const text_reverse_body_0& body) = 0;
+
+    // POST /text/stats
+    // Calculate text statistics
+    virtual response text_stats(const text_stats_body_0& body) = 0;
+
+    // POST /text/transform
+    // Apply multiple transformations
+    virtual response text_transform(const text_transform_body_0& body) = 0;
+};
+
+} // namespace generated
