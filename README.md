@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 26.12 20:51 — fix(benchmark): resolve simple_benchmark deadlock on 256 connections (0555d5b)
+* 26.12 17:52 — chore: sync README with benchmark results (9529171)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
