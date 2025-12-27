@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
+// x86_64 SIMD support
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
 #ifndef KATANA_HAS_SSE2
@@ -13,6 +14,14 @@
 #ifndef KATANA_HAS_AVX2
 #define KATANA_HAS_AVX2
 #endif
+#endif
+#endif
+
+// ARM NEON support (Apple Silicon, ARM64)
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+#include <arm_neon.h>
+#ifndef KATANA_HAS_NEON
+#define KATANA_HAS_NEON
 #endif
 #endif
 
@@ -90,9 +99,53 @@ inline const char* find_crlf_sse2(const char* data, size_t len) noexcept {
 }
 #endif
 
+#ifdef KATANA_HAS_NEON
+inline const char* find_crlf_neon(const char* data, size_t len) noexcept {
+    if (len < 2)
+        return nullptr;
+
+    const uint8x16_t cr = vdupq_n_u8('\r');
+    const uint8x16_t lf = vdupq_n_u8('\n');
+
+    size_t i = 0;
+    for (; i + 17 <= len; i += 16) {
+        uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(data + i));
+        uint8x16_t next_chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(data + i + 1));
+
+        uint8x16_t cr_match = vceqq_u8(chunk, cr);
+        uint8x16_t lf_match = vceqq_u8(next_chunk, lf);
+
+        uint8x16_t crlf_match = vandq_u8(cr_match, lf_match);
+
+        // Convert to scalar mask
+        uint64_t mask_low = vgetq_lane_u64(vreinterpretq_u64_u8(crlf_match), 0);
+        uint64_t mask_high = vgetq_lane_u64(vreinterpretq_u64_u8(crlf_match), 1);
+
+        if (mask_low != 0) {
+            for (size_t j = 0; j < 8; ++j) {
+                if ((mask_low >> (j * 8)) & 0xFF) {
+                    return data + i + j;
+                }
+            }
+        }
+        if (mask_high != 0) {
+            for (size_t j = 0; j < 8; ++j) {
+                if ((mask_high >> (j * 8)) & 0xFF) {
+                    return data + i + 8 + j;
+                }
+            }
+        }
+    }
+
+    return find_crlf_scalar(data + i, len - i);
+}
+#endif
+
 inline const char* find_crlf(const char* data, size_t len) noexcept {
 #ifdef KATANA_HAS_AVX2
     return find_crlf_avx2(data, len);
+#elif defined(KATANA_HAS_NEON)
+    return find_crlf_neon(data, len);
 #elif defined(KATANA_HAS_SSE2)
     return find_crlf_sse2(data, len);
 #else
