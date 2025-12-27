@@ -71,8 +71,27 @@ void generate_dto_for_schema(std::ostream& out,
             // They serve no purpose and pollute the generated code
             return;
         }
+        // Add doc comment for type aliases
+        if (!s.description.empty()) {
+            out << ind << "/// " << s.description << "\n";
+        }
         out << ind << "using " << struct_name << " = " << alias << ";\n\n";
         return;
+    }
+
+    // Add documentation comment for struct
+    if (!s.description.empty()) {
+        out << ind << "/// " << s.description << "\n";
+    } else {
+        // Generate helpful comment based on struct name
+        std::string name_str(s.name.begin(), s.name.end());
+        if (name_str.find("_request") != std::string::npos) {
+            out << ind << "/// Request body type with " << s.properties.size() << " fields\n";
+        } else if (name_str.find("_response") != std::string::npos) {
+            out << ind << "/// Response body type with " << s.properties.size() << " fields\n";
+        } else {
+            out << ind << "/// Data type with " << s.properties.size() << " fields\n";
+        }
     }
 
     out << ind << "struct " << struct_name << " {\n";
@@ -218,6 +237,14 @@ void generate_dto_for_schema(std::ostream& out,
 
     for (const auto& prop : s.properties) {
         auto cpp_type = cpp_type_from_schema(doc, prop.type, use_pmr);
+
+        // Add doc comment for property if type has description
+        if (prop.type && !prop.type->description.empty()) {
+            out << ind << "    /// " << prop.type->description << "\n";
+        } else if (!prop.required) {
+            out << ind << "    /// Optional field\n";
+        }
+
         out << ind << "    " << cpp_type << " " << prop.name;
         bool is_arena_type = use_pmr && (cpp_type.find("arena_string") != std::string::npos ||
                                          cpp_type.find("arena_vector") != std::string::npos);
@@ -238,6 +265,14 @@ void generate_enum_for_schema(std::ostream& out,
     }
 
     auto enum_name = schema_identifier(doc, &s);
+
+    // Add documentation comment if description is available
+    if (!s.description.empty()) {
+        out << "/// " << s.description << "\n";
+    } else {
+        out << "/// Enum with " << s.enum_values.size() << " possible values\n";
+    }
+
     out << "enum class " << enum_name << "_enum {\n";
     for (size_t i = 0; i < s.enum_values.size(); ++i) {
         const auto& val = s.enum_values[i];
@@ -312,6 +347,20 @@ void generate_enum_for_schema(std::ostream& out,
 
 std::string generate_dtos(const document& doc, bool use_pmr) {
     std::ostringstream out;
+    out << "// Auto-generated DTOs (Data Transfer Objects) from OpenAPI specification\n";
+    out << "//\n";
+    out << "// This file contains:\n";
+    out << "//   - Type definitions for request/response bodies\n";
+    out << "//   - Enum types with string conversion functions\n";
+    out << "//   - Compile-time metadata for validation constraints\n";
+    out << "//   - Zero-copy arena allocators for high performance\n";
+    out << "//\n";
+    out << "// All types include metadata structs with validation constraints:\n";
+    out << "//   - Required/optional flags\n";
+    out << "//   - String length constraints (min_length, max_length)\n";
+    out << "//   - Numeric constraints (minimum, maximum, exclusive bounds)\n";
+    out << "//   - Array constraints (min_items, max_items, uniqueness)\n";
+    out << "//\n";
     out << "#pragma once\n\n";
     if (use_pmr) {
         out << "#include \"katana/core/arena.hpp\"\n";

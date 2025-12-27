@@ -194,10 +194,10 @@ inline katana::result<katana::http::response> dispatch_text_uppercase(
     if (!matched_ct)
         return katana::http::response::error(
             katana::problem_details::unsupported_media_type("unsupported Content-Type"));
-    std::optional<text_uppercase_body_0> parsed_body;
+    std::optional<text_uppercase_request> parsed_body;
     switch (*matched_ct) {
     case 0: {
-        auto candidate = parse_text_uppercase_body_0(req.body, &ctx.arena);
+        auto candidate = parse_text_uppercase_request(req.body, &ctx.arena);
         if (!candidate)
             return katana::http::response::error(
                 katana::problem_details::bad_request("invalid request body"));
@@ -210,7 +210,7 @@ inline katana::result<katana::http::response> dispatch_text_uppercase(
     }
 
     // Automatic validation (optimized: single allocation)
-    if (auto validation_error = validate_text_uppercase_body_0(*parsed_body)) {
+    if (auto validation_error = validate_text_uppercase_request(*parsed_body)) {
         return format_validation_error(*validation_error);
     }
     // Set handler context for zero-boilerplate access
@@ -235,10 +235,10 @@ inline katana::result<katana::http::response> dispatch_text_lowercase(
     if (!matched_ct)
         return katana::http::response::error(
             katana::problem_details::unsupported_media_type("unsupported Content-Type"));
-    std::optional<text_lowercase_body_0> parsed_body;
+    std::optional<text_lowercase_request> parsed_body;
     switch (*matched_ct) {
     case 0: {
-        auto candidate = parse_text_lowercase_body_0(req.body, &ctx.arena);
+        auto candidate = parse_text_lowercase_request(req.body, &ctx.arena);
         if (!candidate)
             return katana::http::response::error(
                 katana::problem_details::bad_request("invalid request body"));
@@ -251,7 +251,7 @@ inline katana::result<katana::http::response> dispatch_text_lowercase(
     }
 
     // Automatic validation (optimized: single allocation)
-    if (auto validation_error = validate_text_lowercase_body_0(*parsed_body)) {
+    if (auto validation_error = validate_text_lowercase_request(*parsed_body)) {
         return format_validation_error(*validation_error);
     }
     // Set handler context for zero-boilerplate access
@@ -276,10 +276,10 @@ inline katana::result<katana::http::response> dispatch_text_reverse(
     if (!matched_ct)
         return katana::http::response::error(
             katana::problem_details::unsupported_media_type("unsupported Content-Type"));
-    std::optional<text_reverse_body_0> parsed_body;
+    std::optional<text_reverse_request> parsed_body;
     switch (*matched_ct) {
     case 0: {
-        auto candidate = parse_text_reverse_body_0(req.body, &ctx.arena);
+        auto candidate = parse_text_reverse_request(req.body, &ctx.arena);
         if (!candidate)
             return katana::http::response::error(
                 katana::problem_details::bad_request("invalid request body"));
@@ -292,7 +292,7 @@ inline katana::result<katana::http::response> dispatch_text_reverse(
     }
 
     // Automatic validation (optimized: single allocation)
-    if (auto validation_error = validate_text_reverse_body_0(*parsed_body)) {
+    if (auto validation_error = validate_text_reverse_request(*parsed_body)) {
         return format_validation_error(*validation_error);
     }
     // Set handler context for zero-boilerplate access
@@ -317,10 +317,10 @@ inline katana::result<katana::http::response> dispatch_text_stats(
     if (!matched_ct)
         return katana::http::response::error(
             katana::problem_details::unsupported_media_type("unsupported Content-Type"));
-    std::optional<text_stats_body_0> parsed_body;
+    std::optional<text_stats_request> parsed_body;
     switch (*matched_ct) {
     case 0: {
-        auto candidate = parse_text_stats_body_0(req.body, &ctx.arena);
+        auto candidate = parse_text_stats_request(req.body, &ctx.arena);
         if (!candidate)
             return katana::http::response::error(
                 katana::problem_details::bad_request("invalid request body"));
@@ -333,7 +333,7 @@ inline katana::result<katana::http::response> dispatch_text_stats(
     }
 
     // Automatic validation (optimized: single allocation)
-    if (auto validation_error = validate_text_stats_body_0(*parsed_body)) {
+    if (auto validation_error = validate_text_stats_request(*parsed_body)) {
         return format_validation_error(*validation_error);
     }
     // Set handler context for zero-boilerplate access
@@ -358,10 +358,10 @@ inline katana::result<katana::http::response> dispatch_text_transform(
     if (!matched_ct)
         return katana::http::response::error(
             katana::problem_details::unsupported_media_type("unsupported Content-Type"));
-    std::optional<text_transform_body_0> parsed_body;
+    std::optional<text_transform_request> parsed_body;
     switch (*matched_ct) {
     case 0: {
-        auto candidate = parse_text_transform_body_0(req.body, &ctx.arena);
+        auto candidate = parse_text_transform_request(req.body, &ctx.arena);
         if (!candidate)
             return katana::http::response::error(
                 katana::problem_details::bad_request("invalid request body"));
@@ -374,7 +374,7 @@ inline katana::result<katana::http::response> dispatch_text_transform(
     }
 
     // Automatic validation (optimized: single allocation)
-    if (auto validation_error = validate_text_transform_body_0(*parsed_body)) {
+    if (auto validation_error = validate_text_transform_request(*parsed_body)) {
         return format_validation_error(*validation_error);
     }
     // Set handler context for zero-boilerplate access
@@ -408,10 +408,10 @@ inline const katana::http::router& make_router(api_handler& handler) {
                         return katana::http::response::error(
                             katana::problem_details::unsupported_media_type(
                                 "unsupported Content-Type"));
-                    std::optional<text_uppercase_body_0> parsed_body;
+                    std::optional<text_uppercase_request> parsed_body;
                     switch (*matched_ct) {
                     case 0: {
-                        auto candidate = parse_text_uppercase_body_0(req.body, &ctx.arena);
+                        auto candidate = parse_text_uppercase_request(req.body, &ctx.arena);
                         if (!candidate)
                             return katana::http::response::error(
                                 katana::problem_details::bad_request("invalid request body"));
@@ -424,7 +424,7 @@ inline const katana::http::router& make_router(api_handler& handler) {
                                 "unsupported Content-Type"));
                     }
                     // Automatic validation (optimized: single allocation)
-                    if (auto validation_error = validate_text_uppercase_body_0(*parsed_body)) {
+                    if (auto validation_error = validate_text_uppercase_request(*parsed_body)) {
                         return format_validation_error(*validation_error);
                     }
                     // Set handler context for zero-boilerplate access
@@ -453,10 +453,10 @@ inline const katana::http::router& make_router(api_handler& handler) {
                         return katana::http::response::error(
                             katana::problem_details::unsupported_media_type(
                                 "unsupported Content-Type"));
-                    std::optional<text_lowercase_body_0> parsed_body;
+                    std::optional<text_lowercase_request> parsed_body;
                     switch (*matched_ct) {
                     case 0: {
-                        auto candidate = parse_text_lowercase_body_0(req.body, &ctx.arena);
+                        auto candidate = parse_text_lowercase_request(req.body, &ctx.arena);
                         if (!candidate)
                             return katana::http::response::error(
                                 katana::problem_details::bad_request("invalid request body"));
@@ -469,7 +469,7 @@ inline const katana::http::router& make_router(api_handler& handler) {
                                 "unsupported Content-Type"));
                     }
                     // Automatic validation (optimized: single allocation)
-                    if (auto validation_error = validate_text_lowercase_body_0(*parsed_body)) {
+                    if (auto validation_error = validate_text_lowercase_request(*parsed_body)) {
                         return format_validation_error(*validation_error);
                     }
                     // Set handler context for zero-boilerplate access
@@ -498,10 +498,10 @@ inline const katana::http::router& make_router(api_handler& handler) {
                         return katana::http::response::error(
                             katana::problem_details::unsupported_media_type(
                                 "unsupported Content-Type"));
-                    std::optional<text_reverse_body_0> parsed_body;
+                    std::optional<text_reverse_request> parsed_body;
                     switch (*matched_ct) {
                     case 0: {
-                        auto candidate = parse_text_reverse_body_0(req.body, &ctx.arena);
+                        auto candidate = parse_text_reverse_request(req.body, &ctx.arena);
                         if (!candidate)
                             return katana::http::response::error(
                                 katana::problem_details::bad_request("invalid request body"));
@@ -514,7 +514,7 @@ inline const katana::http::router& make_router(api_handler& handler) {
                                 "unsupported Content-Type"));
                     }
                     // Automatic validation (optimized: single allocation)
-                    if (auto validation_error = validate_text_reverse_body_0(*parsed_body)) {
+                    if (auto validation_error = validate_text_reverse_request(*parsed_body)) {
                         return format_validation_error(*validation_error);
                     }
                     // Set handler context for zero-boilerplate access
@@ -543,10 +543,10 @@ inline const katana::http::router& make_router(api_handler& handler) {
                         return katana::http::response::error(
                             katana::problem_details::unsupported_media_type(
                                 "unsupported Content-Type"));
-                    std::optional<text_stats_body_0> parsed_body;
+                    std::optional<text_stats_request> parsed_body;
                     switch (*matched_ct) {
                     case 0: {
-                        auto candidate = parse_text_stats_body_0(req.body, &ctx.arena);
+                        auto candidate = parse_text_stats_request(req.body, &ctx.arena);
                         if (!candidate)
                             return katana::http::response::error(
                                 katana::problem_details::bad_request("invalid request body"));
@@ -559,7 +559,7 @@ inline const katana::http::router& make_router(api_handler& handler) {
                                 "unsupported Content-Type"));
                     }
                     // Automatic validation (optimized: single allocation)
-                    if (auto validation_error = validate_text_stats_body_0(*parsed_body)) {
+                    if (auto validation_error = validate_text_stats_request(*parsed_body)) {
                         return format_validation_error(*validation_error);
                     }
                     // Set handler context for zero-boilerplate access
@@ -588,10 +588,10 @@ inline const katana::http::router& make_router(api_handler& handler) {
                         return katana::http::response::error(
                             katana::problem_details::unsupported_media_type(
                                 "unsupported Content-Type"));
-                    std::optional<text_transform_body_0> parsed_body;
+                    std::optional<text_transform_request> parsed_body;
                     switch (*matched_ct) {
                     case 0: {
-                        auto candidate = parse_text_transform_body_0(req.body, &ctx.arena);
+                        auto candidate = parse_text_transform_request(req.body, &ctx.arena);
                         if (!candidate)
                             return katana::http::response::error(
                                 katana::problem_details::bad_request("invalid request body"));
@@ -604,7 +604,7 @@ inline const katana::http::router& make_router(api_handler& handler) {
                                 "unsupported Content-Type"));
                     }
                     // Automatic validation (optimized: single allocation)
-                    if (auto validation_error = validate_text_transform_body_0(*parsed_body)) {
+                    if (auto validation_error = validate_text_transform_request(*parsed_body)) {
                         return format_validation_error(*validation_error);
                     }
                     // Set handler context for zero-boilerplate access

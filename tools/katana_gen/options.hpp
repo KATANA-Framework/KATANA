@@ -17,6 +17,7 @@ struct options {
     bool dump_ast = false;
     bool json_output = false;
     bool check_only = false;
+    bool verbose = false;
 };
 
 [[noreturn]] void print_usage();

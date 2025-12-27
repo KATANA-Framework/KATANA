@@ -24,6 +24,7 @@ Options:
   --check                    Validate spec only, no files written
   --strict                   Strict validation, fail on any error
   --dump-ast                 Save AST summary to openapi_ast.json
+  -v, --verbose              Show detailed generation progress
   -h, --help                 Show this help
 )";
     std::exit(1);
@@ -101,6 +102,8 @@ options parse_args(int argc, char** argv) {
             opts.inline_naming = argv[++i];
         } else if (arg == "--check") {
             opts.check_only = true;
+        } else if (arg == "-v" || arg == "--verbose") {
+            opts.verbose = true;
         } else {
             std::cerr << "Unknown argument: " << arg << "\n";
             print_usage();
