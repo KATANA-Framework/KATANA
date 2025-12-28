@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 27.12 13:59 — (fix) codegen tools, add examples (c83d377)
+* 28.12 05:02 — perf(core): optimize reactor event loop and I/O fast paths (c699438)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
