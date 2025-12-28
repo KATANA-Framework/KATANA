@@ -78,14 +78,18 @@ private:
     using fd_wheel_timer = wheel_timer<2048, 8>;
 
     struct alignas(64) fd_state {
-        event_callback callback;
-        event_type events{event_type::none};
-        fd_wheel_timer::timeout_id timeout_id{0};
-        bool has_timeout{false};
+        // Hot data first: accessed on every event (optimize for cache locality)
+        event_callback callback;             // Most accessed field (~64 bytes)
+        event_type events{event_type::none}; // Small, accessed frequently
 
-        timeout_config timeouts{};
-        std::chrono::steady_clock::time_point last_activity{};
+        // Warm data: accessed moderately
+        bool has_timeout{false};
+        fd_wheel_timer::timeout_id timeout_id{0};
         std::chrono::milliseconds timeout_interval{0};
+        std::chrono::steady_clock::time_point last_activity{};
+
+        // Cold data: accessed rarely (only on timeout configuration)
+        timeout_config timeouts{};
     };
 
     struct timer_entry {
