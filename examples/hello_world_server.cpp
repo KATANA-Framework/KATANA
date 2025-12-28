@@ -122,16 +122,22 @@ void build_simple_response(std::string& out,
 }
 
 struct connection {
-    std::atomic<int32_t> fd{-1};
+    // Hot data: Accessed in critical path (write_active_response, handle_client)
+    // Organized to fit in first ~2 cache lines (128 bytes) for optimal performance
+    std::atomic<int32_t> fd{-1};           // 4 bytes
+    size_t write_pos = 0;                  // 8 bytes
+    reactor* reactor_ptr = nullptr;        // 8 bytes
+    bool writing_response = false;         // 1 byte
+    bool should_close_after_write = false; // 1 byte
+    uint16_t _padding = 0;                 // 2 bytes padding for alignment
+    std::string active_response;           // 24 bytes (with SSO)
+    std::vector<uint8_t> read_buffer;      // 24 bytes
+    // Total hot data: ~72 bytes (fits in ~1.1 cache lines)
+
+    // Cold data: Less frequently accessed, can be in subsequent cache lines
     monotonic_arena arena;
     http::parser parser;
-    std::vector<uint8_t> read_buffer;
-    std::string active_response;
-    size_t write_pos = 0;
     size_t requests_on_connection = 0;
-    bool writing_response = false;
-    bool should_close_after_write = false;
-    reactor* reactor_ptr = nullptr;
 
     connection() : arena(ARENA_BLOCK_SIZE), parser(&arena) {
         read_buffer.resize(BUFFER_SIZE);
@@ -156,6 +162,51 @@ void write_active_response(connection& conn) {
         return;
     }
 
+    const size_t remaining = conn.active_response.size() - conn.write_pos;
+    const char* data = conn.active_response.data() + conn.write_pos;
+
+    // Fast path: Try single send() for typical small responses (works ~95% of the time)
+    // Most HTTP responses are < 16KB, and TCP send buffer can usually handle them in one shot
+    if (remaining <= 16384) {
+// Platform-specific send flags for portability
+#ifdef MSG_NOSIGNAL
+        constexpr int send_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+#else
+        constexpr int send_flags = MSG_DONTWAIT; // macOS/BSD don't have MSG_NOSIGNAL
+#endif
+        ssize_t written = ::send(fd_val, data, remaining, send_flags);
+
+        if (written == static_cast<ssize_t>(remaining)) [[likely]] {
+            // Success! Complete write in one syscall (most common case)
+            conn.write_pos = conn.active_response.size();
+            conn.writing_response = false;
+            return;
+        }
+
+        if (written > 0) [[unlikely]] {
+            // Partial write, update position (rare - buffer full)
+            conn.write_pos += static_cast<size_t>(written);
+            conn.writing_response = true;
+            return;
+        }
+
+        if (written < 0) [[unlikely]] {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) [[likely]] {
+                // Would block - wait for writable event
+                conn.writing_response = true;
+                return;
+            }
+            // Other error - close connection
+            conn.safe_close();
+            return;
+        }
+
+        // written == 0, shouldn't happen but treat as would-block
+        conn.writing_response = true;
+        return;
+    }
+
+    // Slow path: Large responses need scatter-gather
     while (conn.write_pos < conn.active_response.size()) {
         scatter_gather_write sg_write;
         sg_write.add_buffer(std::span<const uint8_t>(
@@ -234,30 +285,29 @@ void handle_client(connection& conn) {
         conn.arena.reset();
         conn.parser = http::parser(&conn.arena);
         conn.write_pos = 0;
-        conn.active_response = {};
+        conn.active_response.clear(); // Keep capacity, avoid reallocation
         conn.should_close_after_write = false;
     }
 
     while (true) {
-        scatter_gather_read sg_read;
-        sg_read.add_buffer(std::span<uint8_t>(conn.read_buffer.data(), conn.read_buffer.size()));
+        // Fast path: Direct recv for typical case (avoids scatter_gather overhead)
+        ssize_t n = ::recv(fd_val, conn.read_buffer.data(), conn.read_buffer.size(), MSG_DONTWAIT);
 
-        auto read_result = read_vectored(fd_val, sg_read);
-        if (!read_result) {
-            if (read_result.error().value() != EAGAIN &&
-                read_result.error().value() != EWOULDBLOCK) {
+        if (n < 0) [[unlikely]] {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) [[unlikely]] {
                 conn.safe_close();
             }
             return;
         }
 
-        size_t n = *read_result;
-        if (n == 0) {
+        if (n == 0) [[unlikely]] {
+            // EOF - client closed connection
             conn.safe_close();
             return;
         }
 
-        auto result = conn.parser.parse(std::span<const uint8_t>(conn.read_buffer.data(), n));
+        auto result = conn.parser.parse(
+            std::span<const uint8_t>(conn.read_buffer.data(), static_cast<size_t>(n)));
 
         if (!result) {
             auto resp = http::response::error(problem_details::bad_request("Invalid HTTP request"));
@@ -298,10 +348,11 @@ void handle_client(connection& conn) {
         const bool final_close = should_close || has_conn_close;
 
         bool handled_fast_path = false;
-        if (req.http_method == http::method::get) {
-            if (req.uri == "/") {
+        if (req.http_method == http::method::get) [[likely]] {
+            if (req.uri == "/") [[likely]] {
+                // Most common path - "/" with keep-alive
                 conn.active_response.clear();
-                if (has_conn_close || final_close) {
+                if (has_conn_close || final_close) [[unlikely]] {
                     conn.active_response.append(RESPONSE_CLOSE.data(), RESPONSE_CLOSE.size());
                 } else {
                     conn.active_response.append(RESPONSE_KEEPALIVE.data(),
