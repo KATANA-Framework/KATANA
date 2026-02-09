@@ -1,0 +1,469 @@
+openapi: 3.0.0
+info:
+  title: KATANA Benchmark API
+  version: 1.0.0
+  description: |
+    Unified benchmark service that exercises all katana_gen code paths:
+      - Multiple endpoints (static + dynamic routes)
+      - JSON parse/serialize for various types (primitives, arrays, nested objects)
+      - Format validators (email, uuid, date-time)
+      - Enum types with string conversion
+      - Path, query, header, and cookie parameters
+      - Optional/required fields
+      - Validation constraints (minLength, maxLength, minimum, maximum, pattern, uniqueItems)
+      - Arena-allocated DTOs with struct alignment optimization
+
+paths:
+  # --- Compute endpoints (CPU-bound) ---
+  /compute/sum:
+    post:
+      operationId: compute_sum
+      summary: Sum array of numbers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SumRequest'
+      responses:
+        '200':
+          description: Sum result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SumResponse'
+
+  /compute/stats:
+    post:
+      operationId: compute_stats
+      summary: Compute statistics for array of numbers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatsRequest'
+      responses:
+        '200':
+          description: Statistics result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+
+  # --- User registration (validation-heavy) ---
+  /users/register:
+    post:
+      operationId: register_user
+      summary: Register user with strict validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  # --- CRUD with path/query params ---
+  /items:
+    get:
+      operationId: list_items
+      summary: List items with pagination
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/ItemCategory'
+      responses:
+        '200':
+          description: Item list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemList'
+    post:
+      operationId: create_item
+      summary: Create a new item
+      parameters:
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: session
+          in: cookie
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItemRequest'
+      responses:
+        '201':
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+
+  /items/{id}:
+    get:
+      operationId: get_item
+      summary: Get item by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Item details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+    put:
+      operationId: update_item
+      summary: Update item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItemRequest'
+      responses:
+        '200':
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+    delete:
+      operationId: delete_item
+      summary: Delete item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Item deleted
+
+  # --- Echo endpoint (minimal overhead measurement) ---
+  /echo:
+    post:
+      operationId: echo
+      summary: Echo back the request body
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EchoRequest'
+      responses:
+        '200':
+          description: Echo response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EchoResponse'
+
+  /health:
+    get:
+      operationId: health_check
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  uptime_ms:
+                    type: integer
+                    format: int64
+
+components:
+  schemas:
+    # --- Compute types ---
+    SumRequest:
+      type: object
+      required: [values]
+      properties:
+        values:
+          type: array
+          items:
+            type: number
+            format: double
+          minItems: 1
+          maxItems: 10000
+
+    SumResponse:
+      type: object
+      required: [result, count]
+      properties:
+        result:
+          type: number
+          format: double
+        count:
+          type: integer
+
+    StatsRequest:
+      type: object
+      required: [values]
+      properties:
+        values:
+          type: array
+          items:
+            type: number
+            format: double
+          minItems: 1
+          maxItems: 10000
+        include_median:
+          type: boolean
+
+    StatsResponse:
+      type: object
+      properties:
+        min:
+          type: number
+          format: double
+        max:
+          type: number
+          format: double
+        mean:
+          type: number
+          format: double
+        sum:
+          type: number
+          format: double
+        count:
+          type: integer
+        median:
+          type: number
+          format: double
+
+    # --- User/validation types ---
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[a-zA-Z0-9_-]+$"
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+        age:
+          type: integer
+          minimum: 13
+          maximum: 150
+        role:
+          $ref: '#/components/schemas/UserRole'
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+          uniqueItems: true
+
+    UserRole:
+      type: string
+      enum: [user, moderator, admin]
+
+    UserResponse:
+      type: object
+      required: [id, username, email, role, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        created_at:
+          type: string
+          format: date-time
+
+    # --- Item CRUD types ---
+    ItemCategory:
+      type: string
+      enum: [electronics, books, clothing, food, tools, other]
+
+    Item:
+      type: object
+      required: [id, name, price, category]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: double
+        stock:
+          type: integer
+          format: int64
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          $ref: '#/components/schemas/ItemMetadata'
+
+    ItemMetadata:
+      type: object
+      properties:
+        weight_kg:
+          type: number
+          format: double
+        dimensions:
+          type: string
+        manufacturer:
+          type: string
+        sku:
+          type: string
+
+    CreateItemRequest:
+      type: object
+      required: [name, price, category]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMaximum: 1000000
+        stock:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 999999
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 50
+          maxItems: 20
+        metadata:
+          $ref: '#/components/schemas/ItemMetadata'
+
+    UpdateItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        price:
+          type: number
+          format: double
+          minimum: 0
+        stock:
+          type: integer
+          format: int64
+          minimum: 0
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+
+    ItemList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        total:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    # --- Echo types ---
+    EchoRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          maxLength: 4096
+        repeat:
+          type: integer
+          minimum: 1
+          maximum: 100
+        uppercase:
+          type: boolean
+
+    EchoResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        length:
+          type: integer

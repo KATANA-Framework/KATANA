@@ -20,7 +20,7 @@ using namespace katana;
 using namespace katana::http;
 
 struct compute_handler : generated::api_handler {
-    response compute_sum(const compute_sum_body_0& nums) override {
+    response compute_sum(const compute_sum_request& nums) override {
         double acc = 0.0;
         // Tight loop over arena-backed vector to stress CPU/serialization only.
         for (double v : nums)

@@ -22,3 +22,16 @@ BENCHMARK_FINAL*.md
 /__pycache__
 build-windows/
 *.out
+
+# Profiling artifacts
+profiling_results/
+*.collapsed
+*.perf
+*.folded
+
+# Debug/test artifacts
+debug_test.cpp
+
+# Build and test logs
+*.log
+ci-logs/

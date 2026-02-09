@@ -1,7 +1,7 @@
 # KATANA Benchmarking Methodology
 
-**Version**: 1.0
-**Date**: 2025-12-08
+**Version**: 1.1
+**Date**: 2026-02-08
 **Purpose**: Guidelines for reproducible, meaningful performance measurements
 
 ---
@@ -436,6 +436,6 @@ When detecting regressions, include:
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Maintained By**: KATANA Core Team
-**Last Updated**: 2025-12-08
+**Last Updated**: 2026-02-08

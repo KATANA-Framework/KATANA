@@ -2,6 +2,7 @@
 // Tests katana::serde performance with various payload sizes
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <iomanip>
@@ -130,24 +131,40 @@ void bench_json_object(size_t iterations) {
 
     // Warmup
     for (size_t i = 0; i < 10000; ++i) {
-        std::string json = "{\"id\":";
-        json += std::to_string(obj.id);
-        json += ",\"name\":\"" + obj.name + "\"";
-        json += ",\"value\":" + std::to_string(obj.value);
-        json += ",\"active\":" + std::string(obj.active ? "true" : "false");
-        json += "}";
+        std::string json;
+        json.reserve(128);
+        json.append("{\"id\":");
+        char buf[32];
+        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.id);
+        json.append(buf, static_cast<size_t>(ptr - buf));
+        json.append(",\"name\":\"");
+        serde::escape_json_string_into(obj.name, json);
+        json.append("\",\"value\":");
+        auto [ptr2, ec2] = std::to_chars(buf, buf + sizeof(buf), obj.value);
+        json.append(buf, static_cast<size_t>(ptr2 - buf));
+        json.append(",\"active\":");
+        json.append(obj.active ? "true" : "false");
+        json.push_back('}');
     }
 
     // Benchmark
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
 
-        std::string json = "{\"id\":";
-        json += std::to_string(obj.id);
-        json += ",\"name\":\"" + obj.name + "\"";
-        json += ",\"value\":" + std::to_string(obj.value);
-        json += ",\"active\":" + std::string(obj.active ? "true" : "false");
-        json += "}";
+        std::string json;
+        json.reserve(128);
+        json.append("{\"id\":");
+        char buf[32];
+        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.id);
+        json.append(buf, static_cast<size_t>(ptr - buf));
+        json.append(",\"name\":\"");
+        serde::escape_json_string_into(obj.name, json);
+        json.append("\",\"value\":");
+        auto [ptr2, ec2] = std::to_chars(buf, buf + sizeof(buf), obj.value);
+        json.append(buf, static_cast<size_t>(ptr2 - buf));
+        json.append(",\"active\":");
+        json.append(obj.active ? "true" : "false");
+        json.push_back('}');
 
         auto end = std::chrono::steady_clock::now();
         stats.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
@@ -178,29 +195,31 @@ void bench_json_array(size_t iterations) {
     std::vector<int> large_array(100);
     std::iota(large_array.begin(), large_array.end(), 1);
 
+    // Helper to serialize int array using to_chars (much faster than to_string)
+    auto serialize_int_array = [](const std::vector<int>& arr) {
+        std::string json;
+        json.reserve(arr.size() * 4 + 2);
+        json.push_back('[');
+        char buf[16];
+        for (size_t j = 0; j < arr.size(); ++j) {
+            if (j > 0)
+                json.push_back(',');
+            auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), arr[j]);
+            json.append(buf, static_cast<size_t>(ptr - buf));
+        }
+        json.push_back(']');
+        return json;
+    };
+
     // Warmup
     for (size_t i = 0; i < 10000; ++i) {
-        std::string json = "[";
-        for (size_t j = 0; j < small_array.size(); ++j) {
-            if (j > 0)
-                json += ",";
-            json += std::to_string(small_array[j]);
-        }
-        json += "]";
+        [[maybe_unused]] auto json = serialize_int_array(small_array);
     }
 
     // Benchmark small arrays
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
-
-        std::string json = "[";
-        for (size_t j = 0; j < small_array.size(); ++j) {
-            if (j > 0)
-                json += ",";
-            json += std::to_string(small_array[j]);
-        }
-        json += "]";
-
+        [[maybe_unused]] auto json = serialize_int_array(small_array);
         auto end = std::chrono::steady_clock::now();
         stats_small.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }
@@ -208,15 +227,7 @@ void bench_json_array(size_t iterations) {
     // Benchmark large arrays
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
-
-        std::string json = "[";
-        for (size_t j = 0; j < large_array.size(); ++j) {
-            if (j > 0)
-                json += ",";
-            json += std::to_string(large_array[j]);
-        }
-        json += "]";
-
+        [[maybe_unused]] auto json = serialize_int_array(large_array);
         auto end = std::chrono::steady_clock::now();
         stats_large.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     }

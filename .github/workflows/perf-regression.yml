@@ -5,27 +5,34 @@ on:
     branches: [ main, develop ]
     paths:
       - 'katana/core/**'
+      - 'tools/katana_gen/**'
       - 'benchmark/**'
-      - 'benchmarks/baseline.json'
+      - 'benchmarks/**'
   workflow_dispatch:
     inputs:
       threshold:
         description: 'Regression threshold percentage'
         required: false
         default: '3'
-      run_full_benchmarks:
-        description: 'Run full benchmark suite'
+      stage:
+        description: 'Benchmark stage (1, 2, or all)'
         required: false
-        default: 'false'
+        default: 'all'
 
 env:
   REGRESSION_THRESHOLD: ${{ github.event.inputs.threshold || '3' }}
 
 jobs:
-  benchmark-regression:
-    name: Performance Regression Check
+  # ============================================================
+  # Stage 1: Core Runtime — runs when katana/core/ changes
+  # ============================================================
+  benchmark-stage1:
+    name: "Stage 1: Core Runtime Benchmarks"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.changed_files, 'katana/core/')
 
     steps:
     - uses: actions/checkout@v4
@@ -34,8 +41,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake ninja-build clang-18 clang++-18 clang-tools-18 \
-          liburing-dev libc++-18-dev libc++abi-18-dev ccache python3 python3-pip
-        pip install --no-cache-dir matplotlib numpy
+          liburing-dev libc++-18-dev libc++abi-18-dev ccache python3
 
     - name: Cache CMake build
       uses: actions/cache@v4
@@ -43,12 +49,12 @@ jobs:
         path: |
           build
           ~/.cache/ccache
-        key: ${{ runner.os }}-benchmark-${{ hashFiles('**/CMakeLists.txt') }}-${{ github.sha }}
+        key: ${{ runner.os }}-bench-s1-${{ hashFiles('**/CMakeLists.txt') }}-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-benchmark-${{ hashFiles('**/CMakeLists.txt') }}-
-          ${{ runner.os }}-benchmark-
+          ${{ runner.os }}-bench-s1-${{ hashFiles('**/CMakeLists.txt') }}-
+          ${{ runner.os }}-bench-s1-
 
-    - name: Configure and Build Benchmarks
+    - name: Configure and Build Stage 1 Benchmarks
       run: |
         SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
         cmake -B build \
@@ -60,133 +66,48 @@ jobs:
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DENABLE_BENCHMARKS=ON \
           ${SCAN_DEPS_FLAGS}
-        cmake --build build --target simple_benchmark performance_benchmark -j$(nproc)
+        cmake --build build --target bench_stage1 -j$(nproc)
 
-    - name: Run Core Benchmarks
-      id: run_benchmarks
+    - name: Run Stage 1 Benchmarks
       run: |
-        mkdir -p benchmark_results
+        python3 tools/katana_bench.py --stage 1 --format json > benchmark_results_s1.json
+        python3 tools/katana_bench.py --stage 1 --format console
 
-        # Run benchmarks and capture output
-        echo "Running simple_benchmark..."
-        timeout 120 ./build/benchmark/simple_benchmark 2>&1 | tee benchmark_results/simple_benchmark.log || true
-
-        echo "Running performance_benchmark (quick mode)..."
-        timeout 120 ./build/benchmark/performance_benchmark 2>&1 | tee benchmark_results/performance_benchmark.log || true
-
-    - name: Parse Benchmark Results
+    - name: Compare Against Stage 1 Baseline
+      id: compare_s1
       run: |
-        python3 -c "
-        import json
-        import re
-        import os
-
-        results = {}
-
-        def parse_benchmark_line(line):
-            patterns = [
-                r'(\w[\w\s]+):\s+([\d.]+)\s*(ops/sec|req/s|us|ms|ns)',
-                r'BM_(\w+)\s+([\d.]+)\s*(ns|us|ms|s)',
-            ]
-            for pattern in patterns:
-                match = re.search(pattern, line)
-                if match:
-                    name = match.group(1).strip().replace(' ', '_').lower()
-                    value = float(match.group(2))
-                    unit = match.group(3)
-                    return name, value, unit
-            return None, None, None
-
-        for log_file in ['simple_benchmark.log', 'performance_benchmark.log']:
-            path = f'benchmark_results/{log_file}'
-            if os.path.exists(path):
-                with open(path) as f:
-                    for line in f:
-                        name, value, unit = parse_benchmark_line(line)
-                        if name:
-                            results[name] = {'value': value, 'unit': unit}
-
-        with open('benchmark_results/current.json', 'w') as f:
-            json.dump(results, f, indent=2)
-
-        print(f'Parsed {len(results)} metrics')
-        "
-
-    - name: Compare Against Baseline
-      id: compare
-      run: |
-        if [ -f "benchmarks/baseline.json" ]; then
-          echo "Comparing against baseline with threshold: ${REGRESSION_THRESHOLD}%"
-          python3 scripts/compare_benchmarks.py \
-            --baseline benchmarks/baseline.json \
-            --current benchmark_results/current.json \
-            --threshold "${REGRESSION_THRESHOLD}" \
-            --output benchmark_results/comparison.json \
-            --no-fail || REGRESSION_DETECTED=1
-
-          if [ "${REGRESSION_DETECTED}" = "1" ]; then
+        if [ -f "benchmarks/baseline_stage1.json" ]; then
+          python3 tools/katana_bench.py --stage 1 --format json \
+            --compare benchmarks/baseline_stage1.json > /dev/null 2>&1 || {
             echo "regression_detected=true" >> $GITHUB_OUTPUT
-            echo "::warning::Performance regression detected! See comparison results."
-          else
-            echo "regression_detected=false" >> $GITHUB_OUTPUT
-            echo "::notice::No performance regression detected."
-          fi
+            echo "::warning::Stage 1 performance regression detected!"
+            exit 0
+          }
+          echo "regression_detected=false" >> $GITHUB_OUTPUT
+          echo "::notice::Stage 1: No performance regression detected."
         else
-          echo "No baseline.json found, skipping comparison"
+          echo "No Stage 1 baseline found, skipping comparison"
           echo "regression_detected=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Upload Benchmark Results
+    - name: Upload Stage 1 Results
       uses: actions/upload-artifact@v4
       with:
-        name: benchmark-results
-        path: benchmark_results/
+        name: benchmark-results-stage1
+        path: benchmark_results_s1.json
         retention-days: 30
 
-    - name: Post Comment on PR
-      if: github.event_name == 'pull_request' && steps.compare.outputs.regression_detected == 'true'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          let comparison = {};
-          try {
-            comparison = JSON.parse(fs.readFileSync('benchmark_results/comparison.json', 'utf8'));
-          } catch (e) {
-            console.log('Could not read comparison.json');
-            return;
-          }
-
-          let body = '## ⚠️ Performance Regression Detected\n\n';
-          body += `Threshold: ${process.env.REGRESSION_THRESHOLD}%\n\n`;
-
-          if (comparison.comparisons) {
-            const regressions = comparison.comparisons.filter(c => c.is_regression);
-            if (regressions.length > 0) {
-              body += '### Regressions\n\n';
-              body += '| Metric | Baseline | Current | Change |\n';
-              body += '|--------|----------|---------|--------|\n';
-              regressions.forEach(r => {
-                body += `| ${r.name} | ${r.baseline.toFixed(2)} | ${r.current.toFixed(2)} | ${r.change_percent.toFixed(2)}% |\n`;
-              });
-            }
-          }
-
-          body += '\n---\n*This check runs automatically on changes to core code.*';
-
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          });
-
-  # Optional: Full benchmark suite (only on workflow_dispatch with flag)
-  full-benchmarks:
-    name: Full Benchmark Suite
+  # ============================================================
+  # Stage 2: Codegen Quality — runs when codegen or core changes
+  # ============================================================
+  benchmark-stage2:
+    name: "Stage 2: Codegen Quality Benchmarks"
     runs-on: ubuntu-24.04
-    if: github.event.inputs.run_full_benchmarks == 'true'
-    timeout-minutes: 60
+    timeout-minutes: 30
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.changed_files, 'tools/katana_gen/') ||
+      contains(github.event.pull_request.changed_files, 'katana/core/')
 
     steps:
     - uses: actions/checkout@v4
@@ -195,9 +116,20 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake ninja-build clang-18 clang++-18 clang-tools-18 \
-          liburing-dev libc++-18-dev libc++abi-18-dev ccache wrk
+          liburing-dev libc++-18-dev libc++abi-18-dev ccache python3
 
-    - name: Build all benchmarks
+    - name: Cache CMake build
+      uses: actions/cache@v4
+      with:
+        path: |
+          build
+          ~/.cache/ccache
+        key: ${{ runner.os }}-bench-s2-${{ hashFiles('**/CMakeLists.txt') }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-bench-s2-${{ hashFiles('**/CMakeLists.txt') }}-
+          ${{ runner.os }}-bench-s2-
+
+    - name: Configure and Build Stage 2 Benchmarks
       run: |
         SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
         cmake -B build \
@@ -205,24 +137,100 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_C_COMPILER=clang-18 \
           -DCMAKE_CXX_COMPILER=clang++-18 \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
           -DENABLE_BENCHMARKS=ON \
           ${SCAN_DEPS_FLAGS}
-        cmake --build build -j$(nproc)
+        cmake --build build --target bench_stage2 -j$(nproc)
 
-    - name: Run Full Benchmark Suite
+    - name: Run Stage 2 Benchmarks
       run: |
-        mkdir -p benchmark_results
+        python3 tools/katana_bench.py --stage 2 --format json > benchmark_results_s2.json
+        python3 tools/katana_bench.py --stage 2 --format console
 
-        for bench in simple_benchmark performance_benchmark router_benchmark io_buffer_benchmark timer_benchmark; do
-          if [ -f "build/benchmark/$bench" ]; then
-            echo "Running $bench..."
-            timeout 300 ./build/benchmark/$bench 2>&1 | tee "benchmark_results/${bench}.log" || true
-          fi
-        done
+    - name: Compare Against Stage 2 Baseline
+      id: compare_s2
+      run: |
+        if [ -f "benchmarks/baseline_stage2.json" ]; then
+          python3 tools/katana_bench.py --stage 2 --format json \
+            --compare benchmarks/baseline_stage2.json > /dev/null 2>&1 || {
+            echo "regression_detected=true" >> $GITHUB_OUTPUT
+            echo "::warning::Stage 2 performance regression detected!"
+            exit 0
+          }
+          echo "regression_detected=false" >> $GITHUB_OUTPUT
+          echo "::notice::Stage 2: No performance regression detected."
+        else
+          echo "No Stage 2 baseline found, skipping comparison"
+          echo "regression_detected=false" >> $GITHUB_OUTPUT
+        fi
 
-    - name: Upload Full Results
+    - name: Upload Stage 2 Results
       uses: actions/upload-artifact@v4
       with:
-        name: full-benchmark-results
-        path: benchmark_results/
-        retention-days: 90
+        name: benchmark-results-stage2
+        path: benchmark_results_s2.json
+        retention-days: 30
+
+  # ============================================================
+  # Summary — posts PR comment if regressions detected
+  # ============================================================
+  benchmark-summary:
+    name: Benchmark Summary
+    runs-on: ubuntu-24.04
+    needs: [benchmark-stage1, benchmark-stage2]
+    if: always() && github.event_name == 'pull_request'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download Stage 1 Results
+      uses: actions/download-artifact@v4
+      with:
+        name: benchmark-results-stage1
+        path: results/
+      continue-on-error: true
+
+    - name: Download Stage 2 Results
+      uses: actions/download-artifact@v4
+      with:
+        name: benchmark-results-stage2
+        path: results/
+      continue-on-error: true
+
+    - name: Post Comment on PR
+      if: >
+        needs.benchmark-stage1.outputs.regression_detected == 'true' ||
+        needs.benchmark-stage2.outputs.regression_detected == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let body = '## ⚠️ Performance Regression Detected\n\n';
+          body += `Threshold: ${process.env.REGRESSION_THRESHOLD}%\n\n`;
+
+          for (const stage of ['s1', 's2']) {
+            const file = `results/benchmark_results_${stage}.json`;
+            if (fs.existsSync(file)) {
+              const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+              const stageName = stage === 's1' ? 'Stage 1: Core Runtime' : 'Stage 2: Codegen Quality';
+              body += `### ${stageName}\n\n`;
+              body += '| Benchmark | Binary | Latency (ns/op) |\n';
+              body += '|-----------|--------|----------------|\n';
+              for (const [binary, metrics] of Object.entries(data.benchmarks || {})) {
+                for (const [name, m] of Object.entries(metrics)) {
+                  body += `| ${name} | ${binary} | ${m.ns_per_op.toFixed(1)} |\n`;
+                }
+              }
+              body += '\n';
+            }
+          }
+
+          body += '\n---\n*This check runs automatically on changes to core or codegen code.*';
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });

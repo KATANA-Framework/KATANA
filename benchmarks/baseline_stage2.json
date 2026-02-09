@@ -1,0 +1,13 @@
+{
+    "version": "2.0",
+    "timestamp": "2025-12-27T00:00:00Z",
+    "stage": 2,
+    "benchmarks": {
+        "codegen_quality_benchmark": {},
+        "serialize_benchmark": {},
+        "json_parsing_benchmark": {},
+        "json_benchmark": {},
+        "generated_api_benchmark": {},
+        "products_api_benchmark": {}
+    }
+}
