@@ -462,12 +462,14 @@ TEST_F(ReactorTest, ConcurrentScheduling) {
         }
     });
 
+    // Wait for both threads to finish scheduling all tasks
+    scheduler1.join();
+    scheduler2.join();
+
+    // Now schedule the stop after all tasks are scheduled
     reactor_->schedule_after(200ms, [this]() { reactor_->stop(); });
 
     reactor_->run();
-
-    scheduler1.join();
-    scheduler2.join();
 
     EXPECT_EQ(counter.load(), NUM_TASKS);
 }

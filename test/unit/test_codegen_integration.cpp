@@ -284,8 +284,8 @@ paths:
     EXPECT_NE(bindings.find("not_acceptable"), std::string::npos);
 
     auto dtos = read_generated_file("generated_dtos.hpp");
-    EXPECT_NE(dtos.find("updateItem_body"), std::string::npos); // inline schema gets a named id
-    EXPECT_NE(dtos.find("layer:"), std::string::npos);          // layer banner is emitted
+    EXPECT_NE(dtos.find("updateItem_request"), std::string::npos); // inline schema gets a named id
+    EXPECT_NE(dtos.find("layer:"), std::string::npos);             // layer banner is emitted
 }
 
 TEST_F(CodegenIntegrationTest, GeneratesFormatValidators) {
@@ -316,9 +316,9 @@ components:
 
     auto validator_content = read_generated_file("generated_validators.hpp");
     EXPECT_NE(validator_content.find("is_valid_email"), std::string::npos);
-    EXPECT_NE(validator_content.find("invalid email format"), std::string::npos);
-    EXPECT_NE(validator_content.find("invalid uuid format"), std::string::npos);
-    EXPECT_NE(validator_content.find("invalid date-time format"), std::string::npos);
+    EXPECT_NE(validator_content.find("invalid_email_format"), std::string::npos);
+    EXPECT_NE(validator_content.find("invalid_uuid_format"), std::string::npos);
+    EXPECT_NE(validator_content.find("invalid_datetime_format"), std::string::npos);
 }
 
 TEST_F(CodegenIntegrationTest, RouterBindingsUseNegotiation) {

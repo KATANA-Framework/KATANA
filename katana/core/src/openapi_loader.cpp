@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "katana/core/serde.hpp"
+#include "katana/core/yaml_parser.hpp"
 
 namespace katana::openapi {
 

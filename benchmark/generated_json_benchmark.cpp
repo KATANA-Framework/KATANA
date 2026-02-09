@@ -50,7 +50,7 @@ struct latency_stats {
     int64_t sum_ns = 0;
 };
 
-// Test: Parse compute_sum_body_0 (array of doubles)
+// Test: Parse compute_sum_request (array of doubles)
 void bench_parse_compute_sum_body(size_t iterations) {
     latency_stats stats_small;
     latency_stats stats_medium;
@@ -73,7 +73,7 @@ void bench_parse_compute_sum_body(size_t iterations) {
 
     // Warmup
     for (size_t i = 0; i < 10000; ++i) {
-        [[maybe_unused]] auto result = parse_compute_sum_body_0(small_array, &arena);
+        [[maybe_unused]] auto result = parse_compute_sum_request(small_array, &arena);
         arena.reset();
     }
 
@@ -81,7 +81,7 @@ void bench_parse_compute_sum_body(size_t iterations) {
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
 
-        [[maybe_unused]] auto result = parse_compute_sum_body_0(small_array, &arena);
+        [[maybe_unused]] auto result = parse_compute_sum_request(small_array, &arena);
 
         auto end = std::chrono::steady_clock::now();
         stats_small.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
@@ -93,7 +93,7 @@ void bench_parse_compute_sum_body(size_t iterations) {
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
 
-        [[maybe_unused]] auto result = parse_compute_sum_body_0(medium_array, &arena);
+        [[maybe_unused]] auto result = parse_compute_sum_request(medium_array, &arena);
 
         auto end = std::chrono::steady_clock::now();
         stats_medium.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
@@ -105,7 +105,7 @@ void bench_parse_compute_sum_body(size_t iterations) {
     for (size_t i = 0; i < iterations; ++i) {
         auto start = std::chrono::steady_clock::now();
 
-        [[maybe_unused]] auto result = parse_compute_sum_body_0(large_array, &arena);
+        [[maybe_unused]] auto result = parse_compute_sum_request(large_array, &arena);
 
         auto end = std::chrono::steady_clock::now();
         stats_large.add(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
@@ -117,7 +117,7 @@ void bench_parse_compute_sum_body(size_t iterations) {
     stats_medium.sort();
     stats_large.sort();
 
-    std::cout << "\n=== Parse compute_sum_body_0 (Generated Code) ===\n";
+    std::cout << "\n=== Parse compute_sum_request (Generated Code) ===\n";
 
     auto print_stats = [](const char* label, const latency_stats& stats, size_t elements) {
         std::cout << "  " << label << ":\n";

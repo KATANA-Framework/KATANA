@@ -1,0 +1,15 @@
+{
+    "version": "2.0",
+    "timestamp": "2025-12-27T00:00:00Z",
+    "stage": 1,
+    "benchmarks": {
+        "performance_benchmark": {},
+        "simple_benchmark": {},
+        "mpsc_benchmark": {},
+        "timer_benchmark": {},
+        "headers_benchmark": {},
+        "io_buffer_benchmark": {},
+        "router_benchmark": {},
+        "simd_whitespace_benchmark": {}
+    }
+}

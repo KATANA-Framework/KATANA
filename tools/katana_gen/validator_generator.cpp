@@ -11,6 +11,186 @@
 namespace katana_gen {
 namespace {
 
+// ============================================================
+// Pattern Analysis Helpers
+// ============================================================
+
+// Attempts to generate a hand-coded validator for simple regex patterns.
+// Returns true if it generated inline code, false if the caller should
+// fall back to std::regex.
+bool try_generate_handcoded_pattern(std::ostream& out,
+                                    std::string_view prop_name,
+                                    bool is_optional,
+                                    const std::string& obj_prefix,
+                                    const std::string& deref_prefix,
+                                    std::string_view pattern) {
+    // Pattern: ^[a-zA-Z0-9]+$  ->  loop with std::isalnum
+    if (pattern == "^[a-zA-Z0-9]+$") {
+        std::string val_expr = is_optional ? ("*" + obj_prefix) : obj_prefix;
+        std::string empty_check = is_optional ? (obj_prefix + " && !" + obj_prefix + "->empty()")
+                                              : ("!" + obj_prefix + ".empty()");
+        out << "    if (" << empty_check << ") {\n";
+        out << "        const auto& pv_ = " << val_expr << ";\n";
+        out << "        bool pattern_ok_ = true;\n";
+        out << "        for (unsigned char ch_ : pv_) {\n";
+        out << "            if (!std::isalnum(ch_)) { pattern_ok_ = false; break; }\n";
+        out << "        }\n";
+        out << "        if (!pattern_ok_) {\n";
+        out << "            return validation_error{\"" << prop_name
+            << "\", validation_error_code::pattern_mismatch};\n";
+        out << "        }\n";
+        out << "    }\n";
+        return true;
+    }
+
+    // Pattern: ^[a-zA-Z0-9_-]+$  ->  loop checking alnum, underscore, hyphen
+    if (pattern == "^[a-zA-Z0-9_-]+$" || pattern == "^[a-zA-Z0-9_\\-]+$") {
+        std::string val_expr = is_optional ? ("*" + obj_prefix) : obj_prefix;
+        std::string empty_check = is_optional ? (obj_prefix + " && !" + obj_prefix + "->empty()")
+                                              : ("!" + obj_prefix + ".empty()");
+        out << "    if (" << empty_check << ") {\n";
+        out << "        const auto& pv_ = " << val_expr << ";\n";
+        out << "        bool pattern_ok_ = true;\n";
+        out << "        for (unsigned char ch_ : pv_) {\n";
+        out << "            if (!std::isalnum(ch_) && ch_ != '_' && ch_ != '-') { pattern_ok_ = "
+               "false; break; }\n";
+        out << "        }\n";
+        out << "        if (!pattern_ok_) {\n";
+        out << "            return validation_error{\"" << prop_name
+            << "\", validation_error_code::pattern_mismatch};\n";
+        out << "        }\n";
+        out << "    }\n";
+        return true;
+    }
+
+    // Pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$  ->  already have is_valid_email
+    if (pattern == "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" ||
+        pattern == "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$") {
+        out << "    if ("
+            << (is_optional ? obj_prefix + " && !" + obj_prefix + "->empty() && !is_valid_email(" +
+                                  deref_prefix + ")"
+                            : "!" + obj_prefix + ".empty() && !is_valid_email(" + obj_prefix + ")")
+            << ") {\n";
+        out << "        return validation_error{\"" << prop_name
+            << "\", validation_error_code::pattern_mismatch};\n";
+        out << "    }\n";
+        return true;
+    }
+
+    // Pattern: ^[a-zA-Z]+$  ->  loop with std::isalpha
+    if (pattern == "^[a-zA-Z]+$") {
+        std::string val_expr = is_optional ? ("*" + obj_prefix) : obj_prefix;
+        std::string empty_check = is_optional ? (obj_prefix + " && !" + obj_prefix + "->empty()")
+                                              : ("!" + obj_prefix + ".empty()");
+        out << "    if (" << empty_check << ") {\n";
+        out << "        const auto& pv_ = " << val_expr << ";\n";
+        out << "        bool pattern_ok_ = true;\n";
+        out << "        for (unsigned char ch_ : pv_) {\n";
+        out << "            if (!std::isalpha(ch_)) { pattern_ok_ = false; break; }\n";
+        out << "        }\n";
+        out << "        if (!pattern_ok_) {\n";
+        out << "            return validation_error{\"" << prop_name
+            << "\", validation_error_code::pattern_mismatch};\n";
+        out << "        }\n";
+        out << "    }\n";
+        return true;
+    }
+
+    // Pattern: ^[0-9]+$  ->  loop with std::isdigit
+    if (pattern == "^[0-9]+$") {
+        std::string val_expr = is_optional ? ("*" + obj_prefix) : obj_prefix;
+        std::string empty_check = is_optional ? (obj_prefix + " && !" + obj_prefix + "->empty()")
+                                              : ("!" + obj_prefix + ".empty()");
+        out << "    if (" << empty_check << ") {\n";
+        out << "        const auto& pv_ = " << val_expr << ";\n";
+        out << "        bool pattern_ok_ = true;\n";
+        out << "        for (unsigned char ch_ : pv_) {\n";
+        out << "            if (!std::isdigit(ch_)) { pattern_ok_ = false; break; }\n";
+        out << "        }\n";
+        out << "        if (!pattern_ok_) {\n";
+        out << "            return validation_error{\"" << prop_name
+            << "\", validation_error_code::pattern_mismatch};\n";
+        out << "        }\n";
+        out << "    }\n";
+        return true;
+    }
+
+    // Not a simple pattern - fall through to std::regex
+    return false;
+}
+
+// Helper to generate uniqueItems validation with sort+adjacent_find for small arrays
+// and hash set fallback for large arrays. Boolean arrays keep their efficient pattern.
+void generate_unique_items_check(std::ostream& out,
+                                 std::string_view prop_name,
+                                 const std::string& arr_expr,
+                                 katana::openapi::schema_kind item_kind) {
+    using katana::openapi::schema_kind;
+
+    if (item_kind == schema_kind::boolean) {
+        // Boolean: keep efficient seen_true/seen_false pattern
+        out << "        bool seen_true = false, seen_false = false;\n";
+        out << "        for (const auto& v : " << arr_expr << ") {\n";
+        out << "            if (v) {\n";
+        out << "                if (seen_true) return validation_error{\"" << prop_name
+            << "\", validation_error_code::array_items_not_unique};\n";
+        out << "                seen_true = true;\n";
+        out << "            } else {\n";
+        out << "                if (seen_false) return validation_error{\"" << prop_name
+            << "\", validation_error_code::array_items_not_unique};\n";
+        out << "                seen_false = true;\n";
+        out << "            }\n";
+        out << "        }\n";
+        return;
+    }
+
+    // Determine the C++ type for the set and sort
+    std::string cpp_type;
+    if (item_kind == schema_kind::string) {
+        cpp_type = "std::string_view";
+    } else if (item_kind == schema_kind::integer) {
+        cpp_type = "int64_t";
+    } else if (item_kind == schema_kind::number) {
+        cpp_type = "double";
+    } else {
+        // Unknown item type: fall back to O(n^2) comparison (no sort available)
+        out << "        for (size_t i = 0; i < " << arr_expr << ".size(); ++i) {\n";
+        out << "            for (size_t j = i + 1; j < " << arr_expr << ".size(); ++j) {\n";
+        out << "                if (" << arr_expr << "[i] == " << arr_expr << "[j]) {\n";
+        out << "                    return validation_error{\"" << prop_name
+            << "\", validation_error_code::array_items_not_unique};\n";
+        out << "                }\n";
+        out << "            }\n";
+        out << "        }\n";
+        return;
+    }
+
+    // Runtime size check: sort+adjacent_find for small, hash set for large
+    out << "        if (" << arr_expr << ".size() <= 64) {\n";
+    out << "            // Small array: sort a copy (stack-friendly, no heap)\n";
+    if (item_kind == schema_kind::string) {
+        out << "            std::vector<std::string_view> tmp_(" << arr_expr << ".begin(), "
+            << arr_expr << ".end());\n";
+    } else {
+        out << "            auto tmp_ = " << arr_expr << ";\n";
+    }
+    out << "            std::sort(tmp_.begin(), tmp_.end());\n";
+    out << "            if (std::adjacent_find(tmp_.begin(), tmp_.end()) != tmp_.end()) {\n";
+    out << "                return validation_error{\"" << prop_name
+        << "\", validation_error_code::array_items_not_unique};\n";
+    out << "            }\n";
+    out << "        } else {\n";
+    out << "            // Large array: hash set\n";
+    out << "            std::unordered_set<" << cpp_type << "> seen_;\n";
+    out << "            for (const auto& v : " << arr_expr << ") {\n";
+    out << "                if (!seen_.insert(v).second) {\n";
+    out << "                    return validation_error{\"" << prop_name
+        << "\", validation_error_code::array_items_not_unique};\n";
+    out << "                }\n";
+    out << "            }\n";
+    out << "        }\n";
+}
+
 void generate_validator_for_schema(std::ostream& out,
                                    const document& doc,
                                    const katana::openapi::schema& s) {
@@ -19,8 +199,12 @@ void generate_validator_for_schema(std::ostream& out,
     // Handle top-level arrays (e.g., body: array<number>)
     if (s.kind == schema_kind::array) {
         auto struct_name = schema_identifier(doc, &s);
-        out << "inline std::optional<validation_error> validate_" << struct_name << "(const "
-            << struct_name << "& arr) {\n";
+        out << "[[nodiscard]] inline std::optional<validation_error> validate_" << struct_name
+            << "(const " << struct_name << "& arr) {\n";
+        // Suppress unused parameter warning when no array constraints
+        if (!s.min_items && !s.max_items && !s.unique_items) {
+            out << "    (void)arr;\n";
+        }
         if (s.min_items) {
             out << "    if (arr.size() < " << *s.min_items
                 << ") return validation_error{\"\", validation_error_code::array_too_small, "
@@ -34,45 +218,7 @@ void generate_validator_for_schema(std::ostream& out,
         if (s.unique_items) {
             out << "    {\n";
             if (s.items) {
-                auto item_kind = s.items->kind;
-                if (item_kind == schema_kind::string) {
-                    out << "        std::unordered_set<std::string_view> seen;\n";
-                    out << "        for (const auto& v : arr) {\n";
-                    out << "            if (!seen.insert(v).second) {\n";
-                    out << "                return validation_error{\"\", "
-                           "validation_error_code::array_items_not_unique};\n";
-                    out << "            }\n";
-                    out << "        }\n";
-                } else if (item_kind == schema_kind::integer) {
-                    out << "        std::unordered_set<int64_t> seen;\n";
-                    out << "        for (const auto& v : arr) {\n";
-                    out << "            if (!seen.insert(v).second) {\n";
-                    out << "                return validation_error{\"\", "
-                           "validation_error_code::array_items_not_unique};\n";
-                    out << "            }\n";
-                    out << "        }\n";
-                } else if (item_kind == schema_kind::number) {
-                    out << "        std::unordered_set<double> seen;\n";
-                    out << "        for (const auto& v : arr) {\n";
-                    out << "            if (!seen.insert(v).second) {\n";
-                    out << "                return validation_error{\"\", "
-                           "validation_error_code::array_items_not_unique};\n";
-                    out << "            }\n";
-                    out << "        }\n";
-                } else if (item_kind == schema_kind::boolean) {
-                    out << "        bool seen_true = false, seen_false = false;\n";
-                    out << "        for (const auto& v : arr) {\n";
-                    out << "            if (v) {\n";
-                    out << "                if (seen_true) return validation_error{\"\", "
-                           "validation_error_code::array_items_not_unique};\n";
-                    out << "                seen_true = true;\n";
-                    out << "            } else {\n";
-                    out << "                if (seen_false) return validation_error{\"\", "
-                           "validation_error_code::array_items_not_unique};\n";
-                    out << "                seen_false = true;\n";
-                    out << "            }\n";
-                    out << "        }\n";
-                }
+                generate_unique_items_check(out, "", "arr", s.items->kind);
             }
             out << "    }\n";
         }
@@ -88,8 +234,8 @@ void generate_validator_for_schema(std::ostream& out,
     auto struct_name = schema_identifier(doc, &s);
 
     // Use unified validation_error instead of per-struct error types
-    out << "inline std::optional<validation_error> validate_" << struct_name << "(const "
-        << struct_name << "& obj) {\n";
+    out << "[[nodiscard]] inline std::optional<validation_error> validate_" << struct_name
+        << "(const " << struct_name << "& obj) {\n";
 
     // Check if there's any actual validation logic needed
     bool has_validation = false;
@@ -99,7 +245,13 @@ void generate_validator_for_schema(std::ostream& out,
         bool is_enum = prop.type->kind == schema_kind::string && !prop.type->enum_values.empty();
 
         // Check if this property needs any validation
-        if (prop.required && !is_enum) {
+        // Only string/array required fields generate actual validation code
+        if (prop.required && !is_enum && prop.type->kind == schema_kind::string) {
+            has_validation = true;
+            break;
+        }
+        if (prop.required && prop.type->kind == schema_kind::array && prop.type->min_items &&
+            *prop.type->min_items > 0) {
             has_validation = true;
             break;
         }
@@ -247,20 +399,29 @@ void generate_validator_for_schema(std::ostream& out,
             // Skip enum validation - enums are strongly typed and validated at parse time
             // (the !is_enum check prevents generating validation for enum types)
             if (!prop.type->pattern.empty()) {
-                out << "    {\n";
-                out << "        static const std::regex re_{\""
-                    << escape_cpp_string(prop.type->pattern) << "\"};\n";
-                if (is_optional) {
-                    out << "        if (obj." << prop.name << " && !obj." << prop.name
-                        << "->empty() && !std::regex_match(*obj." << prop.name << ", re_)) {\n";
-                } else {
-                    out << "        if (!obj." << prop.name << ".empty() && !std::regex_match(obj."
-                        << prop.name << ", re_)) {\n";
+                // Try hand-coded validator for simple patterns first
+                if (!try_generate_handcoded_pattern(out,
+                                                    prop.name,
+                                                    is_optional,
+                                                    obj_prefix,
+                                                    deref_prefix,
+                                                    prop.type->pattern)) {
+                    // Complex pattern: fall back to std::regex with static caching
+                    out << "    {\n";
+                    out << "        static const std::regex re_{\""
+                        << escape_cpp_string(prop.type->pattern) << "\"};\n";
+                    if (is_optional) {
+                        out << "        if (obj." << prop.name << " && !obj." << prop.name
+                            << "->empty() && !std::regex_match(*obj." << prop.name << ", re_)) {\n";
+                    } else {
+                        out << "        if (!obj." << prop.name
+                            << ".empty() && !std::regex_match(obj." << prop.name << ", re_)) {\n";
+                    }
+                    out << "            return validation_error{\"" << prop.name
+                        << "\", validation_error_code::pattern_mismatch};\n";
+                    out << "        }\n";
+                    out << "    }\n";
                 }
-                out << "            return validation_error{\"" << prop.name
-                    << "\", validation_error_code::pattern_mismatch};\n";
-                out << "        }\n";
-                out << "    }\n";
             }
         }
 
@@ -304,10 +465,24 @@ void generate_validator_for_schema(std::ostream& out,
                 out << "    }\n";
             }
             if (prop.type->multiple_of) {
-                out << "    if (" << (is_optional ? obj_prefix + " && " : "")
-                    << "std::fmod(static_cast<double>(" << (is_optional ? deref_prefix : obj_prefix)
-                    << "), " << struct_name << "::metadata::" << prop_name_upper
-                    << "_MULTIPLE_OF) != 0.0) {\n";
+                double mof = *prop.type->multiple_of;
+                bool is_integer_field = (prop.type->kind == schema_kind::integer);
+                bool mof_is_integral = (mof == static_cast<double>(static_cast<int64_t>(mof)));
+
+                if (is_integer_field && mof_is_integral) {
+                    // Integer field with integral multipleOf: use integer modulo (no floating
+                    // point)
+                    out << "    if (" << (is_optional ? obj_prefix + " && " : "")
+                        << (is_optional ? deref_prefix : obj_prefix) << " % static_cast<int64_t>("
+                        << struct_name << "::metadata::" << prop_name_upper
+                        << "_MULTIPLE_OF) != 0) {\n";
+                } else {
+                    // Number field or fractional multipleOf: use std::fmod
+                    out << "    if (" << (is_optional ? obj_prefix + " && " : "")
+                        << "std::fmod(static_cast<double>("
+                        << (is_optional ? deref_prefix : obj_prefix) << "), " << struct_name
+                        << "::metadata::" << prop_name_upper << "_MULTIPLE_OF) != 0.0) {\n";
+                }
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::value_not_multiple_of, " << struct_name
                     << "::metadata::" << prop_name_upper << "_MULTIPLE_OF};\n";
@@ -347,60 +522,8 @@ void generate_validator_for_schema(std::ostream& out,
                     out << "        }\n";
                 }
                 if (prop.type->items) {
-                    auto item_kind = prop.type->items->kind;
-                    if (item_kind == schema_kind::string) {
-                        out << "        std::unordered_set<std::string_view> seen;\n";
-                        out << "        for (const auto& v : "
-                            << (is_optional ? deref_prefix : obj_prefix) << ") {\n";
-                        out << "            if (!seen.insert(v).second) {\n";
-                        out << "                return validation_error{\"" << prop.name
-                            << "\", validation_error_code::array_items_not_unique};\n";
-                        out << "            }\n";
-                        out << "        }\n";
-                    } else if (item_kind == schema_kind::integer) {
-                        out << "        std::unordered_set<int64_t> seen;\n";
-                        out << "        for (const auto& v : "
-                            << (is_optional ? deref_prefix : obj_prefix) << ") {\n";
-                        out << "            if (!seen.insert(v).second) {\n";
-                        out << "                return validation_error{\"" << prop.name
-                            << "\", validation_error_code::array_items_not_unique};\n";
-                        out << "            }\n";
-                        out << "        }\n";
-                    } else if (item_kind == schema_kind::number) {
-                        out << "        std::unordered_set<double> seen;\n";
-                        out << "        for (const auto& v : "
-                            << (is_optional ? deref_prefix : obj_prefix) << ") {\n";
-                        out << "            if (!seen.insert(v).second) {\n";
-                        out << "                return validation_error{\"" << prop.name
-                            << "\", validation_error_code::array_items_not_unique};\n";
-                        out << "            }\n";
-                        out << "        }\n";
-                    } else if (item_kind == schema_kind::boolean) {
-                        out << "        bool seen_true = false, seen_false = false;\n";
-                        out << "        for (const auto& v : obj." << prop.name << ") {\n";
-                        out << "            if (v) {\n";
-                        out << "                if (seen_true) return validation_error{\""
-                            << prop.name << "\", validation_error_code::array_items_not_unique};\n";
-                        out << "                seen_true = true;\n";
-                        out << "            } else {\n";
-                        out << "                if (seen_false) return validation_error{\""
-                            << prop.name << "\", validation_error_code::array_items_not_unique};\n";
-                        out << "                seen_false = true;\n";
-                        out << "            }\n";
-                        out << "        }\n";
-                    } else {
-                        out << "        for (size_t i = 0; i < obj." << prop.name
-                            << ".size(); ++i) {\n";
-                        out << "            for (size_t j = i + 1; j < obj." << prop.name
-                            << ".size(); ++j) {\n";
-                        out << "                if (obj." << prop.name << "[i] == obj." << prop.name
-                            << "[j]) {\n";
-                        out << "                    return validation_error{\"" << prop.name
-                            << "\", validation_error_code::array_items_not_unique};\n";
-                        out << "                }\n";
-                        out << "            }\n";
-                        out << "        }\n";
-                    }
+                    std::string arr_expr = is_optional ? deref_prefix : obj_prefix;
+                    generate_unique_items_check(out, prop.name, arr_expr, prop.type->items->kind);
                 }
                 out << "    }\n";
             }
@@ -433,98 +556,35 @@ std::string generate_validators(const document& doc) {
     out << "#pragma once\n\n";
     out << "#include \"generated_dtos.hpp\"\n";
     out << "#include \"katana/core/validation.hpp\"\n";
+    out << "#include \"katana/core/format_validators.hpp\"\n";
+    out << "#include <algorithm>\n";
     out << "#include <optional>\n";
     out << "#include <string_view>\n";
     out << "#include <string>\n";
     out << "#include <cmath>\n";
-    out << "#include <cctype>\n\n";
+    out << "#include <cctype>\n";
     out << "#include <regex>\n";
-    out << "#include <unordered_set>\n\n";
+    out << "#include <unordered_set>\n";
+    out << "#include <vector>\n\n";
     out << "using katana::validation_error;\n";
     out << "using katana::validation_error_code;\n\n";
 
-    // Provide string conversion locally so generated file contains human-readable messages
-    out << "inline constexpr std::string_view to_string(validation_error_code code) noexcept {\n";
-    out << "    switch (code) {\n";
-    out << "    case validation_error_code::required_field_missing: return \"required field is "
-           "missing\";\n";
-    out << "    case validation_error_code::invalid_type: return \"invalid type\";\n";
-    out << "    case validation_error_code::string_too_short: return \"string too short\";\n";
-    out << "    case validation_error_code::string_too_long: return \"string too long\";\n";
-    out << "    case validation_error_code::invalid_email_format: return \"invalid email "
-           "format\";\n";
-    out << "    case validation_error_code::invalid_uuid_format: return \"invalid uuid format\";\n";
-    out << "    case validation_error_code::invalid_datetime_format: return \"invalid date-time "
-           "format\";\n";
-    out << "    case validation_error_code::invalid_enum_value: return \"invalid enum value\";\n";
-    out << "    case validation_error_code::pattern_mismatch: return \"pattern mismatch\";\n";
-    out << "    case validation_error_code::value_too_small: return \"value too small\";\n";
-    out << "    case validation_error_code::value_too_large: return \"value too large\";\n";
-    out << "    case validation_error_code::value_below_exclusive_minimum: return \"value must be "
-           "greater than minimum\";\n";
-    out << "    case validation_error_code::value_above_exclusive_maximum: return \"value must be "
-           "less than maximum\";\n";
-    out << "    case validation_error_code::value_not_multiple_of: return \"value must be multiple "
-           "of\";\n";
-    out << "    case validation_error_code::array_too_small: return \"array too small\";\n";
-    out << "    case validation_error_code::array_too_large: return \"array too large\";\n";
-    out << "    case validation_error_code::array_items_not_unique: return \"array items must be "
-           "unique\";\n";
-    out << "    }\n";
-    out << "    return \"unknown error\";\n";
-    out << "}\n\n";
+    // ============================================================
+    // Format Validators (from framework)
+    // ============================================================
+    out << "// ============================================================\n";
+    out << "// Format Validators (from framework)\n";
+    out << "// ============================================================\n\n";
+    out << "using katana::format_validators::is_valid_email;\n";
+    out << "using katana::format_validators::is_valid_uuid;\n";
+    out << "using katana::format_validators::is_valid_datetime;\n\n";
 
-    out << "inline bool is_valid_email(std::string_view v) {\n";
-    out << "    auto at = v.find('@');\n";
-    out << "    if (at == std::string_view::npos || at == 0 || at + 1 >= v.size()) return false;\n";
-    out << "    auto domain = v.substr(at + 1);\n";
-    out << "    auto dot = domain.find('.');\n";
-    out << "    if (dot == std::string_view::npos || dot == 0 || dot + 1 >= domain.size()) return "
-           "false;\n";
-    out << "    return true;\n";
-    out << "}\n\n";
-
-    out << "inline bool is_valid_uuid(std::string_view v) {\n";
-    out << "    if (v.size() != 36) return false;\n";
-    out << "    auto is_hex = [](char c) { return std::isxdigit(static_cast<unsigned char>(c)) != "
-           "0; };\n";
-    out << "    for (size_t i = 0; i < v.size(); ++i) {\n";
-    out << "        if (i == 8 || i == 13 || i == 18 || i == 23) {\n";
-    out << "            if (v[i] != '-') return false;\n";
-    out << "        } else if (!is_hex(v[i])) {\n";
-    out << "            return false;\n";
-    out << "        }\n";
-    out << "    }\n";
-    out << "    return true;\n";
-    out << "}\n\n";
-
-    out << "inline bool is_valid_datetime(std::string_view v) {\n";
-    out << "    auto is_digit = [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != "
-           "0; };\n";
-    out << "    if (v.size() < 20) return false;\n";
-    out << "    for (size_t i : {0u, 1u, 2u, 3u, 5u, 6u, 8u, 9u, 11u, 12u, 14u, 15u, 17u, 18u}) "
-           "{\n";
-    out << "        if (!is_digit(v[i])) return false;\n";
-    out << "    }\n";
-    out << "    if (v[4] != '-' || v[7] != '-' || v[10] != 'T' || v[13] != ':' || v[16] != ':') "
-           "return false;\n";
-    out << "    size_t pos = 19;\n";
-    out << "    if (pos < v.size() && v[pos] == '.') {\n";
-    out << "        ++pos;\n";
-    out << "        if (pos >= v.size()) return false;\n";
-    out << "        while (pos < v.size() && is_digit(v[pos])) ++pos;\n";
-    out << "    }\n";
-    out << "    if (pos >= v.size()) return false;\n";
-    out << "    if (v[pos] == 'Z') return pos + 1 == v.size();\n";
-    out << "    if (v[pos] == '+' || v[pos] == '-') {\n";
-    out << "        if (pos + 5 >= v.size()) return false;\n";
-    out << "        if (!is_digit(v[pos + 1]) || !is_digit(v[pos + 2])) return false;\n";
-    out << "        if (v[pos + 3] != ':') return false;\n";
-    out << "        if (!is_digit(v[pos + 4]) || !is_digit(v[pos + 5])) return false;\n";
-    out << "        return pos + 6 == v.size();\n";
-    out << "    }\n";
-    out << "    return false;\n";
-    out << "}\n\n";
+    // ============================================================
+    // Validation Functions
+    // ============================================================
+    out << "// ============================================================\n";
+    out << "// Validation Functions\n";
+    out << "// ============================================================\n\n";
 
     for (const auto& schema : doc.schemas) {
         generate_validator_for_schema(out, doc, schema);

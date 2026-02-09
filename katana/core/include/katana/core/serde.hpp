@@ -1,18 +1,16 @@
 #pragma once
 
-#include <algorithm>
 #include <cctype>
 #include <charconv>
-#include <cstdlib>
-#include <memory>
+#include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_set>
-#include <utility>
-#include <vector>
 
-#ifdef __SSE2__
+#ifdef __AVX2__
+#include <immintrin.h> // AVX2 (includes SSE2)
+#elif defined(__SSE2__)
 #include <emmintrin.h> // SSE2
 #endif
 
@@ -178,33 +176,43 @@ struct json_cursor {
 
     void skip_value() noexcept {
         skip_ws();
-        if (try_object_start()) {
+        if (eof())
+            return;
+        char ch = *ptr;
+        if (ch == '{' || ch == '[') {
+            char open = ch;
+            char close = (ch == '{') ? '}' : ']';
+            ++ptr;
             int depth = 1;
             while (!eof() && depth > 0) {
-                if (try_object_start()) {
+                ch = *ptr;
+                if (ch == '\"') {
+                    // Skip over string content (handles \" inside strings)
+                    ++ptr;
+                    while (!eof()) {
+                        if (*ptr == '\\' && (ptr + 1) < end) {
+                            ptr += 2;
+                            continue;
+                        }
+                        if (*ptr == '\"') {
+                            ++ptr;
+                            break;
+                        }
+                        ++ptr;
+                    }
+                } else if (ch == open) {
                     ++depth;
-                } else if (try_object_end()) {
+                    ++ptr;
+                } else if (ch == close) {
                     --depth;
+                    ++ptr;
                 } else {
                     ++ptr;
                 }
             }
             return;
         }
-        if (try_array_start()) {
-            int depth = 1;
-            while (!eof() && depth > 0) {
-                if (try_array_start()) {
-                    ++depth;
-                } else if (try_array_end()) {
-                    --depth;
-                } else {
-                    ++ptr;
-                }
-            }
-            return;
-        }
-        if (!eof() && *ptr == '\"') {
+        if (ch == '\"') {
             (void)string();
             return;
         }
@@ -229,24 +237,67 @@ inline std::optional<size_t> parse_size(json_cursor& cur) noexcept {
         }
         return std::nullopt;
     }
-    const char* start = cur.ptr;
-    const char* p = start;
-    if (p < cur.end && (*p == '+' || *p == '-')) {
-        ++p;
-    }
-    while (p < cur.end && std::isdigit(static_cast<unsigned char>(*p))) {
-        ++p;
-    }
-    if (p == start) {
-        return std::nullopt;
-    }
+    // Let from_chars handle sign and digit scanning directly
     size_t value = 0;
-    auto fc = std::from_chars(start, p, value);
-    if (fc.ec != std::errc()) {
+    auto [p, ec] = std::from_chars(cur.ptr, cur.end, value);
+    if (ec != std::errc() || p == cur.ptr) {
         return std::nullopt;
     }
     cur.ptr = p;
     return value;
+}
+
+inline std::optional<int64_t> parse_int64(json_cursor& cur) noexcept {
+    cur.skip_ws();
+    if (cur.eof()) {
+        return std::nullopt;
+    }
+    if (*cur.ptr == '\"') {
+        if (auto sv = cur.string()) {
+            int64_t value = 0;
+            auto fc = std::from_chars(sv->data(), sv->data() + sv->size(), value);
+            if (fc.ec == std::errc()) {
+                return value;
+            }
+        }
+        return std::nullopt;
+    }
+    // Hand-rolled fast path for common case (short integers ≤18 digits)
+    const char* p = cur.ptr;
+    bool negative = false;
+    if (*p == '-') {
+        negative = true;
+        ++p;
+        if (p >= cur.end)
+            return std::nullopt;
+    } else if (*p == '+') {
+        ++p;
+        if (p >= cur.end)
+            return std::nullopt;
+    }
+    // Must start with a digit
+    if (static_cast<unsigned char>(*p - '0') > 9u)
+        return std::nullopt;
+    uint64_t val = 0;
+    // Unrolled digit accumulation (handles up to 18 digits safely without overflow)
+    do {
+        unsigned int d = static_cast<unsigned char>(*p - '0');
+        if (d > 9u)
+            break;
+        val = val * 10u + d;
+        ++p;
+    } while (p < cur.end);
+    cur.ptr = p;
+    // Convert to signed with overflow protection
+    if (negative) {
+        // INT64_MIN = -9223372036854775808, max unsigned = 9223372036854775808
+        if (val > static_cast<uint64_t>(INT64_MAX) + 1u)
+            return std::nullopt;
+        return static_cast<int64_t>(-static_cast<int64_t>(val));
+    }
+    if (val > static_cast<uint64_t>(INT64_MAX))
+        return std::nullopt;
+    return static_cast<int64_t>(val);
 }
 
 inline std::optional<double> parse_double(json_cursor& cur) noexcept {
@@ -280,21 +331,22 @@ inline std::optional<bool> parse_bool(json_cursor& cur) noexcept {
     if (cur.eof()) {
         return std::nullopt;
     }
-    if (*cur.ptr == 't' || *cur.ptr == 'T') {
-        cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(4), cur.end); // true
+    // Use memcmp for word-level comparison (single 32-bit load on most architectures)
+    if (cur.end - cur.ptr >= 4 && std::memcmp(cur.ptr, "true", 4) == 0) {
+        cur.ptr += 4;
         return true;
     }
-    if (*cur.ptr == 'f' || *cur.ptr == 'F') {
-        cur.ptr = std::min(cur.ptr + static_cast<ptrdiff_t>(5), cur.end); // false
+    if (cur.end - cur.ptr >= 5 && std::memcmp(cur.ptr, "false", 5) == 0) {
+        cur.ptr += 5;
         return false;
     }
     if (*cur.ptr == '\"') {
         if (auto sv = cur.string()) {
             auto v = trim_view(*sv);
-            if (v == "true") {
+            if (v.size() == 4 && std::memcmp(v.data(), "true", 4) == 0) {
                 return true;
             }
-            if (v == "false") {
+            if (v.size() == 5 && std::memcmp(v.data(), "false", 5) == 0) {
                 return false;
             }
         }
@@ -320,398 +372,348 @@ inline bool is_null_literal(std::string_view sv) noexcept {
     return sv == "null";
 }
 
-struct yaml_node {
-    enum class kind { scalar, object, array };
+inline bool needs_json_escaping(std::string_view sv) noexcept {
+#ifdef __AVX2__
+    const char* ptr = sv.data();
+    const char* end = ptr + sv.size();
+    const __m256i backslash = _mm256_set1_epi8('\\');
+    const __m256i quote = _mm256_set1_epi8('\"');
+    const __m256i control_max = _mm256_set1_epi8(0x1F);
 
-    kind k{kind::scalar};
-    std::string scalar;
-    std::vector<std::pair<std::string, std::unique_ptr<yaml_node>>> object;
-    std::vector<std::unique_ptr<yaml_node>> array;
-
-    static yaml_node scalar_node(std::string value) {
-        yaml_node n;
-        n.k = kind::scalar;
-        n.scalar = std::move(value);
-        return n;
+    // Process 32 bytes at a time with AVX2
+    while (end - ptr >= 32) {
+        __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(ptr));
+        __m256i eq_bs = _mm256_cmpeq_epi8(chunk, backslash);
+        __m256i eq_qt = _mm256_cmpeq_epi8(chunk, quote);
+        __m256i is_ctrl = _mm256_cmpeq_epi8(_mm256_min_epu8(chunk, control_max), chunk);
+        __m256i needs = _mm256_or_si256(_mm256_or_si256(eq_bs, eq_qt), is_ctrl);
+        if (_mm256_movemask_epi8(needs) != 0) {
+            return true;
+        }
+        ptr += 32;
     }
 
-    static yaml_node object_node() {
-        yaml_node n;
-        n.k = kind::object;
-        return n;
+    // SSE2 path for remaining 16-31 bytes
+    const __m128i backslash128 = _mm_set1_epi8('\\');
+    const __m128i quote128 = _mm_set1_epi8('\"');
+    const __m128i control_max128 = _mm_set1_epi8(0x1F);
+    while (end - ptr >= 16) {
+        __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr));
+        __m128i eq_bs = _mm_cmpeq_epi8(chunk, backslash128);
+        __m128i eq_qt = _mm_cmpeq_epi8(chunk, quote128);
+        __m128i is_ctrl = _mm_cmpeq_epi8(_mm_min_epu8(chunk, control_max128), chunk);
+        __m128i needs = _mm_or_si128(_mm_or_si128(eq_bs, eq_qt), is_ctrl);
+        if (_mm_movemask_epi8(needs) != 0) {
+            return true;
+        }
+        ptr += 16;
+    }
+    while (ptr < end) {
+        unsigned char c = static_cast<unsigned char>(*ptr);
+        if (c == '\\' || c == '\"' || c <= 0x1F) {
+            return true;
+        }
+        ++ptr;
+    }
+    return false;
+#elif defined(__SSE2__)
+    const char* ptr = sv.data();
+    const char* end = ptr + sv.size();
+    const __m128i backslash = _mm_set1_epi8('\\');
+    const __m128i quote = _mm_set1_epi8('\"');
+    const __m128i control_max = _mm_set1_epi8(0x1F);
+    while (end - ptr >= 16) {
+        __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr));
+        __m128i eq_bs = _mm_cmpeq_epi8(chunk, backslash);
+        __m128i eq_qt = _mm_cmpeq_epi8(chunk, quote);
+        // Check for control characters (bytes <= 0x1F): compare unsigned via max
+        __m128i is_ctrl = _mm_cmpeq_epi8(_mm_min_epu8(chunk, control_max), chunk);
+        __m128i needs = _mm_or_si128(_mm_or_si128(eq_bs, eq_qt), is_ctrl);
+        if (_mm_movemask_epi8(needs) != 0) {
+            return true;
+        }
+        ptr += 16;
+    }
+    while (ptr < end) {
+        unsigned char c = static_cast<unsigned char>(*ptr);
+        if (c == '\\' || c == '\"' || c <= 0x1F) {
+            return true;
+        }
+        ++ptr;
+    }
+    return false;
+#elif defined(__ARM_NEON) || defined(__aarch64__)
+    const char* ptr = sv.data();
+    const char* end = ptr + sv.size();
+    const uint8x16_t backslash = vdupq_n_u8('\\');
+    const uint8x16_t quote = vdupq_n_u8('\"');
+    const uint8x16_t control_max = vdupq_n_u8(0x1F);
+    while (end - ptr >= 16) {
+        uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(ptr));
+        uint8x16_t eq_bs = vceqq_u8(chunk, backslash);
+        uint8x16_t eq_qt = vceqq_u8(chunk, quote);
+        uint8x16_t is_ctrl = vcleq_u8(chunk, control_max);
+        uint8x16_t needs = vorrq_u8(vorrq_u8(eq_bs, eq_qt), is_ctrl);
+        if (vmaxvq_u8(needs) != 0) {
+            return true;
+        }
+        ptr += 16;
+    }
+    while (ptr < end) {
+        unsigned char c = static_cast<unsigned char>(*ptr);
+        if (c == '\\' || c == '\"' || c <= 0x1F) {
+            return true;
+        }
+        ++ptr;
+    }
+    return false;
+#else
+    for (char c : sv) {
+        unsigned char uc = static_cast<unsigned char>(c);
+        if (uc == '\\' || uc == '\"' || uc <= 0x1F) {
+            return true;
+        }
+    }
+    return false;
+#endif
+}
+
+// Emit a single escaped character into out
+inline void escape_one_char(char c, std::string& out) {
+    switch (c) {
+    case '\\':
+        out.append("\\\\", 2);
+        break;
+    case '\"':
+        out.append("\\\"", 2);
+        break;
+    case '\n':
+        out.append("\\n", 2);
+        break;
+    case '\r':
+        out.append("\\r", 2);
+        break;
+    case '\t':
+        out.append("\\t", 2);
+        break;
+    default: {
+        static constexpr char hex[] = "0123456789abcdef";
+        char buf[6] = {'\\',
+                       'u',
+                       '0',
+                       '0',
+                       hex[(static_cast<unsigned char>(c) >> 4) & 0xF],
+                       hex[static_cast<unsigned char>(c) & 0xF]};
+        out.append(buf, 6);
+        break;
+    }
+    }
+}
+
+inline void escape_json_string_into(std::string_view sv, std::string& out) {
+    // Fast path: if no escaping needed, single bulk append
+    if (!needs_json_escaping(sv)) {
+        out.append(sv.data(), sv.size());
+        return;
     }
 
-    static yaml_node array_node() {
-        yaml_node n;
-        n.k = kind::array;
-        return n;
+    out.reserve(out.size() + sv.size() + 8);
+    const char* ptr = sv.data();
+    const char* end_ptr = ptr + sv.size();
+
+#ifdef __AVX2__
+    const __m256i v_backslash = _mm256_set1_epi8('\\');
+    const __m256i v_quote = _mm256_set1_epi8('\"');
+    const __m256i v_control_max = _mm256_set1_epi8(0x1F);
+
+    while (end_ptr - ptr >= 32) {
+        __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(ptr));
+        __m256i eq_bs = _mm256_cmpeq_epi8(chunk, v_backslash);
+        __m256i eq_qt = _mm256_cmpeq_epi8(chunk, v_quote);
+        __m256i is_ctrl = _mm256_cmpeq_epi8(_mm256_min_epu8(chunk, v_control_max), chunk);
+        __m256i needs = _mm256_or_si256(_mm256_or_si256(eq_bs, eq_qt), is_ctrl);
+        int mask = _mm256_movemask_epi8(needs);
+
+        if (mask == 0) {
+            // All 32 bytes are clean — bulk append
+            out.append(ptr, 32);
+            ptr += 32;
+            continue;
+        }
+
+        // Find first escape-needing byte, bulk append clean prefix
+        int first_esc = __builtin_ctz(static_cast<unsigned>(mask));
+        if (first_esc > 0) {
+            out.append(ptr, static_cast<size_t>(first_esc));
+        }
+        ptr += first_esc;
+        escape_one_char(*ptr, out);
+        ++ptr;
     }
-};
+#elif defined(__SSE2__)
+    const __m128i v_backslash = _mm_set1_epi8('\\');
+    const __m128i v_quote = _mm_set1_epi8('\"');
+    const __m128i v_control_max = _mm_set1_epi8(0x1F);
+
+    while (end_ptr - ptr >= 16) {
+        __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr));
+        __m128i eq_bs = _mm_cmpeq_epi8(chunk, v_backslash);
+        __m128i eq_qt = _mm_cmpeq_epi8(chunk, v_quote);
+        __m128i is_ctrl = _mm_cmpeq_epi8(_mm_min_epu8(chunk, v_control_max), chunk);
+        __m128i needs = _mm_or_si128(_mm_or_si128(eq_bs, eq_qt), is_ctrl);
+        int mask = _mm_movemask_epi8(needs);
+
+        if (mask == 0) {
+            // All 16 bytes are clean — bulk append
+            out.append(ptr, 16);
+            ptr += 16;
+            continue;
+        }
+
+        // Find first escape-needing byte, bulk append clean prefix
+        int first_esc = __builtin_ctz(static_cast<unsigned>(mask));
+        if (first_esc > 0) {
+            out.append(ptr, static_cast<size_t>(first_esc));
+        }
+        ptr += first_esc;
+        escape_one_char(*ptr, out);
+        ++ptr;
+    }
+#endif
+
+    // Scalar tail: scan for clean runs and bulk copy
+    while (ptr < end_ptr) {
+        const char* scan = ptr;
+        while (scan < end_ptr) {
+            unsigned char uc = static_cast<unsigned char>(*scan);
+            if (uc == '\\' || uc == '\"' || uc <= 0x1F)
+                break;
+            ++scan;
+        }
+        if (scan > ptr) {
+            out.append(ptr, static_cast<size_t>(scan - ptr));
+            ptr = scan;
+        }
+        if (ptr < end_ptr) {
+            escape_one_char(*ptr, out);
+            ++ptr;
+        }
+    }
+}
 
 inline std::string escape_json_string(std::string_view sv) {
+    if (!needs_json_escaping(sv)) {
+        return std::string(sv);
+    }
     std::string out;
     out.reserve(sv.size() + 8);
-    for (char c : sv) {
-        switch (c) {
-        case '\\':
-            out += "\\\\";
-            break;
-        case '\"':
-            out += "\\\"";
-            break;
-        case '\n':
-            out += "\\n";
-            break;
-        case '\r':
-            out += "\\r";
-            break;
-        case '\t':
-            out += "\\t";
-            break;
-        default:
-            out.push_back(c);
-            break;
-        }
-    }
+    escape_json_string_into(sv, out);
     return out;
 }
 
-inline void emit_json(const yaml_node& n, std::string& out);
+// Optimized integer to string conversion using lookup tables
+// This is ~2-3x faster than std::to_chars for small integers
+namespace detail {
 
-inline void emit_scalar(const std::string& v, std::string& out) {
-    std::string_view sv = trim_view(v);
-    if (is_bool_literal(sv) || is_null_literal(sv)) {
-        out.append(sv);
+// Two-digit lookup table for faster integer formatting
+// Each entry contains the ASCII representation of 00-99
+alignas(64) constexpr char digits_lut[200] = {
+    '0', '0', '0', '1', '0', '2', '0', '3', '0', '4', '0', '5', '0', '6', '0', '7', '0', '8', '0',
+    '9', '1', '0', '1', '1', '1', '2', '1', '3', '1', '4', '1', '5', '1', '6', '1', '7', '1', '8',
+    '1', '9', '2', '0', '2', '1', '2', '2', '2', '3', '2', '4', '2', '5', '2', '6', '2', '7', '2',
+    '8', '2', '9', '3', '0', '3', '1', '3', '2', '3', '3', '3', '4', '3', '5', '3', '6', '3', '7',
+    '3', '8', '3', '9', '4', '0', '4', '1', '4', '2', '4', '3', '4', '4', '4', '5', '4', '6', '4',
+    '7', '4', '8', '4', '9', '5', '0', '5', '1', '5', '2', '5', '3', '5', '4', '5', '5', '5', '6',
+    '5', '7', '5', '8', '5', '9', '6', '0', '6', '1', '6', '2', '6', '3', '6', '4', '6', '5', '6',
+    '6', '6', '7', '6', '8', '6', '9', '7', '0', '7', '1', '7', '2', '7', '3', '7', '4', '7', '5',
+    '7', '6', '7', '7', '7', '8', '7', '9', '8', '0', '8', '1', '8', '2', '8', '3', '8', '4', '8',
+    '5', '8', '6', '8', '7', '8', '8', '8', '9', '9', '0', '9', '1', '9', '2', '9', '3', '9', '4',
+    '9', '5', '9', '6', '9', '7', '9', '8', '9', '9'};
+
+// Fast integer to string using two-digit lookup
+inline char* format_uint_fast(char* buf, uint32_t val) noexcept {
+    if (val < 10) {
+        *buf++ = static_cast<char>('0' + val);
+        return buf;
+    }
+    if (val < 100) {
+        std::memcpy(buf, &digits_lut[val * 2], 2);
+        return buf + 2;
+    }
+    if (val < 1000) {
+        *buf++ = static_cast<char>('0' + val / 100);
+        std::memcpy(buf, &digits_lut[(val % 100) * 2], 2);
+        return buf + 2;
+    }
+    if (val < 10000) {
+        std::memcpy(buf, &digits_lut[(val / 100) * 2], 2);
+        std::memcpy(buf + 2, &digits_lut[(val % 100) * 2], 2);
+        return buf + 4;
+    }
+    // Fall back to from_chars for larger values
+    auto [ptr, ec] = std::to_chars(buf, buf + 16, val);
+    return ptr;
+}
+
+} // namespace detail
+
+// Serialize array of integers with optimized formatting
+// Pre-allocates buffer and uses lookup table for fast conversion
+template <typename IntT>
+inline void serialize_int_array_into(const IntT* arr, size_t count, std::string& out) {
+    if (count == 0) {
+        out.append("[]", 2);
         return;
     }
-    if (sv.size() >= 2 &&
-        ((sv.front() == '\"' && sv.back() == '\"') || (sv.front() == '\'' && sv.back() == '\''))) {
-        sv = sv.substr(1, sv.size() - 2);
-    }
-    out.push_back('\"');
-    out.append(escape_json_string(sv));
-    out.push_back('\"');
-}
 
-inline void emit_json(const yaml_node& n, std::string& out) {
-    switch (n.k) {
-    case yaml_node::kind::scalar:
-        emit_scalar(n.scalar, out);
-        break;
-    case yaml_node::kind::object: {
-        out.push_back('{');
-        for (size_t i = 0; i < n.object.size(); ++i) {
-            if (i != 0) {
-                out.push_back(',');
-            }
-            const auto& kv = n.object[i];
-            out.push_back('\"');
-            out.append(escape_json_string(kv.first));
-            out.push_back('\"');
-            out.push_back(':');
-            emit_json(*kv.second, out);
+    // Reserve space: assume avg 4 chars per int + comma + brackets
+    out.reserve(out.size() + count * 5 + 2);
+
+    // Use a local buffer for batch formatting
+    char local_buf[512];
+    char* ptr = local_buf;
+    char* const end = local_buf + sizeof(local_buf) - 16; // Leave room for last int
+
+    out.push_back('[');
+
+    for (size_t i = 0; i < count; ++i) {
+        if (ptr >= end) {
+            // Flush buffer
+            out.append(local_buf, static_cast<size_t>(ptr - local_buf));
+            ptr = local_buf;
         }
-        out.push_back('}');
-        break;
-    }
-    case yaml_node::kind::array: {
-        out.push_back('[');
-        for (size_t i = 0; i < n.array.size(); ++i) {
-            if (i != 0) {
-                out.push_back(',');
-            }
-            emit_json(*n.array[i], out);
+
+        if (i > 0) {
+            *ptr++ = ',';
         }
-        out.push_back(']');
-        break;
-    }
-    }
-}
 
-struct yaml_diagnostic {
-    size_t line = 0;
-    std::string message;
-};
-
-inline void set_yaml_error(yaml_diagnostic* diag, size_t line, std::string_view message) {
-    if (!diag || !diag->message.empty()) {
-        return;
-    }
-    diag->line = line;
-    diag->message.assign(message.begin(), message.end());
-}
-
-struct yaml_line {
-    int indent;
-    std::string_view content;
-};
-
-inline std::vector<yaml_line> tokenize_yaml(std::string_view text) {
-    std::vector<yaml_line> lines;
-    size_t pos = 0;
-    while (pos < text.size()) {
-        size_t end = text.find('\n', pos);
-        if (end == std::string_view::npos) {
-            end = text.size();
-        }
-        std::string_view line = text.substr(pos, end - pos);
-        pos = end + 1;
-        if (line.empty()) {
-            continue;
-        }
-        int indent = 0;
-        for (char c : line) {
-            if (c == ' ') {
-                ++indent;
-            } else {
-                break;
+        // Format integer
+        auto val = arr[i];
+        if constexpr (std::is_signed_v<IntT>) {
+            if (val < 0) {
+                *ptr++ = '-';
+                val = static_cast<IntT>(-val);
             }
         }
-        std::string_view content = line.substr(static_cast<size_t>(indent));
-        content = trim_view(content);
-        if (content.empty() || content.front() == '#') {
-            continue;
-        }
-        lines.push_back({indent, content});
-    }
-    return lines;
-}
 
-inline std::string normalize_key(std::string_view key) {
-    auto trimmed = trim_view(key);
-    if (trimmed.size() >= 2 && ((trimmed.front() == '\"' && trimmed.back() == '\"') ||
-                                (trimmed.front() == '\'' && trimmed.back() == '\''))) {
-        trimmed = trimmed.substr(1, trimmed.size() - 2);
-    }
-    return std::string(trimmed);
-}
-
-inline std::vector<std::string_view> split_top_level(std::string_view input,
-                                                     char delimiter = ',') noexcept {
-    std::vector<std::string_view> parts;
-    size_t start = 0;
-    int depth = 0;
-    bool in_single = false;
-    bool in_double = false;
-
-    for (size_t i = 0; i < input.size(); ++i) {
-        char c = input[i];
-        if (c == '\'' && !in_double) {
-            in_single = !in_single;
-        } else if (c == '\"' && !in_single) {
-            in_double = !in_double;
-        } else if (!in_single && !in_double) {
-            if (c == '{' || c == '[') {
-                ++depth;
-            } else if (c == '}' || c == ']') {
-                --depth;
-            } else if (c == delimiter && depth == 0) {
-                parts.push_back(trim_view(input.substr(start, i - start)));
-                start = i + 1;
-            }
-        }
-    }
-
-    auto tail = trim_view(input.substr(start));
-    if (!tail.empty()) {
-        parts.push_back(tail);
-    }
-    return parts;
-}
-
-inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
-                                  size_t& idx,
-                                  int indent,
-                                  yaml_diagnostic* diag);
-
-inline yaml_node parse_inline_map(std::string_view value, yaml_diagnostic* diag, size_t line_no);
-inline yaml_node
-parse_inline_sequence(std::string_view value, yaml_diagnostic* diag, size_t line_no);
-inline yaml_node parse_inline_value(std::string_view value, yaml_diagnostic* diag, size_t line_no) {
-    auto trimmed = trim_view(value);
-    if (trimmed.empty()) {
-        return yaml_node::scalar_node("");
-    }
-    if (trimmed.front() == '{' && trimmed.back() == '}') {
-        return parse_inline_map(trimmed, diag, line_no);
-    }
-    if (trimmed.front() == '[' && trimmed.back() == ']') {
-        return parse_inline_sequence(trimmed, diag, line_no);
-    }
-    return yaml_node::scalar_node(std::string(trimmed));
-}
-
-inline yaml_node parse_inline_map(std::string_view value, yaml_diagnostic* diag, size_t line_no) {
-    yaml_node obj = yaml_node::object_node();
-    auto inner = trim_view(value.substr(1, value.size() - 2));
-    std::unordered_set<std::string> seen;
-    for (auto part : split_top_level(inner)) {
-        if (part.empty()) {
-            continue;
-        }
-        auto colon = part.find(':');
-        if (colon == std::string_view::npos) {
-            continue;
-        }
-        auto key = normalize_key(part.substr(0, colon));
-        auto val = trim_view(part.substr(colon + 1));
-        if (seen.contains(key)) {
-            set_yaml_error(diag, line_no, std::string("duplicate key '") + key + "' in inline map");
-            auto it = std::find_if(obj.object.begin(), obj.object.end(), [&](const auto& kv) {
-                return kv.first == key;
-            });
-            if (it != obj.object.end()) {
-                obj.object.erase(it);
-            }
-        }
-        seen.insert(key);
-        obj.object.emplace_back(
-            std::move(key), std::make_unique<yaml_node>(parse_inline_value(val, diag, line_no)));
-    }
-    return obj;
-}
-
-inline yaml_node
-parse_inline_sequence(std::string_view value, yaml_diagnostic* diag, size_t line_no) {
-    yaml_node arr = yaml_node::array_node();
-    auto inner = trim_view(value.substr(1, value.size() - 2));
-    for (auto part : split_top_level(inner)) {
-        if (part.empty()) {
-            continue;
-        }
-        arr.array.push_back(std::make_unique<yaml_node>(parse_inline_value(part, diag, line_no)));
-    }
-    return arr;
-}
-
-inline yaml_node parse_yaml_value(std::string_view value,
-                                  const std::vector<yaml_line>& lines,
-                                  size_t& idx,
-                                  int indent,
-                                  yaml_diagnostic* diag,
-                                  size_t current_line = 0) {
-    const size_t line_no = current_line ? current_line : (idx + 1);
-    yaml_node child;
-    auto trimmed_val = trim_view(value);
-    if (trimmed_val.empty()) {
-        child = parse_yaml_block(lines, idx, indent + 2, diag);
-    } else if ((trimmed_val.front() == '{' && trimmed_val.back() == '}') ||
-               (trimmed_val.front() == '[' && trimmed_val.back() == ']')) {
-        child = parse_inline_value(trimmed_val, diag, line_no);
-    } else {
-        child = yaml_node::scalar_node(std::string(trimmed_val));
-    }
-    return child;
-}
-
-inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
-                                  size_t& idx,
-                                  int indent,
-                                  yaml_diagnostic* diag) {
-    yaml_node node = yaml_node::object_node();
-    std::unordered_set<std::string> seen_keys;
-
-    while (idx < lines.size()) {
-        const auto& ln = lines[idx];
-        if (ln.indent < indent) {
-            break;
-        }
-        if (ln.indent > indent) {
-            ++idx;
-            continue;
-        }
-
-        std::string_view content = ln.content;
-        if (content.size() >= 2 && content[0] == '-' && content[1] == ' ') {
-            if (node.k != yaml_node::kind::array) {
-                node.k = yaml_node::kind::array;
-                node.array.clear();
-            }
-
-            std::string_view item = trim_view(content.substr(2));
-            size_t line_no = idx + 1;
-            ++idx;
-
-            if (item.empty()) {
-                node.array.push_back(
-                    std::make_unique<yaml_node>(parse_yaml_block(lines, idx, indent + 2, diag)));
-                continue;
-            }
-
-            auto colon_pos = item.find(':');
-            if (colon_pos != std::string_view::npos) {
-                std::string key = normalize_key(item.substr(0, colon_pos));
-                std::string_view val = trim_view(item.substr(colon_pos + 1));
-                yaml_node obj = yaml_node::object_node();
-                yaml_node parsed_val = parse_yaml_value(val, lines, idx, indent, diag, line_no);
-                obj.object.emplace_back(std::move(key),
-                                        std::make_unique<yaml_node>(std::move(parsed_val)));
-                if (idx < lines.size() && lines[idx].indent > indent) {
-                    int child_indent = lines[idx].indent;
-                    yaml_node extra = parse_yaml_block(lines, idx, child_indent, diag);
-                    if (extra.k == yaml_node::kind::object) {
-                        for (auto& kv : extra.object) {
-                            obj.object.emplace_back(std::move(kv.first), std::move(kv.second));
-                        }
-                    }
-                }
-                node.array.push_back(std::make_unique<yaml_node>(std::move(obj)));
-            } else {
-                node.array.push_back(
-                    std::make_unique<yaml_node>(yaml_node::scalar_node(std::string(item))));
-            }
+        if constexpr (sizeof(IntT) <= 4) {
+            ptr = detail::format_uint_fast(ptr, static_cast<uint32_t>(val));
         } else {
-            auto colon_pos = content.find(':');
-            if (colon_pos == std::string_view::npos) {
-                ++idx;
-                continue;
-            }
-            std::string key = normalize_key(content.substr(0, colon_pos));
-            std::string_view val = trim_view(content.substr(colon_pos + 1));
-            size_t line_no = idx + 1;
-            ++idx;
-
-            if (node.k != yaml_node::kind::object) {
-                node.k = yaml_node::kind::object;
-                node.object.clear();
-            }
-
-            yaml_node child = parse_yaml_value(val, lines, idx, indent, diag, line_no);
-            if (seen_keys.contains(key)) {
-                set_yaml_error(diag, line_no, std::string("duplicate key '") + key + "'");
-                auto it = std::find_if(node.object.begin(), node.object.end(), [&](const auto& kv) {
-                    return kv.first == key;
-                });
-                if (it != node.object.end()) {
-                    node.object.erase(it);
-                }
-            }
-            seen_keys.insert(key);
-            node.object.emplace_back(std::move(key), std::make_unique<yaml_node>(std::move(child)));
+            auto [p, ec] = std::to_chars(ptr, ptr + 20, val);
+            ptr = p;
         }
     }
 
-    return node;
+    // Flush remaining
+    out.append(local_buf, static_cast<size_t>(ptr - local_buf));
+    out.push_back(']');
 }
 
-inline std::optional<std::string> yaml_to_json(std::string_view text,
-                                               std::string* error = nullptr) {
-    auto lines = tokenize_yaml(text);
-    if (lines.empty()) {
-        return std::nullopt;
-    }
-    size_t idx = 0;
-    yaml_diagnostic diag;
-    yaml_node root = parse_yaml_block(lines, idx, lines.front().indent, &diag);
-    if (!diag.message.empty()) {
-        if (error) {
-            *error = "line " + std::to_string(diag.line == 0 ? 1 : diag.line) + ": " + diag.message;
-        }
-        return std::nullopt;
-    }
-    std::string out;
-    emit_json(root, out);
-    return out;
+// Convenience wrapper that returns a string
+template <typename IntT> inline std::string serialize_int_array(const IntT* arr, size_t count) {
+    std::string result;
+    serialize_int_array_into(arr, count, result);
+    return result;
 }
 
 } // namespace katana::serde

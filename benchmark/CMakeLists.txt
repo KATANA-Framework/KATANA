@@ -369,3 +369,56 @@ target_link_libraries(simd_whitespace_benchmark
         katana_core
         pthread
 )
+
+# New: Codegen Quality Benchmark
+add_executable(codegen_quality_benchmark codegen_quality_benchmark.cpp)
+
+target_compile_options(codegen_quality_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_link_libraries(codegen_quality_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+
+# New: Serialize Benchmark
+add_executable(serialize_benchmark serialize_benchmark.cpp)
+
+target_compile_options(serialize_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_link_libraries(serialize_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+
+# ============================================================
+# Benchmark Stages
+# ============================================================
+
+# Stage 1: Core Runtime
+add_custom_target(bench_stage1
+    DEPENDS performance_benchmark simple_benchmark mpsc_benchmark
+            timer_benchmark headers_benchmark io_buffer_benchmark
+            router_benchmark simd_whitespace_benchmark
+    COMMENT "Building Stage 1 (Core Runtime) benchmarks"
+)
+
+# Stage 2: Codegen Quality
+add_custom_target(bench_stage2
+    DEPENDS generated_api_benchmark json_parsing_benchmark
+            json_benchmark codegen_quality_benchmark
+            serialize_benchmark products_api_benchmark
+    COMMENT "Building Stage 2 (Codegen Quality) benchmarks"
+)
+
+# All benchmarks
+add_custom_target(bench_all DEPENDS bench_stage1 bench_stage2)

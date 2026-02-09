@@ -1,0 +1,455 @@
+# KATANA Benchmarking System
+
+Comprehensive benchmarking framework for the KATANA server framework. This document describes the automated benchmark system created for issue #5.
+
+## Overview
+
+The KATANA benchmarking system provides:
+
+- **Unified Automation**: Single command to run all benchmarks
+- **Comprehensive Coverage**: Tests core runtime, codegen quality, routing, serialization, and integration
+- **Edge Case Testing**: Boundary conditions, max/min values, null handling, concurrent access
+- **Detailed Reporting**: JSON and Markdown reports with metrics, trends, and regression detection
+- **CI Integration**: Can be used in continuous integration pipelines
+- **Pre-commit Hooks**: Automatically update benchmark results before commits
+
+## Quick Start
+
+### Running All Benchmarks
+
+```bash
+# Build benchmarks
+cmake --preset bench
+cmake --build --preset bench -j$(nproc)
+
+# Build examples (for integration tests)
+cmake --preset examples
+cmake --build --preset examples --target task_api
+
+# Run comprehensive benchmark suite
+python3 scripts/run_all_benchmarks.py --verbose
+```
+
+### Using the Original Script
+
+```bash
+# Run using the original unified script
+./run_benchmarks.sh
+```
+
+## Benchmark Categories
+
+### 1. Core Runtime Benchmarks
+
+Tests fundamental framework components:
+
+- **Reactor Performance**: Event loop dispatch, task scheduling
+- **HTTP Parser**: Request parsing throughput and latency
+- **Arena Allocator**: Per-request memory management
+- **IO Buffer**: Zero-copy buffer operations
+- **MPSC Queue**: Multi-producer single-consumer lock-free queue
+- **Timer**: Wheel timer for timeouts and delays
+
+**Executables:**
+- `build/bench/benchmark/simple_benchmark`
+- `build/bench/benchmark/performance_benchmark`
+- `build/bench/benchmark/mpsc_benchmark`
+- `build/bench/benchmark/timer_benchmark`
+- `build/bench/benchmark/io_buffer_benchmark`
+
+### 2. Code Generation Quality Benchmarks
+
+Tests the `katana_gen` tool output quality:
+
+- **Parse Performance**: Generated JSON parsers
+- **Serialization**: Generated serializers
+- **Validation**: Generated validators with all OpenAPI constraints
+- **Type Safety**: Compile-time type checking
+
+**Executables:**
+- `build/bench/benchmark/codegen_quality_benchmark`
+- `build/bench/benchmark/generated_json_benchmark`
+- `build/bench/benchmark/generated_api_benchmark`
+
+### 3. Router Benchmarks
+
+Tests HTTP routing performance:
+
+- **Route Matching**: Static and dynamic routes
+- **Parameter Extraction**: Path, query, header parameters
+- **404/405 Handling**: Not found and method not allowed
+- **Middleware Chain**: Multiple middleware execution
+
+**Executables:**
+- `build/bench/benchmark/router_benchmark`
+
+### 4. Serialization Benchmarks
+
+Tests JSON handling:
+
+- **Parsing**: JSON to DTO conversion
+- **Serialization**: DTO to JSON conversion
+- **Escaping**: String escaping and unescaping
+- **Validation**: Schema validation during parsing
+
+**Executables:**
+- `build/bench/benchmark/serialize_benchmark`
+- `build/bench/benchmark/json_benchmark`
+- `build/bench/benchmark/json_parsing_benchmark`
+
+### 5. Integration Benchmarks
+
+End-to-end tests with complete services:
+
+- **Task API**: Full CRUD service with complex validation
+- **Compute API**: CPU-intensive operations
+- **Validation API**: Complex validation rules
+
+**Services:**
+- `build/examples/examples/codegen/task_api/task_api`
+- `build/examples/examples/codegen/compute_api/compute_api`
+- `build/examples/examples/codegen/validation_api/validation_api`
+
+## Edge Case Testing
+
+The benchmark system tests comprehensive edge cases:
+
+### Boundary Values
+
+- **Minimum Values**: Shortest strings (minLength=1), smallest integers (minimum=1)
+- **Maximum Values**: Longest strings (maxLength=200/2000), max integers (maximum=5)
+- **Array Limits**: minItems=1, maxItems=100, uniqueItems validation
+- **Numeric Ranges**: priority 1-5, limit 1-100
+
+### Special Cases
+
+- **Empty Input**: Empty strings, empty arrays, zero values
+- **Null Handling**: Optional fields, nullable types
+- **Unicode**: International characters, emojis, special symbols
+- **Large Payloads**: Maximum allowed request/response sizes
+- **Concurrent Access**: Multiple simultaneous requests
+
+### Invalid Input
+
+- **Out of Range**: Values exceeding min/max constraints
+- **Format Violations**: Invalid email, date-time, UUID formats
+- **Type Mismatches**: String where number expected
+- **Missing Required**: Required fields omitted
+- **Malformed JSON**: Syntax errors, incomplete objects
+
+## Task API Edge Cases
+
+The Task Management API (`examples/codegen/task_api`) demonstrates comprehensive testing:
+
+```bash
+# Start the service
+./build/examples/examples/codegen/task_api/task_api 18081
+
+# Run edge case tests
+python3 scripts/run_all_benchmarks.py --build-dir build/bench --verbose
+```
+
+### Tested Scenarios
+
+1. **Minimum Title**: `{"title":"A","priority":1}` (minLength=1)
+2. **Maximum Title**: 200 characters (maxLength=200)
+3. **Maximum Description**: 2000 characters (maxLength=2000)
+4. **Maximum Tags**: 20 unique tags (maxItems=20, uniqueItems=true)
+5. **Null Optional Fields**: `assignee_id: null`, `due_date: null`
+6. **Batch Minimum**: 1 task (minItems=1)
+7. **Batch Maximum**: 100 tasks (maxItems=100)
+8. **Query Max Limit**: `?limit=100` (maximum=100)
+9. **Complex Search**: All filter combinations
+10. **Invalid Title Length**: 201 characters (expect 400)
+11. **Invalid Priority**: 6 (expect 400, max=5)
+12. **Invalid Email**: Malformed email addresses
+13. **Invalid Date**: Malformed ISO 8601 dates
+
+## Automated Benchmark Report
+
+The system automatically generates `BENCHMARK_RESULTS.md` with:
+
+- **Timestamp and Git Info**: Commit hash, branch, date
+- **Performance Metrics**: Throughput (ops/sec), latency (p50/p99)
+- **Comparison**: Previous runs, regression detection
+- **Edge Case Summary**: Which cases were tested, pass/fail rates
+- **Detailed Results**: Per-benchmark metrics and errors
+
+### Report Structure
+
+```markdown
+# KATANA Benchmark Results
+
+> Last updated: 2026-02-09 12:00:00
+> Commit: abc1234
+> Branch: main
+
+## Summary
+
+Total Benchmarks: 45
+✓ Successful: 42
+✗ Failed: 0
+○ Skipped: 3
+
+Edge Cases Tested:
+- min_value: 5 tests
+- max_value: 8 tests
+- null_handling: 3 tests
+- invalid_input: 6 tests
+- stress: 4 tests
+
+## Core Runtime Benchmarks
+
+| Benchmark | Throughput | Latency p50 | Latency p99 |
+|-----------|------------|-------------|-------------|
+| HTTP Parser | 1.1M ops/sec | 0.720 us | 1.672 us |
+| Arena Allocator | 6.9M ops/sec | - | - |
+
+...
+```
+
+## CI Integration
+
+### GitHub Actions
+
+Add to `.github/workflows/benchmark.yml`:
+
+```yaml
+name: Benchmarks
+
+on: [push, pull_request]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+
+      - name: Build Benchmarks
+        run: |
+          cmake --preset bench
+          cmake --build --preset bench -j$(nproc)
+
+      - name: Build Examples
+        run: |
+          cmake --preset examples
+          cmake --build --preset examples -j$(nproc)
+
+      - name: Run Benchmarks
+        run: |
+          python3 scripts/run_all_benchmarks.py \
+            --build-dir build/bench \
+            --output benchmark_results/ci-report.json \
+            --fail-on-error
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: benchmark_results/
+```
+
+### Pre-commit Hook
+
+Enable automatic benchmark updates:
+
+```bash
+# Install pre-commit hook
+ln -s ../../scripts/pre-commit-benchmarks.sh .git/hooks/pre-commit
+
+# Or use pre-commit framework
+pip install pre-commit
+pre-commit install
+```
+
+The hook will:
+1. Detect if performance-critical files changed
+2. Regenerate benchmark report if needed
+3. Prompt to add `BENCHMARK_RESULTS.md` to commit
+4. Allow skipping with `--no-verify` if needed
+
+## Performance Baselines
+
+### Core Runtime
+
+- **HTTP Parser**: >1M req/sec, p99 <2us
+- **Arena Allocator**: >5M allocs/sec
+- **Router Dispatch**: >2M req/sec, p99 <1us
+- **MPSC Queue**: >4M ops/sec (concurrent 4x4)
+
+### Code Generation
+
+- **Parse int64**: <10ns per operation
+- **Parse double**: <15ns per operation
+- **JSON Escaping**: <15ns for clean strings
+- **Object Parse (3 fields)**: <50ns
+- **Object Parse (8 fields)**: <80ns
+
+### Integration (Task API)
+
+- **Simple Create**: <1ms end-to-end
+- **Batch Create (100)**: <10ms end-to-end
+- **Search (complex filters)**: <2ms end-to-end
+- **Edge Case Tests**: All pass with correct status codes
+
+## Regression Detection
+
+The system can detect performance regressions:
+
+```python
+# Compare with baseline
+python3 scripts/run_all_benchmarks.py \
+  --build-dir build/bench \
+  --baseline benchmark_results/baseline-report.json \
+  --threshold 10  # Fail if >10% slower
+```
+
+## Manual Benchmark Runs
+
+### Individual Benchmarks
+
+```bash
+# Run specific benchmark
+./build/bench/benchmark/performance_benchmark
+
+# With custom parameters
+./build/bench/benchmark/router_benchmark --iterations 1000000
+```
+
+### Custom Integration Tests
+
+```bash
+# Start service
+./build/examples/examples/codegen/task_api/task_api 18081 &
+PID=$!
+
+# Test with curl
+curl -X POST http://localhost:18081/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Test","priority":5}'
+
+# Load test with wrk (if installed)
+wrk -t4 -c100 -d30s --latency http://localhost:18081/health
+
+# Cleanup
+kill $PID
+```
+
+## Benchmark Output Formats
+
+### JSON Report
+
+```json
+{
+  "timestamp": "2026-02-09T12:00:00",
+  "commit_hash": "abc1234",
+  "branch": "main",
+  "total_benchmarks": 45,
+  "successful": 42,
+  "failed": 0,
+  "skipped": 3,
+  "total_duration_seconds": 123.45,
+  "results": [
+    {
+      "name": "http_parser_benchmark",
+      "category": "core",
+      "status": "success",
+      "duration_seconds": 5.23,
+      "metrics": {
+        "throughput_ops_sec": 1100000,
+        "latency_p50_us": 0.720,
+        "latency_p99_us": 1.672
+      },
+      "edge_cases_tested": ["basic_functionality"],
+      "timestamp": "2026-02-09T12:00:01",
+      "error": null
+    }
+  ],
+  "edge_cases_summary": {
+    "min_value": 5,
+    "max_value": 8,
+    "null_handling": 3
+  },
+  "performance_regressions": []
+}
+```
+
+### Markdown Report
+
+See `BENCHMARK_RESULTS.md` for the human-readable format.
+
+## Troubleshooting
+
+### Benchmarks Not Found
+
+```bash
+# Rebuild benchmarks
+cmake --preset bench
+cmake --build --preset bench -j$(nproc)
+```
+
+### Server Won't Start
+
+```bash
+# Check port availability
+lsof -i :18081
+
+# Kill existing process
+pkill -f task_api
+```
+
+### Inconsistent Results
+
+```bash
+# Reduce system noise
+sudo sh -c 'echo 1 > /proc/sys/kernel/perf_event_paranoid'
+
+# Run with higher priority
+nice -n -20 python3 scripts/run_all_benchmarks.py --verbose
+```
+
+### CI Timeouts
+
+```bash
+# Reduce benchmark duration
+export BENCH_QUICK=1
+python3 scripts/run_all_benchmarks.py --build-dir build/bench
+```
+
+## Contributing
+
+When adding new benchmarks:
+
+1. **Place in appropriate directory**:
+   - Core benchmarks: `benchmark/`
+   - Integration: `examples/codegen/*/`
+
+2. **Follow naming convention**:
+   - `*_benchmark.cpp` for binaries
+   - `*_api` for services
+
+3. **Add to automation**:
+   - Update `scripts/run_all_benchmarks.py`
+   - Add to `CMakeLists.txt`
+
+4. **Document edge cases**:
+   - List what boundary conditions are tested
+   - Explain expected results
+
+5. **Add to BENCHMARK_RESULTS.md**:
+   - Update template with new metrics
+   - Include baseline values
+
+## References
+
+- [Issue #5](https://github.com/VisageDvachevsky/codegen/issues/5) - Original requirements
+- `generate_benchmark_report.py` - Original report generator
+- `scripts/run_all_benchmarks.py` - Comprehensive automation
+- `scripts/pre-commit-benchmarks.sh` - Pre-commit integration
+
+---
+
+**Created for KATANA Framework - Issue #5: Comprehensive Benchmark System**

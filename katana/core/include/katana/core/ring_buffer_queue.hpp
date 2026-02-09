@@ -308,39 +308,53 @@ private:
 
     bool try_push_mpmc(T&& value) {
         size_t head = head_.value.load(std::memory_order_relaxed);
-        size_t spins = 0;
+        size_t backoff = 0;
 
         for (;;) {
+            // Prefetch the slot we're about to access
+#if defined(__GNUG__) || defined(__clang__)
+            __builtin_prefetch(&buffer_[head & mask_], 1, 3);
+#endif
             slot& s = buffer_[head & mask_];
             size_t seq = s.sequence.load(std::memory_order_acquire);
             intptr_t diff = static_cast<intptr_t>(seq) - static_cast<intptr_t>(head);
 
             if (diff == 0) {
-                if (head_.value.compare_exchange_weak(head, head + 1, std::memory_order_acq_rel)) {
+                if (head_.value.compare_exchange_weak(
+                        head, head + 1, std::memory_order_relaxed, std::memory_order_relaxed)) {
                     new (&s.storage) T(std::move(value));
                     s.sequence.store(head + 1, std::memory_order_release);
                     maybe_notify(head_, head_notify_pending_);
                     return true;
                 }
+                // CAS failed — exponential backoff to reduce contention
+                if (backoff < 16) {
+                    for (size_t i = 0; i < (1u << backoff); ++i) {
+                        cpu_relax();
+                    }
+                    ++backoff;
+                }
             } else if (diff < 0) {
+                // Queue full
                 return false;
             } else {
+                // Another producer already claimed this slot; reload head
                 head = head_.value.load(std::memory_order_relaxed);
-                spins = 0;
+                backoff = 0; // Reset backoff on progress
             }
-
-            adaptive_pause(spins++);
         }
     }
 
     bool try_pop_mpmc(T& value) {
         size_t tail = tail_.value.load(std::memory_order_relaxed);
-        size_t spins = 0;
+        size_t backoff = 0;
 
         for (;;) {
             slot& s = buffer_[tail & mask_];
 
 #if defined(__GNUG__) || defined(__clang__)
+            // Prefetch current and next slot for read
+            __builtin_prefetch(&buffer_[tail & mask_], 0, 3);
             __builtin_prefetch(&buffer_[(tail + 1) & mask_], 0, 3);
 #endif
 
@@ -348,21 +362,29 @@ private:
             intptr_t diff = static_cast<intptr_t>(seq) - static_cast<intptr_t>(tail + 1);
 
             if (diff == 0) {
-                if (tail_.value.compare_exchange_weak(tail, tail + 1, std::memory_order_acq_rel)) {
+                if (tail_.value.compare_exchange_weak(
+                        tail, tail + 1, std::memory_order_relaxed, std::memory_order_relaxed)) {
                     value = std::move(*reinterpret_cast<T*>(&s.storage));
                     reinterpret_cast<T*>(&s.storage)->~T();
                     s.sequence.store(tail + mask_ + 1, std::memory_order_release);
                     maybe_notify(tail_, tail_notify_pending_);
                     return true;
                 }
+                // CAS failed — exponential backoff to reduce contention
+                if (backoff < 16) {
+                    for (size_t i = 0; i < (1u << backoff); ++i) {
+                        cpu_relax();
+                    }
+                    ++backoff;
+                }
             } else if (diff < 0) {
+                // Queue empty
                 return false;
             } else {
+                // Another consumer already took this slot; reload tail
                 tail = tail_.value.load(std::memory_order_relaxed);
-                spins = 0;
+                backoff = 0; // Reset backoff on progress
             }
-
-            adaptive_pause(spins++);
         }
     }
 
