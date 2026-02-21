@@ -122,10 +122,18 @@ bool try_generate_handcoded_pattern(std::ostream& out,
 // Helper to generate uniqueItems validation with sort+adjacent_find for small arrays
 // and hash set fallback for large arrays. Boolean arrays keep their efficient pattern.
 void generate_unique_items_check(std::ostream& out,
+                                 const document& doc,
                                  std::string_view prop_name,
                                  const std::string& arr_expr,
-                                 katana::openapi::schema_kind item_kind) {
+                                 const katana::openapi::schema* item_schema) {
     using katana::openapi::schema_kind;
+    if (!item_schema) {
+        return;
+    }
+
+    const auto item_kind = item_schema->kind;
+    const bool item_is_enum =
+        item_kind == schema_kind::string && !item_schema->enum_values.empty();
 
     if (item_kind == schema_kind::boolean) {
         // Boolean: keep efficient seen_true/seen_false pattern
@@ -146,7 +154,9 @@ void generate_unique_items_check(std::ostream& out,
 
     // Determine the C++ type for the set and sort
     std::string cpp_type;
-    if (item_kind == schema_kind::string) {
+    if (item_is_enum) {
+        cpp_type = schema_identifier(doc, item_schema) + "_enum";
+    } else if (item_kind == schema_kind::string) {
         cpp_type = "std::string_view";
     } else if (item_kind == schema_kind::integer) {
         cpp_type = "int64_t";
@@ -168,7 +178,7 @@ void generate_unique_items_check(std::ostream& out,
     // Runtime size check: sort+adjacent_find for small, hash set for large
     out << "        if (" << arr_expr << ".size() <= 64) {\n";
     out << "            // Small array: sort a copy (stack-friendly, no heap)\n";
-    if (item_kind == schema_kind::string) {
+    if (item_kind == schema_kind::string && !item_is_enum) {
         out << "            std::vector<std::string_view> tmp_(" << arr_expr << ".begin(), "
             << arr_expr << ".end());\n";
     } else {
@@ -218,7 +228,7 @@ void generate_validator_for_schema(std::ostream& out,
         if (s.unique_items) {
             out << "    {\n";
             if (s.items) {
-                generate_unique_items_check(out, "", "arr", s.items->kind);
+                generate_unique_items_check(out, doc, "", "arr", s.items);
             }
             out << "    }\n";
         }
@@ -523,7 +533,7 @@ void generate_validator_for_schema(std::ostream& out,
                 }
                 if (prop.type->items) {
                     std::string arr_expr = is_optional ? deref_prefix : obj_prefix;
-                    generate_unique_items_check(out, prop.name, arr_expr, prop.type->items->kind);
+                    generate_unique_items_check(out, doc, prop.name, arr_expr, prop.type->items);
                 }
                 out << "    }\n";
             }

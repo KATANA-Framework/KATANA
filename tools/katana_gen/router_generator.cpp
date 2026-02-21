@@ -434,7 +434,9 @@ std::string generate_router_bindings(const document& doc) {
                                            << "->data() + p_" << param_ident << "->size(), "
                                            << param_ident << ");\n";
                         dispatch_functions
-                            << "        if (ec != std::errc()) return "
+                            << "        if (ec != std::errc() || ptr != p_" << param_ident
+                            << "->data() + p_" << param_ident
+                            << "->size()) return "
                                "katana::http::response::error("
                                "katana::problem_details::bad_request(\"invalid path param "
                             << param.name << "\"));\n";
@@ -443,20 +445,30 @@ std::string generate_router_bindings(const document& doc) {
                     case katana::openapi::schema_kind::number:
                         dispatch_functions << "    double " << param_ident << " = 0.0;\n";
                         dispatch_functions << "    {\n";
-                        dispatch_functions << "        char* endp = nullptr;\n";
-                        dispatch_functions << "        " << param_ident << " = std::strtod(p_"
-                                           << param_ident << "->data(), &endp);\n";
+                        dispatch_functions << "        auto [ptr, ec] = std::from_chars(p_"
+                                           << param_ident << "->data(), p_" << param_ident
+                                           << "->data() + p_" << param_ident << "->size(), "
+                                           << param_ident << ");\n";
                         dispatch_functions
-                            << "        if (endp == p_" << param_ident
-                            << "->data()) return "
+                            << "        if (ec != std::errc() || ptr != p_" << param_ident
+                            << "->data() + p_" << param_ident
+                            << "->size()) return "
                                "katana::http::response::error(katana::problem_details::bad_request("
                                "\"invalid path param "
                             << param.name << "\"));\n";
                         dispatch_functions << "    }\n";
                         break;
                     case katana::openapi::schema_kind::boolean:
-                        dispatch_functions << "    bool " << param_ident << " = (*p_" << param_ident
-                                           << " == \"true\");\n";
+                        dispatch_functions << "    bool " << param_ident << " = false;\n";
+                        dispatch_functions << "    if (*p_" << param_ident << " == \"true\") "
+                                           << param_ident << " = true;\n";
+                        dispatch_functions << "    else if (*p_" << param_ident
+                                           << " == \"false\") " << param_ident << " = false;\n";
+                        dispatch_functions << "    else return "
+                                              "katana::http::response::error(katana::problem_"
+                                              "details::bad_request("
+                                              "\"invalid path param "
+                                           << param.name << "\"));\n";
                         break;
                     default:
                         dispatch_functions << "    auto " << param_ident << " = *p_" << param_ident
@@ -505,7 +517,9 @@ std::string generate_router_bindings(const document& doc) {
                                                << param_ident << "->data(), p_" << param_ident
                                                << "->data() + p_" << param_ident
                                                << "->size(), tmp);\n";
-                            dispatch_functions << "        if (ec != std::errc()) return "
+                            dispatch_functions << "        if (ec != std::errc() || ptr != p_"
+                                               << param_ident << "->data() + p_" << param_ident
+                                               << "->size()) return "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
@@ -519,7 +533,9 @@ std::string generate_router_bindings(const document& doc) {
                                                << param_ident << "->data(), p_" << param_ident
                                                << "->data() + p_" << param_ident << "->size(), "
                                                << param_ident << ");\n";
-                            dispatch_functions << "        if (ec != std::errc()) return "
+                            dispatch_functions << "        if (ec != std::errc() || ptr != p_"
+                                               << param_ident << "->data() + p_" << param_ident
+                                               << "->size()) return "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
@@ -532,11 +548,14 @@ std::string generate_router_bindings(const document& doc) {
                             dispatch_functions << "    std::optional<double> " << param_ident
                                                << ";\n";
                             dispatch_functions << "    if (p_" << param_ident << ") {\n";
-                            dispatch_functions << "        char* endp = nullptr;\n";
-                            dispatch_functions << "        double tmp = std::strtod(p_"
-                                               << param_ident << "->data(), &endp);\n";
-                            dispatch_functions << "        if (endp == p_" << param_ident
-                                               << "->data()) return "
+                            dispatch_functions << "        double tmp = 0.0;\n";
+                            dispatch_functions << "        auto [ptr, ec] = std::from_chars(p_"
+                                               << param_ident << "->data(), p_" << param_ident
+                                               << "->data() + p_" << param_ident
+                                               << "->size(), tmp);\n";
+                            dispatch_functions << "        if (ec != std::errc() || ptr != p_"
+                                               << param_ident << "->data() + p_" << param_ident
+                                               << "->size()) return "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
@@ -546,11 +565,13 @@ std::string generate_router_bindings(const document& doc) {
                         } else {
                             dispatch_functions << "    double " << param_ident << " = 0.0;\n";
                             dispatch_functions << "    if (p_" << param_ident << ") {\n";
-                            dispatch_functions << "        char* endp = nullptr;\n";
-                            dispatch_functions << "        " << param_ident << " = std::strtod(p_"
-                                               << param_ident << "->data(), &endp);\n";
-                            dispatch_functions << "        if (endp == p_" << param_ident
-                                               << "->data()) return "
+                            dispatch_functions << "        auto [ptr, ec] = std::from_chars(p_"
+                                               << param_ident << "->data(), p_" << param_ident
+                                               << "->data() + p_" << param_ident << "->size(), "
+                                               << param_ident << ");\n";
+                            dispatch_functions << "        if (ec != std::errc() || ptr != p_"
+                                               << param_ident << "->data() + p_" << param_ident
+                                               << "->size()) return "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
