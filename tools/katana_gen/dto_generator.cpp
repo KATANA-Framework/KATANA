@@ -88,6 +88,11 @@ cpp_type_from_schema(const document& doc, const katana::openapi::schema* s, bool
         }
         return wrap(use_pmr ? "arena_vector<std::string>" : "std::vector<std::string>");
     case schema_kind::object:
+        // Empty objects (including free-form additionalProperties) are represented as monostate
+        // to avoid self-referential aliases like "using X = X;".
+        if (s->properties.empty()) {
+            return wrap("std::monostate");
+        }
         return wrap(schema_identifier(doc, s));
     default:
         return wrap("std::monostate");
@@ -572,6 +577,7 @@ std::string generate_dtos(const document& doc, bool use_pmr) {
     out << "#include <optional>\n";
     out << "#include <string_view>\n";
     out << "#include <cctype>\n\n";
+    out << "#include <variant>\n\n";
 
     // Generate enums first
     out << "// ============================================================\n";

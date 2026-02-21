@@ -288,6 +288,44 @@ paths:
     EXPECT_NE(dtos.find("layer:"), std::string::npos);             // layer banner is emitted
 }
 
+TEST_F(CodegenIntegrationTest, RouterBindingsUseStrictParamParsing) {
+    const char* spec = R"(
+openapi: 3.0.0
+info: { title: Strict Params API, version: 1.0.0 }
+paths:
+  /flags/{enabled}:
+    get:
+      operationId: getFlags
+      parameters:
+        - name: enabled
+          in: path
+          required: true
+          schema: { type: boolean }
+        - name: page
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: ratio
+          in: query
+          required: true
+          schema: { type: number }
+      responses:
+        '200':
+          description: ok
+)";
+
+    create_openapi_spec("strict_params.yaml", spec);
+    ASSERT_TRUE(run_codegen("strict_params.yaml", "all"));
+
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
+    EXPECT_NE(bindings.find("invalid path param enabled"), std::string::npos);
+    EXPECT_NE(bindings.find("else if (*p_enabled == \"false\") enabled = false;"), std::string::npos);
+    EXPECT_NE(bindings.find("if (ec != std::errc() || ptr != p_page->data() + p_page->size())"),
+              std::string::npos);
+    EXPECT_NE(bindings.find("if (ec != std::errc() || ptr != p_ratio->data() + p_ratio->size())"),
+              std::string::npos);
+}
+
 TEST_F(CodegenIntegrationTest, GeneratesFormatValidators) {
     const char* spec = R"(
 openapi: 3.0.0

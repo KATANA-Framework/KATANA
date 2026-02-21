@@ -107,16 +107,27 @@ void generate_field_parse_body(std::ostream& out,
                 auto* item = prop.type->items;
                 switch (item->kind) {
                 case schema_kind::string:
-                    out << indent << "            if (auto v = cur.string()) {\n";
-                    if (use_pmr) {
-                        out << indent << "                obj." << prop.name
-                            << ".emplace_back(v->begin(), v->end(), "
-                               "arena_allocator<char>(arena));\n";
+                    if (!item->enum_values.empty()) {
+                        auto enum_item_name = schema_identifier(doc, item);
+                        out << indent << "            if (auto v = cur.string()) {\n";
+                        out << indent << "                auto enum_val = " << enum_item_name
+                            << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
+                        out << indent
+                            << "                if (enum_val) obj." << prop.name
+                            << ".push_back(*enum_val);\n";
+                        out << indent << "            } else { cur.skip_value(); }\n";
                     } else {
-                        out << indent << "                obj." << prop.name
-                            << ".emplace_back(v->begin(), v->end());\n";
+                        out << indent << "            if (auto v = cur.string()) {\n";
+                        if (use_pmr) {
+                            out << indent << "                obj." << prop.name
+                                << ".emplace_back(v->begin(), v->end(), "
+                                   "arena_allocator<char>(arena));\n";
+                        } else {
+                            out << indent << "                obj." << prop.name
+                                << ".emplace_back(v->begin(), v->end());\n";
+                        }
+                        out << indent << "            } else { cur.skip_value(); }\n";
                     }
-                    out << indent << "            } else { cur.skip_value(); }\n";
                     break;
                 case schema_kind::integer:
                     out << indent
@@ -322,14 +333,23 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
                 out << "        } else { cur.skip_value(); }\n";
                 break;
             case schema_kind::string:
-                out << "        if (auto v = cur.string()) {\n";
-                if (use_pmr) {
-                    out << "            result.emplace_back(v->begin(), v->end(), "
-                           "arena_allocator<char>(arena));\n";
+                if (!s.items->enum_values.empty()) {
+                    auto enum_item_name = schema_identifier(doc, s.items);
+                    out << "        if (auto v = cur.string()) {\n";
+                    out << "            auto enum_val = " << enum_item_name
+                        << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
+                    out << "            if (enum_val) result.push_back(*enum_val);\n";
+                    out << "        } else { cur.skip_value(); }\n";
                 } else {
-                    out << "            result.emplace_back(v->begin(), v->end());\n";
+                    out << "        if (auto v = cur.string()) {\n";
+                    if (use_pmr) {
+                        out << "            result.emplace_back(v->begin(), v->end(), "
+                               "arena_allocator<char>(arena));\n";
+                    } else {
+                        out << "            result.emplace_back(v->begin(), v->end());\n";
+                    }
+                    out << "        } else { cur.skip_value(); }\n";
                 }
-                out << "        } else { cur.skip_value(); }\n";
                 break;
             default:
                 // For complex types (objects, nested arrays), pass cursor directly
@@ -342,6 +362,25 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
             out << "        cur.try_comma();\n";
             out << "    }\n";
             out << "    return result;\n";
+            out << "}\n\n";
+            return;
+        case schema_kind::object:
+            out << "    (void)arena;\n";
+            out << "    if (!cur.try_object_start()) {\n";
+            out << "        cur.skip_value();\n";
+            out << "        return std::nullopt;\n";
+            out << "    }\n";
+            out << "    while (!cur.eof()) {\n";
+            out << "        cur.skip_ws();\n";
+            out << "        if (cur.try_object_end()) break;\n";
+            out << "        auto key = cur.string();\n";
+            out << "        if (!key || !cur.consume(':')) {\n";
+            out << "            return std::nullopt;\n";
+            out << "        }\n";
+            out << "        cur.skip_value();\n";
+            out << "        cur.try_comma();\n";
+            out << "    }\n";
+            out << "    return " << struct_name << "{};\n";
             out << "}\n\n";
             return;
         default:
@@ -624,6 +663,23 @@ void generate_json_serializer_for_schema(std::ostream& out,
             out << "    return json;\n";
             out << "}\n\n";
             return;
+        case schema_kind::object:
+            out << "    (void)obj;\n";
+            if (s.nullable) {
+                out << "    if (!obj) { json.append(\"null\"); return; }\n";
+            }
+            out << "    json.append(\"{}\");\n";
+            out << "}\n\n";
+            // thin wrapper
+            out << "inline std::string serialize_" << struct_name << "(const " << struct_name
+                << "& obj) {\n";
+            out << "    (void)obj;\n";
+            if (s.nullable) {
+                out << "    if (!obj) return std::string(\"null\");\n";
+            }
+            out << "    return std::string(\"{}\");\n";
+            out << "}\n\n";
+            return;
         default:
             out << "    (void)obj;\n";
             out << "}\n\n";
@@ -747,12 +803,21 @@ void generate_json_serializer_for_schema(std::ostream& out,
                     if (prop.type->items) {
                         switch (prop.type->items->kind) {
                         case schema_kind::string:
-                            out << "        json.push_back('\"');\n";
-                            out << "        katana::serde::escape_json_string_into("
-                                << (is_optional ? "(*obj." + prop.name + ")[i]"
-                                                : "obj." + prop.name + "[i]")
-                                << ", json);\n";
-                            out << "        json.push_back('\"');\n";
+                            if (!prop.type->items->enum_values.empty()) {
+                                out << "        json.push_back('\"');\n";
+                                out << "        json.append(to_string("
+                                    << (is_optional ? "(*obj." + prop.name + ")[i]"
+                                                    : "obj." + prop.name + "[i]")
+                                    << "));\n";
+                                out << "        json.push_back('\"');\n";
+                            } else {
+                                out << "        json.push_back('\"');\n";
+                                out << "        katana::serde::escape_json_string_into("
+                                    << (is_optional ? "(*obj." + prop.name + ")[i]"
+                                                    : "obj." + prop.name + "[i]")
+                                    << ", json);\n";
+                                out << "        json.push_back('\"');\n";
+                            }
                             break;
                         case schema_kind::integer:
                             out << "        {\n";
@@ -933,8 +998,10 @@ bool should_skip_schema(const katana::openapi::schema& s) {
         return false; // Has properties, it's a real object - don't skip
     }
 
-    // Skip empty object artifacts (circular alias placeholders from OpenAPI parsing)
-    if (s.kind == schema_kind::object && s.properties.empty()) {
+    // Skip only truly unnamed empty object artifacts.
+    // Named empty objects are emitted as monostate aliases and still need
+    // parse/serialize helpers when referenced from other generated types.
+    if (s.kind == schema_kind::object && s.properties.empty() && s.name.empty()) {
         return true;
     }
 
