@@ -4,10 +4,12 @@
     "stage": 2,
     "benchmarks": {
         "codegen_quality_benchmark": {},
+        "generated_json_benchmark": {},
         "serialize_benchmark": {},
         "json_parsing_benchmark": {},
         "json_benchmark": {},
         "generated_api_benchmark": {},
-        "products_api_benchmark": {}
+        "products_api_benchmark": {},
+        "benchmark_api_codegen_benchmark": {}
     }
 }
