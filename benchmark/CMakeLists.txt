@@ -150,6 +150,54 @@ target_link_libraries(generated_api_benchmark
 )
 add_dependencies(generated_api_benchmark generated_api_codegen)
 
+set(GENERATED_BENCHMARK_API_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated_benchmark_api)
+set(GENERATED_BENCHMARK_API_SOURCES
+    ${GENERATED_BENCHMARK_API_DIR}/generated_dtos.hpp
+    ${GENERATED_BENCHMARK_API_DIR}/generated_handlers.hpp
+    ${GENERATED_BENCHMARK_API_DIR}/generated_json.hpp
+    ${GENERATED_BENCHMARK_API_DIR}/generated_routes.hpp
+    ${GENERATED_BENCHMARK_API_DIR}/generated_router_bindings.hpp
+    ${GENERATED_BENCHMARK_API_DIR}/generated_validators.hpp
+)
+
+add_custom_command(
+    OUTPUT ${GENERATED_BENCHMARK_API_SOURCES}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENERATED_BENCHMARK_API_DIR}
+    COMMAND katana_gen openapi
+            -i ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/api.yaml
+            -o ${GENERATED_BENCHMARK_API_DIR}
+            --emit all
+            --inline-naming operation
+    DEPENDS katana_gen ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/api.yaml
+    COMMENT "Generating benchmark_api code for benchmark_api_codegen_benchmark"
+)
+
+add_custom_target(benchmark_api_codegen_generate DEPENDS ${GENERATED_BENCHMARK_API_SOURCES})
+
+add_executable(benchmark_api_codegen_benchmark
+    benchmark_api_codegen_benchmark.cpp
+    ${GENERATED_BENCHMARK_API_SOURCES}
+)
+
+target_compile_options(benchmark_api_codegen_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_include_directories(benchmark_api_codegen_benchmark
+    PRIVATE
+        ${GENERATED_BENCHMARK_API_DIR}
+)
+
+target_link_libraries(benchmark_api_codegen_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+
+add_dependencies(benchmark_api_codegen_benchmark benchmark_api_codegen_generate)
+
 # Commented out - file does not exist
 # add_executable(cycle_profiling cycle_profiling.cpp ${GENERATED_BENCH_SOURCES})
 #
@@ -415,8 +463,9 @@ add_custom_target(bench_stage1
 # Stage 2: Codegen Quality
 add_custom_target(bench_stage2
     DEPENDS generated_api_benchmark json_parsing_benchmark
-            json_benchmark codegen_quality_benchmark
+            json_benchmark generated_json_benchmark codegen_quality_benchmark
             serialize_benchmark products_api_benchmark
+            benchmark_api_codegen_benchmark
     COMMENT "Building Stage 2 (Codegen Quality) benchmarks"
 )
 
