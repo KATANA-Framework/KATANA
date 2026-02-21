@@ -31,6 +31,17 @@ inline void cpu_pause() noexcept {
     std::this_thread::yield();
 #endif
 }
+
+inline size_t work_items_for_worker(size_t total, int workers, int worker_index) noexcept {
+    if (workers <= 0 || worker_index < 0 || worker_index >= workers) {
+        return 0;
+    }
+
+    const size_t worker_count = static_cast<size_t>(workers);
+    const size_t base = total / worker_count;
+    const size_t remainder = total % worker_count;
+    return base + (static_cast<size_t>(worker_index) < remainder ? 1 : 0);
+}
 } // namespace
 
 struct benchmark_result {
@@ -121,8 +132,9 @@ benchmark_result benchmark_ring_buffer_concurrent() {
     std::vector<std::thread> consumers;
 
     for (int t = 0; t < num_threads; ++t) {
-        producers.emplace_back([&] {
-            for (size_t i = 0; i < num_operations / num_threads; ++i) {
+        producers.emplace_back([&, t] {
+            const size_t ops_for_thread = work_items_for_worker(num_operations, num_threads, t);
+            for (size_t i = 0; i < ops_for_thread; ++i) {
                 while (!queue.try_push(static_cast<int>(i))) {
                     cpu_pause();
                 }
@@ -131,9 +143,10 @@ benchmark_result benchmark_ring_buffer_concurrent() {
     }
 
     for (int t = 0; t < num_threads; ++t) {
-        consumers.emplace_back([&] {
+        consumers.emplace_back([&, t] {
+            const size_t target = work_items_for_worker(num_operations, num_threads, t);
             size_t consumed = 0;
-            while (consumed < num_operations / num_threads) {
+            while (consumed < target) {
                 int val;
                 if (queue.try_pop(val)) {
                     ++consumed;
@@ -177,7 +190,8 @@ benchmark_result benchmark_ring_buffer_high_contention() {
     prod_threads.reserve(static_cast<size_t>(producers));
     for (int p = 0; p < producers; ++p) {
         prod_threads.emplace_back([&, p] {
-            for (size_t i = 0; i < num_operations / static_cast<size_t>(producers); ++i) {
+            const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
+            for (size_t i = 0; i < ops_for_thread; ++i) {
                 const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
                 while (!queue.try_push(val)) {
                     cpu_pause();
@@ -647,7 +661,8 @@ benchmark_result benchmark_ring_buffer_extreme_contention() {
     prod_threads.reserve(static_cast<size_t>(producers));
     for (int p = 0; p < producers; ++p) {
         prod_threads.emplace_back([&, p] {
-            for (size_t i = 0; i < num_operations / static_cast<size_t>(producers); ++i) {
+            const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
+            for (size_t i = 0; i < ops_for_thread; ++i) {
                 const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
                 while (!queue.try_push(val)) {
                     cpu_pause();
@@ -704,7 +719,8 @@ benchmark_result benchmark_ring_buffer_max_contention() {
     prod_threads.reserve(static_cast<size_t>(producers));
     for (int p = 0; p < producers; ++p) {
         prod_threads.emplace_back([&, p] {
-            for (size_t i = 0; i < num_operations / static_cast<size_t>(producers); ++i) {
+            const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
+            for (size_t i = 0; i < ops_for_thread; ++i) {
                 const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
                 while (!queue.try_push(val)) {
                     cpu_pause();
@@ -759,8 +775,9 @@ benchmark_result benchmark_ring_buffer_2x2() {
     std::vector<std::thread> consumers;
 
     for (int t = 0; t < num_threads; ++t) {
-        producers.emplace_back([&] {
-            for (size_t i = 0; i < num_operations / num_threads; ++i) {
+        producers.emplace_back([&, t] {
+            const size_t ops_for_thread = work_items_for_worker(num_operations, num_threads, t);
+            for (size_t i = 0; i < ops_for_thread; ++i) {
                 while (!queue.try_push(static_cast<int>(i))) {
                     cpu_pause();
                 }
@@ -769,9 +786,10 @@ benchmark_result benchmark_ring_buffer_2x2() {
     }
 
     for (int t = 0; t < num_threads; ++t) {
-        consumers.emplace_back([&] {
+        consumers.emplace_back([&, t] {
+            const size_t target = work_items_for_worker(num_operations, num_threads, t);
             size_t consumed = 0;
-            while (consumed < num_operations / num_threads) {
+            while (consumed < target) {
                 int val;
                 if (queue.try_pop(val)) {
                     ++consumed;

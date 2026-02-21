@@ -1,7 +1,7 @@
 # KATANA Benchmark Results
 
-> Last updated: 2026-02-09 00:55:02
-> Commit: 8e09d63
+> Last updated: 2026-02-22 02:30:12
+> Commit: 579cb42
 
 ## Summary
 
@@ -15,15 +15,21 @@ All benchmarks show realistic, stable measurements with proper compiler optimiza
 
 | Benchmark | Throughput | Latency p50 | Latency p99 |
 |-----------|------------|-------------|-------------|
-| Ring Buffer Queue (Single Thread) | 166.7M ops/sec | 0.006 us | 0.008 us |
-| Ring Buffer Queue (Concurrent 4x4) | 4.1M ops/sec | - | - |
-| Ring Buffer Queue (High Contention 8x8) | 1.6M ops/sec | - | - |
-| Circular Buffer | 250.0M ops/sec | 0.005 us | 0.007 us |
-| SIMD CRLF Search (1.5KB buffer) | 100.0M ops/sec | 0.020 us | 0.026 us |
-| SIMD CRLF Search (16KB buffer) | 3.6M ops/sec | 0.291 us | 0.531 us |
-| HTTP Parser (Complete Request) | 1.1M ops/sec | 0.720 us | 1.672 us |
-| HTTP Parser (Fragmented Request) | 1.1M ops/sec | 0.984 us | 1.583 us |
-| Arena Allocations (64B objects) | 6.9M ops/sec | - | - |
+| Ring Buffer Queue (Single Thread) | 166.7M ops/sec | 0.005 us | 0.012 us |
+| Ring Buffer Queue (Concurrent 2x2) | 33.3M ops/sec | - | - |
+| Ring Buffer Queue (Concurrent 4x4) | 20.4M ops/sec | - | - |
+| Ring Buffer Queue (High Contention 8x8) | 9.5M ops/sec | - | - |
+| Ring Buffer Queue (Extreme Contention 12x12) | 7.8M ops/sec | - | - |
+| Ring Buffer Queue (Max Contention 16x16) | 5.1M ops/sec | - | - |
+| Circular Buffer | 166.7M ops/sec | 0.008 us | 0.008 us |
+| SIMD CRLF Search (1.5KB buffer) | 100.0M ops/sec | 0.016 us | 0.040 us |
+| SIMD CRLF Search (16KB buffer) | 4.5M ops/sec | 0.224 us | 0.494 us |
+| SIMD CRLF Search (32KB buffer) | 2.0M ops/sec | 0.441 us | 1.454 us |
+| SIMD CRLF Search (64KB buffer) | 1.1M ops/sec | 0.891 us | 1.883 us |
+| SIMD CRLF Search (128KB buffer) | 526.3K ops/sec | 1.731 us | 7.202 us |
+| HTTP Parser (Complete Request) | 1.0M ops/sec | 0.834 us | 2.887 us |
+| HTTP Parser (Fragmented Request) | 1.0M ops/sec | 0.778 us | 3.151 us |
+| Arena Allocations (64B objects) | 4.6M ops/sec | - | - |
 | Memory Allocations (String Queue) | 50.0M ops/sec | - | - |
 
 ---
@@ -32,18 +38,18 @@ All benchmarks show realistic, stable measurements with proper compiler optimiza
 
 | Benchmark | Latency | Throughput |
 |-----------|---------|------------|
-| parse_int64 (simple) | 5.3 ns | 189.1M ops/sec |
-| parse_int64 (negative) | 7.0 ns | 142.9M ops/sec |
-| parse_double | 11.9 ns | 84.1M ops/sec |
-| parse_bool (strict validation) | 1.2 ns | 867.4M ops/sec |
-| needs_json_escaping (clean, 58 chars) | 7.8 ns | 127.5M ops/sec |
-| needs_json_escaping (dirty, 25 chars) | 1.3 ns | 799.9M ops/sec |
-| escape_json_string (no-alloc path) | 13.3 ns | 75.4M ops/sec |
-| escape_json_string_into (append) | 4.8 ns | 208.1M ops/sec |
-| skip_value (nested obj with strings) | 33.5 ns | 29.8M ops/sec |
-| 3-field object parse (linear) | 38.4 ns | 26.1M ops/sec |
-| 8-field object parse (length-switch) | 69.4 ns | 14.4M ops/sec |
-| arena alloc+reset cycle (4KB) | 36.8 ns | 27.1M ops/sec |
+| parse_int64 (simple) | 7.5 ns | 133.7M ops/sec |
+| parse_int64 (negative) | 8.6 ns | 116.6M ops/sec |
+| parse_double | 15.1 ns | 66.2M ops/sec |
+| parse_bool (strict validation) | 0.9 ns | 1.13B ops/sec |
+| needs_json_escaping (clean, 58 chars) | 8.3 ns | 119.8M ops/sec |
+| needs_json_escaping (dirty, 25 chars) | 1.2 ns | 820.6M ops/sec |
+| escape_json_string (no-alloc path) | 20.0 ns | 50.0M ops/sec |
+| escape_json_string_into (append) | 7.5 ns | 132.6M ops/sec |
+| skip_value (nested obj with strings) | 37.7 ns | 26.5M ops/sec |
+| 3-field object parse (linear) | 53.2 ns | 18.8M ops/sec |
+| 8-field object parse (length-switch) | 76.7 ns | 13.0M ops/sec |
+| arena alloc+reset cycle (4KB) | 36.9 ns | 27.1M ops/sec |
 
 ---
 
@@ -51,17 +57,30 @@ All benchmarks show realistic, stable measurements with proper compiler optimiza
 
 | Benchmark | Latency | Throughput |
 |-----------|---------|------------|
-| escape_json_string (clean, return) | 11.2 ns | 89.7M ops/sec |
-| escape_json_string_into (clean, append) | 4.1 ns | 242.5M ops/sec |
-| escape_json_string (dirty, return) | 35.8 ns | 28.0M ops/sec |
-| escape_json_string_into (dirty, append) | 24.6 ns | 40.7M ops/sec |
-| needs_json_escaping (16 byte clean) | 2.4 ns | 424.5M ops/sec |
-| needs_json_escaping (64 byte clean) | 2.7 ns | 373.2M ops/sec |
-| needs_json_escaping (256 byte clean) | 9.1 ns | 110.4M ops/sec |
-| needs_json_escaping (64 byte, escape at end) | 2.5 ns | 396.6M ops/sec |
-| needs_json_escaping (64 byte, escape at start) | 1.5 ns | 656.8M ops/sec |
-| serialize 5-field obj (embedded commas) | 33.6 ns | 29.7M ops/sec |
-| serialize array 100 ints (single alloc) | 205.9 ns | 4.9M ops/sec |
+| escape_json_string (clean, return) | 17.0 ns | 58.7M ops/sec |
+| escape_json_string_into (clean, append) | 6.2 ns | 161.8M ops/sec |
+| escape_json_string (dirty, return) | 61.8 ns | 16.2M ops/sec |
+| escape_json_string_into (dirty, append) | 41.5 ns | 24.1M ops/sec |
+| needs_json_escaping (16 byte clean) | 2.8 ns | 353.5M ops/sec |
+| needs_json_escaping (64 byte clean) | 3.3 ns | 307.2M ops/sec |
+| needs_json_escaping (256 byte clean) | 5.9 ns | 170.0M ops/sec |
+| needs_json_escaping (64 byte, escape at end) | 2.3 ns | 443.5M ops/sec |
+| needs_json_escaping (64 byte, escape at start) | 1.5 ns | 660.5M ops/sec |
+| serialize 5-field obj (embedded commas) | 28.8 ns | 34.8M ops/sec |
+| serialize array 100 ints (to_chars) | 322.3 ns | 3.1M ops/sec |
+| serialize array 100 ints (optimized) | 207.8 ns | 4.8M ops/sec |
+| serialize array 1000 ints (optimized) | 2490.0 ns | 401.7K ops/sec |
+| serialize array 10000 ints (optimized) | 46810.0 ns | 21.4K ops/sec |
+| serialize nested obj (5 levels deep) | 23.3 ns | 43.0M ops/sec |
+| serialize 20-field obj | 286.7 ns | 3.5M ops/sec |
+| serialize 100 nested objects | 1860.0 ns | 537.5K ops/sec |
+| escape_json_string (10KB clean) | 359.1 ns | 2.8M ops/sec |
+| escape_json_string (10KB heavy escaping) | 45230.0 ns | 22.1K ops/sec |
+| escape_json_string (escape at SIMD boundary) | 332.3 ns | 3.0M ops/sec |
+| needs_json_escaping (1KB clean) | 22.3 ns | 44.8M ops/sec |
+| needs_json_escaping (1KB, escape at end) | 23.0 ns | 43.4M ops/sec |
+| escape hot (same string repeated) | 11.7 ns | 85.6M ops/sec |
+| escape cold (different strings) | 10.5 ns | 95.0M ops/sec |
 
 ---
 
@@ -69,9 +88,13 @@ All benchmarks show realistic, stable measurements with proper compiler optimiza
 
 | Benchmark | Throughput | Latency p50 | Latency p99 |
 |-----------|------------|-------------|-------------|
-| Router dispatch (hits) | 2.2M ops/sec | 0.401 us | 0.892 us |
-| Router dispatch (not found) | 2.6M ops/sec | 0.341 us | 0.691 us |
-| Router dispatch (405) | 1.4M ops/sec | 0.591 us | 1.052 us |
+| Router dispatch (hits) | 2.0M ops/sec | 0.375 us | 1.399 us |
+| Router dispatch (not found) | 2.2M ops/sec | 0.404 us | 0.902 us |
+| Router dispatch (405) | 1.5M ops/sec | 0.582 us | 1.391 us |
+| Large router (hits) | 1.9M ops/sec | 0.432 us | 1.052 us |
+| Large router (not found) | 1.7M ops/sec | 0.470 us | 1.118 us |
+| Large router (405) | 1.1M ops/sec | 0.686 us | 1.757 us |
+| Large router (edge cases) | 1.5M ops/sec | 0.555 us | 1.118 us |
 
 ---
 
