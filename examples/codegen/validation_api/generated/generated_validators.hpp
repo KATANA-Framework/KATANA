@@ -17,15 +17,15 @@
 #pragma once
 
 #include "generated_dtos.hpp"
-#include "katana/core/format_validators.hpp"
 #include "katana/core/validation.hpp"
+#include "katana/core/format_validators.hpp"
 #include <algorithm>
-#include <cctype>
-#include <cmath>
 #include <optional>
-#include <regex>
-#include <string>
 #include <string_view>
+#include <string>
+#include <cmath>
+#include <cctype>
+#include <regex>
 #include <unordered_set>
 #include <vector>
 
@@ -36,16 +36,15 @@ using katana::validation_error_code;
 // Format Validators (from framework)
 // ============================================================
 
-using katana::format_validators::is_valid_datetime;
 using katana::format_validators::is_valid_email;
 using katana::format_validators::is_valid_uuid;
+using katana::format_validators::is_valid_datetime;
 
 // ============================================================
 // Validation Functions
 // ============================================================
 
-[[nodiscard]] inline std::optional<validation_error>
-validate_RegisterUserRequest(const RegisterUserRequest& obj) {
+[[nodiscard]] inline std::optional<validation_error> validate_RegisterUserRequest(const RegisterUserRequest& obj) {
     if (obj.email.empty()) {
         return validation_error{"email", validation_error_code::required_field_missing};
     }
@@ -55,26 +54,18 @@ validate_RegisterUserRequest(const RegisterUserRequest& obj) {
     if (obj.password.empty()) {
         return validation_error{"password", validation_error_code::required_field_missing};
     }
-    if (!obj.password.empty() &&
-        obj.password.size() < RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH) {
-        return validation_error{"password",
-                                validation_error_code::string_too_short,
-                                RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH};
+    if (!obj.password.empty() && obj.password.size() < RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH) {
+        return validation_error{"password", validation_error_code::string_too_short, RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH};
     }
     if (obj.password.size() > RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH) {
-        return validation_error{"password",
-                                validation_error_code::string_too_long,
-                                RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH};
+        return validation_error{"password", validation_error_code::string_too_long, RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH};
     }
     if (obj.age && static_cast<double>(*obj.age) < RegisterUserRequest::metadata::AGE_MINIMUM) {
-        return validation_error{"age",
-                                validation_error_code::value_too_small,
-                                RegisterUserRequest::metadata::AGE_MINIMUM};
+        return validation_error{"age", validation_error_code::value_too_small, RegisterUserRequest::metadata::AGE_MINIMUM};
     }
     if (obj.age && static_cast<double>(*obj.age) > RegisterUserRequest::metadata::AGE_MAXIMUM) {
-        return validation_error{"age",
-                                validation_error_code::value_too_large,
-                                RegisterUserRequest::metadata::AGE_MAXIMUM};
+        return validation_error{"age", validation_error_code::value_too_large, RegisterUserRequest::metadata::AGE_MAXIMUM};
     }
     return std::nullopt;
 }
+

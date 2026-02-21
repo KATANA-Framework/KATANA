@@ -5,70 +5,141 @@
 #include "generated/generated_routes.hpp"
 #include "generated/generated_validators.hpp"
 
-#include "katana/core/arena.hpp"
-#include "katana/core/http.hpp"
+#include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
-#include "katana/core/reactor_pool.hpp"
-#include "katana/core/router.hpp"
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <cstring>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <thread>
 #include <vector>
 
 using namespace katana;
 using namespace katana::http;
 
-// Simple in-memory storage for tasks
-class TaskStorage {
+namespace {
+
+struct stored_task {
+    int64_t id = 0;
+    std::string title;
+    std::string description;
+    Task_Status_t_enum status = Task_Status_t_enum::pending;
+    int64_t priority = 1;
+    std::vector<std::string> tags;
+    std::optional<int64_t> assignee_id;
+    std::optional<std::string> due_date;
+    std::string created_at;
+    std::optional<std::string> updated_at;
+};
+
+Task_Status_t_enum update_status_to_task_status(UpdateTaskRequest_Status_t_enum status) {
+    switch (status) {
+    case UpdateTaskRequest_Status_t_enum::pending:
+        return Task_Status_t_enum::pending;
+    case UpdateTaskRequest_Status_t_enum::in_progress:
+        return Task_Status_t_enum::in_progress;
+    case UpdateTaskRequest_Status_t_enum::completed:
+        return Task_Status_t_enum::completed;
+    case UpdateTaskRequest_Status_t_enum::cancelled:
+        return Task_Status_t_enum::cancelled;
+    }
+    return Task_Status_t_enum::pending;
+}
+
+Task_Status_t_enum search_status_to_task_status(SearchRequest_Item_t_enum status) {
+    switch (status) {
+    case SearchRequest_Item_t_enum::pending:
+        return Task_Status_t_enum::pending;
+    case SearchRequest_Item_t_enum::in_progress:
+        return Task_Status_t_enum::in_progress;
+    case SearchRequest_Item_t_enum::completed:
+        return Task_Status_t_enum::completed;
+    case SearchRequest_Item_t_enum::cancelled:
+        return Task_Status_t_enum::cancelled;
+    }
+    return Task_Status_t_enum::pending;
+}
+
+std::string fixed_timestamp() {
+    return "2026-02-22T00:00:00Z";
+}
+
+Task to_dto(const stored_task& src, monotonic_arena& arena) {
+    Task task(&arena);
+    task.id = src.id;
+    task.title = arena_string<>(src.title, arena_allocator<char>(&arena));
+    if (!src.description.empty()) {
+        task.description = arena_string<>(src.description, arena_allocator<char>(&arena));
+    }
+    task.status = src.status;
+    task.priority = src.priority;
+    for (const auto& tag : src.tags) {
+        task.tags.emplace_back(tag, arena_allocator<char>(&arena));
+    }
+
+    task.assignee.id = src.assignee_id.value_or(0);
+    if (src.assignee_id) {
+        task.assignee.email =
+            arena_string<>("user@example.com", arena_allocator<char>(&arena));
+        std::string name = "User " + std::to_string(*src.assignee_id);
+        task.assignee.name = arena_string<>(name, arena_allocator<char>(&arena));
+    } else {
+        task.assignee.email = arena_string<>("", arena_allocator<char>(&arena));
+        task.assignee.name = arena_string<>("", arena_allocator<char>(&arena));
+    }
+
+    if (src.due_date) {
+        task.due_date = arena_string<>(*src.due_date, arena_allocator<char>(&arena));
+    }
+    task.created_at = arena_string<>(src.created_at, arena_allocator<char>(&arena));
+    if (src.updated_at) {
+        task.updated_at = arena_string<>(*src.updated_at, arena_allocator<char>(&arena));
+    }
+    return task;
+}
+
+class task_storage {
 public:
-    TaskStorage()
-        : next_id_(1), start_time_(std::chrono::steady_clock::now()), total_requests_(0) {}
+    task_storage() : start_time_(std::chrono::steady_clock::now()) {}
 
-    Task create_task(const CreateTaskRequest& req, monotonic_arena& arena) {
-        std::lock_guard lock(mutex_);
+    stored_task create(const CreateTaskRequest& req) {
+        std::lock_guard lock(mu_);
 
-        Task task;
+        stored_task task;
         task.id = next_id_++;
-        task.title = std::string(req.title);
-        if (req.description) {
-            task.description = std::string(*req.description);
+        task.title.assign(req.title.data(), req.title.size());
+        if (!req.description.empty()) {
+            task.description.assign(req.description.data(), req.description.size());
         }
-        task.status = std::string("pending");
+        task.status = Task_Status_t_enum::pending;
         task.priority = req.priority;
-
-        if (req.tags) {
-            task.tags = std::vector<std::string>();
-            for (const auto& tag : *req.tags) {
-                task.tags->push_back(std::string(tag));
-            }
+        for (const auto& tag : req.tags) {
+            task.tags.emplace_back(tag.data(), tag.size());
         }
-
         if (req.assignee_id) {
-            User user;
-            user.id = *req.assignee_id;
-            user.email = std::string("user@example.com");
-            user.name = std::string("User " + std::to_string(*req.assignee_id));
-            task.assignee = user;
+            task.assignee_id = *req.assignee_id;
         }
+        if (req.due_date) {
+            task.due_date = std::string(req.due_date->data(), req.due_date->size());
+        }
+        task.created_at = fixed_timestamp();
 
-        task.due_date = req.due_date;
-
-        auto now = std::chrono::system_clock::now();
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-        task.created_at = std::string("2026-02-09T12:00:00Z");
-        task.updated_at = {};
-
-        tasks_[task.id] = task;
+        auto id = task.id;
+        tasks_[id] = task;
         return task;
     }
 
-    std::optional<Task> get_task(int64_t id) {
-        std::lock_guard lock(mutex_);
+    std::optional<stored_task> get(int64_t id) const {
+        std::lock_guard lock(mu_);
         auto it = tasks_.find(id);
         if (it == tasks_.end()) {
             return std::nullopt;
@@ -76,15 +147,66 @@ public:
         return it->second;
     }
 
-    std::vector<Task> list_tasks(const std::optional<std::string>& status,
-                                 const std::optional<int64_t>& priority,
-                                 int64_t limit,
-                                 int64_t offset) {
-        std::lock_guard lock(mutex_);
-        std::vector<Task> result;
+    bool remove(int64_t id) {
+        std::lock_guard lock(mu_);
+        return tasks_.erase(id) > 0;
+    }
 
-        for (const auto& [id, task] : tasks_) {
-            if (status && task.status != *status) {
+    std::optional<stored_task> update(int64_t id, const UpdateTaskRequest& req) {
+        std::lock_guard lock(mu_);
+        auto it = tasks_.find(id);
+        if (it == tasks_.end()) {
+            return std::nullopt;
+        }
+
+        auto& task = it->second;
+        if (!req.title.empty()) {
+            task.title.assign(req.title.data(), req.title.size());
+        }
+        if (!req.description.empty()) {
+            task.description.assign(req.description.data(), req.description.size());
+        }
+        if (req.priority >= 1 && req.priority <= 5) {
+            task.priority = req.priority;
+        }
+        if (!req.tags.empty()) {
+            task.tags.clear();
+            for (const auto& tag : req.tags) {
+                task.tags.emplace_back(tag.data(), tag.size());
+            }
+        }
+
+        const bool only_status_field = req.title.empty() && req.description.empty() &&
+                                       req.tags.empty() && !req.assignee_id && !req.due_date &&
+                                       req.priority == 0;
+        if (req.status != UpdateTaskRequest_Status_t_enum::pending || only_status_field) {
+            task.status = update_status_to_task_status(req.status);
+        }
+        if (req.assignee_id) {
+            task.assignee_id = *req.assignee_id;
+        }
+        if (req.due_date) {
+            task.due_date = std::string(req.due_date->data(), req.due_date->size());
+        }
+        task.updated_at = fixed_timestamp();
+        return task;
+    }
+
+    std::vector<stored_task> list(std::optional<std::string_view> status,
+                                  std::optional<int64_t> priority,
+                                  int64_t limit,
+                                  int64_t offset) const {
+        std::lock_guard lock(mu_);
+        std::vector<stored_task> result;
+        result.reserve(tasks_.size());
+
+        std::optional<Task_Status_t_enum> expected_status;
+        if (status) {
+            expected_status = Task_Status_t_enum_from_string(*status);
+        }
+
+        for (const auto& [_, task] : tasks_) {
+            if (expected_status && task.status != *expected_status) {
                 continue;
             }
             if (priority && task.priority != *priority) {
@@ -93,270 +215,231 @@ public:
             result.push_back(task);
         }
 
-        // Apply offset and limit
-        if (offset > 0 && static_cast<size_t>(offset) < result.size()) {
-            result.erase(result.begin(), result.begin() + offset);
-        } else if (offset > 0) {
-            result.clear();
+        if (offset > 0) {
+            const auto off = static_cast<size_t>(offset);
+            if (off >= result.size()) {
+                return {};
+            }
+            result.erase(result.begin(), result.begin() + static_cast<std::ptrdiff_t>(off));
         }
-
         if (limit > 0 && static_cast<size_t>(limit) < result.size()) {
-            result.resize(limit);
+            result.resize(static_cast<size_t>(limit));
         }
-
         return result;
     }
 
-    std::optional<Task> update_task(int64_t id, const UpdateTaskRequest& req) {
-        std::lock_guard lock(mutex_);
-        auto it = tasks_.find(id);
-        if (it == tasks_.end()) {
-            return std::nullopt;
-        }
+    std::vector<stored_task> search(const SearchRequest& req) const {
+        std::lock_guard lock(mu_);
+        std::vector<stored_task> result;
+        result.reserve(tasks_.size());
 
-        Task& task = it->second;
-
-        if (req.title) {
-            task.title = std::string(*req.title);
-        }
-        if (req.description) {
-            task.description = std::string(*req.description);
-        }
-        if (req.status) {
-            task.status = std::string(*req.status);
-        }
-        if (req.priority) {
-            task.priority = *req.priority;
-        }
-        if (req.tags) {
-            task.tags = std::vector<std::string>();
-            for (const auto& tag : *req.tags) {
-                task.tags->push_back(std::string(tag));
+        for (const auto& [_, task] : tasks_) {
+            if (!req.title_contains.empty()) {
+                std::string needle(req.title_contains.data(), req.title_contains.size());
+                if (task.title.find(needle) == std::string::npos) {
+                    continue;
+                }
             }
-        }
-        if (req.assignee_id) {
-            User user;
-            user.id = *req.assignee_id;
-            user.email = std::string("user@example.com");
-            user.name = std::string("User " + std::to_string(*req.assignee_id));
-            task.assignee = user;
-        }
-
-        task.updated_at = std::string("2026-02-09T12:00:00Z");
-
-        return task;
-    }
-
-    bool delete_task(int64_t id) {
-        std::lock_guard lock(mutex_);
-        return tasks_.erase(id) > 0;
-    }
-
-    size_t count_tasks() {
-        std::lock_guard lock(mutex_);
-        return tasks_.size();
-    }
-
-    std::vector<Task> search_tasks(const SearchRequest& req) {
-        std::lock_guard lock(mutex_);
-        std::vector<Task> result;
-
-        for (const auto& [id, task] : tasks_) {
-            bool match = true;
-
-            if (req.title_contains && task.title.find(*req.title_contains) == std::string::npos) {
-                match = false;
-            }
-
-            if (match && req.statuses) {
+            if (!req.statuses.empty()) {
                 bool status_match = false;
-                for (const auto& status : *req.statuses) {
-                    if (task.status == status) {
+                for (auto s : req.statuses) {
+                    if (task.status == search_status_to_task_status(s)) {
                         status_match = true;
                         break;
                     }
                 }
                 if (!status_match) {
-                    match = false;
+                    continue;
                 }
             }
-
-            if (match && req.min_priority && task.priority < *req.min_priority) {
-                match = false;
+            if (req.min_priority > 0 && task.priority < req.min_priority) {
+                continue;
             }
-
-            if (match && req.max_priority && task.priority > *req.max_priority) {
-                match = false;
+            if (req.max_priority > 0 && task.priority > req.max_priority) {
+                continue;
             }
-
-            if (match) {
-                result.push_back(task);
+            if (!req.tags.empty()) {
+                bool tag_match = false;
+                for (const auto& filter_tag : req.tags) {
+                    auto it = std::find(task.tags.begin(),
+                                        task.tags.end(),
+                                        std::string(filter_tag.data(), filter_tag.size()));
+                    if (it != task.tags.end()) {
+                        tag_match = true;
+                        break;
+                    }
+                }
+                if (!tag_match) {
+                    continue;
+                }
             }
+            if (req.has_assignee && !task.assignee_id) {
+                continue;
+            }
+            result.push_back(task);
         }
-
         return result;
     }
 
-    int64_t uptime_seconds() {
+    int64_t count() const {
+        std::lock_guard lock(mu_);
+        return static_cast<int64_t>(tasks_.size());
+    }
+
+    int64_t uptime_seconds() const {
         auto now = std::chrono::steady_clock::now();
         return std::chrono::duration_cast<std::chrono::seconds>(now - start_time_).count();
     }
 
-    void increment_requests() { total_requests_.fetch_add(1, std::memory_order_relaxed); }
-
-    int64_t total_requests() const { return total_requests_.load(std::memory_order_relaxed); }
-
 private:
-    std::mutex mutex_;
-    std::map<int64_t, Task> tasks_;
-    int64_t next_id_;
+    mutable std::mutex mu_;
+    std::map<int64_t, stored_task> tasks_;
+    int64_t next_id_ = 1;
     std::chrono::steady_clock::time_point start_time_;
-    std::atomic<int64_t> total_requests_;
 };
 
-// Implementation of the API handlers
-class TaskAPIImpl : public TaskAPI {
+class task_handler : public generated::api_handler {
 public:
-    explicit TaskAPIImpl(TaskStorage& storage) : storage_(storage) {}
+    explicit task_handler(task_storage& storage) : storage_(storage) {}
 
-    response listTasks(const listTasksRequest& req, request_context& ctx) override {
-        storage_.increment_requests();
+    response list_tasks(std::optional<std::string_view> status,
+                        std::optional<int64_t> priority,
+                        std::optional<int64_t> limit,
+                        std::optional<int64_t> offset) override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        auto tasks = storage_.list(status, priority, limit.value_or(10), offset.value_or(0));
 
-        auto tasks = storage_.list_tasks(
-            req.status, req.priority, req.limit.value_or(10), req.offset.value_or(0));
-
-        TaskList list;
-        list.tasks = tasks;
-        list.total = static_cast<int64_t>(storage_.count_tasks());
-        list.has_more = (req.offset.value_or(0) + static_cast<int64_t>(tasks.size())) < list.total;
-
-        return serialize_TaskList(list, ctx.arena);
+        auto& arena = handler_context::arena();
+        TaskList out(&arena);
+        for (const auto& task : tasks) {
+            out.tasks.push_back(to_dto(task, arena));
+        }
+        out.total = storage_.count();
+        out.has_more = offset.value_or(0) + static_cast<int64_t>(tasks.size()) < out.total;
+        return response::json(serialize_TaskList(out));
     }
 
-    response createTask(const CreateTaskRequest& req, request_context& ctx) override {
-        storage_.increment_requests();
-
-        auto task = storage_.create_task(req, ctx.arena);
-        return serialize_Task(task, ctx.arena, 201);
+    response create_task(const CreateTaskRequest& body) override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        auto task = storage_.create(body);
+        auto& arena = handler_context::arena();
+        return response::json(serialize_Task(to_dto(task, arena))).with_status(201);
     }
 
-    response getTask(const getTaskRequest& req, request_context& ctx) override {
-        storage_.increment_requests();
-
-        auto task = storage_.get_task(req.id);
+    response get_task(int64_t id) override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        auto task = storage_.get(id);
         if (!task) {
-            return response::error(problem_details::not_found(
-                "Task not found", "task.not_found", "Task with given ID does not exist"));
+            return response::error(problem_details::not_found("Task not found"));
         }
-
-        return serialize_Task(*task, ctx.arena);
+        auto& arena = handler_context::arena();
+        return response::json(serialize_Task(to_dto(*task, arena)));
     }
 
-    response updateTask(const updateTaskRequest& req, request_context& ctx) override {
-        storage_.increment_requests();
-
-        auto task = storage_.update_task(req.id, req.body);
+    response update_task(int64_t id, const UpdateTaskRequest& body) override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        auto task = storage_.update(id, body);
         if (!task) {
-            return response::error(problem_details::not_found(
-                "Task not found", "task.not_found", "Task with given ID does not exist"));
+            return response::error(problem_details::not_found("Task not found"));
         }
-
-        return serialize_Task(*task, ctx.arena);
+        auto& arena = handler_context::arena();
+        return response::json(serialize_Task(to_dto(*task, arena)));
     }
 
-    response deleteTask(const deleteTaskRequest& req, request_context& ctx) override {
-        storage_.increment_requests();
-
-        if (!storage_.delete_task(req.id)) {
-            return response::error(problem_details::not_found(
-                "Task not found", "task.not_found", "Task with given ID does not exist"));
+    response delete_task(int64_t id) override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        if (!storage_.remove(id)) {
+            return response::error(problem_details::not_found("Task not found"));
         }
-
-        return response(204, {}, "");
+        return response::ok("").with_status(204);
     }
 
-    response batchCreateTasks(const BatchCreateRequest& req, request_context& ctx) override {
-        storage_.increment_requests();
+    response batch_create_tasks(const BatchCreateRequest& body) override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        auto& arena = handler_context::arena();
+        BatchCreateResponse out(&arena);
 
-        BatchCreateResponse resp;
-        resp.created = std::vector<Task>();
-        resp.failed = std::vector<batchCreateTasks_failed_item>();
-
-        for (size_t i = 0; i < req.tasks.size(); ++i) {
+        for (size_t i = 0; i < body.tasks.size(); ++i) {
             try {
-                auto task = storage_.create_task(req.tasks[i], ctx.arena);
-                resp.created->push_back(task);
+                auto created = storage_.create(body.tasks[i]);
+                out.created.push_back(to_dto(created, arena));
             } catch (const std::exception& e) {
-                batchCreateTasks_failed_item failed;
+                BatchCreateResponse_Item_t_1 failed(&arena);
                 failed.index = static_cast<int64_t>(i);
-                failed.error = std::string(e.what());
-                resp.failed->push_back(failed);
+                failed.error = arena_string<>(e.what(), arena_allocator<char>(&arena));
+                out.failed.push_back(std::move(failed));
             }
         }
-
-        return serialize_BatchCreateResponse(resp, ctx.arena);
+        return response::json(serialize_BatchCreateResponse(out));
     }
 
-    response searchTasks(const SearchRequest& req, request_context& ctx) override {
-        storage_.increment_requests();
-
-        auto tasks = storage_.search_tasks(req);
-
-        TaskList list;
-        list.tasks = tasks;
-        list.total = static_cast<int64_t>(tasks.size());
-        list.has_more = false;
-
-        return serialize_TaskList(list, ctx.arena);
+    response search_tasks(const SearchRequest& body) override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        auto tasks = storage_.search(body);
+        auto& arena = handler_context::arena();
+        TaskList out(&arena);
+        out.total = static_cast<int64_t>(tasks.size());
+        out.has_more = false;
+        for (const auto& task : tasks) {
+            out.tasks.push_back(to_dto(task, arena));
+        }
+        return response::json(serialize_TaskList(out));
     }
 
-    response healthCheck(const healthCheckRequest&, request_context& ctx) override {
-        storage_.increment_requests();
-
-        HealthResponse health;
-        health.status = std::string("healthy");
-        health.timestamp = std::string("2026-02-09T12:00:00Z");
+    response health_check() override {
+        request_count_.fetch_add(1, std::memory_order_relaxed);
+        auto& arena = handler_context::arena();
+        HealthResponse health(&arena);
+        health.status = HealthResponse_Status_t_enum::healthy;
+        health.timestamp = arena_string<>(fixed_timestamp(), arena_allocator<char>(&arena));
         health.uptime_seconds = storage_.uptime_seconds();
-        health.total_requests = storage_.total_requests();
-
-        return serialize_HealthResponse(health, ctx.arena);
+        health.total_requests = request_count_.load(std::memory_order_relaxed);
+        return response::json(serialize_HealthResponse(health));
     }
 
 private:
-    TaskStorage& storage_;
+    task_storage& storage_;
+    std::atomic<int64_t> request_count_{0};
 };
 
-int main(int argc, char* argv[]) {
-    uint16_t port = 18081;
+uint16_t read_port(int argc, char* argv[]) {
     if (argc > 1) {
-        port = static_cast<uint16_t>(std::atoi(argv[1]));
+        int parsed = std::atoi(argv[1]);
+        if (parsed > 0 && parsed < 65536) {
+            return static_cast<uint16_t>(parsed);
+        }
     }
-
-    TaskStorage storage;
-    TaskAPIImpl api_impl(storage);
-
-    std::cout << "Task API server starting on port " << port << "...\n";
-    std::cout << "Endpoints:\n";
-    std::cout << "  GET    /tasks          - List tasks\n";
-    std::cout << "  POST   /tasks          - Create task\n";
-    std::cout << "  GET    /tasks/{id}     - Get task\n";
-    std::cout << "  PUT    /tasks/{id}     - Update task\n";
-    std::cout << "  DELETE /tasks/{id}     - Delete task\n";
-    std::cout << "  POST   /tasks/batch    - Batch create\n";
-    std::cout << "  POST   /tasks/search   - Search tasks\n";
-    std::cout << "  GET    /health         - Health check\n";
-    std::cout << std::flush;
-
-    auto handler = create_TaskAPI_handler(api_impl);
-
-    try {
-        // Run with reactor pool
-        reactor_pool pool;
-        pool.run_server(port, handler);
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
-        return 1;
+    if (const char* env_port = std::getenv("PORT")) {
+        int parsed = std::atoi(env_port);
+        if (parsed > 0 && parsed < 65536) {
+            return static_cast<uint16_t>(parsed);
+        }
     }
+    return 18081;
+}
 
-    return 0;
+uint16_t worker_count() {
+    const uint32_t hw = std::max(1u, std::thread::hardware_concurrency());
+    const uint32_t capped = std::min<uint32_t>(hw, 32);
+    return static_cast<uint16_t>(capped);
+}
+
+} // namespace
+
+int main(int argc, char* argv[]) {
+    const uint16_t port = read_port(argc, argv);
+    const uint16_t workers = worker_count();
+
+    task_storage storage;
+    task_handler handler(storage);
+    const auto& router = generated::make_router(handler);
+
+    return http::server(router)
+        .listen(port)
+        .workers(workers)
+        .on_start([&]() {
+            std::cout << "Task API running on :" << port << " with " << workers << " workers"
+                      << std::endl;
+        })
+        .run();
 }
