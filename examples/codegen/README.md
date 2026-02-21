@@ -1,53 +1,34 @@
 # Codegen Examples
 
-Два минимальных, но нагруженных примера для демонстрации `katana_gen` на реальных профилях нагрузки.
+Актуальные примеры `katana_gen`, которые собираются через CMake и регенерируют код из OpenAPI при сборке.
 
-## Доступные примеры
+## Активные примеры
 
-### 1. Compute API (`compute_api/`)
-POST `/compute/sum` принимает массив чисел (`minItems=1, maxItems=1024`) и возвращает сумму. Чистая CPU-логика без I/O и блокировок — идеальный стресс-тест сериализации/валидации.
+- `compute_api/` — CPU-нагрузка на parse/validate/serialize (`/compute/sum`).
+- `validation_api/` — валидации форматов и диапазонов (`/user/register`).
+- `text_api/` — несколько endpoint'ов с enum/transform-логикой.
+- `benchmark_api/` — широкий API для codegen-бенчей (CRUD + compute + validation).
+- `task_api/` — сложная спецификация для стресс-теста генератора.
 
-### 2. Validation API (`validation_api/`)
-POST `/user/register` валидирует email/пароль/age (required + nullable + format + min/max) и возвращает `"ok"`. Стрессует валидаторы и Problem Details.
+`products_api/` сейчас legacy-папка (только `main.cpp`, без подключенного CMake/OpenAPI пайплайна).
 
-## Структура
-```
-codegen/
-├── README.md
-├── compute_api/
-│   ├── api.yaml            # OpenAPI спецификация (/compute/sum)
-│   ├── main.cpp            # Handler + server
-│   ├── CMakeLists.txt      # Генерация katana_gen + сборка
-│   ├── README.md           # Как гонять и бенчить
-│   └── generated/          # Автогенерированные DTO/JSON/validators/routes
-└── validation_api/
-    ├── api.yaml            # OpenAPI спецификация (/user/register)
-    ├── main.cpp
-    ├── CMakeLists.txt
-    ├── README.md
-    └── generated/
-```
+## Сборка
 
-## Сборка всех примеров
 ```bash
-# Из корня проекта
-cmake --preset examples
-cmake --build --preset examples --target compute_api validation_api
+cmake --preset bench
+cmake --build --preset bench --target compute_api validation_api text_api benchmark_api task_api
 ```
 
-Оба бинаря оказываются в `build/examples/examples/codegen/*/`.
+Бинарники появляются в `build/bench/examples/codegen/*/`.
 
-## Использование кодогенератора
-Генерация в примерах триггерится через CMake, но можно вручную:
+## Генерация через инструменты
+
+В каждом активном примере `CMakeLists.txt` вызывает `katana_gen openapi ... --emit all --inline-naming operation` и пишет файлы в локальный `generated/`.
+
+Ручная регенерация (из корня проекта):
+
 ```bash
-./build/katana_gen openapi -i api.yaml -o generated --emit all --inline-naming operation
+./build/bench/katana_gen openapi -i examples/codegen/compute_api/api.yaml -o examples/codegen/compute_api/generated --emit all --inline-naming operation
 ```
-Эмитятся DTO + JSON + validators + routes + router bindings.
 
-## Бенчмарки
-`generate_benchmark_report.py` и docker-бенчмарки запускают оба примера:
-- Compute API: смешанные размеры массивов (1/8/64/256/1024) под 1/4/8/16 потоков
-- Validation API: смесь валидных/невалидных запросов под 4–8 потоков
-
-Метрики пишутся в `BENCHMARK_RESULTS.md` вместе с остальными бенчами фреймворка.
-Если установлен `wrk`, бенчмарки используют его как нагрузочный клиент (в контейнере он уже есть); иначе падают на упрощённый TCP-клиент с более низкой отдачей.
+Аналогично для остальных `api.yaml`.

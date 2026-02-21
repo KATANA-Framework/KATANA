@@ -1,12 +1,12 @@
 // layer: flat
 // Auto-generated handler interfaces from OpenAPI specification
-//
+// 
 // Zero-boilerplate design:
 //   - Clean signatures: response method(params) - no request& or context&
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
-//
+// 
 // Example:
 //   response get_user(int64_t id) override {
 //       auto user = db.find(id, &arena());  // arena() from context
@@ -14,16 +14,16 @@
 //   }
 #pragma once
 
-#include "generated_dtos.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/router.hpp"
-#include <optional>
+#include "generated_dtos.hpp"
 #include <string_view>
+#include <optional>
 #include <variant>
 
 using katana::http::request;
-using katana::http::request_context;
 using katana::http::response;
+using katana::http::request_context;
 
 namespace generated {
 
@@ -46,15 +46,11 @@ struct api_handler {
 
     // GET /items
     // List items with pagination
-    virtual response list_items(std::optional<int64_t> limit,
-                                std::optional<int64_t> offset,
-                                std::optional<std::string_view> category) = 0;
+    virtual response list_items(std::optional<int64_t> limit, std::optional<int64_t> offset, std::optional<std::string_view> category) = 0;
 
     // POST /items
     // Create a new item
-    virtual response create_item(std::string_view X_Request_Id,
-                                 std::optional<std::string_view> session,
-                                 const CreateItemRequest& body) = 0;
+    virtual response create_item(std::string_view X_Request_Id, std::optional<std::string_view> session, const CreateItemRequest& body) = 0;
 
     // GET /items/{id}
     // Get item by ID
@@ -75,6 +71,7 @@ struct api_handler {
     // GET /health
     // Health check
     virtual response health_check() = 0;
+
 };
 
 // ============================================================================
