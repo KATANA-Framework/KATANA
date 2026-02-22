@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <string_view>
@@ -41,6 +42,25 @@ bool matches_expected_status(int status, expected_response expected) {
     return false;
 }
 
+double percentile(const std::vector<double>& sorted_values, double pct) {
+    if (sorted_values.empty()) {
+        return 0.0;
+    }
+    if (sorted_values.size() == 1) {
+        return sorted_values[0];
+    }
+
+    const double clamped = std::min(1.0, std::max(0.0, pct));
+    const double pos = clamped * static_cast<double>(sorted_values.size() - 1);
+    const size_t lo = static_cast<size_t>(std::floor(pos));
+    const size_t hi = static_cast<size_t>(std::ceil(pos));
+    if (lo == hi) {
+        return sorted_values[lo];
+    }
+    const double frac = pos - static_cast<double>(lo);
+    return sorted_values[lo] * (1.0 - frac) + sorted_values[hi] * frac;
+}
+
 void print_result(const benchmark_result& result) {
     std::cout << "\n=== " << result.name << " ===\n";
     std::cout << "Operations: " << result.operations << "\n";
@@ -64,8 +84,9 @@ benchmark_result bench_dispatch(const std::string& name,
                                 method m,
                                 size_t iterations,
                                 expected_response expected) {
+    constexpr size_t sample_batch_size = 32;
     std::vector<double> latencies;
-    latencies.reserve(iterations);
+    latencies.reserve(iterations / sample_batch_size + 4);
 
     uint64_t errors = 0;
 
@@ -73,30 +94,50 @@ benchmark_result bench_dispatch(const std::string& name,
     // This measures routing performance, not memory allocation overhead.
     monotonic_arena arena;
 
-    auto start = steady_clock::now();
-
-    for (size_t i = 0; i < iterations; ++i) {
+    const size_t warmup_iterations = std::min<size_t>(iterations / 20, 10'000);
+    for (size_t i = 0; i < warmup_iterations; ++i) {
         arena.reset();
         request_context ctx{arena};
         const auto path = paths[i % paths.size()];
 
-        // Construct a minimal request for routing (only method + uri matter)
         request req;
         req.http_method = m;
         req.uri = path;
         req.headers = headers_map(&arena);
 
-        auto t0 = steady_clock::now();
         auto res = dispatch_or_problem(r, req, ctx);
-        auto t1 = steady_clock::now();
+        (void)res;
+    }
 
-        const int status = static_cast<int>(res.status);
-        if (!matches_expected_status(status, expected)) {
-            ++errors;
+    auto start = steady_clock::now();
+
+    size_t processed = 0;
+    while (processed < iterations) {
+        const size_t batch = std::min(sample_batch_size, iterations - processed);
+        auto batch_start = steady_clock::now();
+
+        for (size_t local = 0; local < batch; ++local, ++processed) {
+            arena.reset();
+            request_context ctx{arena};
+            const auto path = paths[processed % paths.size()];
+
+            // Construct a minimal request for routing (only method + uri matter)
+            request req;
+            req.http_method = m;
+            req.uri = path;
+            req.headers = headers_map(&arena);
+
+            auto res = dispatch_or_problem(r, req, ctx);
+            const int status = static_cast<int>(res.status);
+            if (!matches_expected_status(status, expected)) {
+                ++errors;
+            }
         }
 
-        double latency_us =
-            static_cast<double>(duration_cast<nanoseconds>(t1 - t0).count()) / 1000.0;
+        auto batch_end = steady_clock::now();
+        const double latency_us =
+            static_cast<double>(duration_cast<nanoseconds>(batch_end - batch_start).count()) /
+            (1000.0 * static_cast<double>(batch));
         latencies.push_back(latency_us);
     }
 
@@ -105,21 +146,18 @@ benchmark_result bench_dispatch(const std::string& name,
 
     std::sort(latencies.begin(), latencies.end());
 
-    // Compute throughput from sum of per-operation latencies (excludes setup overhead)
-    double total_dispatch_us = 0.0;
-    for (auto lat : latencies) {
-        total_dispatch_us += lat;
-    }
-    double dispatch_secs = total_dispatch_us / 1e6;
-
     benchmark_result result;
     result.name = name;
     result.operations = iterations;
     result.duration_ms = duration_ms;
-    result.throughput = static_cast<double>(iterations) / dispatch_secs;
-    result.latency_p50 = latencies[iterations / 2];
-    result.latency_p99 = latencies[iterations * 99 / 100];
-    result.latency_p999 = latencies[iterations * 999 / 1000];
+    const auto elapsed_ns = duration_cast<nanoseconds>(end - start).count();
+    result.throughput =
+        elapsed_ns > 0
+            ? (static_cast<double>(iterations) * 1'000'000'000.0) / static_cast<double>(elapsed_ns)
+            : 0.0;
+    result.latency_p50 = percentile(latencies, 0.50);
+    result.latency_p99 = percentile(latencies, 0.99);
+    result.latency_p999 = percentile(latencies, 0.999);
     result.errors = errors;
     return result;
 }

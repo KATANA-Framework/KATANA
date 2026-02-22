@@ -20,6 +20,9 @@ namespace {
 template <typename Fn> void bench(const char* name, int iterations, Fn&& fn) {
     using invoke_result = std::invoke_result_t<Fn&>;
     constexpr bool returns_bytes = std::is_same_v<invoke_result, size_t>;
+    constexpr int max_rounds = 64;
+    constexpr int min_rounds = 3;
+    constexpr double min_measure_seconds = 0.20; // Keep ultra-fast tests above timer/frequency noise.
 
     for (int i = 0; i < iterations / 10; ++i)
         if constexpr (returns_bytes) {
@@ -27,22 +30,61 @@ template <typename Fn> void bench(const char* name, int iterations, Fn&& fn) {
         } else {
             fn();
         }
-    auto start = std::chrono::high_resolution_clock::now();
-    size_t total_bytes = 0;
-    for (int i = 0; i < iterations; ++i)
+
+    std::vector<double> round_ns_per;
+    round_ns_per.reserve(max_rounds);
+    std::vector<double> round_bytes_per_op;
+    if constexpr (returns_bytes) {
+        round_bytes_per_op.reserve(max_rounds);
+    }
+
+    double measured_seconds = 0.0;
+    for (int round = 0; round < max_rounds; ++round) {
+        auto round_start = std::chrono::high_resolution_clock::now();
+        size_t round_bytes = 0;
+        for (int i = 0; i < iterations; ++i)
+            if constexpr (returns_bytes) {
+                round_bytes += fn();
+            } else {
+                fn();
+            }
+
+        auto round_end = std::chrono::high_resolution_clock::now();
+        const double round_ns =
+            std::chrono::duration<double, std::nano>(round_end - round_start).count();
+        round_ns_per.push_back(round_ns / static_cast<double>(iterations));
+        measured_seconds += std::chrono::duration<double>(round_end - round_start).count();
+
         if constexpr (returns_bytes) {
-            total_bytes += fn();
-        } else {
-            fn();
+            round_bytes_per_op.push_back(static_cast<double>(round_bytes) / static_cast<double>(iterations));
         }
-    auto end = std::chrono::high_resolution_clock::now();
-    double ns = std::chrono::duration<double, std::nano>(end - start).count();
-    double ns_per = ns / iterations;
-    double ops = iterations / (ns / 1e9);
+
+        if (measured_seconds >= min_measure_seconds && (round + 1) >= min_rounds) {
+            break;
+        }
+    }
+
+    if (round_ns_per.empty()) {
+        return;
+    }
+
+    std::sort(round_ns_per.begin(), round_ns_per.end());
+    const size_t mid = round_ns_per.size() / 2;
+    const double ns_per =
+        (round_ns_per.size() % 2 == 0)
+            ? (round_ns_per[mid - 1] + round_ns_per[mid]) * 0.5
+            : round_ns_per[mid];
+    const double ops = 1e9 / ns_per;
+
     double bytes_per_sec = 0.0;
     if constexpr (returns_bytes) {
-        bytes_per_sec = static_cast<double>(total_bytes) / (ns / 1e9);
-        do_not_optimize(total_bytes);
+        std::sort(round_bytes_per_op.begin(), round_bytes_per_op.end());
+        const size_t bytes_mid = round_bytes_per_op.size() / 2;
+        const double bytes_per_op =
+            (round_bytes_per_op.size() % 2 == 0)
+                ? (round_bytes_per_op[bytes_mid - 1] + round_bytes_per_op[bytes_mid]) * 0.5
+                : round_bytes_per_op[bytes_mid];
+        bytes_per_sec = bytes_per_op * ops;
     }
     if (ns_per < 1000.0) {
         if constexpr (returns_bytes) {
@@ -321,10 +363,9 @@ int main() {
         });
     }
     {
-        // Array of 100 integers — write directly into a flat char buffer
-        // to avoid per-element std::string operations
+        // Best-case baseline: direct write into flat buffer.
         char flat[512];
-        bench("serialize array 100 ints (to_chars)", N / 10, [&] {
+        bench("serialize array 100 ints (to_chars flat buffer)", N / 10, [&] {
             char* p = flat;
             *p++ = '[';
             for (int i = 0; i < 100; ++i) {
@@ -339,14 +380,33 @@ int main() {
         });
     }
     {
-        // Optimized array serialization using lookup tables
+        // Fair baseline against serialize_int_array_into: both target std::string.
+        std::string buf;
+        buf.reserve(512);
+        bench("serialize array 100 ints (to_chars into string)", N / 10, [&] {
+            buf.clear();
+            buf.push_back('[');
+            char local[16];
+            for (int i = 0; i < 100; ++i) {
+                if (i > 0) {
+                    buf.push_back(',');
+                }
+                auto [end, ec] = std::to_chars(local, local + sizeof(local), i);
+                buf.append(local, static_cast<size_t>(end - local));
+            }
+            buf.push_back(']');
+            do_not_optimize(buf.data());
+        });
+    }
+    {
+        // Lookup-table serializer under the same target type (std::string).
         std::array<int, 100> arr;
         for (int i = 0; i < 100; ++i) {
             arr[i] = i;
         }
         std::string buf;
         buf.reserve(512);
-        bench("serialize array 100 ints (optimized)", N / 10, [&] {
+        bench("serialize array 100 ints (lookup table into string)", N / 10, [&] {
             buf.clear();
             katana::serde::serialize_int_array_into(arr.data(), arr.size(), buf);
             do_not_optimize(buf.data());
@@ -374,7 +434,7 @@ int main() {
         }
         std::string buf;
         buf.reserve(65536);
-        bench("serialize array 10000 ints (optimized)", N / 1000, [&] {
+        bench("serialize array 10000 ints (optimized)", N / 200, [&] {
             buf.clear();
             katana::serde::serialize_int_array_into(arr.data(), arr.size(), buf);
             do_not_optimize(buf.data());
@@ -520,11 +580,12 @@ int main() {
         }
         std::string buf;
         buf.reserve(128);
-        int idx = 0;
-        bench("escape cold (different strings)", N / 10, [&] {
+        size_t idx = 0;
+        constexpr size_t stride = 7919; // Prime stride to reduce modulo-pattern artifacts.
+        bench("escape cold (different strings)", N, [&] {
             buf.clear();
             katana::serde::escape_json_string_into(cold_strs[idx % cold_strs.size()], buf);
-            ++idx;
+            idx += stride;
             clobber_memory();
         });
     }

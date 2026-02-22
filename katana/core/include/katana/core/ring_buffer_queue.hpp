@@ -257,7 +257,8 @@ private:
 
     // Keep independent atomics on separate cache lines to reduce false sharing
     // under heavy contention.
-    static constexpr size_t cache_line_size = 128;
+    // Keep this fixed to avoid toolchain/mtune-dependent ABI warnings under -Werror.
+    static constexpr size_t cache_line_size = 64;
 
     struct alignas(cache_line_size) padded_atomic {
         std::atomic<size_t> value{0};
@@ -289,6 +290,19 @@ private:
                 cpu_relax();
         } else if (spins < 256) {
             std::this_thread::yield();
+        }
+    }
+
+    static void contention_backoff(size_t& backoff) noexcept {
+        // Keep backoff bounded to avoid pathological long stalls under contention.
+        constexpr size_t max_backoff_exp = 6; // up to 64 pause instructions
+        const size_t exp = std::min(backoff, max_backoff_exp);
+        const size_t spins = size_t{1} << exp;
+        for (size_t i = 0; i < spins; ++i) {
+            cpu_relax();
+        }
+        if (backoff < max_backoff_exp) {
+            ++backoff;
         }
     }
 
@@ -325,16 +339,9 @@ private:
                     maybe_notify(head_, head_notify_pending_);
                     return true;
                 }
-                // CAS failed — bounded exponential backoff to reduce
-                // cache-line bouncing without over-throttling progress.
-                if (backoff < 10) {
-                    for (size_t i = 0; i < (1u << backoff); ++i) {
-                        cpu_relax();
-                    }
-                    ++backoff;
-                } else {
-                    cpu_relax();
-                }
+                // CAS failed: short bounded backoff limits cache-line thrash
+                // without inflating p99/p999 under sustained contention.
+                contention_backoff(backoff);
             } else if (diff < 0) {
                 // Queue full
                 return false;
@@ -369,16 +376,9 @@ private:
                     maybe_notify(tail_, tail_notify_pending_);
                     return true;
                 }
-                // CAS failed — bounded exponential backoff to reduce
-                // cache-line bouncing without over-throttling progress.
-                if (backoff < 10) {
-                    for (size_t i = 0; i < (1u << backoff); ++i) {
-                        cpu_relax();
-                    }
-                    ++backoff;
-                } else {
-                    cpu_relax();
-                }
+                // CAS failed: short bounded backoff limits cache-line thrash
+                // without inflating p99/p999 under sustained contention.
+                contention_backoff(backoff);
             } else if (diff < 0) {
                 // Queue empty
                 return false;

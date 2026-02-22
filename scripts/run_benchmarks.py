@@ -33,6 +33,7 @@ import contextlib
 import json
 import math
 import os
+import platform
 import re
 import shutil
 import socket
@@ -67,6 +68,8 @@ class BenchmarkResult:
     latency_p99_us: Optional[float] = None
     latency_p999_us: Optional[float] = None
     latency_max_us: Optional[float] = None
+    tail_p95_ns: Optional[float] = None
+    tail_p99_ns: Optional[float] = None
     producer_retries: Optional[float] = None
     consumer_retries: Optional[float] = None
     retries_per_op_push: Optional[float] = None
@@ -108,7 +111,9 @@ class BenchmarkReport:
     total_duration_ms: int = 0
     repeats: int = 10
     aggregation_mode: str = "median"
-    stage_repeats: Dict[str, int] = field(default_factory=dict)
+    stage_repeats: Dict[int, int] = field(default_factory=dict)
+    environment: Dict[str, Any] = field(default_factory=dict)
+    quality_summary: Optional[Dict[str, Any]] = None
     comparison_summary: Optional[Dict[str, Any]] = None
 
 
@@ -165,6 +170,207 @@ def get_git_sha() -> Optional[str]:
     return None
 
 
+def _safe_read_text(path: Path) -> Optional[str]:
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return None
+
+
+def _run_capture(cmd: List[str], timeout: int = 3) -> Optional[str]:
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        if proc.returncode != 0:
+            return None
+        out = (proc.stdout or "").strip()
+        return out or None
+    except Exception:
+        return None
+
+
+def _extract_cmake_cache_vars(cache_path: Path, keys: List[str]) -> Dict[str, str]:
+    values: Dict[str, str] = {}
+    if not cache_path.exists():
+        return values
+    try:
+        text = cache_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return values
+
+    for line in text.splitlines():
+        if line.startswith("//") or line.startswith("#") or "=" not in line or ":" not in line:
+            continue
+        key_type, value = line.split("=", 1)
+        key, _ctype = key_type.split(":", 1)
+        if key in keys:
+            values[key] = value.strip()
+    return values
+
+
+def _physical_cores_linux() -> Optional[int]:
+    cpuinfo = _safe_read_text(Path("/proc/cpuinfo"))
+    if not cpuinfo:
+        return None
+
+    physical = set()
+    proc_id = None
+    core_id = None
+    for raw in cpuinfo.splitlines():
+        line = raw.strip()
+        if not line:
+            if proc_id is not None and core_id is not None:
+                physical.add((proc_id, core_id))
+            proc_id = None
+            core_id = None
+            continue
+        if line.startswith("physical id"):
+            proc_id = line.split(":", 1)[1].strip()
+        elif line.startswith("core id"):
+            core_id = line.split(":", 1)[1].strip()
+
+    if proc_id is not None and core_id is not None:
+        physical.add((proc_id, core_id))
+    if not physical:
+        return None
+    return len(physical)
+
+
+def collect_environment_metadata() -> Dict[str, Any]:
+    env: Dict[str, Any] = {}
+    uname = platform.uname()
+    env["platform"] = uname.system
+    env["platform_release"] = uname.release
+    env["platform_version"] = uname.version
+    env["machine"] = uname.machine
+    env["hostname"] = uname.node
+    env["python"] = platform.python_version()
+
+    env["logical_cores"] = os.cpu_count()
+    phys = _physical_cores_linux()
+    if phys is not None:
+        env["physical_cores"] = phys
+
+    cpu_model = None
+    cpuinfo = _safe_read_text(Path("/proc/cpuinfo"))
+    if cpuinfo:
+        for raw in cpuinfo.splitlines():
+            if raw.lower().startswith("model name"):
+                cpu_model = raw.split(":", 1)[1].strip()
+                break
+    if not cpu_model:
+        cpu_model = platform.processor() or None
+    if cpu_model:
+        env["cpu_model"] = cpu_model
+
+    gov = _safe_read_text(Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"))
+    if gov:
+        env["cpu_governor"] = gov
+    no_turbo = _safe_read_text(Path("/sys/devices/system/cpu/intel_pstate/no_turbo"))
+    if no_turbo is not None:
+        env["intel_no_turbo"] = no_turbo
+
+    if hasattr(os, "sched_getaffinity"):
+        try:
+            env["affinity_cpus"] = len(os.sched_getaffinity(0))
+        except Exception:
+            pass
+
+    cache_vars = _extract_cmake_cache_vars(
+        BUILD_DIR / "CMakeCache.txt",
+        [
+            "CMAKE_CXX_COMPILER",
+            "CMAKE_CXX_COMPILER_VERSION",
+            "CMAKE_CXX_FLAGS",
+            "CMAKE_CXX_FLAGS_RELEASE",
+            "CMAKE_BUILD_TYPE",
+        ],
+    )
+    if cache_vars:
+        env["cmake"] = cache_vars
+
+    lscpu = _run_capture(["lscpu"], timeout=3)
+    if lscpu:
+        lines = []
+        for line in lscpu.splitlines():
+            if any(
+                prefix in line
+                for prefix in (
+                    "Architecture:",
+                    "CPU(s):",
+                    "Model name:",
+                    "Thread(s) per core:",
+                    "Core(s) per socket:",
+                    "Socket(s):",
+                )
+            ):
+                lines.append(line.strip())
+        if lines:
+            env["lscpu_brief"] = lines
+
+    return env
+
+
+def _ci95_halfwidth(metric_stats: Dict[str, float]) -> Optional[float]:
+    count = metric_stats.get("count")
+    stddev = metric_stats.get("stddev")
+    if not isinstance(count, (int, float)) or not isinstance(stddev, (int, float)):
+        return None
+    if count < 2:
+        return None
+    return 1.96 * float(stddev) / math.sqrt(float(count))
+
+
+def summarize_quality(report: BenchmarkReport, cv_warn_pct: float) -> Dict[str, Any]:
+    noisy: List[Dict[str, Any]] = []
+    severe: List[Dict[str, Any]] = []
+
+    tracked_metrics = {
+        "throughput",
+        "bytes_per_sec",
+        "latency_ns",
+        "latency_p50_us",
+        "latency_p95_us",
+        "latency_p99_us",
+        "latency_p999_us",
+        "latency_max_us",
+        "tail_p95_ns",
+        "tail_p99_ns",
+        "retries_per_op_total",
+    }
+
+    for stage in report.stages:
+        for bench_name, metric_map in stage.benchmark_stats.items():
+            for metric_name, stats in metric_map.items():
+                if metric_name not in tracked_metrics:
+                    continue
+                cv = _cv_pct(stats)
+                if cv is None:
+                    continue
+                item = {
+                    "stage_id": stage.stage_id,
+                    "stage_name": stage.stage_name,
+                    "benchmark": bench_name,
+                    "metric": metric_name,
+                    "cv_pct": cv,
+                }
+                if cv > cv_warn_pct:
+                    noisy.append(item)
+                if cv > cv_warn_pct * 2.0:
+                    severe.append(item)
+
+    noisy.sort(key=lambda x: x["cv_pct"], reverse=True)
+    severe.sort(key=lambda x: x["cv_pct"], reverse=True)
+
+    has_e2e = any(s.stage_id == 5 and s.success for s in report.stages)
+    return {
+        "cv_warn_pct": cv_warn_pct,
+        "noisy_metrics_count": len(noisy),
+        "severe_noisy_metrics_count": len(severe),
+        "top_noisy_metrics": noisy[:15],
+        "e2e_included": has_e2e,
+    }
+
+
 def ensure_build() -> bool:
     """Ensure benchmark binaries are built."""
     if not BUILD_DIR.exists():
@@ -202,7 +408,7 @@ def parse_codegen_quality_output(output: str) -> List[BenchmarkResult]:
     # "  name                               X.X ns    YYYYY ops/sec    ZZZZZ bytes/sec"
     # "  name                               X.X ns    YYYYY ops/sec    ZZZZZ bytes/sec    p95: A ns    p99: B ns"
     pattern = re.compile(
-        r"^\s+(.+?)\s+([\d.]+)\s+(ns|us)\s+([\d.]+)\s+ops/sec(?:\s+([\d.]+)\s+bytes/sec)?(?:\s+p95:\s+[\d.]+\s+ns\s+p99:\s+[\d.]+\s+ns)?\s*$",
+        r"^\s+(.+?)\s+([\d.]+)\s+(ns|us)\s+([\d.]+)\s+ops/sec(?:\s+([\d.]+)\s+bytes/sec)?(?:\s+p95:\s+([\d.]+)\s+ns\s+p99:\s+([\d.]+)\s+ns)?\s*$",
         re.MULTILINE,
     )
 
@@ -212,6 +418,8 @@ def parse_codegen_quality_output(output: str) -> List[BenchmarkResult]:
         unit = match.group(3)
         throughput = float(match.group(4))
         bytes_per_sec = float(match.group(5)) if match.group(5) else None
+        tail_p95_ns = float(match.group(6)) if match.group(6) else None
+        tail_p99_ns = float(match.group(7)) if match.group(7) else None
 
         # Convert to ns if in us
         if unit == "us":
@@ -223,6 +431,8 @@ def parse_codegen_quality_output(output: str) -> List[BenchmarkResult]:
                 latency_ns=latency,
                 throughput=throughput,
                 bytes_per_sec=bytes_per_sec,
+                tail_p95_ns=tail_p95_ns,
+                tail_p99_ns=tail_p99_ns,
             )
         )
 
@@ -420,8 +630,13 @@ def _percentile(sorted_values: List[float], q: float) -> float:
     if len(sorted_values) == 1:
         return sorted_values[0]
     clamped = min(1.0, max(0.0, q))
-    idx = int(clamped * (len(sorted_values) - 1))
-    return sorted_values[idx]
+    pos = clamped * (len(sorted_values) - 1)
+    lo = int(math.floor(pos))
+    hi = int(math.ceil(pos))
+    if lo == hi:
+        return sorted_values[lo]
+    frac = pos - lo
+    return sorted_values[lo] * (1.0 - frac) + sorted_values[hi] * frac
 
 
 def _metric_stats(values: List[float]) -> Dict[str, float]:
@@ -461,6 +676,8 @@ def _benchmark_to_dict(b: BenchmarkResult) -> Dict[str, Any]:
         "latency_p99_us": b.latency_p99_us,
         "latency_p999_us": b.latency_p999_us,
         "latency_max_us": b.latency_max_us,
+        "tail_p95_ns": b.tail_p95_ns,
+        "tail_p99_ns": b.tail_p99_ns,
         "producer_retries": b.producer_retries,
         "consumer_retries": b.consumer_retries,
         "retries_per_op_push": b.retries_per_op_push,
@@ -552,6 +769,14 @@ def build_benchmark_stats(candidates: List[BenchmarkResult]) -> Dict[str, Dict[s
     max_values = [float(c.latency_max_us) for c in candidates if c.latency_max_us is not None]
     if max_values:
         stats["latency_max_us"] = _metric_stats(max_values)
+
+    tail_p95_values = [float(c.tail_p95_ns) for c in candidates if c.tail_p95_ns is not None]
+    if tail_p95_values:
+        stats["tail_p95_ns"] = _metric_stats(tail_p95_values)
+
+    tail_p99_values = [float(c.tail_p99_ns) for c in candidates if c.tail_p99_ns is not None]
+    if tail_p99_values:
+        stats["tail_p99_ns"] = _metric_stats(tail_p99_values)
 
     producer_retry_values = [float(c.producer_retries) for c in candidates if c.producer_retries is not None]
     if producer_retry_values:
@@ -1073,7 +1298,7 @@ def _metric_direction(metric_name: str) -> Optional[str]:
         or "bytes_per_sec" in lowered
     ):
         return "higher"
-    if "latency" in lowered or "errors" in lowered or "retry" in lowered:
+    if "latency" in lowered or lowered.startswith("tail_") or "errors" in lowered or "retry" in lowered:
         return "lower"
     return None
 
@@ -1108,6 +1333,8 @@ def _extract_metrics(report_json: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
                 "latency_p99_us",
                 "latency_p999_us",
                 "latency_max_us",
+                "tail_p95_ns",
+                "tail_p99_ns",
                 "producer_retries",
                 "consumer_retries",
                 "retries_per_op_push",
@@ -1249,6 +1476,7 @@ def run_stage(
     repeats: int = 10,
     aggregation_mode: str = "median",
     include_runs: bool = False,
+    stage_warmup: bool = True,
     perf_stat: bool = False,
     perf_events: Optional[List[str]] = None,
     e2e_connections: int = 16,
@@ -1302,6 +1530,19 @@ def run_stage(
     started = time.perf_counter()
     run_results: List[List[BenchmarkResult]] = []
     run_errors: List[str] = []
+
+    if stage_warmup:
+        try:
+            warmup_proc = subprocess.run(
+                [str(binary_path)],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if warmup_proc.returncode != 0:
+                print(f"  Warmup failed (ignored): exit code {warmup_proc.returncode}")
+        except Exception as exc:
+            print(f"  Warmup failed (ignored): {exc}")
 
     for run_idx in range(repeats):
         print(f"  Run {run_idx + 1}/{repeats}...")
@@ -1427,15 +1668,23 @@ def generate_markdown(report: BenchmarkReport) -> str:
     if report.commit_sha:
         lines.append(f"> Commit: {report.commit_sha}")
 
+    quality = report.quality_summary or {}
+    noisy_count = int(quality.get("noisy_metrics_count", 0))
+    severe_noisy_count = int(quality.get("severe_noisy_metrics_count", 0))
+    cv_warn = float(quality.get("cv_warn_pct", 20.0))
+    e2e_included = bool(quality.get("e2e_included", False))
+    stability_verdict = "stable enough for trend tracking"
+    if noisy_count > 0:
+        stability_verdict = "contains noisy metrics, inspect before trusting small deltas"
+
     lines.extend([
         "",
         "## Summary",
         "",
-        "All benchmarks show realistic, stable measurements with proper compiler "
-        "optimization barriers (`do_not_optimize()` / `clobber_memory()` in "
-        "`benchmark/bench_utils.hpp`). Performance-critical paths have been optimized "
-        "with hand-rolled parsers, SIMD-accelerated string processing, and lock-free "
-        "concurrent data structures.",
+        f"- Stability verdict: {stability_verdict}",
+        f"- Noisy metrics (CV > {cv_warn:.1f}%): {noisy_count}",
+        f"- Severely noisy metrics (CV > {cv_warn * 2.0:.1f}%): {severe_noisy_count}",
+        f"- E2E keep-alive stage included: {'yes' if e2e_included else 'no'}",
         "",
         f"> **Note**: Results shown use {_aggregation_title(report.aggregation_mode)} "
         f"aggregation across {_repeat_policy_text(report)}. Concurrent benchmarks are highly "
@@ -1445,16 +1694,55 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "",
     ])
 
+    if report.environment:
+        lines.extend(["## Environment", ""])
+        lines.extend(["| Key | Value |", "|-----|-------|"])
+        for key in sorted(report.environment.keys()):
+            value = report.environment[key]
+            if isinstance(value, dict):
+                rendered = "; ".join(f"{k}={v}" for k, v in sorted(value.items()))
+            elif isinstance(value, list):
+                rendered = "; ".join(str(v) for v in value)
+            else:
+                rendered = str(value)
+            lines.append(f"| {key} | {rendered} |")
+        lines.extend(["", "---", ""])
+
+    if report.quality_summary:
+        lines.extend(["## Quality Gates", ""])
+        lines.append(f"- CV warning threshold: {cv_warn:.2f}%")
+        lines.append(f"- Noisy metrics: {noisy_count}")
+        lines.append(f"- Severely noisy metrics: {severe_noisy_count}")
+        lines.append("")
+
+        top_noisy = quality.get("top_noisy_metrics", [])
+        if top_noisy:
+            lines.extend(
+                [
+                    "| Top Noisy Metric | CV |",
+                    "|------------------|----|",
+                ]
+            )
+            for item in top_noisy[:10]:
+                label = (
+                    f"stage{item.get('stage_id')}.{item.get('benchmark')}.{item.get('metric')}"
+                )
+                lines.append(f"| {label} | {item.get('cv_pct', 0.0):.2f}% |")
+            lines.append("")
+        lines.extend(["---", ""])
+
     for stage in report.stages:
         if not stage.success:
-            lines.extend([
-                f"## {stage.stage_name}",
-                "",
-                f"**Error**: {stage.error_message}",
-                "",
-                "---",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"## {stage.stage_name}",
+                    "",
+                    f"**Error**: {stage.error_message}",
+                    "",
+                    "---",
+                    "",
+                ]
+            )
             continue
 
         lines.extend([
@@ -1468,84 +1756,70 @@ def generate_markdown(report: BenchmarkReport) -> str:
             lines.extend([f"_Note: {stage.error_message}_", "", "---", ""])
             continue
 
-        # Check if we have latency data.
         has_latency = any(b.latency_ns is not None for b in stage.benchmarks)
         has_percentiles = any(
             b.latency_p50_us is not None
             or b.latency_p95_us is not None
             or b.latency_p99_us is not None
+            or b.latency_p999_us is not None
             or b.latency_max_us is not None
             for b in stage.benchmarks
+        )
+        has_tail_latency = any(
+            b.tail_p95_ns is not None or b.tail_p99_ns is not None for b in stage.benchmarks
         )
         has_data_rate = any(b.bytes_per_sec is not None for b in stage.benchmarks)
         has_retry_total = any(b.retries_per_op_total is not None for b in stage.benchmarks)
 
         if has_percentiles:
+            latency_cols: List[Tuple[str, str]] = []
+            for field_name, label in [
+                ("latency_p50_us", "Latency p50"),
+                ("latency_p95_us", "Latency p95"),
+                ("latency_p99_us", "Latency p99"),
+                ("latency_p999_us", "Latency p999"),
+                ("latency_max_us", "Latency max"),
+            ]:
+                if any(getattr(b, field_name) is not None for b in stage.benchmarks):
+                    latency_cols.append((field_name, label))
+
+            headers = ["Benchmark", "Throughput"]
+            if has_data_rate:
+                headers.append("Data Rate")
+            headers.extend([label for _, label in latency_cols])
             if has_retry_total:
-                if has_data_rate:
-                    lines.extend([
-                        "| Benchmark | Throughput | Data Rate | Latency p50 | Latency p95 | Latency p99 | Latency max | Retries/op | Errors |",
-                        "|-----------|------------|-----------|-------------|-------------|-------------|-------------|------------|--------|",
-                    ])
-                else:
-                    lines.extend([
-                        "| Benchmark | Throughput | Latency p50 | Latency p95 | Latency p99 | Latency max | Retries/op | Errors |",
-                        "|-----------|------------|-------------|-------------|-------------|-------------|------------|--------|",
-                    ])
-            else:
-                if has_data_rate:
-                    lines.extend([
-                        "| Benchmark | Throughput | Data Rate | Latency p50 | Latency p95 | Latency p99 | Latency max | Errors |",
-                        "|-----------|------------|-----------|-------------|-------------|-------------|-------------|--------|",
-                    ])
-                else:
-                    lines.extend([
-                        "| Benchmark | Throughput | Latency p50 | Latency p95 | Latency p99 | Latency max | Errors |",
-                        "|-----------|------------|-------------|-------------|-------------|-------------|--------|",
-                    ])
+                headers.append("Retries/op")
+            headers.append("Errors")
+            lines.append("| " + " | ".join(headers) + " |")
+            lines.append("|" + "|".join("-" * (len(h) + 2) for h in headers) + "|")
+
             for b in stage.benchmarks:
                 throughput = (
                     f"{format_throughput(b.throughput)} {b.throughput_unit}"
                     if b.throughput is not None
                     else "-"
                 )
-                data_rate = format_data_rate(b.bytes_per_sec) if b.bytes_per_sec is not None else "-"
-                p50 = f"{b.latency_p50_us:.3f} us" if b.latency_p50_us is not None else "-"
-                p95 = f"{b.latency_p95_us:.3f} us" if b.latency_p95_us is not None else "-"
-                p99 = f"{b.latency_p99_us:.3f} us" if b.latency_p99_us is not None else "-"
-                max_lat = f"{b.latency_max_us:.3f} us" if b.latency_max_us is not None else "-"
+                row = [b.name, throughput]
+                if has_data_rate:
+                    row.append(format_data_rate(b.bytes_per_sec) if b.bytes_per_sec is not None else "-")
+                for field_name, _label in latency_cols:
+                    value = getattr(b, field_name)
+                    row.append(f"{value:.3f} us" if value is not None else "-")
                 retry_total = (
                     f"{b.retries_per_op_total:.3f}" if b.retries_per_op_total is not None else "-"
                 )
                 if has_retry_total:
-                    if has_data_rate:
-                        lines.append(
-                            f"| {b.name} | {throughput} | {data_rate} | {p50} | {p95} | {p99} | {max_lat} | {retry_total} | {b.errors} |"
-                        )
-                    else:
-                        lines.append(
-                            f"| {b.name} | {throughput} | {p50} | {p95} | {p99} | {max_lat} | {retry_total} | {b.errors} |"
-                        )
-                else:
-                    if has_data_rate:
-                        lines.append(
-                            f"| {b.name} | {throughput} | {data_rate} | {p50} | {p95} | {p99} | {max_lat} | {b.errors} |"
-                        )
-                    else:
-                        lines.append(
-                            f"| {b.name} | {throughput} | {p50} | {p95} | {p99} | {max_lat} | {b.errors} |"
-                        )
+                    row.append(retry_total)
+                row.append(str(b.errors))
+                lines.append("| " + " | ".join(row) + " |")
         elif has_latency:
+            headers = ["Benchmark", "Latency", "Throughput"]
+            if has_tail_latency:
+                headers.extend(["Tail p95", "Tail p99"])
             if has_data_rate:
-                lines.extend([
-                    "| Benchmark | Latency | Throughput | Data Rate |",
-                    "|-----------|---------|------------|-----------|",
-                ])
-            else:
-                lines.extend([
-                    "| Benchmark | Latency | Throughput |",
-                    "|-----------|---------|------------|",
-                ])
+                headers.append("Data Rate")
+            lines.append("| " + " | ".join(headers) + " |")
+            lines.append("|" + "|".join("-" * (len(h) + 2) for h in headers) + "|")
             for b in stage.benchmarks:
                 latency = f"{b.latency_ns:.1f} ns" if b.latency_ns is not None else "-"
                 throughput = (
@@ -1553,11 +1827,13 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     if b.throughput is not None
                     else "-"
                 )
-                data_rate = format_data_rate(b.bytes_per_sec) if b.bytes_per_sec is not None else "-"
+                row = [b.name, latency, throughput]
+                if has_tail_latency:
+                    row.append(f"{b.tail_p95_ns:.1f} ns" if b.tail_p95_ns is not None else "-")
+                    row.append(f"{b.tail_p99_ns:.1f} ns" if b.tail_p99_ns is not None else "-")
                 if has_data_rate:
-                    lines.append(f"| {b.name} | {latency} | {throughput} | {data_rate} |")
-                else:
-                    lines.append(f"| {b.name} | {latency} | {throughput} |")
+                    row.append(format_data_rate(b.bytes_per_sec) if b.bytes_per_sec is not None else "-")
+                lines.append("| " + " | ".join(row) + " |")
         else:
             if has_data_rate:
                 lines.extend([
@@ -1596,6 +1872,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     mean = throughput_stats.get("mean", 0.0)
                     stddev = throughput_stats.get("stddev", 0.0)
                     cv = (stddev / mean * 100.0) if mean > 0 else 0.0
+                    ci95 = _ci95_halfwidth(throughput_stats)
                     min_v = throughput_stats.get("min", 0.0)
                     p50_v = throughput_stats.get("p50", 0.0)
                     p95_v = throughput_stats.get("p95", 0.0)
@@ -1603,6 +1880,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
 
                     stability_rows.append(
                         f"| {b.name} | {format_throughput(mean)} | {format_throughput(stddev)} | {cv:.2f}% | "
+                        f"{format_throughput(ci95) if ci95 is not None else '-'} | "
                         f"{format_throughput(min_v)} | {format_throughput(p50_v)} | {format_throughput(p95_v)} | "
                         f"{format_throughput(max_v)} |"
                     )
@@ -1612,7 +1890,10 @@ def generate_markdown(report: BenchmarkReport) -> str:
                 for metric_key, label in [
                     ("latency_p99_us", "p99 us"),
                     ("latency_p95_us", "p95 us"),
+                    ("latency_p999_us", "p999 us"),
                     ("latency_p50_us", "p50 us"),
+                    ("tail_p99_ns", "tail p99 ns"),
+                    ("tail_p95_ns", "tail p95 ns"),
                     ("latency_ns", "ns"),
                 ]:
                     candidate = stage.benchmark_stats.get(b.name, {}).get(metric_key, {})
@@ -1625,12 +1906,14 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     lat_mean = latency_stats.get("mean", 0.0)
                     lat_stddev = latency_stats.get("stddev", 0.0)
                     lat_cv = (lat_stddev / lat_mean * 100.0) if lat_mean > 0 else 0.0
+                    lat_ci95 = _ci95_halfwidth(latency_stats)
                     lat_p50 = latency_stats.get("p50", 0.0)
                     lat_p95 = latency_stats.get("p95", 0.0)
                     lat_max = latency_stats.get("max", 0.0)
                     latency_rows.append(
                         f"| {b.name} | {latency_metric_name} | {lat_mean:.3f} | {lat_stddev:.3f} | "
-                        f"{lat_cv:.2f}% | {lat_p50:.3f} | {lat_p95:.3f} | {lat_max:.3f} |"
+                        f"{lat_cv:.2f}% | "
+                        f"{lat_ci95:.3f} | {lat_p50:.3f} | {lat_p95:.3f} | {lat_max:.3f} |"
                     )
 
                 retry_stats = stage.benchmark_stats.get(b.name, {}).get("retries_per_op_total", {})
@@ -1638,11 +1921,13 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     r_mean = retry_stats.get("mean", 0.0)
                     r_stddev = retry_stats.get("stddev", 0.0)
                     r_cv = (r_stddev / r_mean * 100.0) if r_mean > 0 else 0.0
+                    r_ci95 = _ci95_halfwidth(retry_stats)
                     r_p50 = retry_stats.get("p50", 0.0)
                     r_p95 = retry_stats.get("p95", 0.0)
                     r_max = retry_stats.get("max", 0.0)
                     retry_rows.append(
                         f"| {b.name} | {r_mean:.3f} | {r_stddev:.3f} | {r_cv:.2f}% | "
+                        f"{r_ci95:.3f} | "
                         f"{r_p50:.3f} | {r_p95:.3f} | {r_max:.3f} |"
                     )
 
@@ -1651,12 +1936,14 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     d_mean = data_rate_stats.get("mean", 0.0)
                     d_stddev = data_rate_stats.get("stddev", 0.0)
                     d_cv = (d_stddev / d_mean * 100.0) if d_mean > 0 else 0.0
+                    d_ci95 = _ci95_halfwidth(data_rate_stats)
                     d_min = data_rate_stats.get("min", 0.0)
                     d_p50 = data_rate_stats.get("p50", 0.0)
                     d_p95 = data_rate_stats.get("p95", 0.0)
                     d_max = data_rate_stats.get("max", 0.0)
                     data_rate_rows.append(
                         f"| {b.name} | {format_data_rate(d_mean)} | {format_data_rate(d_stddev)} | {d_cv:.2f}% | "
+                        f"{format_data_rate(d_ci95) if d_ci95 is not None else '-'} | "
                         f"{format_data_rate(d_min)} | {format_data_rate(d_p50)} | {format_data_rate(d_p95)} | "
                         f"{format_data_rate(d_max)} |"
                     )
@@ -1666,8 +1953,8 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     "",
                     "### Throughput Stability (Across Repeated Runs)",
                     "",
-                    "| Benchmark | Mean | Stddev | CV | Min | p50 | p95 | Max |",
-                    "|-----------|------|--------|----|-----|-----|-----|-----|",
+                    "| Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |",
+                    "|-----------|------|--------|----|--------|-----|-----|-----|-----|",
                 ])
                 lines.extend(stability_rows)
 
@@ -1676,8 +1963,8 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     "",
                     "### Latency Stability (Across Repeated Runs)",
                     "",
-                    "| Benchmark | Metric | Mean | Stddev | CV | p50 | p95 | Max |",
-                    "|-----------|--------|------|--------|----|-----|-----|-----|",
+                    "| Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |",
+                    "|-----------|--------|------|--------|----|--------|-----|-----|-----|",
                 ])
                 lines.extend(latency_rows)
 
@@ -1686,8 +1973,8 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     "",
                     "### Contention Stability (Retries/op)",
                     "",
-                    "| Benchmark | Mean | Stddev | CV | p50 | p95 | Max |",
-                    "|-----------|------|--------|----|-----|-----|-----|",
+                    "| Benchmark | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |",
+                    "|-----------|------|--------|----|--------|-----|-----|-----|",
                 ])
                 lines.extend(retry_rows)
 
@@ -1696,8 +1983,8 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     "",
                     "### Data Throughput Stability (bytes/sec)",
                     "",
-                    "| Benchmark | Mean | Stddev | CV | Min | p50 | p95 | Max |",
-                    "|-----------|------|--------|----|-----|-----|-----|-----|",
+                    "| Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |",
+                    "|-----------|------|--------|----|--------|-----|-----|-----|-----|",
                 ])
                 lines.extend(data_rate_rows)
 
@@ -1764,14 +2051,17 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "# Run all benchmarks",
         "./scripts/run_benchmarks.py",
         "",
-        "# Recommended repeat policy (core runtime gets more samples)",
-        "./scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20",
+        "# Recommended repeat policy with explicit quality gate",
+        "./scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20 --cv-threshold-pct 15",
         "",
         "# Include E2E keep-alive scenario",
         "./scripts/run_benchmarks.py --include-e2e",
         "",
         "# Collect perf counters (requires perf permissions)",
         "./scripts/run_benchmarks.py --perf-stat",
+        "",
+        "# Compare against a baseline",
+        "./scripts/run_benchmarks.py --compare benchmarks/baseline.json --fail-on-regression",
         "",
         "# Run specific stages",
         "./scripts/run_benchmarks.py --stage 1 2",
@@ -1797,6 +2087,8 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
         "repeats": report.repeats,
         "aggregation_mode": report.aggregation_mode,
         "stage_repeats": report.stage_repeats,
+        "environment": report.environment,
+        "quality_summary": report.quality_summary,
         "comparison_summary": report.comparison_summary,
         "stages": [
             {
@@ -1820,6 +2112,8 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
                         "latency_p99_us": b.latency_p99_us,
                         "latency_p999_us": b.latency_p999_us,
                         "latency_max_us": b.latency_max_us,
+                        "tail_p95_ns": b.tail_p95_ns,
+                        "tail_p99_ns": b.tail_p99_ns,
                         "producer_retries": b.producer_retries,
                         "consumer_retries": b.consumer_retries,
                         "retries_per_op_push": b.retries_per_op_push,
@@ -1959,6 +2253,11 @@ def main():
         help="Include raw per-run benchmark entries in JSON output",
     )
     parser.add_argument(
+        "--no-stage-warmup",
+        action="store_true",
+        help="Disable unmeasured warmup launch before each non-E2E stage.",
+    )
+    parser.add_argument(
         "--perf-stat",
         action="store_true",
         help="Collect perf stat counters for each non-E2E stage (best effort).",
@@ -1977,6 +2276,20 @@ def main():
         help="Compare against a baseline JSON report generated by this script.",
     )
     parser.add_argument(
+        "--auto-compare-baseline",
+        type=Path,
+        default=REPO_ROOT / "benchmarks" / "baseline.json",
+        help=(
+            "Auto-compare against this baseline when --compare is not provided "
+            "(default: benchmarks/baseline.json)."
+        ),
+    )
+    parser.add_argument(
+        "--no-auto-compare-baseline",
+        action="store_true",
+        help="Disable baseline auto-compare fallback.",
+    )
+    parser.add_argument(
         "--regression-threshold-pct",
         type=float,
         default=5.0,
@@ -1990,6 +2303,12 @@ def main():
             "CV gate in percent. Regressions above this noise level are marked as noisy "
             "and do not fail with --fail-on-regression (default: 10.0)."
         ),
+    )
+    parser.add_argument(
+        "--cv-warn-pct",
+        type=float,
+        default=20.0,
+        help="Warning threshold for noisy metrics in report quality section (default: 20.0).",
     )
     parser.add_argument(
         "--fail-on-regression",
@@ -2031,6 +2350,9 @@ def main():
         return 1
     if args.e2e_connections < 1 or args.e2e_requests_per_connection < 1:
         print("Error: --e2e-connections and --e2e-requests-per-connection must be >= 1")
+        return 1
+    if args.cv_threshold_pct <= 0 or args.cv_warn_pct <= 0:
+        print("Error: --cv-threshold-pct and --cv-warn-pct must be > 0")
         return 1
 
     if args.stage:
@@ -2086,6 +2408,7 @@ def main():
         + ", ".join(f"{sid}={effective_repeats_by_stage[sid]}" for sid in stages_to_run)
     )
     print(f"Aggregation mode: {args.aggregation}")
+    print(f"Stage warmup: {'disabled' if args.no_stage_warmup else 'enabled'}")
     print(f"perf stat: {'enabled' if args.perf_stat else 'disabled'}")
 
     report = BenchmarkReport(
@@ -2093,7 +2416,8 @@ def main():
         commit_sha=get_git_sha(),
         repeats=base_repeats,
         aggregation_mode=args.aggregation,
-        stage_repeats={str(k): v for k, v in sorted(effective_repeats_by_stage.items())},
+        stage_repeats={k: v for k, v in sorted(effective_repeats_by_stage.items())},
+        environment=collect_environment_metadata(),
     )
 
     started = time.perf_counter()
@@ -2103,6 +2427,7 @@ def main():
             repeats=effective_repeats_by_stage[stage_id],
             aggregation_mode=args.aggregation,
             include_runs=args.include_runs,
+            stage_warmup=not args.no_stage_warmup,
             perf_stat=args.perf_stat,
             perf_events=perf_events,
             e2e_connections=args.e2e_connections,
@@ -2112,12 +2437,19 @@ def main():
         report.stages.append(result)
     report.total_duration_ms = int((time.perf_counter() - started) * 1000)
 
-    if args.compare:
-        if not args.compare.exists():
-            print(f"Error: Baseline file not found: {args.compare}")
+    compare_path: Optional[Path] = args.compare
+    if compare_path is None and not args.no_auto_compare_baseline:
+        candidate = args.auto_compare_baseline
+        if candidate.exists():
+            compare_path = candidate
+            print(f"\nAuto compare baseline detected: {compare_path}")
+
+    if compare_path:
+        if not compare_path.exists():
+            print(f"Error: Baseline file not found: {compare_path}")
             return 1
         try:
-            with open(args.compare, "r") as f:
+            with open(compare_path, "r") as f:
                 baseline_json = json.load(f)
         except Exception as exc:
             print(f"Error: Failed to load baseline JSON: {exc}")
@@ -2132,6 +2464,8 @@ def main():
         report.comparison_summary = comparison_summary
         print_comparison_summary(comparison_summary)
 
+    report.quality_summary = summarize_quality(report, cv_warn_pct=args.cv_warn_pct)
+
     print(f"\n{'='*60}")
     print("Summary")
     print(f"{'='*60}")
@@ -2143,6 +2477,11 @@ def main():
             f"    Status: {status}, Benchmarks: {bench_count}, "
             f"Runs: {stage.run_count}, Duration: {stage.duration_ms}ms"
         )
+    quality = report.quality_summary or {}
+    print(
+        f"\nQuality: noisy_metrics={quality.get('noisy_metrics_count', 0)} "
+        f"(CV>{quality.get('cv_warn_pct', args.cv_warn_pct):.1f}%)"
+    )
     print(f"\nTotal duration: {report.total_duration_ms}ms")
 
     if args.json:
