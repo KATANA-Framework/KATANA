@@ -42,6 +42,16 @@ inline size_t work_items_for_worker(size_t total, int workers, int worker_index)
     const size_t remainder = total % worker_count;
     return base + (static_cast<size_t>(worker_index) < remainder ? 1 : 0);
 }
+
+inline double throughput_ops_per_sec(uint64_t operations, steady_clock::duration elapsed) noexcept {
+    const auto duration_ns = duration_cast<nanoseconds>(elapsed).count();
+    if (operations == 0 || duration_ns <= 0) {
+        return 0.0;
+    }
+
+    return (static_cast<double>(operations) * 1'000'000'000.0) /
+           static_cast<double>(duration_ns);
+}
 } // namespace
 
 struct benchmark_result {
@@ -113,7 +123,7 @@ benchmark_result benchmark_ring_buffer_queue() {
     result.name = "Ring Buffer Queue (Single Thread)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
     result.latency_p99 = percentile(latencies, 0.99);
     result.latency_p999 = percentile(latencies, 0.999);
@@ -169,7 +179,7 @@ benchmark_result benchmark_ring_buffer_concurrent() {
     result.name = "Ring Buffer Queue (Concurrent 4x4)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -227,7 +237,7 @@ benchmark_result benchmark_ring_buffer_high_contention() {
     result.name = "Ring Buffer Queue (High Contention 8x8)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -272,7 +282,7 @@ benchmark_result benchmark_circular_buffer() {
     result.name = "Circular Buffer";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
     result.latency_p99 = percentile(latencies, 0.99);
     result.latency_p999 = percentile(latencies, 0.999);
@@ -319,7 +329,7 @@ benchmark_result benchmark_simd_crlf_search() {
     result.name = "SIMD CRLF Search (1.5KB buffer)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
     result.latency_p99 = percentile(latencies, 0.99);
     result.latency_p999 = percentile(latencies, 0.999);
@@ -365,7 +375,7 @@ benchmark_result benchmark_simd_crlf_large_buffer() {
     result.name = "SIMD CRLF Search (16KB buffer)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
     result.latency_p99 = percentile(latencies, 0.99);
     result.latency_p999 = percentile(latencies, 0.999);
@@ -435,8 +445,7 @@ benchmark_result benchmark_http_parser() {
     result.name = "HTTP Parser (Complete Request)";
     result.operations = successful_parses;
     result.duration_ms = duration_ms;
-    result.throughput =
-        (static_cast<double>(successful_parses) * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
 
     if (!latencies.empty()) {
         result.latency_p50 = percentile(latencies, 0.50);
@@ -470,7 +479,7 @@ benchmark_result benchmark_memory_allocations() {
     result.name = "Memory Allocations (String Queue)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -499,7 +508,7 @@ benchmark_result benchmark_arena_small_allocs() {
     result.name = "Arena Allocations (64B objects)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -546,7 +555,7 @@ benchmark_result benchmark_simd_crlf_32kb() {
     result.name = "SIMD CRLF Search (32KB buffer)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
     result.latency_p99 = percentile(latencies, 0.99);
     result.latency_p999 = percentile(latencies, 0.999);
@@ -593,7 +602,7 @@ benchmark_result benchmark_simd_crlf_64kb() {
     result.name = "SIMD CRLF Search (64KB buffer)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
     result.latency_p99 = percentile(latencies, 0.99);
     result.latency_p999 = percentile(latencies, 0.999);
@@ -640,7 +649,7 @@ benchmark_result benchmark_simd_crlf_128kb() {
     result.name = "SIMD CRLF Search (128KB buffer)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
     result.latency_p99 = percentile(latencies, 0.99);
     result.latency_p999 = percentile(latencies, 0.999);
@@ -698,7 +707,7 @@ benchmark_result benchmark_ring_buffer_extreme_contention() {
     result.name = "Ring Buffer Queue (Extreme Contention 12x12)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -756,7 +765,7 @@ benchmark_result benchmark_ring_buffer_max_contention() {
     result.name = "Ring Buffer Queue (Max Contention 16x16)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -812,7 +821,7 @@ benchmark_result benchmark_ring_buffer_2x2() {
     result.name = "Ring Buffer Queue (Concurrent 2x2)";
     result.operations = num_operations;
     result.duration_ms = duration_ms;
-    result.throughput = (num_operations * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = 0.0;
     result.latency_p99 = 0.0;
     result.latency_p999 = 0.0;
@@ -889,8 +898,7 @@ benchmark_result benchmark_http_parser_fragmented() {
     result.name = "HTTP Parser (Fragmented Request)";
     result.operations = successful_parses;
     result.duration_ms = duration_ms;
-    result.throughput =
-        (static_cast<double>(successful_parses) * 1000.0) / static_cast<double>(duration_ms);
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
 
     if (!latencies.empty()) {
         result.latency_p50 = percentile(latencies, 0.50);
