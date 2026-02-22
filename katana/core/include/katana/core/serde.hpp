@@ -47,10 +47,10 @@ inline constexpr bool is_json_whitespace(unsigned char c) noexcept {
 }
 
 inline std::string_view trim_view(std::string_view sv) noexcept {
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) {
+    while (!sv.empty() && is_json_whitespace(static_cast<unsigned char>(sv.front()))) {
         sv.remove_prefix(1);
     }
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.back()))) {
+    while (!sv.empty() && is_json_whitespace(static_cast<unsigned char>(sv.back()))) {
         sv.remove_suffix(1);
     }
     return sv;
@@ -293,7 +293,10 @@ inline std::optional<int64_t> parse_int64(json_cursor& cur) noexcept {
         // INT64_MIN = -9223372036854775808, max unsigned = 9223372036854775808
         if (val > static_cast<uint64_t>(INT64_MAX) + 1u)
             return std::nullopt;
-        return static_cast<int64_t>(-static_cast<int64_t>(val));
+        if (val == static_cast<uint64_t>(INT64_MAX) + 1u) {
+            return INT64_MIN;
+        }
+        return -static_cast<int64_t>(val);
     }
     if (val > static_cast<uint64_t>(INT64_MAX))
         return std::nullopt;
@@ -315,15 +318,122 @@ inline std::optional<double> parse_double(json_cursor& cur) noexcept {
         }
         return std::nullopt;
     }
-    // Fast path: use std::from_chars instead of std::strtod (2-3x faster)
     const char* start = cur.ptr;
-    double v = 0.0;
-    auto [p, ec] = std::from_chars(start, cur.end, v);
-    if (ec != std::errc() || p == start) {
+    auto fallback_from_chars = [&]() -> std::optional<double> {
+        double v = 0.0;
+        auto [parsed_end, ec] = std::from_chars(start, cur.end, v);
+        if (ec != std::errc() || parsed_end == start) {
+            return std::nullopt;
+        }
+        cur.ptr = parsed_end;
+        return v;
+    };
+
+    const char* p = start;
+    bool negative = false;
+
+    if (*p == '-' || *p == '+') {
+        negative = (*p == '-');
+        ++p;
+        if (p >= cur.end) {
+            return std::nullopt;
+        }
+    }
+
+    uint64_t mantissa = 0;
+    int digits = 0;
+    int frac_digits = 0;
+    bool seen_digit = false;
+    bool seen_dot = false;
+
+    while (p < cur.end) {
+        const unsigned char ch = static_cast<unsigned char>(*p);
+        const unsigned digit = static_cast<unsigned>(ch - '0');
+        if (digit <= 9u) {
+            seen_digit = true;
+            // Keep a small exact mantissa fast path; larger/longer numbers fallback.
+            if (digits >= 15) {
+                return fallback_from_chars();
+            }
+            mantissa = mantissa * 10u + digit;
+            ++digits;
+            if (seen_dot) {
+                ++frac_digits;
+            }
+            ++p;
+            continue;
+        }
+        if (!seen_dot && ch == '.') {
+            seen_dot = true;
+            ++p;
+            continue;
+        }
+        break;
+    }
+
+    if (!seen_digit) {
         return std::nullopt;
     }
+
+    if (seen_dot && frac_digits == 0) {
+        return fallback_from_chars();
+    }
+
+    int exp10 = 0;
+    if (p < cur.end && (*p == 'e' || *p == 'E')) {
+        const char* exp_ptr = p + 1;
+        bool exp_negative = false;
+        if (exp_ptr < cur.end && (*exp_ptr == '+' || *exp_ptr == '-')) {
+            exp_negative = (*exp_ptr == '-');
+            ++exp_ptr;
+        }
+        if (exp_ptr >= cur.end ||
+            static_cast<unsigned>(static_cast<unsigned char>(*exp_ptr) - '0') > 9u) {
+            return fallback_from_chars();
+        }
+
+        int exp_value = 0;
+        while (exp_ptr < cur.end) {
+            const unsigned d = static_cast<unsigned>(static_cast<unsigned char>(*exp_ptr) - '0');
+            if (d > 9u) {
+                break;
+            }
+            if (exp_value > 100) {
+                return fallback_from_chars();
+            }
+            exp_value = exp_value * 10 + static_cast<int>(d);
+            ++exp_ptr;
+        }
+        exp10 = exp_negative ? -exp_value : exp_value;
+        p = exp_ptr;
+    }
+
+    static constexpr double pow10_pos[] = {
+        1.0,       1e1,       1e2,       1e3,       1e4,       1e5,       1e6,
+        1e7,       1e8,       1e9,       1e10,      1e11,      1e12,      1e13,
+        1e14,      1e15,      1e16,      1e17,      1e18};
+    static constexpr double pow10_neg[] = {
+        1.0,       1e-1,      1e-2,      1e-3,      1e-4,      1e-5,      1e-6,
+        1e-7,      1e-8,      1e-9,      1e-10,     1e-11,     1e-12,     1e-13,
+        1e-14,     1e-15,     1e-16,     1e-17,     1e-18};
+
+    double value = static_cast<double>(mantissa);
+    if (frac_digits > 0) {
+        value *= pow10_neg[frac_digits];
+    }
+    if (exp10 != 0) {
+        if (exp10 >= -18 && exp10 <= 18) {
+            value *= (exp10 > 0) ? pow10_pos[exp10] : pow10_neg[-exp10];
+        } else {
+            return fallback_from_chars();
+        }
+    }
+
+    if (negative) {
+        value = -value;
+    }
     cur.ptr = p;
-    return v;
+    return value;
 }
 
 inline std::optional<bool> parse_bool(json_cursor& cur) noexcept {
@@ -510,13 +620,7 @@ inline void escape_one_char(char c, std::string& out) {
     }
 }
 
-inline void escape_json_string_into(std::string_view sv, std::string& out) {
-    // Fast path: if no escaping needed, single bulk append
-    if (!needs_json_escaping(sv)) {
-        out.append(sv.data(), sv.size());
-        return;
-    }
-
+inline void escape_json_string_into_escaped(std::string_view sv, std::string& out) {
     out.reserve(out.size() + sv.size() + 8);
     const char* ptr = sv.data();
     const char* end_ptr = ptr + sv.size();
@@ -532,7 +636,7 @@ inline void escape_json_string_into(std::string_view sv, std::string& out) {
         __m256i eq_qt = _mm256_cmpeq_epi8(chunk, v_quote);
         __m256i is_ctrl = _mm256_cmpeq_epi8(_mm256_min_epu8(chunk, v_control_max), chunk);
         __m256i needs = _mm256_or_si256(_mm256_or_si256(eq_bs, eq_qt), is_ctrl);
-        int mask = _mm256_movemask_epi8(needs);
+        const uint32_t mask = static_cast<uint32_t>(_mm256_movemask_epi8(needs));
 
         if (mask == 0) {
             // All 32 bytes are clean — bulk append
@@ -540,15 +644,22 @@ inline void escape_json_string_into(std::string_view sv, std::string& out) {
             ptr += 32;
             continue;
         }
-
-        // Find first escape-needing byte, bulk append clean prefix
-        int first_esc = __builtin_ctz(static_cast<unsigned>(mask));
-        if (first_esc > 0) {
-            out.append(ptr, static_cast<size_t>(first_esc));
+        const char* chunk_ptr = ptr;
+        uint32_t bits = mask;
+        int last = 0;
+        while (bits != 0u) {
+            const int idx = __builtin_ctz(bits);
+            if (idx > last) {
+                out.append(chunk_ptr + last, static_cast<size_t>(idx - last));
+            }
+            escape_one_char(chunk_ptr[idx], out);
+            last = idx + 1;
+            bits &= (bits - 1);
         }
-        ptr += first_esc;
-        escape_one_char(*ptr, out);
-        ++ptr;
+        if (last < 32) {
+            out.append(chunk_ptr + last, static_cast<size_t>(32 - last));
+        }
+        ptr += 32;
     }
 #elif defined(__SSE2__)
     const __m128i v_backslash = _mm_set1_epi8('\\');
@@ -561,7 +672,7 @@ inline void escape_json_string_into(std::string_view sv, std::string& out) {
         __m128i eq_qt = _mm_cmpeq_epi8(chunk, v_quote);
         __m128i is_ctrl = _mm_cmpeq_epi8(_mm_min_epu8(chunk, v_control_max), chunk);
         __m128i needs = _mm_or_si128(_mm_or_si128(eq_bs, eq_qt), is_ctrl);
-        int mask = _mm_movemask_epi8(needs);
+        const uint32_t mask = static_cast<uint32_t>(_mm_movemask_epi8(needs));
 
         if (mask == 0) {
             // All 16 bytes are clean — bulk append
@@ -569,15 +680,22 @@ inline void escape_json_string_into(std::string_view sv, std::string& out) {
             ptr += 16;
             continue;
         }
-
-        // Find first escape-needing byte, bulk append clean prefix
-        int first_esc = __builtin_ctz(static_cast<unsigned>(mask));
-        if (first_esc > 0) {
-            out.append(ptr, static_cast<size_t>(first_esc));
+        const char* chunk_ptr = ptr;
+        uint32_t bits = mask;
+        int last = 0;
+        while (bits != 0u) {
+            const int idx = __builtin_ctz(bits);
+            if (idx > last) {
+                out.append(chunk_ptr + last, static_cast<size_t>(idx - last));
+            }
+            escape_one_char(chunk_ptr[idx], out);
+            last = idx + 1;
+            bits &= (bits - 1);
         }
-        ptr += first_esc;
-        escape_one_char(*ptr, out);
-        ++ptr;
+        if (last < 16) {
+            out.append(chunk_ptr + last, static_cast<size_t>(16 - last));
+        }
+        ptr += 16;
     }
 #endif
 
@@ -601,13 +719,22 @@ inline void escape_json_string_into(std::string_view sv, std::string& out) {
     }
 }
 
+inline void escape_json_string_into(std::string_view sv, std::string& out) {
+    // Fast path: if no escaping needed, single bulk append
+    if (!needs_json_escaping(sv)) {
+        out.append(sv.data(), sv.size());
+        return;
+    }
+    escape_json_string_into_escaped(sv, out);
+}
+
 inline std::string escape_json_string(std::string_view sv) {
     if (!needs_json_escaping(sv)) {
         return std::string(sv);
     }
     std::string out;
     out.reserve(sv.size() + 8);
-    escape_json_string_into(sv, out);
+    escape_json_string_into_escaped(sv, out);
     return out;
 }
 
