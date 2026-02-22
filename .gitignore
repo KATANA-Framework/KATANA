@@ -23,6 +23,10 @@ BENCHMARK_FINAL*.md
 build-windows/
 *.out
 
+# Benchmark run artifacts (generated locally/CI)
+benchmark_results/*
+!benchmark_results/.gitkeep
+
 # Profiling artifacts
 profiling_results/
 *.collapsed

@@ -13,6 +13,14 @@ The KATANA benchmarking system provides:
 - **CI Integration**: Can be used in continuous integration pipelines
 - **Pre-commit Hooks**: Automatically update benchmark results before commits
 
+## Directory Roles
+
+- `benchmark/`: benchmark source code (`*_benchmark.cpp`) and benchmark utilities.
+- `benchmarks/`: committed baseline snapshots used for regression checks in CI.
+- `benchmark_results/`: generated local/CI benchmark artifacts (JSON outputs), not source of truth.
+- `BENCHMARK_RESULTS.md`: human-readable current report in repository root.
+- `docker/`: optional reproducible benchmark/profiling environments used by `Makefile` docker targets.
+
 ## Quick Start
 
 ### Running All Benchmarks
@@ -305,8 +313,9 @@ The system can detect performance regressions:
 # Compare with baseline
 python3 scripts/run_all_benchmarks.py \
   --build-dir build/bench \
-  --baseline benchmark_results/baseline-report.json \
-  --threshold 10  # Fail if >10% slower
+  --baseline benchmarks/baseline_comprehensive.json \
+  --regression-threshold-pct 10 \
+  --fail-on-regression
 ```
 
 ## Manual Benchmark Runs
