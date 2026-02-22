@@ -192,7 +192,6 @@ benchmark_result benchmark_ring_buffer_high_contention() {
     const int producers = 8;
     const int consumers = 8;
     ring_buffer_queue<int> queue(2048, /*enable_spsc_fast_path=*/false);
-    std::atomic<size_t> total_done{0};
 
     auto start = steady_clock::now();
 
@@ -213,11 +212,13 @@ benchmark_result benchmark_ring_buffer_high_contention() {
     std::vector<std::thread> cons_threads;
     cons_threads.reserve(static_cast<size_t>(consumers));
     for (int c = 0; c < consumers; ++c) {
-        cons_threads.emplace_back([&] {
-            while (total_done.load(std::memory_order_relaxed) < num_operations) {
+        cons_threads.emplace_back([&, c] {
+            const size_t target = work_items_for_worker(num_operations, consumers, c);
+            size_t consumed = 0;
+            while (consumed < target) {
                 int val;
                 if (queue.try_pop(val)) {
-                    total_done.fetch_add(1, std::memory_order_relaxed);
+                    ++consumed;
                 } else {
                     cpu_pause();
                 }
@@ -662,7 +663,6 @@ benchmark_result benchmark_ring_buffer_extreme_contention() {
     const int producers = 12;
     const int consumers = 12;
     ring_buffer_queue<int> queue(4096, /*enable_spsc_fast_path=*/false);
-    std::atomic<size_t> total_done{0};
 
     auto start = steady_clock::now();
 
@@ -683,11 +683,13 @@ benchmark_result benchmark_ring_buffer_extreme_contention() {
     std::vector<std::thread> cons_threads;
     cons_threads.reserve(static_cast<size_t>(consumers));
     for (int c = 0; c < consumers; ++c) {
-        cons_threads.emplace_back([&] {
-            while (total_done.load(std::memory_order_relaxed) < num_operations) {
+        cons_threads.emplace_back([&, c] {
+            const size_t target = work_items_for_worker(num_operations, consumers, c);
+            size_t consumed = 0;
+            while (consumed < target) {
                 int val;
                 if (queue.try_pop(val)) {
-                    total_done.fetch_add(1, std::memory_order_relaxed);
+                    ++consumed;
                 } else {
                     cpu_pause();
                 }
@@ -720,7 +722,6 @@ benchmark_result benchmark_ring_buffer_max_contention() {
     const int producers = 16;
     const int consumers = 16;
     ring_buffer_queue<int> queue(8192, /*enable_spsc_fast_path=*/false);
-    std::atomic<size_t> total_done{0};
 
     auto start = steady_clock::now();
 
@@ -741,11 +742,13 @@ benchmark_result benchmark_ring_buffer_max_contention() {
     std::vector<std::thread> cons_threads;
     cons_threads.reserve(static_cast<size_t>(consumers));
     for (int c = 0; c < consumers; ++c) {
-        cons_threads.emplace_back([&] {
-            while (total_done.load(std::memory_order_relaxed) < num_operations) {
+        cons_threads.emplace_back([&, c] {
+            const size_t target = work_items_for_worker(num_operations, consumers, c);
+            size_t consumed = 0;
+            while (consumed < target) {
                 int val;
                 if (queue.try_pop(val)) {
-                    total_done.fetch_add(1, std::memory_order_relaxed);
+                    ++consumed;
                 } else {
                     cpu_pause();
                 }
