@@ -8,7 +8,8 @@ The KATANA benchmarking system provides:
 
 - **Unified Automation**: Single command to run all benchmarks
 - **Comprehensive Coverage**: Tests core runtime, codegen quality, routing, serialization, and integration
-- **Edge Case Testing**: Boundary conditions, max/min values, null handling, concurrent access
+- **Profile-Based Workloads**: `best case` / `typical mixed` / `hard edge` scenarios per operation category
+- **Seeded Dataset Generation**: Fixed-seed workload synthesis with configurable scenario proportions
 - **Detailed Reporting**: JSON and Markdown reports with metrics, trends, and regression detection
 - **CI Integration**: Can be used in continuous integration pipelines
 - **Pre-commit Hooks**: Automatically update benchmark results before commits
@@ -28,14 +29,14 @@ The KATANA benchmarking system provides:
 ```bash
 # Build benchmarks
 cmake --preset bench
-cmake --build --preset bench -j$(nproc)
-
-# Build examples (for integration tests)
-cmake --preset examples
-cmake --build --preset examples --target task_api
+cmake --build build/bench -j$(nproc)
 
 # Run comprehensive benchmark suite
-python3 scripts/run_all_benchmarks.py --verbose
+./scripts/run_benchmarks.py \
+  --aggregation median \
+  --stage-repeat 1=20 \
+  --output benchmark_results \
+  --update-docs
 ```
 
 ### Using the Original Script
@@ -52,6 +53,8 @@ python3 scripts/run_all_benchmarks.py --verbose
 Tests fundamental framework components:
 
 - **Reactor Performance**: Event loop dispatch, task scheduling
+- **Ring Buffer Queue**: Single-thread, core-saturation, and oversubscribed contention scenarios
+- **Contention Diagnostics**: Producer/consumer retries and `retries/op` under load
 - **HTTP Parser**: Request parsing throughput and latency
 - **Arena Allocator**: Per-request memory management
 - **IO Buffer**: Zero-copy buffer operations
@@ -69,9 +72,9 @@ Tests fundamental framework components:
 
 Tests the `katana_gen` tool output quality:
 
-- **Parse Performance**: Generated JSON parsers
-- **Serialization**: Generated serializers
-- **Validation**: Generated validators with all OpenAPI constraints
+- **Parse Performance**: Generated JSON parsers with profile datasets (`best` / `typical` / `hard`)
+- **Serialization Helpers**: String escaping and object construction hot paths
+- **Validation**: Generated validators with realistic and adversarial inputs
 - **Type Safety**: Compile-time type checking
 
 **Executables:**
@@ -87,6 +90,7 @@ Tests HTTP routing performance:
 - **Parameter Extraction**: Path, query, header parameters
 - **404/405 Handling**: Not found and method not allowed
 - **Middleware Chain**: Multiple middleware execution
+- **Validation Errors Field**: `Errors` counts expectation mismatches (e.g. non-404 in a not-found scenario)
 
 **Executables:**
 - `build/bench/benchmark/router_benchmark`
@@ -95,10 +99,10 @@ Tests HTTP routing performance:
 
 Tests JSON handling:
 
-- **Parsing**: JSON to DTO conversion
-- **Serialization**: DTO to JSON conversion
-- **Escaping**: String escaping and unescaping
-- **Validation**: Schema validation during parsing
+- **Escaping**: String escaping fast path, mixed path, and adversarial heavy-escape path
+- **Serialization**: DTO-like object and array serialization
+- **Profiled Workloads**: `best case`, `typical mixed`, `hard edge` datasets with fixed seed
+- **Data Rate Metrics**: `bytes/sec` for data-dependent workloads
 
 **Executables:**
 - `build/bench/benchmark/serialize_benchmark`
@@ -120,7 +124,8 @@ End-to-end tests with complete services:
 
 ## Edge Case Testing
 
-The benchmark system tests comprehensive edge cases:
+The benchmark system tests comprehensive edge cases with deterministic datasets
+(`benchmark/bench_utils.hpp`, `build_profile_dataset`, fixed seed + configurable mix):
 
 ### Boundary Values
 
@@ -153,8 +158,8 @@ The Task Management API (`examples/codegen/task_api`) demonstrates comprehensive
 # Start the service
 ./build/examples/examples/codegen/task_api/task_api 18081
 
-# Run edge case tests
-python3 scripts/run_all_benchmarks.py --build-dir build/bench --verbose
+# Run full benchmark suite (includes parser/serialization/validation edge profiles)
+./scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20
 ```
 
 ### Tested Scenarios
@@ -180,14 +185,18 @@ The unified runner `scripts/run_benchmarks.py` can automatically generate
 
 - **Timestamp and Commit Info**: Generation time and git SHA
 - **Configurable Aggregation**: `--aggregation best|median|mean` across repeated runs
-- **Performance Metrics**: Throughput, latency (p50/p99), and benchmark errors
+- **Performance Metrics**: Throughput (`ops/sec`), data rate (`bytes/sec`), and latency
+- **Contention Metrics**: `producer_retries`, `consumer_retries`, and `retries_per_op_total` for queue benchmarks
 - **Stability Metrics**: Mean, stddev, min/max, and percentiles across repeated runs
 - **Optional Raw Runs**: `--include-runs` adds per-run data to JSON for deep analysis
+- **CV-Aware Regression Checks**: `--compare` + `--cv-threshold-pct` distinguish hard vs noisy regressions
+- **Optional perf Counters**: `--perf-stat` adds cycles/instructions/IPC/cache/branch/context-switch metrics
+- **Optional E2E Stage**: `--include-e2e` runs keep-alive compute API scenario
 
 Recommended command:
 
 ```bash
-./scripts/run_benchmarks.py --repeats 5 --aggregation median --update-docs --output benchmark_results
+./scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20 --update-docs --output benchmark_results
 ```
 
 ### Report Structure
@@ -200,20 +209,26 @@ Recommended command:
 
 ## Summary
 
-> **Note**: Results shown use median-of-N aggregation across 5 run(s) per stage.
+> **Note**: Results shown use median-of-N aggregation with stage-specific repeat policy (e.g. stage 1 uses more runs).
 
 ## Core Runtime Benchmarks
 
-| Benchmark | Throughput | Latency p50 | Latency p99 |
-|-----------|------------|-------------|-------------|
-| HTTP Parser (Complete Request) | 1.2M ops/sec | 0.754 us | 1.450 us |
-| Arena Allocations (64B objects) | 6.1M ops/sec | - | - |
+| Benchmark | Throughput | Latency p50 | Latency p95 | Latency p99 | Latency max | Retries/op | Errors |
+|-----------|------------|-------------|-------------|-------------|-------------|------------|--------|
+| HTTP Parser (Complete Request) | 1.2M ops/sec | 0.754 us | 1.100 us | 1.450 us | 3.000 us | - | 0 |
+| Ring Buffer Queue (Core Saturation 6x6) | 13.0M ops/sec | 0.300 us | - | 4.000 us | - | 2.4 | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | Min | p50 | p95 | Max |
 |-----------|------|--------|----|-----|-----|-----|-----|
 | Ring Buffer Queue (Concurrent 4x4) | 19.2M | 0.4M | 2.1% | 18.8M | 19.3M | 19.6M | 19.8M |
+
+### Latency Stability (Across Repeated Runs)
+
+| Benchmark | Metric | Mean | Stddev | CV | p50 | p95 | Max |
+|-----------|--------|------|--------|----|-----|-----|-----|
+| HTTP Parser (Complete Request) | p99 us | 1.52 | 0.11 | 7.2% | 1.45 | 1.67 | 1.80 |
 
 ...
 ```
@@ -250,10 +265,11 @@ jobs:
 
       - name: Run Benchmarks
         run: |
-          python3 scripts/run_all_benchmarks.py \
-            --build-dir build/bench \
-            --output benchmark_results/ci-report.json \
-            --fail-on-error
+          ./scripts/run_benchmarks.py \
+            --aggregation median \
+            --stage-repeat 1=20 \
+            --output benchmark_results \
+            --update-docs
 
       - name: Upload Results
         uses: actions/upload-artifact@v3
@@ -309,12 +325,11 @@ The hook will:
 
 The system can detect performance regressions:
 
-```python
-# Compare with baseline
-python3 scripts/run_all_benchmarks.py \
-  --build-dir build/bench \
-  --baseline benchmarks/baseline_comprehensive.json \
-  --regression-threshold-pct 10 \
+```bash
+python3 scripts/run_benchmarks.py \
+  --compare benchmark_results/baseline_micro.json \
+  --regression-threshold-pct 5 \
+  --cv-threshold-pct 10 \
   --fail-on-regression
 ```
 
@@ -358,8 +373,13 @@ kill $PID
   "generated_at": "2026-02-22 09:30:00",
   "commit_sha": "abc1234",
   "total_duration_ms": 12345,
-  "repeats": 5,
+  "repeats": 10,
   "aggregation_mode": "median",
+  "stage_repeats": {
+    "1": 20,
+    "2": 10
+  },
+  "comparison_summary": null,
   "stages": [
     {
       "stage_id": 1,
@@ -367,14 +387,17 @@ kill $PID
       "duration_ms": 3542,
       "success": true,
       "error_message": null,
-      "run_count": 5,
+      "run_count": 20,
       "aggregation_mode": "median",
       "benchmarks": [
         {
           "name": "HTTP Parser (Complete Request)",
           "throughput": 1180000.0,
           "latency_p50_us": 0.754,
-          "latency_p99_us": 1.45
+          "latency_p95_us": 1.1,
+          "latency_p99_us": 1.45,
+          "latency_max_us": 3.0,
+          "errors": 0
         }
       ],
       "benchmark_stats": {
@@ -390,7 +413,10 @@ kill $PID
           }
         }
       },
-      "benchmark_runs": {}
+      "benchmark_runs": {},
+      "perf_stat": {},
+      "perf_derived": {},
+      "perf_error": null
     }
   ]
 }
@@ -427,15 +453,14 @@ pkill -f task_api
 sudo sh -c 'echo 1 > /proc/sys/kernel/perf_event_paranoid'
 
 # Run with higher priority
-nice -n -20 python3 scripts/run_benchmarks.py --repeats 7 --aggregation median --update-docs
+nice -n -20 python3 scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20 --update-docs
 ```
 
 ### CI Timeouts
 
 ```bash
-# Reduce benchmark duration
-export BENCH_QUICK=1
-python3 scripts/run_all_benchmarks.py --build-dir build/bench
+# Reduce benchmark duration and repeats
+python3 scripts/run_benchmarks.py --stage 1 2 --repeats 3
 ```
 
 ## Contributing
@@ -452,7 +477,6 @@ When adding new benchmarks:
 
 3. **Add to automation**:
    - Update `scripts/run_benchmarks.py` stage definitions and parser
-   - Update `scripts/run_all_benchmarks.py` if integration coverage changes
    - Add to `CMakeLists.txt`
 
 4. **Document edge cases**:
@@ -467,7 +491,6 @@ When adding new benchmarks:
 
 - `generate_benchmark_report.py` - Original report generator
 - `scripts/run_benchmarks.py` - Unified microbenchmark runner and report generator
-- `scripts/run_all_benchmarks.py` - Comprehensive automation
 - `scripts/pre-commit-benchmarks.sh` - Pre-commit integration
 
 ---

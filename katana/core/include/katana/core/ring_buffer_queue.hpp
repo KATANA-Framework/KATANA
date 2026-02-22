@@ -255,9 +255,8 @@ private:
         return n + 1;
     }
 
-    // Используем 128B паддинг, чтобы снизить ложное разделение линий в сценариАх
-    // с высоким контеншеном (8×8 бенч); для hot-path это даёт более ровный
-    // throughput на p99.
+    // Keep independent atomics on separate cache lines to reduce false sharing
+    // under heavy contention.
     static constexpr size_t cache_line_size = 128;
 
     struct alignas(cache_line_size) padded_atomic {
@@ -311,7 +310,6 @@ private:
         size_t backoff = 0;
 
         for (;;) {
-            // Prefetch the slot we're about to access
 #if defined(__GNUG__) || defined(__clang__)
             __builtin_prefetch(&buffer_[head & mask_], 1, 3);
 #endif
@@ -327,12 +325,15 @@ private:
                     maybe_notify(head_, head_notify_pending_);
                     return true;
                 }
-                // CAS failed — exponential backoff to reduce contention
-                if (backoff < 16) {
+                // CAS failed — bounded exponential backoff to reduce
+                // cache-line bouncing without over-throttling progress.
+                if (backoff < 10) {
                     for (size_t i = 0; i < (1u << backoff); ++i) {
                         cpu_relax();
                     }
                     ++backoff;
+                } else {
+                    cpu_relax();
                 }
             } else if (diff < 0) {
                 // Queue full
@@ -351,9 +352,7 @@ private:
 
         for (;;) {
             slot& s = buffer_[tail & mask_];
-
 #if defined(__GNUG__) || defined(__clang__)
-            // Prefetch current and next slot for read
             __builtin_prefetch(&buffer_[tail & mask_], 0, 3);
             __builtin_prefetch(&buffer_[(tail + 1) & mask_], 0, 3);
 #endif
@@ -370,12 +369,15 @@ private:
                     maybe_notify(tail_, tail_notify_pending_);
                     return true;
                 }
-                // CAS failed — exponential backoff to reduce contention
-                if (backoff < 16) {
+                // CAS failed — bounded exponential backoff to reduce
+                // cache-line bouncing without over-throttling progress.
+                if (backoff < 10) {
                     for (size_t i = 0; i < (1u << backoff); ++i) {
                         cpu_relax();
                     }
                     ++backoff;
+                } else {
+                    cpu_relax();
                 }
             } else if (diff < 0) {
                 // Queue empty

@@ -23,6 +23,24 @@ struct benchmark_result {
     uint64_t errors;
 };
 
+enum class expected_response {
+    success_2xx,
+    not_found_404,
+    method_not_allowed_405,
+};
+
+bool matches_expected_status(int status, expected_response expected) {
+    switch (expected) {
+    case expected_response::success_2xx:
+        return status >= 200 && status < 300;
+    case expected_response::not_found_404:
+        return status == 404;
+    case expected_response::method_not_allowed_405:
+        return status == 405;
+    }
+    return false;
+}
+
 void print_result(const benchmark_result& result) {
     std::cout << "\n=== " << result.name << " ===\n";
     std::cout << "Operations: " << result.operations << "\n";
@@ -44,7 +62,8 @@ benchmark_result bench_dispatch(const std::string& name,
                                 const router& r,
                                 const std::vector<std::string_view>& paths,
                                 method m,
-                                size_t iterations) {
+                                size_t iterations,
+                                expected_response expected) {
     std::vector<double> latencies;
     latencies.reserve(iterations);
 
@@ -71,7 +90,8 @@ benchmark_result bench_dispatch(const std::string& name,
         auto res = dispatch_or_problem(r, req, ctx);
         auto t1 = steady_clock::now();
 
-        if (res.status >= 400) {
+        const int status = static_cast<int>(res.status);
+        if (!matches_expected_status(status, expected)) {
             ++errors;
         }
 
@@ -215,21 +235,28 @@ int main() {
     auto large_routes = make_large_route_table(ok_handler);
     router large_router(large_routes);
 
-    std::vector<std::string_view> happy_paths = {
+    std::vector<std::string_view> hit_paths = {
         "/",
         "/users/me",
         "/users/42",
         "/posts/10/comments/5",
-        "/posts",
         "/static/about",
     };
 
     std::vector<std::string_view> not_found_paths = {
         "/missing",
         "/unknown/path",
-        "/posts/10/comments",
-        "/users/",
-        "/static",
+        "/users/42/profile",
+        "/posts/10/comments/5/replies",
+        "/static/unknown/page",
+    };
+
+    std::vector<std::string_view> method_mismatch_paths = {
+        "/",
+        "/users/me",
+        "/users/42",
+        "/posts/10/comments/5",
+        "/static/about",
     };
 
     // Paths for large router that match routes at various positions
@@ -267,7 +294,8 @@ int main() {
     const size_t iterations = 200000;
 
     // Warmup
-    auto warmup = bench_dispatch("Warmup (small)", small_router, happy_paths, method::get, 10000);
+    auto warmup = bench_dispatch(
+        "Warmup (small)", small_router, hit_paths, method::get, 10000, expected_response::success_2xx);
     (void)warmup;
 
     std::cout << "========================================\n";
@@ -277,11 +305,11 @@ int main() {
     std::cout << "\n--- Small Route Table (6 routes) ---\n";
 
     auto hit = bench_dispatch(
-        "Router dispatch (hits)", small_router, happy_paths, method::get, iterations);
+        "Router dispatch (hits)", small_router, hit_paths, method::get, iterations, expected_response::success_2xx);
     auto miss = bench_dispatch(
-        "Router dispatch (not found)", small_router, not_found_paths, method::get, iterations);
+        "Router dispatch (not found)", small_router, not_found_paths, method::get, iterations, expected_response::not_found_404);
     auto method_na = bench_dispatch(
-        "Router dispatch (405)", small_router, happy_paths, method::post, iterations);
+        "Router dispatch (405)", small_router, method_mismatch_paths, method::post, iterations, expected_response::method_not_allowed_405);
 
     print_result(hit);
     print_result(miss);
@@ -291,17 +319,17 @@ int main() {
 
     // Warmup large router
     auto warmup_large =
-        bench_dispatch("Warmup (large)", large_router, large_happy_paths, method::get, 10000);
+        bench_dispatch("Warmup (large)", large_router, large_happy_paths, method::get, 10000, expected_response::success_2xx);
     (void)warmup_large;
 
     auto large_hit = bench_dispatch(
-        "Large router (hits)", large_router, large_happy_paths, method::get, iterations);
+        "Large router (hits)", large_router, large_happy_paths, method::get, iterations, expected_response::success_2xx);
     auto large_miss = bench_dispatch(
-        "Large router (not found)", large_router, not_found_paths, method::get, iterations);
+        "Large router (not found)", large_router, not_found_paths, method::get, iterations, expected_response::not_found_404);
     auto large_405 = bench_dispatch(
-        "Large router (405)", large_router, large_method_mismatch_paths, method::del, iterations);
+        "Large router (405)", large_router, large_method_mismatch_paths, method::del, iterations, expected_response::method_not_allowed_405);
     auto large_edge = bench_dispatch(
-        "Large router (edge cases)", large_router, edge_case_paths, method::get, iterations);
+        "Large router (edge cases)", large_router, edge_case_paths, method::get, iterations, expected_response::success_2xx);
 
     print_result(large_hit);
     print_result(large_miss);
