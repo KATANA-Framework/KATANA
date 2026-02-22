@@ -9,6 +9,7 @@ Usage:
     ./scripts/run_benchmarks.py                    # Run all stages
     ./scripts/run_benchmarks.py --stage 1          # Run only stage 1
     ./scripts/run_benchmarks.py --stage 1 2        # Run stages 1 and 2
+    ./scripts/run_benchmarks.py --repeats 5        # Best-of-5 runs per stage
     ./scripts/run_benchmarks.py --output results   # Save results to results/
     ./scripts/run_benchmarks.py --update-docs      # Update BENCHMARK_RESULTS.md
     ./scripts/run_benchmarks.py --json             # Output JSON to stdout
@@ -74,6 +75,7 @@ class BenchmarkReport:
     commit_sha: Optional[str] = None
     stages: List[StageResult] = field(default_factory=list)
     total_duration_ms: int = 0
+    repeats: int = 3
 
 
 # Stage definitions
@@ -275,7 +277,67 @@ def parse_performance_output(output: str) -> List[BenchmarkResult]:
     return results
 
 
-def run_stage(stage_id: int) -> StageResult:
+def parse_stage_output(binary_name: str, output: str) -> List[BenchmarkResult]:
+    """Parse benchmark output by stage binary."""
+    if binary_name == "performance_benchmark":
+        return parse_performance_output(output)
+    if binary_name == "codegen_quality_benchmark":
+        return parse_codegen_quality_output(output)
+    if binary_name == "serialize_benchmark":
+        return parse_serialize_output(output)
+    if binary_name == "router_benchmark":
+        return parse_router_output(output)
+    return []
+
+
+def _latency_sort_key(b: BenchmarkResult) -> float:
+    if b.latency_ns is not None:
+        return b.latency_ns
+    if b.latency_p50_us is not None:
+        return b.latency_p50_us * 1000.0
+    if b.latency_p99_us is not None:
+        return b.latency_p99_us * 1000.0
+    if b.latency_p999_us is not None:
+        return b.latency_p999_us * 1000.0
+    return float("inf")
+
+
+def choose_best_result(candidates: List[BenchmarkResult]) -> BenchmarkResult:
+    """Choose best result from repeated runs for a single benchmark name."""
+    throughput_candidates = [c for c in candidates if c.throughput is not None]
+    if throughput_candidates:
+        return max(throughput_candidates, key=lambda c: c.throughput if c.throughput else 0.0)
+
+    latency_candidates = [c for c in candidates if _latency_sort_key(c) != float("inf")]
+    if latency_candidates:
+        return min(latency_candidates, key=_latency_sort_key)
+
+    return candidates[0]
+
+
+def merge_repeated_results(run_results: List[List[BenchmarkResult]]) -> List[BenchmarkResult]:
+    """Merge repeated run results into best-of-N per benchmark name."""
+    if not run_results:
+        return []
+
+    by_name: Dict[str, List[BenchmarkResult]] = {}
+    order: List[str] = []
+
+    for run in run_results:
+        for bench in run:
+            if bench.name not in by_name:
+                by_name[bench.name] = []
+                order.append(bench.name)
+            by_name[bench.name].append(bench)
+
+    merged: List[BenchmarkResult] = []
+    for name in order:
+        merged.append(choose_best_result(by_name[name]))
+
+    return merged
+
+
+def run_stage(stage_id: int, repeats: int = 3) -> StageResult:
     """Run a single benchmark stage."""
     if stage_id not in STAGES:
         return StageResult(
@@ -305,49 +367,52 @@ def run_stage(stage_id: int) -> StageResult:
             result.error_message = f"Binary not found and build failed: {binary_path}"
             return result
 
-    print(f"\n[Stage {stage_id}] Running {stage['name']}...")
-    start_time = datetime.now()
+    print(f"\n[Stage {stage_id}] Running {stage['name']} (best-of-{repeats})...")
+    stage_start = datetime.now()
+    run_results: List[List[BenchmarkResult]] = []
+    run_errors: List[str] = []
 
-    try:
-        proc = subprocess.run(
-            [str(binary_path)],
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minute timeout
-        )
+    for run_idx in range(repeats):
+        run_start = datetime.now()
+        print(f"  Run {run_idx + 1}/{repeats}...")
 
-        end_time = datetime.now()
-        result.duration_ms = int((end_time - start_time).total_seconds() * 1000)
+        try:
+            proc = subprocess.run(
+                [str(binary_path)],
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
 
-        if proc.returncode != 0:
-            result.success = False
-            result.error_message = f"Benchmark exited with code {proc.returncode}"
-            print(f"  Error: {result.error_message}")
-            return result
+            if proc.returncode != 0:
+                run_errors.append(f"run {run_idx + 1}: exit code {proc.returncode}")
+                continue
 
-        output = proc.stdout
+            parsed = parse_stage_output(stage["binary"], proc.stdout)
+            if not parsed:
+                run_errors.append(f"run {run_idx + 1}: no benchmarks parsed")
+                continue
+            run_results.append(parsed)
 
-        # Parse output based on benchmark type
-        if stage["binary"] == "performance_benchmark":
-            result.benchmarks = parse_performance_output(output)
-        elif stage["binary"] == "codegen_quality_benchmark":
-            result.benchmarks = parse_codegen_quality_output(output)
-        elif stage["binary"] == "serialize_benchmark":
-            result.benchmarks = parse_serialize_output(output)
-        elif stage["binary"] == "router_benchmark":
-            result.benchmarks = parse_router_output(output)
+        except subprocess.TimeoutExpired:
+            run_errors.append(f"run {run_idx + 1}: timed out")
+        except Exception as e:
+            run_errors.append(f"run {run_idx + 1}: {e}")
+        finally:
+            run_end = datetime.now()
+            result.duration_ms += int((run_end - run_start).total_seconds() * 1000)
 
-        print(f"  Completed in {result.duration_ms}ms with {len(result.benchmarks)} benchmarks")
+    stage_end = datetime.now()
+    result.duration_ms = int((stage_end - stage_start).total_seconds() * 1000)
 
-    except subprocess.TimeoutExpired:
+    if run_errors:
         result.success = False
-        result.error_message = "Benchmark timed out"
+        result.error_message = "; ".join(run_errors)
         print(f"  Error: {result.error_message}")
+        return result
 
-    except Exception as e:
-        result.success = False
-        result.error_message = str(e)
-        print(f"  Error: {result.error_message}")
+    result.benchmarks = merge_repeated_results(run_results)
+    print(f"  Completed in {result.duration_ms}ms with {len(result.benchmarks)} benchmarks")
 
     return result
 
@@ -385,7 +450,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "with hand-rolled parsers, SIMD-accelerated string processing, and lock-free "
         "concurrent data structures.",
         "",
-        "> **Note**: Results shown are best-of-3 runs. Concurrent benchmarks are highly "
+        f"> **Note**: Results shown are best-of-{report.repeats} runs. Concurrent benchmarks are highly "
         "sensitive to system load and thread scheduling.",
         "",
         "---",
@@ -476,6 +541,7 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
         "generated_at": report.generated_at,
         "commit_sha": report.commit_sha,
         "total_duration_ms": report.total_duration_ms,
+        "repeats": report.repeats,
         "stages": [
             {
                 "stage_id": s.stage_id,
@@ -544,6 +610,12 @@ def main():
         action="store_true",
         help="List available stages and exit",
     )
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=3,
+        help="Number of runs per stage, best result is selected per benchmark (default: 3)",
+    )
 
     args = parser.parse_args()
 
@@ -557,6 +629,9 @@ def main():
 
     # Determine which stages to run
     stages_to_run = args.stage if args.stage else list(STAGES.keys())
+    if args.repeats < 1:
+        print("Error: --repeats must be >= 1")
+        return 1
 
     # Validate stage IDs
     for stage_id in stages_to_run:
@@ -575,16 +650,18 @@ def main():
     print("KATANA Benchmark Runner")
     print(f"{'='*60}")
     print(f"Stages to run: {stages_to_run}")
+    print(f"Repeats per stage: {args.repeats}")
 
     report = BenchmarkReport(
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         commit_sha=get_git_sha(),
+        repeats=args.repeats,
     )
 
     total_start = datetime.now()
 
     for stage_id in stages_to_run:
-        result = run_stage(stage_id)
+        result = run_stage(stage_id, repeats=args.repeats)
         report.stages.append(result)
 
     total_end = datetime.now()
