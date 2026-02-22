@@ -9,23 +9,24 @@ Usage:
     ./scripts/run_benchmarks.py                    # Run all stages
     ./scripts/run_benchmarks.py --stage 1          # Run only stage 1
     ./scripts/run_benchmarks.py --stage 1 2        # Run stages 1 and 2
-    ./scripts/run_benchmarks.py --repeats 5        # Best-of-5 runs per stage
+    ./scripts/run_benchmarks.py --repeats 5        # 5 runs per stage
+    ./scripts/run_benchmarks.py --aggregation best # Use best result for each benchmark
     ./scripts/run_benchmarks.py --output results   # Save results to results/
     ./scripts/run_benchmarks.py --update-docs      # Update BENCHMARK_RESULTS.md
     ./scripts/run_benchmarks.py --json             # Output JSON to stdout
 
 Stages:
     1. Core Runtime: Ring buffer, circular buffer, SIMD operations
-    2. Codegen Quality: JSON parsing, serialization, arena allocation
-    3. Router: HTTP routing dispatch performance
-    4. HTTP Parser: Full request parsing benchmarks
+    2. Codegen Quality: JSON parsing, escaping, object parsing
+    3. Serialization: JSON string/array/object serialization
+    4. Router: HTTP routing dispatch performance
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
+import math
 import re
 import subprocess
 import sys
@@ -65,6 +66,10 @@ class StageResult:
     duration_ms: int = 0
     success: bool = True
     error_message: Optional[str] = None
+    run_count: int = 0
+    aggregation_mode: str = "median"
+    benchmark_stats: Dict[str, Dict[str, Dict[str, float]]] = field(default_factory=dict)
+    benchmark_runs: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -76,6 +81,7 @@ class BenchmarkReport:
     stages: List[StageResult] = field(default_factory=list)
     total_duration_ms: int = 0
     repeats: int = 3
+    aggregation_mode: str = "median"
 
 
 # Stage definitions
@@ -302,23 +308,131 @@ def _latency_sort_key(b: BenchmarkResult) -> float:
     return float("inf")
 
 
-def choose_best_result(candidates: List[BenchmarkResult]) -> BenchmarkResult:
-    """Choose best result from repeated runs for a single benchmark name."""
+def _percentile(sorted_values: List[float], q: float) -> float:
+    if not sorted_values:
+        return 0.0
+    if len(sorted_values) == 1:
+        return sorted_values[0]
+    clamped = min(1.0, max(0.0, q))
+    idx = int(clamped * (len(sorted_values) - 1))
+    return sorted_values[idx]
+
+
+def _metric_stats(values: List[float]) -> Dict[str, float]:
+    if not values:
+        return {}
+
+    ordered = sorted(values)
+    count = len(ordered)
+    mean = sum(ordered) / count
+    var = sum((v - mean) * (v - mean) for v in ordered) / count
+    stddev = math.sqrt(var)
+
+    return {
+        "count": float(count),
+        "min": ordered[0],
+        "max": ordered[-1],
+        "mean": mean,
+        "stddev": stddev,
+        "p50": _percentile(ordered, 0.50),
+        "p90": _percentile(ordered, 0.90),
+        "p95": _percentile(ordered, 0.95),
+        "p99": _percentile(ordered, 0.99),
+        "p999": _percentile(ordered, 0.999),
+    }
+
+
+def _benchmark_to_dict(b: BenchmarkResult) -> Dict[str, Any]:
+    return {
+        "name": b.name,
+        "latency_ns": b.latency_ns,
+        "throughput": b.throughput,
+        "throughput_unit": b.throughput_unit,
+        "latency_p50_us": b.latency_p50_us,
+        "latency_p99_us": b.latency_p99_us,
+        "latency_p999_us": b.latency_p999_us,
+        "errors": b.errors,
+    }
+
+
+def _representative_target(values: List[float], aggregation_mode: str) -> float:
+    mode = aggregation_mode.lower()
+    if mode == "mean":
+        return sum(values) / len(values)
+    ordered = sorted(values)
+    return _percentile(ordered, 0.50)
+
+
+def choose_representative_result(
+    candidates: List[BenchmarkResult], aggregation_mode: str = "median"
+) -> BenchmarkResult:
+    """Choose representative result from repeated runs for one benchmark."""
+    mode = aggregation_mode.lower()
+    if mode not in {"best", "median", "mean"}:
+        mode = "median"
+
     throughput_candidates = [c for c in candidates if c.throughput is not None]
     if throughput_candidates:
-        return max(throughput_candidates, key=lambda c: c.throughput if c.throughput else 0.0)
+        if mode == "best":
+            return max(throughput_candidates, key=lambda c: c.throughput if c.throughput else 0.0)
+
+        values = [c.throughput if c.throughput is not None else 0.0 for c in throughput_candidates]
+        target = _representative_target(values, mode)
+        return min(
+            throughput_candidates,
+            key=lambda c: abs((c.throughput if c.throughput is not None else 0.0) - target),
+        )
 
     latency_candidates = [c for c in candidates if _latency_sort_key(c) != float("inf")]
     if latency_candidates:
-        return min(latency_candidates, key=_latency_sort_key)
+        if mode == "best":
+            return min(latency_candidates, key=_latency_sort_key)
+
+        values = [_latency_sort_key(c) for c in latency_candidates]
+        target = _representative_target(values, mode)
+        return min(latency_candidates, key=lambda c: abs(_latency_sort_key(c) - target))
 
     return candidates[0]
 
 
-def merge_repeated_results(run_results: List[List[BenchmarkResult]]) -> List[BenchmarkResult]:
-    """Merge repeated run results into best-of-N per benchmark name."""
+def build_benchmark_stats(candidates: List[BenchmarkResult]) -> Dict[str, Dict[str, float]]:
+    stats: Dict[str, Dict[str, float]] = {}
+
+    throughput_values = [float(c.throughput) for c in candidates if c.throughput is not None]
+    if throughput_values:
+        stats["throughput"] = _metric_stats(throughput_values)
+
+    latency_ns_values = [float(c.latency_ns) for c in candidates if c.latency_ns is not None]
+    if latency_ns_values:
+        stats["latency_ns"] = _metric_stats(latency_ns_values)
+
+    p50_values = [float(c.latency_p50_us) for c in candidates if c.latency_p50_us is not None]
+    if p50_values:
+        stats["latency_p50_us"] = _metric_stats(p50_values)
+
+    p99_values = [float(c.latency_p99_us) for c in candidates if c.latency_p99_us is not None]
+    if p99_values:
+        stats["latency_p99_us"] = _metric_stats(p99_values)
+
+    p999_values = [float(c.latency_p999_us) for c in candidates if c.latency_p999_us is not None]
+    if p999_values:
+        stats["latency_p999_us"] = _metric_stats(p999_values)
+
+    error_values = [float(c.errors) for c in candidates]
+    if error_values:
+        stats["errors"] = _metric_stats(error_values)
+
+    return stats
+
+
+def merge_repeated_results(
+    run_results: List[List[BenchmarkResult]],
+    aggregation_mode: str = "median",
+    include_runs: bool = False,
+) -> Tuple[List[BenchmarkResult], Dict[str, Dict[str, Dict[str, float]]], Dict[str, List[Dict[str, Any]]]]:
+    """Merge repeated run results into representative + stats per benchmark name."""
     if not run_results:
-        return []
+        return [], {}, {}
 
     by_name: Dict[str, List[BenchmarkResult]] = {}
     order: List[str] = []
@@ -331,13 +445,25 @@ def merge_repeated_results(run_results: List[List[BenchmarkResult]]) -> List[Ben
             by_name[bench.name].append(bench)
 
     merged: List[BenchmarkResult] = []
+    stats_by_name: Dict[str, Dict[str, Dict[str, float]]] = {}
+    runs_by_name: Dict[str, List[Dict[str, Any]]] = {}
+
     for name in order:
-        merged.append(choose_best_result(by_name[name]))
+        candidates = by_name[name]
+        merged.append(choose_representative_result(candidates, aggregation_mode=aggregation_mode))
+        stats_by_name[name] = build_benchmark_stats(candidates)
+        if include_runs:
+            runs_by_name[name] = [_benchmark_to_dict(c) for c in candidates]
 
-    return merged
+    return merged, stats_by_name, runs_by_name
 
 
-def run_stage(stage_id: int, repeats: int = 3) -> StageResult:
+def run_stage(
+    stage_id: int,
+    repeats: int = 3,
+    aggregation_mode: str = "median",
+    include_runs: bool = False,
+) -> StageResult:
     """Run a single benchmark stage."""
     if stage_id not in STAGES:
         return StageResult(
@@ -353,6 +479,8 @@ def run_stage(stage_id: int, repeats: int = 3) -> StageResult:
     result = StageResult(
         stage_id=stage_id,
         stage_name=stage["name"],
+        run_count=0,
+        aggregation_mode=aggregation_mode,
     )
 
     if not binary_path.exists():
@@ -367,7 +495,7 @@ def run_stage(stage_id: int, repeats: int = 3) -> StageResult:
             result.error_message = f"Binary not found and build failed: {binary_path}"
             return result
 
-    print(f"\n[Stage {stage_id}] Running {stage['name']} (best-of-{repeats})...")
+    print(f"\n[Stage {stage_id}] Running {stage['name']} ({aggregation_mode}-of-{repeats})...")
     stage_start = datetime.now()
     run_results: List[List[BenchmarkResult]] = []
     run_errors: List[str] = []
@@ -411,7 +539,15 @@ def run_stage(stage_id: int, repeats: int = 3) -> StageResult:
         print(f"  Error: {result.error_message}")
         return result
 
-    result.benchmarks = merge_repeated_results(run_results)
+    result.run_count = len(run_results)
+    merged, stats_by_name, runs_by_name = merge_repeated_results(
+        run_results,
+        aggregation_mode=aggregation_mode,
+        include_runs=include_runs,
+    )
+    result.benchmarks = merged
+    result.benchmark_stats = stats_by_name
+    result.benchmark_runs = runs_by_name
     print(f"  Completed in {result.duration_ms}ms with {len(result.benchmarks)} benchmarks")
 
     return result
@@ -427,6 +563,15 @@ def format_throughput(value: float) -> str:
         return f"{value / 1e3:.1f}K"
     else:
         return f"{value:.0f}"
+
+
+def _aggregation_title(mode: str) -> str:
+    titles = {
+        "best": "best-of-N",
+        "median": "median-of-N",
+        "mean": "mean-of-N",
+    }
+    return titles.get(mode.lower(), mode)
 
 
 def generate_markdown(report: BenchmarkReport) -> str:
@@ -450,7 +595,8 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "with hand-rolled parsers, SIMD-accelerated string processing, and lock-free "
         "concurrent data structures.",
         "",
-        f"> **Note**: Results shown are best-of-{report.repeats} runs. Concurrent benchmarks are highly "
+        f"> **Note**: Results shown use {_aggregation_title(report.aggregation_mode)} "
+        f"aggregation across {report.repeats} run(s) per stage. Concurrent benchmarks are highly "
         "sensitive to system load and thread scheduling.",
         "",
         "---",
@@ -471,6 +617,8 @@ def generate_markdown(report: BenchmarkReport) -> str:
 
         lines.extend([
             f"## {stage.stage_name}",
+            "",
+            f"_Runs: {stage.run_count} | Aggregation: {stage.aggregation_mode}_",
             "",
         ])
 
@@ -506,6 +654,38 @@ def generate_markdown(report: BenchmarkReport) -> str:
                 throughput = f"{format_throughput(b.throughput)} ops/sec" if b.throughput else "-"
                 lines.append(f"| {b.name} | {throughput} |")
 
+        if stage.run_count > 1:
+            stability_rows: List[str] = []
+            for b in stage.benchmarks:
+                throughput_stats = stage.benchmark_stats.get(b.name, {}).get("throughput", {})
+                count = int(throughput_stats.get("count", 0))
+                if count < 2:
+                    continue
+
+                mean = throughput_stats.get("mean", 0.0)
+                stddev = throughput_stats.get("stddev", 0.0)
+                cv = (stddev / mean * 100.0) if mean > 0 else 0.0
+                min_v = throughput_stats.get("min", 0.0)
+                p50_v = throughput_stats.get("p50", 0.0)
+                p95_v = throughput_stats.get("p95", 0.0)
+                max_v = throughput_stats.get("max", 0.0)
+
+                stability_rows.append(
+                    f"| {b.name} | {format_throughput(mean)} | {format_throughput(stddev)} | {cv:.2f}% | "
+                    f"{format_throughput(min_v)} | {format_throughput(p50_v)} | {format_throughput(p95_v)} | "
+                    f"{format_throughput(max_v)} |"
+                )
+
+            if stability_rows:
+                lines.extend([
+                    "",
+                    "### Throughput Stability (Across Repeated Runs)",
+                    "",
+                    "| Benchmark | Mean | Stddev | CV | Min | p50 | p95 | Max |",
+                    "|-----------|------|--------|----|-----|-----|-----|-----|",
+                ])
+                lines.extend(stability_rows)
+
         lines.extend(["", "---", ""])
 
     # Add running instructions
@@ -519,6 +699,9 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "",
         "# Run all benchmarks",
         "./scripts/run_benchmarks.py",
+        "",
+        "# Run with repeat aggregation",
+        "./scripts/run_benchmarks.py --repeats 5 --aggregation median",
         "",
         "# Run specific stages",
         "./scripts/run_benchmarks.py --stage 1 2",
@@ -542,6 +725,7 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
         "commit_sha": report.commit_sha,
         "total_duration_ms": report.total_duration_ms,
         "repeats": report.repeats,
+        "aggregation_mode": report.aggregation_mode,
         "stages": [
             {
                 "stage_id": s.stage_id,
@@ -549,6 +733,8 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
                 "duration_ms": s.duration_ms,
                 "success": s.success,
                 "error_message": s.error_message,
+                "run_count": s.run_count,
+                "aggregation_mode": s.aggregation_mode,
                 "benchmarks": [
                     {
                         "name": b.name,
@@ -562,6 +748,8 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
                     }
                     for b in s.benchmarks
                 ],
+                "benchmark_stats": s.benchmark_stats,
+                "benchmark_runs": s.benchmark_runs,
             }
             for s in report.stages
         ],
@@ -614,7 +802,18 @@ def main():
         "--repeats",
         type=int,
         default=3,
-        help="Number of runs per stage, best result is selected per benchmark (default: 3)",
+        help="Number of runs per stage (default: 3)",
+    )
+    parser.add_argument(
+        "--aggregation",
+        choices=["best", "median", "mean"],
+        default="median",
+        help="Aggregation mode for repeated runs (default: median)",
+    )
+    parser.add_argument(
+        "--include-runs",
+        action="store_true",
+        help="Include raw per-run benchmark entries in JSON output",
     )
 
     args = parser.parse_args()
@@ -651,17 +850,24 @@ def main():
     print(f"{'='*60}")
     print(f"Stages to run: {stages_to_run}")
     print(f"Repeats per stage: {args.repeats}")
+    print(f"Aggregation mode: {args.aggregation}")
 
     report = BenchmarkReport(
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         commit_sha=get_git_sha(),
         repeats=args.repeats,
+        aggregation_mode=args.aggregation,
     )
 
     total_start = datetime.now()
 
     for stage_id in stages_to_run:
-        result = run_stage(stage_id, repeats=args.repeats)
+        result = run_stage(
+            stage_id,
+            repeats=args.repeats,
+            aggregation_mode=args.aggregation,
+            include_runs=args.include_runs,
+        )
         report.stages.append(result)
 
     total_end = datetime.now()

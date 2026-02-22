@@ -167,13 +167,20 @@ python3 scripts/run_all_benchmarks.py --build-dir build/bench --verbose
 
 ## Automated Benchmark Report
 
-The system automatically generates `BENCHMARK_RESULTS.md` with:
+The unified runner `scripts/run_benchmarks.py` can automatically generate
+`BENCHMARK_RESULTS.md` and JSON reports with:
 
-- **Timestamp and Git Info**: Commit hash, branch, date
-- **Performance Metrics**: Throughput (ops/sec), latency (p50/p99)
-- **Comparison**: Previous runs, regression detection
-- **Edge Case Summary**: Which cases were tested, pass/fail rates
-- **Detailed Results**: Per-benchmark metrics and errors
+- **Timestamp and Commit Info**: Generation time and git SHA
+- **Configurable Aggregation**: `--aggregation best|median|mean` across repeated runs
+- **Performance Metrics**: Throughput, latency (p50/p99), and benchmark errors
+- **Stability Metrics**: Mean, stddev, min/max, and percentiles across repeated runs
+- **Optional Raw Runs**: `--include-runs` adds per-run data to JSON for deep analysis
+
+Recommended command:
+
+```bash
+./scripts/run_benchmarks.py --repeats 5 --aggregation median --update-docs --output benchmark_results
+```
 
 ### Report Structure
 
@@ -182,28 +189,23 @@ The system automatically generates `BENCHMARK_RESULTS.md` with:
 
 > Last updated: 2026-02-09 12:00:00
 > Commit: abc1234
-> Branch: main
 
 ## Summary
 
-Total Benchmarks: 45
-✓ Successful: 42
-✗ Failed: 0
-○ Skipped: 3
-
-Edge Cases Tested:
-- min_value: 5 tests
-- max_value: 8 tests
-- null_handling: 3 tests
-- invalid_input: 6 tests
-- stress: 4 tests
+> **Note**: Results shown use median-of-N aggregation across 5 run(s) per stage.
 
 ## Core Runtime Benchmarks
 
 | Benchmark | Throughput | Latency p50 | Latency p99 |
 |-----------|------------|-------------|-------------|
-| HTTP Parser | 1.1M ops/sec | 0.720 us | 1.672 us |
-| Arena Allocator | 6.9M ops/sec | - | - |
+| HTTP Parser (Complete Request) | 1.2M ops/sec | 0.754 us | 1.450 us |
+| Arena Allocations (64B objects) | 6.1M ops/sec | - | - |
+
+### Throughput Stability (Across Repeated Runs)
+
+| Benchmark | Mean | Stddev | CV | Min | p50 | p95 | Max |
+|-----------|------|--------|----|-----|-----|-----|-----|
+| Ring Buffer Queue (Concurrent 4x4) | 19.2M | 0.4M | 2.1% | 18.8M | 19.3M | 19.6M | 19.8M |
 
 ...
 ```
@@ -344,36 +346,44 @@ kill $PID
 
 ```json
 {
-  "timestamp": "2026-02-09T12:00:00",
-  "commit_hash": "abc1234",
-  "branch": "main",
-  "total_benchmarks": 45,
-  "successful": 42,
-  "failed": 0,
-  "skipped": 3,
-  "total_duration_seconds": 123.45,
-  "results": [
+  "generated_at": "2026-02-22 09:30:00",
+  "commit_sha": "abc1234",
+  "total_duration_ms": 12345,
+  "repeats": 5,
+  "aggregation_mode": "median",
+  "stages": [
     {
-      "name": "http_parser_benchmark",
-      "category": "core",
-      "status": "success",
-      "duration_seconds": 5.23,
-      "metrics": {
-        "throughput_ops_sec": 1100000,
-        "latency_p50_us": 0.720,
-        "latency_p99_us": 1.672
+      "stage_id": 1,
+      "stage_name": "Core Runtime Benchmarks",
+      "duration_ms": 3542,
+      "success": true,
+      "error_message": null,
+      "run_count": 5,
+      "aggregation_mode": "median",
+      "benchmarks": [
+        {
+          "name": "HTTP Parser (Complete Request)",
+          "throughput": 1180000.0,
+          "latency_p50_us": 0.754,
+          "latency_p99_us": 1.45
+        }
+      ],
+      "benchmark_stats": {
+        "HTTP Parser (Complete Request)": {
+          "throughput": {
+            "count": 5,
+            "min": 1160000.0,
+            "mean": 1182000.0,
+            "stddev": 9200.0,
+            "p50": 1180000.0,
+            "p95": 1195000.0,
+            "max": 1200000.0
+          }
+        }
       },
-      "edge_cases_tested": ["basic_functionality"],
-      "timestamp": "2026-02-09T12:00:01",
-      "error": null
+      "benchmark_runs": {}
     }
-  ],
-  "edge_cases_summary": {
-    "min_value": 5,
-    "max_value": 8,
-    "null_handling": 3
-  },
-  "performance_regressions": []
+  ]
 }
 ```
 
@@ -408,7 +418,7 @@ pkill -f task_api
 sudo sh -c 'echo 1 > /proc/sys/kernel/perf_event_paranoid'
 
 # Run with higher priority
-nice -n -20 python3 scripts/run_all_benchmarks.py --verbose
+nice -n -20 python3 scripts/run_benchmarks.py --repeats 7 --aggregation median --update-docs
 ```
 
 ### CI Timeouts
@@ -432,7 +442,8 @@ When adding new benchmarks:
    - `*_api` for services
 
 3. **Add to automation**:
-   - Update `scripts/run_all_benchmarks.py`
+   - Update `scripts/run_benchmarks.py` stage definitions and parser
+   - Update `scripts/run_all_benchmarks.py` if integration coverage changes
    - Add to `CMakeLists.txt`
 
 4. **Document edge cases**:
@@ -440,13 +451,14 @@ When adding new benchmarks:
    - Explain expected results
 
 5. **Add to BENCHMARK_RESULTS.md**:
-   - Update template with new metrics
-   - Include baseline values
+   - Regenerate with `scripts/run_benchmarks.py --update-docs`
+   - Verify the new benchmark appears in the generated section
 
 ## References
 
 - [Issue #5](https://github.com/VisageDvachevsky/codegen/issues/5) - Original requirements
 - `generate_benchmark_report.py` - Original report generator
+- `scripts/run_benchmarks.py` - Unified microbenchmark runner and report generator
 - `scripts/run_all_benchmarks.py` - Comprehensive automation
 - `scripts/pre-commit-benchmarks.sh` - Pre-commit integration
 
