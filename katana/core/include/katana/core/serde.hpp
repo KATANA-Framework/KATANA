@@ -816,17 +816,24 @@ inline void serialize_int_array_into(const IntT* arr, size_t count, std::string&
 
         // Format integer
         auto val = arr[i];
+        using unsigned_t = std::make_unsigned_t<IntT>;
+        unsigned_t uval = 0;
         if constexpr (std::is_signed_v<IntT>) {
             if (val < 0) {
                 *ptr++ = '-';
-                val = static_cast<IntT>(-val);
+                // Convert through unsigned domain to avoid UB on INT_MIN.
+                uval = unsigned_t{0} - static_cast<unsigned_t>(val);
+            } else {
+                uval = static_cast<unsigned_t>(val);
             }
+        } else {
+            uval = static_cast<unsigned_t>(val);
         }
 
-        if constexpr (sizeof(IntT) <= 4) {
-            ptr = detail::format_uint_fast(ptr, static_cast<uint32_t>(val));
+        if constexpr (sizeof(unsigned_t) <= 4) {
+            ptr = detail::format_uint_fast(ptr, static_cast<uint32_t>(uval));
         } else {
-            auto [p, ec] = std::to_chars(ptr, ptr + 20, val);
+            auto [p, ec] = std::to_chars(ptr, ptr + 20, uval);
             ptr = p;
         }
     }

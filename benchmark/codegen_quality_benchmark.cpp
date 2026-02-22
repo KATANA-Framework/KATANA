@@ -36,6 +36,9 @@ template <typename Fn>
 bench_result run_bench(const char* name, int iterations, Fn&& fn, size_t tail_sample_rate = 0) {
     using invoke_result = std::invoke_result_t<Fn&>;
     constexpr bool returns_bytes = std::is_same_v<invoke_result, size_t>;
+    constexpr int max_rounds = 64;
+    constexpr int min_rounds = 3;
+    constexpr double min_measure_seconds = 0.20; // Avoid ultra-short timing windows.
 
     // Warmup
     for (int i = 0; i < iterations / 10; ++i)
@@ -45,59 +48,100 @@ bench_result run_bench(const char* name, int iterations, Fn&& fn, size_t tail_sa
             fn();
         }
 
-    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<double> round_ns_per;
+    round_ns_per.reserve(max_rounds);
+    std::vector<double> round_bytes_per_op;
+    if constexpr (returns_bytes) {
+        round_bytes_per_op.reserve(max_rounds);
+    }
+
     size_t total_bytes = 0;
+    size_t sample_counter = 0;
     std::vector<double> tail_samples_ns;
     if (tail_sample_rate > 0) {
-        tail_samples_ns.reserve(static_cast<size_t>(iterations) / tail_sample_rate + 4);
+        tail_samples_ns.reserve(static_cast<size_t>(iterations) / tail_sample_rate + 8);
     }
-
-    if constexpr (returns_bytes) {
-        if (tail_sample_rate == 0) {
-            for (int i = 0; i < iterations; ++i) {
-                total_bytes += fn();
-            }
-        } else {
-            for (int i = 0; i < iterations; ++i) {
-                if ((static_cast<size_t>(i) % tail_sample_rate) == 0) {
-                    auto t0 = std::chrono::high_resolution_clock::now();
-                    const size_t bytes = fn();
-                    auto t1 = std::chrono::high_resolution_clock::now();
-                    total_bytes += bytes;
-                    tail_samples_ns.push_back(
-                        std::chrono::duration<double, std::nano>(t1 - t0).count());
-                    continue;
+    double measured_seconds = 0.0;
+    for (int round = 0; round < max_rounds; ++round) {
+        auto round_start = std::chrono::high_resolution_clock::now();
+        size_t round_bytes = 0;
+        if constexpr (returns_bytes) {
+            if (tail_sample_rate == 0) {
+                for (int i = 0; i < iterations; ++i) {
+                    round_bytes += fn();
                 }
-                total_bytes += fn();
-            }
-        }
-    } else {
-        if (tail_sample_rate == 0) {
-            for (int i = 0; i < iterations; ++i) {
-                fn();
+            } else {
+                for (int i = 0; i < iterations; ++i) {
+                    if ((sample_counter % tail_sample_rate) == 0) {
+                        auto t0 = std::chrono::high_resolution_clock::now();
+                        const size_t bytes = fn();
+                        auto t1 = std::chrono::high_resolution_clock::now();
+                        round_bytes += bytes;
+                        tail_samples_ns.push_back(
+                            std::chrono::duration<double, std::nano>(t1 - t0).count());
+                    } else {
+                        round_bytes += fn();
+                    }
+                    ++sample_counter;
+                }
             }
         } else {
-            for (int i = 0; i < iterations; ++i) {
-                if ((static_cast<size_t>(i) % tail_sample_rate) == 0) {
-                    auto t0 = std::chrono::high_resolution_clock::now();
+            if (tail_sample_rate == 0) {
+                for (int i = 0; i < iterations; ++i) {
                     fn();
-                    auto t1 = std::chrono::high_resolution_clock::now();
-                    tail_samples_ns.push_back(
-                        std::chrono::duration<double, std::nano>(t1 - t0).count());
-                    continue;
                 }
-                fn();
+            } else {
+                for (int i = 0; i < iterations; ++i) {
+                    if ((sample_counter % tail_sample_rate) == 0) {
+                        auto t0 = std::chrono::high_resolution_clock::now();
+                        fn();
+                        auto t1 = std::chrono::high_resolution_clock::now();
+                        tail_samples_ns.push_back(
+                            std::chrono::duration<double, std::nano>(t1 - t0).count());
+                    } else {
+                        fn();
+                    }
+                    ++sample_counter;
+                }
             }
         }
-    }
-    auto end = std::chrono::high_resolution_clock::now();
+        auto round_end = std::chrono::high_resolution_clock::now();
+        const double round_ns =
+            std::chrono::duration<double, std::nano>(round_end - round_start).count();
+        round_ns_per.push_back(round_ns / static_cast<double>(iterations));
+        measured_seconds += std::chrono::duration<double>(round_end - round_start).count();
 
-    double ns = std::chrono::duration<double, std::nano>(end - start).count();
-    double ns_per = ns / iterations;
-    double ops = iterations / (ns / 1e9);
+        if constexpr (returns_bytes) {
+            round_bytes_per_op.push_back(static_cast<double>(round_bytes) / static_cast<double>(iterations));
+            total_bytes += round_bytes;
+        }
+
+        if (measured_seconds >= min_measure_seconds && (round + 1) >= min_rounds) {
+            break;
+        }
+    }
+
+    if (round_ns_per.empty()) {
+        return {name, 0.0, 0.0, 0.0, returns_bytes, 0.0, 0.0, false};
+    }
+
+    std::sort(round_ns_per.begin(), round_ns_per.end());
+    const size_t mid = round_ns_per.size() / 2;
+    const double ns_per =
+        (round_ns_per.size() % 2 == 0)
+            ? (round_ns_per[mid - 1] + round_ns_per[mid]) * 0.5
+            : round_ns_per[mid];
+    const double ops = 1e9 / ns_per;
+
     double bytes_per_sec = 0.0;
     if constexpr (returns_bytes) {
-        bytes_per_sec = static_cast<double>(total_bytes) / (ns / 1e9);
+        std::sort(round_bytes_per_op.begin(), round_bytes_per_op.end());
+        const size_t bytes_mid = round_bytes_per_op.size() / 2;
+        const double bytes_per_op =
+            (round_bytes_per_op.size() % 2 == 0)
+                ? (round_bytes_per_op[bytes_mid - 1] + round_bytes_per_op[bytes_mid]) * 0.5
+                : round_bytes_per_op[bytes_mid];
+        bytes_per_sec = bytes_per_op * ops;
         do_not_optimize(total_bytes);
     }
 
@@ -348,6 +392,9 @@ int main() {
         {"tru", false},
         {"null", false},
         {"\"false", false},
+        {"\" true but with long trailing payload .................. \"", false},
+        {std::string(128, 't'), false},
+        {"  \"false\" garbage_suffix", false},
     };
 
     const auto bool_best_dataset = build_profile_dataset(

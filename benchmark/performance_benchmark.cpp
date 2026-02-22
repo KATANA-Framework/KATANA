@@ -5,10 +5,12 @@
 #include "katana/core/ring_buffer_queue.hpp"
 #include "katana/core/simd_utils.hpp"
 #include "katana/core/tcp_listener.hpp"
+#include "bench_utils.hpp"
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
@@ -23,6 +25,7 @@
 
 using namespace std::chrono;
 using namespace katana;
+using bench_util::do_not_optimize;
 
 namespace {
 inline void cpu_pause() noexcept {
@@ -78,9 +81,19 @@ double percentile(const std::vector<double>& sorted_values, double pct) {
         return 0.0;
     }
 
+    if (sorted_values.size() == 1) {
+        return sorted_values[0];
+    }
+
     double clamped = std::min(1.0, std::max(0.0, pct));
-    size_t idx = static_cast<size_t>(clamped * static_cast<double>(sorted_values.size() - 1));
-    return sorted_values[idx];
+    const double pos = clamped * static_cast<double>(sorted_values.size() - 1);
+    const size_t lo = static_cast<size_t>(std::floor(pos));
+    const size_t hi = static_cast<size_t>(std::ceil(pos));
+    if (lo == hi) {
+        return sorted_values[lo];
+    }
+    const double frac = pos - static_cast<double>(lo);
+    return sorted_values[lo] * (1.0 - frac) + sorted_values[hi] * frac;
 }
 
 void print_result(const benchmark_result& result) {
@@ -138,13 +151,20 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
     std::vector<uint64_t> producer_retries_per_thread(static_cast<size_t>(producers), 0);
     std::vector<uint64_t> consumer_retries_per_thread(static_cast<size_t>(consumers), 0);
     const int hw_threads = detect_hardware_threads();
-
-    auto start = steady_clock::now();
+    const size_t effective_sample_rate = std::max<size_t>(1, latency_sample_rate);
+    const int total_threads = producers + consumers;
+    std::atomic<int> ready_threads{0};
+    std::atomic<bool> start_signal{false};
 
     std::vector<std::thread> producer_threads;
     producer_threads.reserve(static_cast<size_t>(producers));
     for (int p = 0; p < producers; ++p) {
         producer_threads.emplace_back([&, p] {
+            ready_threads.fetch_add(1, std::memory_order_release);
+            while (!start_signal.load(std::memory_order_acquire)) {
+                cpu_pause();
+            }
+
             const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
             uint64_t local_retries = 0;
             for (size_t i = 0; i < ops_for_thread; ++i) {
@@ -164,7 +184,12 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
         consumer_threads.emplace_back([&, c] {
             auto& samples = consumer_latencies[static_cast<size_t>(c)];
             const size_t target = work_items_for_worker(num_operations, consumers, c);
-            samples.reserve(target / latency_sample_rate + 2);
+            samples.reserve(target / effective_sample_rate + 2);
+
+            ready_threads.fetch_add(1, std::memory_order_release);
+            while (!start_signal.load(std::memory_order_acquire)) {
+                cpu_pause();
+            }
 
             size_t consumed = 0;
             size_t sampled_ops = 0;
@@ -175,7 +200,7 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
                 if (queue.try_pop(val)) {
                     ++consumed;
                     ++sampled_ops;
-                    if (sampled_ops >= latency_sample_rate) {
+                    if (sampled_ops >= effective_sample_rate) {
                         auto batch_end = steady_clock::now();
                         double latency_us = static_cast<double>(
                                                 duration_cast<nanoseconds>(batch_end - batch_start)
@@ -185,12 +210,12 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
                         sampled_ops = 0;
                         batch_start = steady_clock::now();
                     }
+                    do_not_optimize(val);
                 } else {
                     ++local_retries;
                     cpu_pause();
                 }
             }
-
             if (sampled_ops > 0) {
                 auto batch_end = steady_clock::now();
                 double latency_us =
@@ -201,6 +226,12 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
             consumer_retries_per_thread[static_cast<size_t>(c)] = local_retries;
         });
     }
+
+    while (ready_threads.load(std::memory_order_acquire) < total_threads) {
+        cpu_pause();
+    }
+    const auto start = steady_clock::now();
+    start_signal.store(true, std::memory_order_release);
 
     for (auto& t : producer_threads)
         t.join();
@@ -248,11 +279,12 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
 }
 
 benchmark_result benchmark_ring_buffer_queue() {
-    const size_t num_operations = 1000000;
-    const size_t sample_rate = 128;
+    const size_t num_operations = 10000000;
+    const size_t sample_rate = 512;
     ring_buffer_queue<int> queue(1024);
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
+    uint64_t completed_pairs = 0;
 
     auto start = steady_clock::now();
 
@@ -261,9 +293,15 @@ benchmark_result benchmark_ring_buffer_queue() {
         auto op_start = steady_clock::now();
         size_t batch_end = i + batch;
         for (; i < batch_end; ++i) {
-            queue.try_push(static_cast<int>(i));
+            while (!queue.try_push(static_cast<int>(i))) {
+                cpu_pause();
+            }
             int val;
-            queue.try_pop(val);
+            while (!queue.try_pop(val)) {
+                cpu_pause();
+            }
+            ++completed_pairs;
+            do_not_optimize(val);
         }
         auto op_end = steady_clock::now();
 
@@ -280,7 +318,7 @@ benchmark_result benchmark_ring_buffer_queue() {
 
     benchmark_result result;
     result.name = "Ring Buffer Queue (Single Thread)";
-    result.operations = num_operations;
+    result.operations = completed_pairs;
     result.duration_ms = duration_ms;
     result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = percentile(latencies, 0.50);
@@ -293,26 +331,26 @@ benchmark_result benchmark_ring_buffer_queue() {
 benchmark_result benchmark_ring_buffer_concurrent() {
     return benchmark_ring_buffer_mpmc(
         "Ring Buffer Queue (Concurrent 4x4)",
-        1000000,
+        2000000,
         4,
         4,
         4096,
-        1024);
+        64);
 }
 
 benchmark_result benchmark_ring_buffer_high_contention() {
     return benchmark_ring_buffer_mpmc(
         "Ring Buffer Queue (High Contention 8x8)",
-        1000000,
+        2000000,
         8,
         8,
         2048,
-        1024);
+        64);
 }
 
 benchmark_result benchmark_circular_buffer() {
-    const size_t num_operations = 500000;
-    const size_t sample_rate = 100;
+    const size_t num_operations = 20000000;
+    const size_t sample_rate = 2048;
     circular_buffer buf(4096);
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
@@ -327,8 +365,10 @@ benchmark_result benchmark_circular_buffer() {
         auto op_start = steady_clock::now();
         size_t batch_end = i + batch;
         for (; i < batch_end; ++i) {
-            [[maybe_unused]] auto write_count = buf.write(std::span(write_data));
-            [[maybe_unused]] auto read_count = buf.read(std::span(read_data));
+            auto write_count = buf.write(std::span(write_data));
+            auto read_count = buf.read(std::span(read_data));
+            do_not_optimize(write_count);
+            do_not_optimize(read_count);
         }
         auto op_end = steady_clock::now();
 
@@ -356,8 +396,8 @@ benchmark_result benchmark_circular_buffer() {
 }
 
 benchmark_result benchmark_simd_crlf_search() {
-    const size_t num_operations = 100000;
-    const size_t sample_rate = 50;
+    const size_t num_operations = 8000000;
+    const size_t sample_rate = 512;
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
 
@@ -376,6 +416,7 @@ benchmark_result benchmark_simd_crlf_search() {
             if (result == nullptr) {
                 std::cerr << "CRLF search failed!\n";
             }
+            do_not_optimize(result);
         }
         auto op_end = steady_clock::now();
 
@@ -403,8 +444,8 @@ benchmark_result benchmark_simd_crlf_search() {
 }
 
 benchmark_result benchmark_simd_crlf_large_buffer() {
-    const size_t num_operations = 50000;
-    const size_t sample_rate = 25;
+    const size_t num_operations = 500000;
+    const size_t sample_rate = 64;
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
 
@@ -422,6 +463,7 @@ benchmark_result benchmark_simd_crlf_large_buffer() {
             if (result == nullptr) {
                 std::cerr << "CRLF search (large buffer) failed!\n";
             }
+            do_not_optimize(result);
         }
         auto op_end = steady_clock::now();
 
@@ -449,8 +491,8 @@ benchmark_result benchmark_simd_crlf_large_buffer() {
 }
 
 benchmark_result benchmark_http_parser() {
-    const size_t num_operations = 50000;
-    const size_t sample_rate = 20;
+    const size_t num_operations = 500000;
+    const size_t sample_rate = 64;
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
 
@@ -526,23 +568,35 @@ benchmark_result benchmark_http_parser() {
 }
 
 benchmark_result benchmark_memory_allocations() {
-    const size_t num_operations = 100000;
+    const size_t num_operations = 2000000;
     ring_buffer_queue<std::string> queue(1024);
+    uint64_t completed_pairs = 0;
+    uint64_t checksum = 0;
 
     auto start = steady_clock::now();
 
     for (size_t i = 0; i < num_operations; ++i) {
-        queue.try_push(std::string("test_string_") + std::to_string(i));
+        std::string payload = std::string("test_string_") + std::to_string(i);
+        while (!queue.try_push(payload)) {
+            cpu_pause();
+        }
         std::string val;
-        queue.try_pop(val);
+        while (!queue.try_pop(val)) {
+            cpu_pause();
+        }
+        if (!val.empty()) {
+            checksum += static_cast<unsigned char>(val[0]);
+        }
+        ++completed_pairs;
     }
+    do_not_optimize(checksum);
 
     auto end = steady_clock::now();
     auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
 
     benchmark_result result;
     result.name = "Memory Allocations (String Queue)";
-    result.operations = num_operations;
+    result.operations = completed_pairs;
     result.duration_ms = duration_ms;
     result.throughput = throughput_ops_per_sec(result.operations, end - start);
     result.latency_p50 = -1.0;
@@ -555,16 +609,16 @@ benchmark_result benchmark_memory_allocations() {
 benchmark_result benchmark_arena_small_allocs() {
     const size_t num_operations = 500000;
     const size_t payload_size = 64;
-    std::vector<std::vector<char>> payloads;
-    payloads.reserve(num_operations);
+    uint64_t checksum = 0;
 
     auto start = steady_clock::now();
     for (size_t i = 0; i < num_operations; ++i) {
         monotonic_arena arena;
         auto* data = static_cast<char*>(arena.allocate(payload_size, alignof(char)));
         std::fill_n(data, payload_size, static_cast<char>('A' + (i % 26)));
-        payloads.emplace_back(data, data + payload_size);
+        checksum += static_cast<unsigned char>(data[i % payload_size]);
     }
+    do_not_optimize(checksum);
     auto end = steady_clock::now();
 
     auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
@@ -582,8 +636,8 @@ benchmark_result benchmark_arena_small_allocs() {
 }
 
 benchmark_result benchmark_simd_crlf_32kb() {
-    const size_t num_operations = 30000;
-    const size_t sample_rate = 15;
+    const size_t num_operations = 250000;
+    const size_t sample_rate = 32;
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
 
@@ -602,6 +656,7 @@ benchmark_result benchmark_simd_crlf_32kb() {
             if (result == nullptr) {
                 std::cerr << "CRLF search (32KB buffer) failed!\n";
             }
+            do_not_optimize(result);
         }
         auto op_end = steady_clock::now();
 
@@ -629,8 +684,8 @@ benchmark_result benchmark_simd_crlf_32kb() {
 }
 
 benchmark_result benchmark_simd_crlf_64kb() {
-    const size_t num_operations = 20000;
-    const size_t sample_rate = 10;
+    const size_t num_operations = 120000;
+    const size_t sample_rate = 16;
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
 
@@ -649,6 +704,7 @@ benchmark_result benchmark_simd_crlf_64kb() {
             if (result == nullptr) {
                 std::cerr << "CRLF search (64KB buffer) failed!\n";
             }
+            do_not_optimize(result);
         }
         auto op_end = steady_clock::now();
 
@@ -676,8 +732,8 @@ benchmark_result benchmark_simd_crlf_64kb() {
 }
 
 benchmark_result benchmark_simd_crlf_128kb() {
-    const size_t num_operations = 10000;
-    const size_t sample_rate = 5;
+    const size_t num_operations = 60000;
+    const size_t sample_rate = 8;
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
 
@@ -696,6 +752,7 @@ benchmark_result benchmark_simd_crlf_128kb() {
             if (result == nullptr) {
                 std::cerr << "CRLF search (128KB buffer) failed!\n";
             }
+            do_not_optimize(result);
         }
         auto op_end = steady_clock::now();
 
@@ -725,21 +782,21 @@ benchmark_result benchmark_simd_crlf_128kb() {
 benchmark_result benchmark_ring_buffer_extreme_contention() {
     return benchmark_ring_buffer_mpmc(
         "Ring Buffer Queue (Extreme Contention 12x12)",
-        1000000,
+        2000000,
         12,
         12,
         4096,
-        1024);
+        64);
 }
 
 benchmark_result benchmark_ring_buffer_max_contention() {
     return benchmark_ring_buffer_mpmc(
         "Ring Buffer Queue (Max Contention 16x16)",
-        1000000,
+        2000000,
         16,
         16,
         8192,
-        1024);
+        64);
 }
 
 std::pair<int, int> derive_core_saturation_pair() {
@@ -764,37 +821,37 @@ benchmark_result benchmark_ring_buffer_core_saturation() {
     const auto [producers, consumers] = derive_core_saturation_pair();
     return benchmark_ring_buffer_mpmc(
         ring_case_name("Ring Buffer Queue (Core Saturation", producers, consumers),
-        1000000,
+        2000000,
         producers,
         consumers,
         4096,
-        1024);
+        64);
 }
 
 benchmark_result benchmark_ring_buffer_oversubscribed() {
     const auto [producers, consumers] = derive_oversubscribed_pair();
     return benchmark_ring_buffer_mpmc(
         ring_case_name("Ring Buffer Queue (Oversubscribed", producers, consumers),
-        1000000,
+        2000000,
         producers,
         consumers,
         8192,
-        1024);
+        64);
 }
 
 benchmark_result benchmark_ring_buffer_2x2() {
     return benchmark_ring_buffer_mpmc(
         "Ring Buffer Queue (Concurrent 2x2)",
-        1000000,
+        2000000,
         2,
         2,
         4096,
-        1024);
+        64);
 }
 
 benchmark_result benchmark_http_parser_fragmented() {
-    const size_t num_operations = 50000;
-    const size_t sample_rate = 20;
+    const size_t num_operations = 500000;
+    const size_t sample_rate = 64;
     std::vector<double> latencies;
     latencies.reserve(num_operations / sample_rate + 2);
 
