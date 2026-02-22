@@ -4,31 +4,94 @@
 #include <chrono>
 #include <cstdio>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "bench_utils.hpp"
 #include "katana/core/serde.hpp"
 
 using bench_util::clobber_memory;
+using bench_util::build_profile_dataset;
 using bench_util::do_not_optimize;
+using bench_util::profile_mix;
 
 namespace {
 
 template <typename Fn> void bench(const char* name, int iterations, Fn&& fn) {
+    using invoke_result = std::invoke_result_t<Fn&>;
+    constexpr bool returns_bytes = std::is_same_v<invoke_result, size_t>;
+
     for (int i = 0; i < iterations / 10; ++i)
-        fn();
+        if constexpr (returns_bytes) {
+            do_not_optimize(fn());
+        } else {
+            fn();
+        }
     auto start = std::chrono::high_resolution_clock::now();
+    size_t total_bytes = 0;
     for (int i = 0; i < iterations; ++i)
-        fn();
+        if constexpr (returns_bytes) {
+            total_bytes += fn();
+        } else {
+            fn();
+        }
     auto end = std::chrono::high_resolution_clock::now();
     double ns = std::chrono::duration<double, std::nano>(end - start).count();
     double ns_per = ns / iterations;
     double ops = iterations / (ns / 1e9);
-    if (ns_per < 1000.0) {
-        std::printf("  %-45s %8.1f ns    %12.0f ops/sec\n", name, ns_per, ops);
-    } else {
-        std::printf("  %-45s %8.2f us    %12.0f ops/sec\n", name, ns_per / 1000.0, ops);
+    double bytes_per_sec = 0.0;
+    if constexpr (returns_bytes) {
+        bytes_per_sec = static_cast<double>(total_bytes) / (ns / 1e9);
+        do_not_optimize(total_bytes);
     }
+    if (ns_per < 1000.0) {
+        if constexpr (returns_bytes) {
+            std::printf(
+                "  %-45s %8.1f ns    %12.0f ops/sec    %14.0f bytes/sec\n",
+                name,
+                ns_per,
+                ops,
+                bytes_per_sec);
+        } else {
+            std::printf("  %-45s %8.1f ns    %12.0f ops/sec\n", name, ns_per, ops);
+        }
+    } else {
+        if constexpr (returns_bytes) {
+            std::printf(
+                "  %-45s %8.2f us    %12.0f ops/sec    %14.0f bytes/sec\n",
+                name,
+                ns_per / 1000.0,
+                ops,
+                bytes_per_sec);
+        } else {
+            std::printf("  %-45s %8.2f us    %12.0f ops/sec\n", name, ns_per / 1000.0, ops);
+        }
+    }
+}
+
+struct serialization_case {
+    std::string name;
+    std::string email;
+    std::string note;
+    int age = 0;
+    bool active = true;
+
+    size_t bytes() const noexcept { return name.size() + email.size() + note.size() + sizeof(age); }
+};
+
+void serialize_profiled_object_into(const serialization_case& c, std::string& out) {
+    out.clear();
+    out.append("{\"name\":\"");
+    katana::serde::escape_json_string_into(c.name, out);
+    out.append("\",\"email\":\"");
+    katana::serde::escape_json_string_into(c.email, out);
+    out.append("\",\"note\":\"");
+    katana::serde::escape_json_string_into(c.note, out);
+    out.append("\",\"age\":");
+    out.append(std::to_string(c.age));
+    out.append(",\"active\":");
+    out.append(c.active ? "true" : "false");
+    out.push_back('}');
 }
 
 } // namespace
@@ -74,6 +137,124 @@ int main() {
             clobber_memory();
         });
     }
+
+    std::printf("\n--- Profiled Serialization Workloads (seeded datasets) ---\n");
+    constexpr size_t profile_dataset_size = 4096;
+    constexpr uint32_t profile_seed = 0x515EED42;
+
+    const std::vector<std::string> escape_best_pool = {
+        "clean_ascii_token",
+        "simple_username_123",
+        "hello_world",
+    };
+    const std::vector<std::string> escape_typical_pool = {
+        "Name \"Alice\"",
+        "Line1\\nLine2",
+        "Tab\\tSeparated",
+        "Path C:\\\\tmp\\\\file.txt",
+    };
+    const std::vector<std::string> escape_hard_pool = {
+        "\"\\n\\t\"\\n\\t\"\\n\\t",
+        std::string(2048, '"'),
+        std::string(2048, '\\'),
+        std::string(1024, '\n'),
+    };
+
+    const auto escape_best_dataset = build_profile_dataset(
+        profile_dataset_size,
+        profile_seed + 1,
+        escape_best_pool,
+        escape_typical_pool,
+        escape_hard_pool,
+        profile_mix{1.0, 0.0, 0.0});
+    const auto escape_mixed_dataset = build_profile_dataset(
+        profile_dataset_size,
+        profile_seed + 2,
+        escape_best_pool,
+        escape_typical_pool,
+        escape_hard_pool,
+        profile_mix{0.75, 0.20, 0.05});
+    const auto escape_hard_dataset = build_profile_dataset(
+        profile_dataset_size,
+        profile_seed + 3,
+        escape_best_pool,
+        escape_typical_pool,
+        escape_hard_pool,
+        profile_mix{0.10, 0.20, 0.70});
+
+    auto bench_escape_profile = [&](const char* label, const std::vector<std::string>& ds, int iterations) {
+        std::string out;
+        out.reserve(8192);
+        size_t idx = 0;
+        bench(label, iterations, [&]() -> size_t {
+            const auto& input = ds[idx % ds.size()];
+            ++idx;
+            out.clear();
+            katana::serde::escape_json_string_into(input, out);
+            do_not_optimize(out.data());
+            return input.size();
+        });
+    };
+
+    bench_escape_profile("escape profile (best case)", escape_best_dataset, N);
+    bench_escape_profile("escape profile (typical mixed)", escape_mixed_dataset, N);
+    bench_escape_profile("escape profile (hard edge)", escape_hard_dataset, N / 10);
+
+    const std::vector<serialization_case> object_best_pool = {
+        {"Alice", "alice@example.com", "ok", 31, true},
+        {"Bob", "bob@example.com", "ready", 27, false},
+        {"Carol", "carol@example.com", "sync", 45, true},
+    };
+    const std::vector<serialization_case> object_typical_pool = {
+        {"John Doe", "john.doe@example.org", "uses \"quotes\" sometimes", 38, true},
+        {"Analyst", "ana@corp.dev", "line1\\nline2", 29, true},
+        {"Operator", "ops@example.net", "path C:\\\\tmp\\\\job", 41, false},
+    };
+    const std::vector<serialization_case> object_hard_pool = {
+        {std::string(256, 'n'), "edge@example.com", std::string(2048, '"'), 52, true},
+        {"\n\t\"\\", "bad@@example", std::string(1024, '\\'), -1, false},
+        {std::string(512, '\n'), "heavy@sample.org", std::string(1024, '\t'), 300, true},
+    };
+
+    const auto object_best_dataset = build_profile_dataset(
+        profile_dataset_size,
+        profile_seed + 4,
+        object_best_pool,
+        object_typical_pool,
+        object_hard_pool,
+        profile_mix{1.0, 0.0, 0.0});
+    const auto object_mixed_dataset = build_profile_dataset(
+        profile_dataset_size,
+        profile_seed + 5,
+        object_best_pool,
+        object_typical_pool,
+        object_hard_pool,
+        profile_mix{0.70, 0.25, 0.05});
+    const auto object_hard_dataset = build_profile_dataset(
+        profile_dataset_size,
+        profile_seed + 6,
+        object_best_pool,
+        object_typical_pool,
+        object_hard_pool,
+        profile_mix{0.10, 0.20, 0.70});
+
+    auto bench_object_profile =
+        [&](const char* label, const std::vector<serialization_case>& ds, int iterations) {
+            std::string out;
+            out.reserve(32768);
+            size_t idx = 0;
+            bench(label, iterations, [&]() -> size_t {
+                const auto& c = ds[idx % ds.size()];
+                ++idx;
+                serialize_profiled_object_into(c, out);
+                do_not_optimize(out.data());
+                return c.bytes();
+            });
+        };
+
+    bench_object_profile("serialize object profile (best case)", object_best_dataset, N / 2);
+    bench_object_profile("serialize object profile (typical mixed)", object_mixed_dataset, N / 2);
+    bench_object_profile("serialize object profile (hard edge)", object_hard_dataset, N / 20);
 
     // --- SIMD scan performance ---
     std::printf("\n--- SIMD Scan Performance ---\n");

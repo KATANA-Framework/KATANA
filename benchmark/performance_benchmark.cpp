@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <iostream>
 #include <numeric>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -57,9 +58,17 @@ inline double throughput_ops_per_sec(uint64_t operations, steady_clock::duration
 struct benchmark_result {
     std::string name;
     double throughput;
-    double latency_p50;
-    double latency_p99;
-    double latency_p999;
+    double latency_p50 = -1.0;
+    double latency_p99 = -1.0;
+    double latency_p999 = -1.0;
+    double retries_per_op_push = -1.0;
+    double retries_per_op_pop = -1.0;
+    double retries_per_op_total = -1.0;
+    uint64_t producer_retries = 0;
+    uint64_t consumer_retries = 0;
+    int producers = 0;
+    int consumers = 0;
+    int hardware_threads = 0;
     uint64_t operations;
     uint64_t duration_ms;
 };
@@ -80,12 +89,162 @@ void print_result(const benchmark_result& result) {
     std::cout << "Duration: " << result.duration_ms << " ms\n";
     std::cout << "Throughput: " << std::fixed << std::setprecision(2) << result.throughput
               << " ops/sec\n";
-    std::cout << "Latency p50: " << std::fixed << std::setprecision(3) << result.latency_p50
-              << " us\n";
-    std::cout << "Latency p99: " << std::fixed << std::setprecision(3) << result.latency_p99
-              << " us\n";
-    std::cout << "Latency p999: " << std::fixed << std::setprecision(3) << result.latency_p999
-              << " us\n";
+    if (result.latency_p50 >= 0.0 && result.latency_p99 >= 0.0 && result.latency_p999 >= 0.0) {
+        std::cout << "Latency p50: " << std::fixed << std::setprecision(6) << result.latency_p50
+                  << " us\n";
+        std::cout << "Latency p99: " << std::fixed << std::setprecision(6) << result.latency_p99
+                  << " us\n";
+        std::cout << "Latency p999: " << std::fixed << std::setprecision(6)
+                  << result.latency_p999 << " us\n";
+    }
+    if (result.retries_per_op_total >= 0.0) {
+        std::cout << "Producer retries: " << result.producer_retries << "\n";
+        std::cout << "Consumer retries: " << result.consumer_retries << "\n";
+        std::cout << "Retries/op (push/pop/total): " << std::fixed << std::setprecision(6)
+                  << result.retries_per_op_push << " / " << result.retries_per_op_pop << " / "
+                  << result.retries_per_op_total << "\n";
+        if (result.producers > 0 && result.consumers > 0 && result.hardware_threads > 0) {
+            const double total_threads = static_cast<double>(result.producers + result.consumers);
+            const double oversub = total_threads / static_cast<double>(result.hardware_threads);
+            std::cout << "Thread topology: " << result.producers << "x" << result.consumers
+                      << " (hw=" << result.hardware_threads
+                      << ", oversubscription=" << std::setprecision(3) << oversub << "x)\n";
+        }
+    }
+}
+
+int detect_hardware_threads() {
+    const unsigned hw = std::thread::hardware_concurrency();
+    if (hw == 0U) {
+        return 8;
+    }
+    return static_cast<int>(hw);
+}
+
+std::string ring_case_name(const std::string& base, int producers, int consumers) {
+    std::ostringstream ss;
+    ss << base << " " << producers << "x" << consumers << ")";
+    return ss.str();
+}
+
+benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
+                                            size_t num_operations,
+                                            int producers,
+                                            int consumers,
+                                            size_t queue_capacity,
+                                            size_t latency_sample_rate) {
+    ring_buffer_queue<int> queue(queue_capacity, /*enable_spsc_fast_path=*/false);
+    std::vector<std::vector<double>> consumer_latencies(static_cast<size_t>(consumers));
+    std::vector<uint64_t> producer_retries_per_thread(static_cast<size_t>(producers), 0);
+    std::vector<uint64_t> consumer_retries_per_thread(static_cast<size_t>(consumers), 0);
+    const int hw_threads = detect_hardware_threads();
+
+    auto start = steady_clock::now();
+
+    std::vector<std::thread> producer_threads;
+    producer_threads.reserve(static_cast<size_t>(producers));
+    for (int p = 0; p < producers; ++p) {
+        producer_threads.emplace_back([&, p] {
+            const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
+            uint64_t local_retries = 0;
+            for (size_t i = 0; i < ops_for_thread; ++i) {
+                const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
+                while (!queue.try_push(val)) {
+                    ++local_retries;
+                    cpu_pause();
+                }
+            }
+            producer_retries_per_thread[static_cast<size_t>(p)] = local_retries;
+        });
+    }
+
+    std::vector<std::thread> consumer_threads;
+    consumer_threads.reserve(static_cast<size_t>(consumers));
+    for (int c = 0; c < consumers; ++c) {
+        consumer_threads.emplace_back([&, c] {
+            auto& samples = consumer_latencies[static_cast<size_t>(c)];
+            const size_t target = work_items_for_worker(num_operations, consumers, c);
+            samples.reserve(target / latency_sample_rate + 2);
+
+            size_t consumed = 0;
+            size_t sampled_ops = 0;
+            uint64_t local_retries = 0;
+            auto batch_start = steady_clock::now();
+            while (consumed < target) {
+                int val;
+                if (queue.try_pop(val)) {
+                    ++consumed;
+                    ++sampled_ops;
+                    if (sampled_ops >= latency_sample_rate) {
+                        auto batch_end = steady_clock::now();
+                        double latency_us = static_cast<double>(
+                                                duration_cast<nanoseconds>(batch_end - batch_start)
+                                                    .count()) /
+                                            (1000.0 * static_cast<double>(sampled_ops));
+                        samples.push_back(latency_us);
+                        sampled_ops = 0;
+                        batch_start = steady_clock::now();
+                    }
+                } else {
+                    ++local_retries;
+                    cpu_pause();
+                }
+            }
+
+            if (sampled_ops > 0) {
+                auto batch_end = steady_clock::now();
+                double latency_us =
+                    static_cast<double>(duration_cast<nanoseconds>(batch_end - batch_start).count()) /
+                    (1000.0 * static_cast<double>(sampled_ops));
+                samples.push_back(latency_us);
+            }
+            consumer_retries_per_thread[static_cast<size_t>(c)] = local_retries;
+        });
+    }
+
+    for (auto& t : producer_threads)
+        t.join();
+    for (auto& t : consumer_threads)
+        t.join();
+
+    auto end = steady_clock::now();
+    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
+
+    std::vector<double> merged_latencies;
+    for (const auto& local : consumer_latencies) {
+        merged_latencies.insert(merged_latencies.end(), local.begin(), local.end());
+    }
+    std::sort(merged_latencies.begin(), merged_latencies.end());
+    const uint64_t total_producer_retries =
+        std::accumulate(producer_retries_per_thread.begin(), producer_retries_per_thread.end(), uint64_t{0});
+    const uint64_t total_consumer_retries =
+        std::accumulate(consumer_retries_per_thread.begin(), consumer_retries_per_thread.end(), uint64_t{0});
+
+    benchmark_result result;
+    result.name = name;
+    result.operations = num_operations;
+    result.duration_ms = duration_ms;
+    result.throughput = throughput_ops_per_sec(result.operations, end - start);
+    result.producer_retries = total_producer_retries;
+    result.consumer_retries = total_consumer_retries;
+    result.producers = producers;
+    result.consumers = consumers;
+    result.hardware_threads = hw_threads;
+    if (num_operations > 0) {
+        result.retries_per_op_push =
+            static_cast<double>(total_producer_retries) / static_cast<double>(num_operations);
+        result.retries_per_op_pop =
+            static_cast<double>(total_consumer_retries) / static_cast<double>(num_operations);
+        result.retries_per_op_total =
+            static_cast<double>(total_producer_retries + total_consumer_retries) /
+            static_cast<double>(num_operations);
+    }
+    if (!merged_latencies.empty()) {
+        result.latency_p50 = percentile(merged_latencies, 0.50);
+        result.latency_p99 = percentile(merged_latencies, 0.99);
+        result.latency_p999 = percentile(merged_latencies, 0.999);
+    }
+    return result;
 }
 
 benchmark_result benchmark_ring_buffer_queue() {
@@ -132,118 +291,23 @@ benchmark_result benchmark_ring_buffer_queue() {
 }
 
 benchmark_result benchmark_ring_buffer_concurrent() {
-    const size_t num_operations = 1000000;
-    const int num_threads = 4;
-    ring_buffer_queue<int> queue(4096, /*enable_spsc_fast_path=*/false);
-
-    auto start = steady_clock::now();
-
-    std::vector<std::thread> producers;
-    std::vector<std::thread> consumers;
-
-    for (int t = 0; t < num_threads; ++t) {
-        producers.emplace_back([&, t] {
-            const size_t ops_for_thread = work_items_for_worker(num_operations, num_threads, t);
-            for (size_t i = 0; i < ops_for_thread; ++i) {
-                while (!queue.try_push(static_cast<int>(i))) {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    for (int t = 0; t < num_threads; ++t) {
-        consumers.emplace_back([&, t] {
-            const size_t target = work_items_for_worker(num_operations, num_threads, t);
-            size_t consumed = 0;
-            while (consumed < target) {
-                int val;
-                if (queue.try_pop(val)) {
-                    ++consumed;
-                } else {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    for (auto& t : producers)
-        t.join();
-    for (auto& t : consumers)
-        t.join();
-
-    auto end = steady_clock::now();
-    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
-
-    benchmark_result result;
-    result.name = "Ring Buffer Queue (Concurrent 4x4)";
-    result.operations = num_operations;
-    result.duration_ms = duration_ms;
-    result.throughput = throughput_ops_per_sec(result.operations, end - start);
-    result.latency_p50 = 0.0;
-    result.latency_p99 = 0.0;
-    result.latency_p999 = 0.0;
-
-    return result;
+    return benchmark_ring_buffer_mpmc(
+        "Ring Buffer Queue (Concurrent 4x4)",
+        1000000,
+        4,
+        4,
+        4096,
+        1024);
 }
 
 benchmark_result benchmark_ring_buffer_high_contention() {
-    const size_t num_operations = 1000000;
-    const int producers = 8;
-    const int consumers = 8;
-    ring_buffer_queue<int> queue(2048, /*enable_spsc_fast_path=*/false);
-
-    auto start = steady_clock::now();
-
-    std::vector<std::thread> prod_threads;
-    prod_threads.reserve(static_cast<size_t>(producers));
-    for (int p = 0; p < producers; ++p) {
-        prod_threads.emplace_back([&, p] {
-            const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
-            for (size_t i = 0; i < ops_for_thread; ++i) {
-                const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
-                while (!queue.try_push(val)) {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    std::vector<std::thread> cons_threads;
-    cons_threads.reserve(static_cast<size_t>(consumers));
-    for (int c = 0; c < consumers; ++c) {
-        cons_threads.emplace_back([&, c] {
-            const size_t target = work_items_for_worker(num_operations, consumers, c);
-            size_t consumed = 0;
-            while (consumed < target) {
-                int val;
-                if (queue.try_pop(val)) {
-                    ++consumed;
-                } else {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    for (auto& t : prod_threads)
-        t.join();
-    for (auto& t : cons_threads)
-        t.join();
-
-    auto end = steady_clock::now();
-    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
-
-    benchmark_result result;
-    result.name = "Ring Buffer Queue (High Contention 8x8)";
-    result.operations = num_operations;
-    result.duration_ms = duration_ms;
-    result.throughput = throughput_ops_per_sec(result.operations, end - start);
-    result.latency_p50 = 0.0;
-    result.latency_p99 = 0.0;
-    result.latency_p999 = 0.0;
-
-    return result;
+    return benchmark_ring_buffer_mpmc(
+        "Ring Buffer Queue (High Contention 8x8)",
+        1000000,
+        8,
+        8,
+        2048,
+        1024);
 }
 
 benchmark_result benchmark_circular_buffer() {
@@ -453,9 +517,9 @@ benchmark_result benchmark_http_parser() {
         result.latency_p99 = percentile(latencies, 0.99);
         result.latency_p999 = percentile(latencies, 0.999);
     } else {
-        result.latency_p50 = 0.0;
-        result.latency_p99 = 0.0;
-        result.latency_p999 = 0.0;
+        result.latency_p50 = -1.0;
+        result.latency_p99 = -1.0;
+        result.latency_p999 = -1.0;
     }
 
     return result;
@@ -481,9 +545,9 @@ benchmark_result benchmark_memory_allocations() {
     result.operations = num_operations;
     result.duration_ms = duration_ms;
     result.throughput = throughput_ops_per_sec(result.operations, end - start);
-    result.latency_p50 = 0.0;
-    result.latency_p99 = 0.0;
-    result.latency_p999 = 0.0;
+    result.latency_p50 = -1.0;
+    result.latency_p99 = -1.0;
+    result.latency_p999 = -1.0;
 
     return result;
 }
@@ -510,9 +574,9 @@ benchmark_result benchmark_arena_small_allocs() {
     result.operations = num_operations;
     result.duration_ms = duration_ms;
     result.throughput = throughput_ops_per_sec(result.operations, end - start);
-    result.latency_p50 = 0.0;
-    result.latency_p99 = 0.0;
-    result.latency_p999 = 0.0;
+    result.latency_p50 = -1.0;
+    result.latency_p99 = -1.0;
+    result.latency_p999 = -1.0;
 
     return result;
 }
@@ -659,177 +723,73 @@ benchmark_result benchmark_simd_crlf_128kb() {
 }
 
 benchmark_result benchmark_ring_buffer_extreme_contention() {
-    const size_t num_operations = 1000000;
-    const int producers = 12;
-    const int consumers = 12;
-    ring_buffer_queue<int> queue(4096, /*enable_spsc_fast_path=*/false);
-
-    auto start = steady_clock::now();
-
-    std::vector<std::thread> prod_threads;
-    prod_threads.reserve(static_cast<size_t>(producers));
-    for (int p = 0; p < producers; ++p) {
-        prod_threads.emplace_back([&, p] {
-            const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
-            for (size_t i = 0; i < ops_for_thread; ++i) {
-                const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
-                while (!queue.try_push(val)) {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    std::vector<std::thread> cons_threads;
-    cons_threads.reserve(static_cast<size_t>(consumers));
-    for (int c = 0; c < consumers; ++c) {
-        cons_threads.emplace_back([&, c] {
-            const size_t target = work_items_for_worker(num_operations, consumers, c);
-            size_t consumed = 0;
-            while (consumed < target) {
-                int val;
-                if (queue.try_pop(val)) {
-                    ++consumed;
-                } else {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    for (auto& t : prod_threads)
-        t.join();
-    for (auto& t : cons_threads)
-        t.join();
-
-    auto end = steady_clock::now();
-    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
-
-    benchmark_result result;
-    result.name = "Ring Buffer Queue (Extreme Contention 12x12)";
-    result.operations = num_operations;
-    result.duration_ms = duration_ms;
-    result.throughput = throughput_ops_per_sec(result.operations, end - start);
-    result.latency_p50 = 0.0;
-    result.latency_p99 = 0.0;
-    result.latency_p999 = 0.0;
-
-    return result;
+    return benchmark_ring_buffer_mpmc(
+        "Ring Buffer Queue (Extreme Contention 12x12)",
+        1000000,
+        12,
+        12,
+        4096,
+        1024);
 }
 
 benchmark_result benchmark_ring_buffer_max_contention() {
-    const size_t num_operations = 1000000;
-    const int producers = 16;
-    const int consumers = 16;
-    ring_buffer_queue<int> queue(8192, /*enable_spsc_fast_path=*/false);
+    return benchmark_ring_buffer_mpmc(
+        "Ring Buffer Queue (Max Contention 16x16)",
+        1000000,
+        16,
+        16,
+        8192,
+        1024);
+}
 
-    auto start = steady_clock::now();
-
-    std::vector<std::thread> prod_threads;
-    prod_threads.reserve(static_cast<size_t>(producers));
-    for (int p = 0; p < producers; ++p) {
-        prod_threads.emplace_back([&, p] {
-            const size_t ops_for_thread = work_items_for_worker(num_operations, producers, p);
-            for (size_t i = 0; i < ops_for_thread; ++i) {
-                const int val = static_cast<int>(static_cast<size_t>(p) * 1000000 + i);
-                while (!queue.try_push(val)) {
-                    cpu_pause();
-                }
-            }
-        });
+std::pair<int, int> derive_core_saturation_pair() {
+    const int hw = detect_hardware_threads();
+    int total_threads = std::max(4, hw);
+    if (total_threads % 2 != 0) {
+        --total_threads;
     }
+    const int per_side = std::max(2, total_threads / 2);
+    return {per_side, per_side};
+}
 
-    std::vector<std::thread> cons_threads;
-    cons_threads.reserve(static_cast<size_t>(consumers));
-    for (int c = 0; c < consumers; ++c) {
-        cons_threads.emplace_back([&, c] {
-            const size_t target = work_items_for_worker(num_operations, consumers, c);
-            size_t consumed = 0;
-            while (consumed < target) {
-                int val;
-                if (queue.try_pop(val)) {
-                    ++consumed;
-                } else {
-                    cpu_pause();
-                }
-            }
-        });
-    }
+std::pair<int, int> derive_oversubscribed_pair() {
+    const int hw = detect_hardware_threads();
+    const auto [sat_prod, sat_cons] = derive_core_saturation_pair();
+    int per_side = std::max(std::max(sat_prod, sat_cons) + 2, hw + 2);
+    per_side = std::min(per_side, 24); // keep benchmark runtime bounded on big machines
+    return {per_side, per_side};
+}
 
-    for (auto& t : prod_threads)
-        t.join();
-    for (auto& t : cons_threads)
-        t.join();
+benchmark_result benchmark_ring_buffer_core_saturation() {
+    const auto [producers, consumers] = derive_core_saturation_pair();
+    return benchmark_ring_buffer_mpmc(
+        ring_case_name("Ring Buffer Queue (Core Saturation", producers, consumers),
+        1000000,
+        producers,
+        consumers,
+        4096,
+        1024);
+}
 
-    auto end = steady_clock::now();
-    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
-
-    benchmark_result result;
-    result.name = "Ring Buffer Queue (Max Contention 16x16)";
-    result.operations = num_operations;
-    result.duration_ms = duration_ms;
-    result.throughput = throughput_ops_per_sec(result.operations, end - start);
-    result.latency_p50 = 0.0;
-    result.latency_p99 = 0.0;
-    result.latency_p999 = 0.0;
-
-    return result;
+benchmark_result benchmark_ring_buffer_oversubscribed() {
+    const auto [producers, consumers] = derive_oversubscribed_pair();
+    return benchmark_ring_buffer_mpmc(
+        ring_case_name("Ring Buffer Queue (Oversubscribed", producers, consumers),
+        1000000,
+        producers,
+        consumers,
+        8192,
+        1024);
 }
 
 benchmark_result benchmark_ring_buffer_2x2() {
-    const size_t num_operations = 1000000;
-    const int num_threads = 2;
-    ring_buffer_queue<int> queue(4096, /*enable_spsc_fast_path=*/false);
-
-    auto start = steady_clock::now();
-
-    std::vector<std::thread> producers;
-    std::vector<std::thread> consumers;
-
-    for (int t = 0; t < num_threads; ++t) {
-        producers.emplace_back([&, t] {
-            const size_t ops_for_thread = work_items_for_worker(num_operations, num_threads, t);
-            for (size_t i = 0; i < ops_for_thread; ++i) {
-                while (!queue.try_push(static_cast<int>(i))) {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    for (int t = 0; t < num_threads; ++t) {
-        consumers.emplace_back([&, t] {
-            const size_t target = work_items_for_worker(num_operations, num_threads, t);
-            size_t consumed = 0;
-            while (consumed < target) {
-                int val;
-                if (queue.try_pop(val)) {
-                    ++consumed;
-                } else {
-                    cpu_pause();
-                }
-            }
-        });
-    }
-
-    for (auto& t : producers)
-        t.join();
-    for (auto& t : consumers)
-        t.join();
-
-    auto end = steady_clock::now();
-    auto duration_ms = static_cast<uint64_t>(duration_cast<milliseconds>(end - start).count());
-
-    benchmark_result result;
-    result.name = "Ring Buffer Queue (Concurrent 2x2)";
-    result.operations = num_operations;
-    result.duration_ms = duration_ms;
-    result.throughput = throughput_ops_per_sec(result.operations, end - start);
-    result.latency_p50 = 0.0;
-    result.latency_p99 = 0.0;
-    result.latency_p999 = 0.0;
-
-    return result;
+    return benchmark_ring_buffer_mpmc(
+        "Ring Buffer Queue (Concurrent 2x2)",
+        1000000,
+        2,
+        2,
+        4096,
+        1024);
 }
 
 benchmark_result benchmark_http_parser_fragmented() {
@@ -908,9 +868,9 @@ benchmark_result benchmark_http_parser_fragmented() {
         result.latency_p99 = percentile(latencies, 0.99);
         result.latency_p999 = percentile(latencies, 0.999);
     } else {
-        result.latency_p50 = 0.0;
-        result.latency_p99 = 0.0;
-        result.latency_p999 = 0.0;
+        result.latency_p50 = -1.0;
+        result.latency_p99 = -1.0;
+        result.latency_p999 = -1.0;
     }
 
     return result;
@@ -923,67 +883,78 @@ int main() {
 
     std::vector<benchmark_result> results;
 
-    std::cout << "\n[1/17] Benchmarking ring_buffer_queue (single thread)...\n";
+    std::cout << "\n--- Ring Buffer (Core-aware contention, <= HW threads) ---\n";
+    std::cout << "\n[1/18] Benchmarking ring_buffer_queue (single thread)...\n";
     results.push_back(benchmark_ring_buffer_queue());
     print_result(results.back());
 
-    std::cout << "\n[2/17] Benchmarking ring_buffer_queue (concurrent 2x2)...\n";
+    std::cout << "\n[2/18] Benchmarking ring_buffer_queue (concurrent 2x2)...\n";
     results.push_back(benchmark_ring_buffer_2x2());
     print_result(results.back());
 
-    std::cout << "\n[3/17] Benchmarking ring_buffer_queue (concurrent 4x4)...\n";
+    std::cout << "\n[3/18] Benchmarking ring_buffer_queue (concurrent 4x4)...\n";
     results.push_back(benchmark_ring_buffer_concurrent());
     print_result(results.back());
 
-    std::cout << "\n[4/17] Benchmarking ring_buffer_queue (high contention 8x8)...\n";
+    std::cout << "\n[4/18] Benchmarking ring_buffer_queue (core saturation)...\n";
+    results.push_back(benchmark_ring_buffer_core_saturation());
+    print_result(results.back());
+
+    std::cout << "\n--- Ring Buffer (Oversubscribed contention, > HW threads) ---\n";
+
+    std::cout << "\n[5/18] Benchmarking ring_buffer_queue (high contention 8x8)...\n";
     results.push_back(benchmark_ring_buffer_high_contention());
     print_result(results.back());
 
-    std::cout << "\n[5/17] Benchmarking ring_buffer_queue (extreme contention 12x12)...\n";
+    std::cout << "\n[6/18] Benchmarking ring_buffer_queue (extreme contention 12x12)...\n";
     results.push_back(benchmark_ring_buffer_extreme_contention());
     print_result(results.back());
 
-    std::cout << "\n[6/17] Benchmarking ring_buffer_queue (max contention 16x16)...\n";
+    std::cout << "\n[7/18] Benchmarking ring_buffer_queue (max contention 16x16)...\n";
     results.push_back(benchmark_ring_buffer_max_contention());
     print_result(results.back());
 
-    std::cout << "\n[7/17] Benchmarking circular_buffer...\n";
+    std::cout << "\n[8/18] Benchmarking ring_buffer_queue (oversubscribed)...\n";
+    results.push_back(benchmark_ring_buffer_oversubscribed());
+    print_result(results.back());
+
+    std::cout << "\n[9/18] Benchmarking circular_buffer...\n";
     results.push_back(benchmark_circular_buffer());
     print_result(results.back());
 
-    std::cout << "\n[8/17] Benchmarking SIMD CRLF search (1.5KB)...\n";
+    std::cout << "\n[10/18] Benchmarking SIMD CRLF search (1.5KB)...\n";
     results.push_back(benchmark_simd_crlf_search());
     print_result(results.back());
 
-    std::cout << "\n[9/17] Benchmarking SIMD CRLF search (16KB)...\n";
+    std::cout << "\n[11/18] Benchmarking SIMD CRLF search (16KB)...\n";
     results.push_back(benchmark_simd_crlf_large_buffer());
     print_result(results.back());
 
-    std::cout << "\n[10/17] Benchmarking SIMD CRLF search (32KB)...\n";
+    std::cout << "\n[12/18] Benchmarking SIMD CRLF search (32KB)...\n";
     results.push_back(benchmark_simd_crlf_32kb());
     print_result(results.back());
 
-    std::cout << "\n[11/17] Benchmarking SIMD CRLF search (64KB)...\n";
+    std::cout << "\n[13/18] Benchmarking SIMD CRLF search (64KB)...\n";
     results.push_back(benchmark_simd_crlf_64kb());
     print_result(results.back());
 
-    std::cout << "\n[12/17] Benchmarking SIMD CRLF search (128KB)...\n";
+    std::cout << "\n[14/18] Benchmarking SIMD CRLF search (128KB)...\n";
     results.push_back(benchmark_simd_crlf_128kb());
     print_result(results.back());
 
-    std::cout << "\n[13/17] Benchmarking HTTP parser (full message)...\n";
+    std::cout << "\n[15/18] Benchmarking HTTP parser (full message)...\n";
     results.push_back(benchmark_http_parser());
     print_result(results.back());
 
-    std::cout << "\n[14/17] Benchmarking HTTP parser (fragmented)...\n";
+    std::cout << "\n[16/18] Benchmarking HTTP parser (fragmented)...\n";
     results.push_back(benchmark_http_parser_fragmented());
     print_result(results.back());
 
-    std::cout << "\n[15/17] Benchmarking arena allocations...\n";
+    std::cout << "\n[17/18] Benchmarking arena allocations...\n";
     results.push_back(benchmark_arena_small_allocs());
     print_result(results.back());
 
-    std::cout << "\n[16/17] Benchmarking memory allocations...\n";
+    std::cout << "\n[18/18] Benchmarking memory allocations...\n";
     results.push_back(benchmark_memory_allocations());
     print_result(results.back());
 
