@@ -319,17 +319,24 @@ void generate_dto_for_schema(std::ostream& out,
         const katana::openapi::property* prop;
         std::string cpp_type;
         int align;
+        size_t source_index;
     };
     std::vector<prop_entry> sorted_props;
     sorted_props.reserve(s.properties.size());
-    for (const auto& prop : s.properties) {
+    for (size_t index = 0; index < s.properties.size(); ++index) {
+        const auto& prop = s.properties[index];
         auto cpp_type = cpp_type_from_schema(doc, prop.type, use_pmr);
-        sorted_props.push_back({&prop, cpp_type, alignment_rank(cpp_type)});
+        sorted_props.push_back({&prop, cpp_type, alignment_rank(cpp_type), index});
     }
-    // Sort by alignment descending for optimal packing (8-byte first, 1-byte last)
-    std::stable_sort(sorted_props.begin(),
-                     sorted_props.end(),
-                     [](const prop_entry& a, const prop_entry& b) { return a.align > b.align; });
+    // Keep deterministic source order within each alignment bucket without relying on stable_sort,
+    // which pulls in deprecated libstdc++ temporary-buffer helpers under some clang CI toolchains.
+    std::sort(
+        sorted_props.begin(), sorted_props.end(), [](const prop_entry& a, const prop_entry& b) {
+            if (a.align != b.align) {
+                return a.align > b.align;
+            }
+            return a.source_index < b.source_index;
+        });
 
     if (use_pmr) {
         out << ind << "    explicit " << struct_name << "(monotonic_arena* arena = nullptr)\n";
