@@ -11,8 +11,8 @@
 #include "katana/core/arena.hpp"
 #include "katana/core/serde.hpp"
 
-using bench_util::clobber_memory;
 using bench_util::build_profile_dataset;
+using bench_util::clobber_memory;
 using bench_util::do_not_optimize;
 using bench_util::profile_mix;
 
@@ -112,7 +112,8 @@ bench_result run_bench(const char* name, int iterations, Fn&& fn, size_t tail_sa
         measured_seconds += std::chrono::duration<double>(round_end - round_start).count();
 
         if constexpr (returns_bytes) {
-            round_bytes_per_op.push_back(static_cast<double>(round_bytes) / static_cast<double>(iterations));
+            round_bytes_per_op.push_back(static_cast<double>(round_bytes) /
+                                         static_cast<double>(iterations));
             total_bytes += round_bytes;
         }
 
@@ -127,10 +128,9 @@ bench_result run_bench(const char* name, int iterations, Fn&& fn, size_t tail_sa
 
     std::sort(round_ns_per.begin(), round_ns_per.end());
     const size_t mid = round_ns_per.size() / 2;
-    const double ns_per =
-        (round_ns_per.size() % 2 == 0)
-            ? (round_ns_per[mid - 1] + round_ns_per[mid]) * 0.5
-            : round_ns_per[mid];
+    const double ns_per = (round_ns_per.size() % 2 == 0)
+                              ? (round_ns_per[mid - 1] + round_ns_per[mid]) * 0.5
+                              : round_ns_per[mid];
     const double ops = 1e9 / ns_per;
 
     double bytes_per_sec = 0.0;
@@ -150,10 +150,8 @@ bench_result run_bench(const char* name, int iterations, Fn&& fn, size_t tail_sa
     bool has_tail = !tail_samples_ns.empty();
     if (has_tail) {
         std::sort(tail_samples_ns.begin(), tail_samples_ns.end());
-        const size_t p95_idx =
-            (tail_samples_ns.size() * 95) / 100;
-        const size_t p99_idx =
-            (tail_samples_ns.size() * 99) / 100;
+        const size_t p95_idx = (tail_samples_ns.size() * 95) / 100;
+        const size_t p99_idx = (tail_samples_ns.size() * 99) / 100;
         tail_p95_ns = tail_samples_ns[std::min(p95_idx, tail_samples_ns.size() - 1)];
         tail_p99_ns = tail_samples_ns[std::min(p99_idx, tail_samples_ns.size() - 1)];
     }
@@ -170,12 +168,11 @@ void print_result(const bench_result& r) {
 
     if (r.ns_per_op < 1000.0) {
         if (r.has_data_rate) {
-            std::printf(
-                "  %-45s %8.1f ns    %12.0f ops/sec    %14.0f bytes/sec",
-                r.name,
-                r.ns_per_op,
-                r.ops_per_sec,
-                r.bytes_per_sec);
+            std::printf("  %-45s %8.1f ns    %12.0f ops/sec    %14.0f bytes/sec",
+                        r.name,
+                        r.ns_per_op,
+                        r.ops_per_sec,
+                        r.bytes_per_sec);
             print_tail();
             std::printf("\n");
         } else {
@@ -185,12 +182,11 @@ void print_result(const bench_result& r) {
         }
     } else {
         if (r.has_data_rate) {
-            std::printf(
-                "  %-45s %8.2f us    %12.0f ops/sec    %14.0f bytes/sec",
-                r.name,
-                r.ns_per_op / 1000.0,
-                r.ops_per_sec,
-                r.bytes_per_sec);
+            std::printf("  %-45s %8.2f us    %12.0f ops/sec    %14.0f bytes/sec",
+                        r.name,
+                        r.ns_per_op / 1000.0,
+                        r.ops_per_sec,
+                        r.bytes_per_sec);
             print_tail();
             std::printf("\n");
         } else {
@@ -224,8 +220,7 @@ struct validation_case {
 bool validate_user_record(const validation_case& c) {
     const bool username_ok = c.username.size() >= 3 && c.username.size() <= 32;
     const bool email_ok = c.email.find('@') != std::string::npos &&
-                          c.email.find('.') != std::string::npos &&
-                          c.email.size() <= 128;
+                          c.email.find('.') != std::string::npos && c.email.size() <= 128;
     const bool age_ok = c.age >= 0 && c.age <= 130;
     const bool role_ok = (c.role == "user" || c.role == "admin" || c.role == "moderator");
     return username_ok && email_ok && age_ok && role_ok;
@@ -334,39 +329,40 @@ int main() {
         {"\t\n", false},
     };
 
-    const auto int_best_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 1,
-        int_best_pool,
-        int_typical_pool,
-        int_hard_pool,
-        profile_mix{1.0, 0.0, 0.0});
-    const auto int_mixed_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 2,
-        int_best_pool,
-        int_typical_pool,
-        int_hard_pool,
-        profile_mix{0.70, 0.25, 0.05});
-    const auto int_hard_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 3,
-        int_best_pool,
-        int_typical_pool,
-        int_hard_pool,
-        profile_mix{0.10, 0.20, 0.70});
+    const auto int_best_dataset = build_profile_dataset(profile_dataset_size,
+                                                        profile_seed + 1,
+                                                        int_best_pool,
+                                                        int_typical_pool,
+                                                        int_hard_pool,
+                                                        profile_mix{1.0, 0.0, 0.0});
+    const auto int_mixed_dataset = build_profile_dataset(profile_dataset_size,
+                                                         profile_seed + 2,
+                                                         int_best_pool,
+                                                         int_typical_pool,
+                                                         int_hard_pool,
+                                                         profile_mix{0.70, 0.25, 0.05});
+    const auto int_hard_dataset = build_profile_dataset(profile_dataset_size,
+                                                        profile_seed + 3,
+                                                        int_best_pool,
+                                                        int_typical_pool,
+                                                        int_hard_pool,
+                                                        profile_mix{0.10, 0.20, 0.70});
 
     auto bench_parse_int_profile = [&](const char* label, const std::vector<parse_input_case>& ds) {
         size_t idx = 0;
         size_t mismatches = 0;
-        auto r = run_bench(label, N, [&]() -> size_t {
-            const auto& c = ds[idx % ds.size()];
-            ++idx;
-            return run_parse_case(
-                [](katana::serde::json_cursor& cur) { return katana::serde::parse_int64(cur); },
-                c,
-                mismatches);
-        }, 1024);
+        auto r = run_bench(
+            label,
+            N,
+            [&]() -> size_t {
+                const auto& c = ds[idx % ds.size()];
+                ++idx;
+                return run_parse_case(
+                    [](katana::serde::json_cursor& cur) { return katana::serde::parse_int64(cur); },
+                    c,
+                    mismatches);
+            },
+            1024);
         do_not_optimize(mismatches);
         print_result(r);
     };
@@ -397,39 +393,41 @@ int main() {
         {"  \"false\" garbage_suffix", false},
     };
 
-    const auto bool_best_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 4,
-        bool_best_pool,
-        bool_typical_pool,
-        bool_hard_pool,
-        profile_mix{1.0, 0.0, 0.0});
-    const auto bool_mixed_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 5,
-        bool_best_pool,
-        bool_typical_pool,
-        bool_hard_pool,
-        profile_mix{0.65, 0.25, 0.10});
-    const auto bool_hard_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 6,
-        bool_best_pool,
-        bool_typical_pool,
-        bool_hard_pool,
-        profile_mix{0.10, 0.20, 0.70});
+    const auto bool_best_dataset = build_profile_dataset(profile_dataset_size,
+                                                         profile_seed + 4,
+                                                         bool_best_pool,
+                                                         bool_typical_pool,
+                                                         bool_hard_pool,
+                                                         profile_mix{1.0, 0.0, 0.0});
+    const auto bool_mixed_dataset = build_profile_dataset(profile_dataset_size,
+                                                          profile_seed + 5,
+                                                          bool_best_pool,
+                                                          bool_typical_pool,
+                                                          bool_hard_pool,
+                                                          profile_mix{0.65, 0.25, 0.10});
+    const auto bool_hard_dataset = build_profile_dataset(profile_dataset_size,
+                                                         profile_seed + 6,
+                                                         bool_best_pool,
+                                                         bool_typical_pool,
+                                                         bool_hard_pool,
+                                                         profile_mix{0.10, 0.20, 0.70});
 
-    auto bench_parse_bool_profile = [&](const char* label, const std::vector<parse_input_case>& ds) {
+    auto bench_parse_bool_profile = [&](const char* label,
+                                        const std::vector<parse_input_case>& ds) {
         size_t idx = 0;
         size_t mismatches = 0;
-        auto r = run_bench(label, N, [&]() -> size_t {
-            const auto& c = ds[idx % ds.size()];
-            ++idx;
-            return run_parse_case(
-                [](katana::serde::json_cursor& cur) { return katana::serde::parse_bool(cur); },
-                c,
-                mismatches);
-        }, 1024);
+        auto r = run_bench(
+            label,
+            N,
+            [&]() -> size_t {
+                const auto& c = ds[idx % ds.size()];
+                ++idx;
+                return run_parse_case(
+                    [](katana::serde::json_cursor& cur) { return katana::serde::parse_bool(cur); },
+                    c,
+                    mismatches);
+            },
+            1024);
         do_not_optimize(mismatches);
         print_result(r);
     };
@@ -457,42 +455,43 @@ int main() {
         {"hacker", "hack@example.com", 25, "superuser", false},
     };
 
-    const auto validation_best_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 7,
-        validation_best_pool,
-        validation_typical_pool,
-        validation_hard_pool,
-        profile_mix{1.0, 0.0, 0.0});
-    const auto validation_mixed_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 8,
-        validation_best_pool,
-        validation_typical_pool,
-        validation_hard_pool,
-        profile_mix{0.70, 0.25, 0.05});
-    const auto validation_hard_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 9,
-        validation_best_pool,
-        validation_typical_pool,
-        validation_hard_pool,
-        profile_mix{0.10, 0.20, 0.70});
+    const auto validation_best_dataset = build_profile_dataset(profile_dataset_size,
+                                                               profile_seed + 7,
+                                                               validation_best_pool,
+                                                               validation_typical_pool,
+                                                               validation_hard_pool,
+                                                               profile_mix{1.0, 0.0, 0.0});
+    const auto validation_mixed_dataset = build_profile_dataset(profile_dataset_size,
+                                                                profile_seed + 8,
+                                                                validation_best_pool,
+                                                                validation_typical_pool,
+                                                                validation_hard_pool,
+                                                                profile_mix{0.70, 0.25, 0.05});
+    const auto validation_hard_dataset = build_profile_dataset(profile_dataset_size,
+                                                               profile_seed + 9,
+                                                               validation_best_pool,
+                                                               validation_typical_pool,
+                                                               validation_hard_pool,
+                                                               profile_mix{0.10, 0.20, 0.70});
 
     auto bench_validation_profile =
         [&](const char* label, const std::vector<validation_case>& ds, int iterations) {
             size_t idx = 0;
             size_t mismatches = 0;
-            auto r = run_bench(label, iterations, [&]() -> size_t {
-                const auto& c = ds[idx % ds.size()];
-                ++idx;
-                const bool ok = validate_user_record(c);
-                if (ok != c.expect_valid) {
-                    ++mismatches;
-                }
-                do_not_optimize(ok);
-                return c.bytes();
-            }, 1024);
+            auto r = run_bench(
+                label,
+                iterations,
+                [&]() -> size_t {
+                    const auto& c = ds[idx % ds.size()];
+                    ++idx;
+                    const bool ok = validate_user_record(c);
+                    if (ok != c.expect_valid) {
+                        ++mismatches;
+                    }
+                    do_not_optimize(ok);
+                    return c.bytes();
+                },
+                1024);
             do_not_optimize(mismatches);
             print_result(r);
         };

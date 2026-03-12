@@ -153,8 +153,7 @@ public:
     explicit arena_vector(allocator_type alloc) noexcept
         : allocator_(alloc), data_(inline_data()), size_(0), capacity_(InlineCapacity) {}
 
-    explicit arena_vector(monotonic_arena* arena) noexcept
-        : arena_vector(allocator_type(arena)) {}
+    explicit arena_vector(monotonic_arena* arena) noexcept : arena_vector(allocator_type(arena)) {}
 
     arena_vector(const arena_vector& other)
         : allocator_(other.allocator_), data_(inline_data()), size_(0), capacity_(InlineCapacity) {
@@ -184,8 +183,9 @@ public:
         return *this;
     }
 
-    arena_vector& operator=(arena_vector&& other) noexcept(
-        std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_assignable_v<T>) {
+    arena_vector&
+    operator=(arena_vector&& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
+                                             std::is_nothrow_move_assignable_v<T>) {
         if (this == &other) {
             return *this;
         }
@@ -218,7 +218,9 @@ public:
     [[nodiscard]] const_pointer data() const noexcept { return data_; }
 
     [[nodiscard]] reference operator[](size_type index) noexcept { return data_[index]; }
-    [[nodiscard]] const_reference operator[](size_type index) const noexcept { return data_[index]; }
+    [[nodiscard]] const_reference operator[](size_type index) const noexcept {
+        return data_[index];
+    }
 
     [[nodiscard]] reference front() noexcept { return data_[0]; }
     [[nodiscard]] const_reference front() const noexcept { return data_[0]; }
@@ -257,9 +259,7 @@ public:
         data_[size_].~T();
     }
 
-    iterator erase(const_iterator pos) {
-        return erase(pos, pos + 1);
-    }
+    iterator erase(const_iterator pos) { return erase(pos, pos + 1); }
 
     iterator erase(const_iterator first, const_iterator last) {
         if (first == last) {
@@ -291,9 +291,7 @@ private:
         return reinterpret_cast<const_pointer>(inline_storage_.data());
     }
 
-    [[nodiscard]] bool using_inline_storage() const noexcept {
-        return data_ == inline_data();
-    }
+    [[nodiscard]] bool using_inline_storage() const noexcept { return data_ == inline_data(); }
 
     void ensure_capacity_for_one_more() {
         if (size_ < capacity_) {

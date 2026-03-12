@@ -227,8 +227,7 @@ struct path_pattern {
     }
 };
 
-using handler_fn =
-    inplace_function<result<void>(const request&, request_context&, response&), 160>;
+using handler_fn = inplace_function<result<void>(const request&, request_context&, response&), 160>;
 using next_fn = function_ref<result<void>(response&)>;
 using middleware_fn =
     inplace_function<result<void>(const request&, request_context&, response&, next_fn), 160>;
@@ -333,9 +332,8 @@ class router {
 public:
     explicit router(std::span<const route_entry> routes) : routes_(routes) {}
 
-    dispatch_result dispatch_with_info(const request& req,
-                                       request_context& ctx,
-                                       response& out) const {
+    dispatch_result
+    dispatch_with_info(const request& req, request_context& ctx, response& out) const {
         auto path = strip_query(req.uri);
         auto split = path_pattern::split_path(path);
         if (split.overflow) {
@@ -474,10 +472,8 @@ inline void map_dispatch_error(const dispatch_result& result, response& out) {
     }
 }
 
-inline void dispatch_or_problem(const router& r,
-                                const request& req,
-                                request_context& ctx,
-                                response& out) {
+inline void
+dispatch_or_problem(const router& r, const request& req, request_context& ctx, response& out) {
     auto dispatch_info = r.dispatch_with_info(req, ctx, out);
     if (dispatch_info.has_error) {
         map_dispatch_error(dispatch_info, out);

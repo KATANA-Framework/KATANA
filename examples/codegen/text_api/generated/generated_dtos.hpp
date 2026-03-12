@@ -21,9 +21,9 @@ using katana::arena_string;
 using katana::arena_vector;
 using katana::monotonic_arena;
 
+#include <cctype>
 #include <optional>
 #include <string_view>
-#include <cctype>
 
 #include <variant>
 
@@ -32,28 +32,32 @@ using katana::monotonic_arena;
 // ============================================================
 
 /// Enum with 4 possible values
-enum class text_transform_operation_enum {
-    upper,
-    lower,
-    reverse,
-    title
-};
+enum class text_transform_operation_enum { upper, lower, reverse, title };
 
 inline std::string_view to_string(text_transform_operation_enum e) {
     switch (e) {
-    case text_transform_operation_enum::upper: return "upper";
-    case text_transform_operation_enum::lower: return "lower";
-    case text_transform_operation_enum::reverse: return "reverse";
-    case text_transform_operation_enum::title: return "title";
+    case text_transform_operation_enum::upper:
+        return "upper";
+    case text_transform_operation_enum::lower:
+        return "lower";
+    case text_transform_operation_enum::reverse:
+        return "reverse";
+    case text_transform_operation_enum::title:
+        return "title";
     }
     return "";
 }
 
-inline std::optional<text_transform_operation_enum> text_transform_operation_enum_from_string(std::string_view s) {
-    if (s == "upper") return text_transform_operation_enum::upper;
-    if (s == "lower") return text_transform_operation_enum::lower;
-    if (s == "reverse") return text_transform_operation_enum::reverse;
-    if (s == "title") return text_transform_operation_enum::title;
+inline std::optional<text_transform_operation_enum>
+text_transform_operation_enum_from_string(std::string_view s) {
+    if (s == "upper")
+        return text_transform_operation_enum::upper;
+    if (s == "lower")
+        return text_transform_operation_enum::lower;
+    if (s == "reverse")
+        return text_transform_operation_enum::reverse;
+    if (s == "title")
+        return text_transform_operation_enum::title;
     return std::nullopt;
 }
 
@@ -70,11 +74,11 @@ struct text_uppercase_request {
         static constexpr size_t TEXT_MAX_LENGTH = 10000;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH,
+                  "text: min_length must be <= max_length");
 
     explicit text_uppercase_request(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          text(arena_allocator<char>(arena)) {}
+        : arena_(arena), text(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> text;
@@ -89,10 +93,8 @@ struct text_uppercase_response {
         static constexpr bool RESULT_REQUIRED = false;
     };
 
-
     explicit text_uppercase_response(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          result(arena_allocator<char>(arena)) {}
+        : arena_(arena), result(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -110,11 +112,11 @@ struct text_lowercase_request {
         static constexpr size_t TEXT_MAX_LENGTH = 10000;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH,
+                  "text: min_length must be <= max_length");
 
     explicit text_lowercase_request(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          text(arena_allocator<char>(arena)) {}
+        : arena_(arena), text(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> text;
@@ -129,10 +131,8 @@ struct text_lowercase_response {
         static constexpr bool RESULT_REQUIRED = false;
     };
 
-
     explicit text_lowercase_response(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          result(arena_allocator<char>(arena)) {}
+        : arena_(arena), result(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -150,11 +150,11 @@ struct text_reverse_request {
         static constexpr size_t TEXT_MAX_LENGTH = 10000;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH,
+                  "text: min_length must be <= max_length");
 
     explicit text_reverse_request(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          text(arena_allocator<char>(arena)) {}
+        : arena_(arena), text(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> text;
@@ -169,10 +169,8 @@ struct text_reverse_response {
         static constexpr bool RESULT_REQUIRED = false;
     };
 
-
     explicit text_reverse_response(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          result(arena_allocator<char>(arena)) {}
+        : arena_(arena), result(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -189,10 +187,8 @@ struct text_stats_request {
         static constexpr size_t TEXT_MAX_LENGTH = 100000;
     };
 
-
     explicit text_stats_request(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          text(arena_allocator<char>(arena)) {}
+        : arena_(arena), text(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> text;
@@ -209,9 +205,7 @@ struct text_stats_response {
         static constexpr bool LINES_REQUIRED = false;
     };
 
-
-    explicit text_stats_response(monotonic_arena* arena = nullptr)
-        : arena_(arena) {}
+    explicit text_stats_response(monotonic_arena* arena = nullptr) : arena_(arena) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -239,11 +233,11 @@ struct text_transform_request {
         static constexpr bool TRIM_REQUIRED = false;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH,
+                  "text: min_length must be <= max_length");
 
     explicit text_transform_request(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          text(arena_allocator<char>(arena)) {}
+        : arena_(arena), text(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> text;
@@ -267,10 +261,8 @@ struct text_transform_response {
         static constexpr bool OPERATION_APPLIED_REQUIRED = false;
     };
 
-
     explicit text_transform_response(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          result(arena_allocator<char>(arena)),
+        : arena_(arena), result(arena_allocator<char>(arena)),
           operation_applied(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
@@ -287,4 +279,3 @@ using text_transform_response_Original_length = int64_t;
 using text_transform_response_Result = arena_string<>;
 
 using text_transform_response_Operation_applied = arena_string<>;
-

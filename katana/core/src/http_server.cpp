@@ -3,10 +3,10 @@
 #include "katana/core/problem.hpp"
 
 #include <atomic>
-#include <cerrno>
 #include <cctype>
-#include <cstring>
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <netinet/in.h>
@@ -257,8 +257,8 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     auto queue_prepared_response = [&](bool close_requested, size_t completed_requests) {
         if (conn_debug_enabled()) {
             std::cerr << "[conn_debug] queue prepared scratch=" << state.response_scratch.size()
-                      << " close=" << close_requested
-                      << " completed=" << completed_requests << "\n";
+                      << " close=" << close_requested << " completed=" << completed_requests
+                      << "\n";
         }
         state.queued_response = std::move(state.response_scratch);
         state.queued_response_body.clear();
@@ -272,8 +272,8 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         if (conn_debug_enabled()) {
             std::cerr << "[conn_debug] queue response head=" << state.queued_response.size()
                       << " body=" << state.queued_response_body.size()
-                      << " close=" << close_requested
-                      << " completed=" << completed_requests << "\n";
+                      << " close=" << close_requested << " completed=" << completed_requests
+                      << "\n";
         }
         state.queued_close_requested = close_requested;
         state.queued_response_completed_requests = completed_requests;
@@ -325,10 +325,8 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                       << parser_state_name(state.http_parser.current_state())
                       << " parse_pos=" << state.http_parser.parse_pos()
                       << " buffer_size=" << state.http_parser.buffer_size()
-                      << " buffered=" << state.http_parser.buffered_bytes()
-                      << " preview=\""
-                      << escape_preview(state.http_parser.unparsed_view(128))
-                      << "\"\n";
+                      << " buffered=" << state.http_parser.buffered_bytes() << " preview=\""
+                      << escape_preview(state.http_parser.unparsed_view(128)) << "\"\n";
         }
         response resp{&state.arena};
         resp.assign_error(problem_details::bad_request("Invalid HTTP request"));
@@ -441,7 +439,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             resp.serialize_into(state.response_scratch);
 
             if (state.pending_response_bytes() + state.response_scratch.size() <=
-                PIPELINE_RESPONSE_BATCH_LIMIT &&
+                    PIPELINE_RESPONSE_BATCH_LIMIT &&
                 !state.has_queued_response()) {
                 state.active_response.append(state.response_scratch);
                 ++state.active_response_completed_requests;

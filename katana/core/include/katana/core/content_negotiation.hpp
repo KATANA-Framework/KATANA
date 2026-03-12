@@ -109,25 +109,24 @@ inline bool validate_accept(const request& req,
 inline middleware_fn
 make_content_negotiation_middleware(std::span<const content_type_info> consumes,
                                     std::span<const content_type_info> produces) {
-    return [consumes, produces](const request& req,
-                                request_context& ctx,
-                                response& out,
-                                next_fn next) -> result<void> {
-        (void)ctx;
-        // Validate Content-Type (415 Unsupported Media Type)
-        if (!validate_content_type(req, consumes)) {
-            respond::into(out).problem(problem_details::unsupported_media_type());
-            return {};
-        }
+    return
+        [consumes, produces](
+            const request& req, request_context& ctx, response& out, next_fn next) -> result<void> {
+            (void)ctx;
+            // Validate Content-Type (415 Unsupported Media Type)
+            if (!validate_content_type(req, consumes)) {
+                respond::into(out).problem(problem_details::unsupported_media_type());
+                return {};
+            }
 
-        // Validate Accept (406 Not Acceptable)
-        if (!validate_accept(req, produces)) {
-            respond::into(out).problem(problem_details::not_acceptable());
-            return {};
-        }
+            // Validate Accept (406 Not Acceptable)
+            if (!validate_accept(req, produces)) {
+                respond::into(out).problem(problem_details::not_acceptable());
+                return {};
+            }
 
-        return next(out);
-    };
+            return next(out);
+        };
 }
 
 } // namespace katana::http

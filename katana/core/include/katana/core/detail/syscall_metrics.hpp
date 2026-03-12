@@ -52,7 +52,8 @@ public:
     void note_completed_request() noexcept;
     void note_arena_allocate(size_t bytes) noexcept;
     void note_arena_new_block(size_t bytes) noexcept;
-    void note_parser_reserve(size_t old_capacity, size_t new_capacity, size_t copied_bytes) noexcept;
+    void
+    note_parser_reserve(size_t old_capacity, size_t new_capacity, size_t copied_bytes) noexcept;
     void note_parser_compact(size_t moved_bytes) noexcept;
     void note_response_serialize(size_t bytes, size_t old_capacity, size_t new_capacity) noexcept;
 

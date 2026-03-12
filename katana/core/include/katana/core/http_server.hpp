@@ -122,8 +122,7 @@ private:
         event_type watch_events = event_type::readable;
 
         explicit connection_state(tcp_socket sock)
-            : socket(std::move(sock)),
-              arena(detail::HTTP_SERVER_ARENA_CAPACITY),
+            : socket(std::move(sock)), arena(detail::HTTP_SERVER_ARENA_CAPACITY),
               http_parser(&arena) {
             active_response.reserve(detail::HTTP_SERVER_RESPONSE_BUFFER_CAPACITY);
             active_response_body.reserve(detail::HTTP_SERVER_RESPONSE_BUFFER_CAPACITY);

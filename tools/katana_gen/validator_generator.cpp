@@ -132,8 +132,7 @@ void generate_unique_items_check(std::ostream& out,
     }
 
     const auto item_kind = item_schema->kind;
-    const bool item_is_enum =
-        item_kind == schema_kind::string && !item_schema->enum_values.empty();
+    const bool item_is_enum = item_kind == schema_kind::string && !item_schema->enum_values.empty();
 
     if (item_kind == schema_kind::boolean) {
         // Boolean: keep efficient seen_true/seen_false pattern

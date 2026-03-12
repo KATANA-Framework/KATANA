@@ -1,6 +1,6 @@
 // layer: flat
 // Auto-generated router bindings from OpenAPI specification
-// 
+//
 // Performance characteristics:
 //   - Compile-time route parsing (constexpr path_pattern)
 //   - Zero-copy parameter extraction (string_view)
@@ -10,7 +10,7 @@
 //   - Thread-local handler context (reactor-per-core compatible)
 //   - std::from_chars for fastest integer parsing
 //   - Inplace functions (160 bytes SBO, no heap allocation)
-// 
+//
 // Hot path optimizations:
 //   1. Content negotiation: O(1) for */*, single type, or exact match
 //   2. Validation: Only on error path, single allocation
@@ -18,33 +18,33 @@
 //   4. Handler context: RAII scope guard (zero-cost abstraction)
 #pragma once
 
-#include "katana/core/router.hpp"
-#include "katana/core/problem.hpp"
-#include "katana/core/serde.hpp"
+#include "generated_handlers.hpp"
+#include "generated_json.hpp"
+#include "generated_routes.hpp"
+#include "generated_validators.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 #include "katana/core/http_utils.hpp"
-#include "generated_routes.hpp"
-#include "generated_handlers.hpp"
-#include "generated_json.hpp"
-#include "generated_validators.hpp"
+#include "katana/core/problem.hpp"
+#include "katana/core/router.hpp"
+#include "katana/core/serde.hpp"
 #include <array>
 #include <charconv>
 #include <optional>
-#include <variant>
 #include <span>
 #include <string_view>
+#include <variant>
 
 namespace generated {
 
-using katana::http_utils::query_param;
+using katana::http_utils::content_type_info;
 using katana::http_utils::cookie_param;
 using katana::http_utils::find_content_type;
-using katana::http_utils::negotiate_response_type;
 using katana::http_utils::format_validation_error;
 using katana::http_utils::format_validation_error_into;
 using katana::http_utils::hash_string;
-using katana::http_utils::content_type_info;
+using katana::http_utils::negotiate_response_type;
+using katana::http_utils::query_param;
 
 // Pre-computed path hashes for static routes
 constexpr uint64_t HASH_REGISTER_USER = hash_string("/user/register");
@@ -54,10 +54,14 @@ constexpr uint64_t HASH_REGISTER_USER = hash_string("/user/register");
 // ============================================================
 
 // Dispatch for /user/register
-inline katana::result<void> dispatch_register_user(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_register_user(const katana::http::request& req,
+                                                   katana::http::request_context& ctx,
+                                                   api_handler& handler,
+                                                   katana::http::response& out) {
     constexpr std::string_view response_content_type = "application/json";
     auto accept_header = req.headers.get(katana::http::field::accept);
-    if (accept_header && !accept_header->empty() && *accept_header != "*/*" && *accept_header != response_content_type) {
+    if (accept_header && !accept_header->empty() && *accept_header != "*/*" &&
+        *accept_header != response_content_type) {
         auto comma = accept_header->find(',');
         auto semicolon = accept_header->find(';');
         auto token_end = std::min(comma, semicolon);
@@ -69,11 +73,14 @@ inline katana::result<void> dispatch_register_user(const katana::http::request& 
     }
     auto content_type = req.headers.get(katana::http::field::content_type);
     if (!content_type || content_type->substr(0, 16) != "application/json") {
-        out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
+        out.assign_error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+        return {};
     }
     auto parsed_body = parse_RegisterUserRequest(req.body, &ctx.arena);
     if (!parsed_body) {
-        out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
+        out.assign_error(katana::problem_details::bad_request("invalid request body"));
+        return {};
     }
 
     // Automatic validation (optimized: single allocation)
@@ -98,16 +105,17 @@ inline katana::result<void> dispatch_register_user(const katana::http::request& 
 // ============================================================
 
 inline const katana::http::router& make_router(api_handler& handler) {
-    using katana::http::route_entry;
-    using katana::http::path_pattern;
     using katana::http::handler_fn;
+    using katana::http::path_pattern;
+    using katana::http::route_entry;
     static std::array<route_entry, route_count> route_entries = {
         route_entry{katana::http::method::post,
-                   katana::http::path_pattern::from_literal<"/user/register">(),
-                   handler_fn([&handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_register_user(req, ctx, handler, out);
-                   })
-        },
+                    katana::http::path_pattern::from_literal<"/user/register">(),
+                    handler_fn([&handler](const katana::http::request& req,
+                                          katana::http::request_context& ctx,
+                                          katana::http::response& out) -> katana::result<void> {
+                        return dispatch_register_user(req, ctx, handler, out);
+                    })},
     };
     static katana::http::router router_instance(route_entries);
     return router_instance;
@@ -119,10 +127,9 @@ public:
     explicit fast_router(api_handler& handler, const katana::http::router& fallback)
         : handler_(handler), fallback_router_(fallback) {}
 
-    katana::result<void> dispatch_to(
-        const katana::http::request& req,
-        katana::http::request_context& ctx,
-        katana::http::response& out) const {
+    katana::result<void> dispatch_to(const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) const {
         // Strip query string for matching
         std::string_view path = req.uri;
         auto query_pos = path.find('?');
@@ -133,14 +140,15 @@ public:
         // Fast path: O(1) hash-based dispatch for static routes
         uint64_t path_hash = hash_string(path);
         switch (path_hash) {
-            case HASH_REGISTER_USER:
-                if (path == "/user/register") {
-                    if (req.http_method == katana::http::method::post)
-                        { return dispatch_register_user(req, ctx, handler_, out); }
+        case HASH_REGISTER_USER:
+            if (path == "/user/register") {
+                if (req.http_method == katana::http::method::post) {
+                    return dispatch_register_user(req, ctx, handler_, out);
                 }
-                break;
-            default:
-                break;
+            }
+            break;
+        default:
+            break;
         }
 
         // Fallback to standard router for:
@@ -150,9 +158,8 @@ public:
         return fallback_router_.dispatch(req, ctx, out);
     }
 
-    katana::result<katana::http::response> operator()(
-        const katana::http::request& req,
-        katana::http::request_context& ctx) const {
+    katana::result<katana::http::response> operator()(const katana::http::request& req,
+                                                      katana::http::request_context& ctx) const {
         katana::http::response out;
         auto status = dispatch_to(req, ctx, out);
         if (!status) {
@@ -173,15 +180,13 @@ inline fast_router make_fast_router(api_handler& handler) {
 
 // Zero-boilerplate server creation
 // Usage: return generated::serve<MyHandler>(8080);
-template<typename Handler, typename... Args>
-inline auto make_server(Args&&... args) {
+template <typename Handler, typename... Args> inline auto make_server(Args&&... args) {
     static Handler handler_instance{std::forward<Args>(args)...};
     const auto& router = make_router(handler_instance);
     return katana::http::server(router);
 }
 
-template<typename Handler, typename... Args>
-inline int serve(uint16_t port, Args&&... args) {
+template <typename Handler, typename... Args> inline int serve(uint16_t port, Args&&... args) {
     return make_server<Handler>(std::forward<Args>(args)...)
         .listen(port)
         .workers(4)

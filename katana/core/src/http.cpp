@@ -522,10 +522,8 @@ void response::assign_error(const problem_details& problem) {
 }
 
 response_builder& response_builder::text(std::string body, int32_t status_code) {
-    out_.assign_text(std::move(body),
-                     CONTENT_TYPE_TEXT,
-                     status_code,
-                     canonical_reason_phrase(status_code));
+    out_.assign_text(
+        std::move(body), CONTENT_TYPE_TEXT, status_code, canonical_reason_phrase(status_code));
     return *this;
 }
 

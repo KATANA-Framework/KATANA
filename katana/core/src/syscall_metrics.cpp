@@ -55,7 +55,7 @@ public:
             return;
         }
         stop_requested_.store(false, std::memory_order_relaxed);
-        thread_ = std::thread([this, &registry] { registry.reporter_main(); });
+        thread_ = std::thread([&registry] { registry.reporter_main(); });
     }
 
     void stop(syscall_metrics_registry& registry) {
@@ -365,8 +365,8 @@ void syscall_metrics_registry::note_response_serialize(size_t bytes,
                                              std::memory_order_relaxed);
     if (new_capacity > old_capacity) {
         slot->response_output_grow_calls.fetch_add(1, std::memory_order_relaxed);
-        slot->response_output_grow_bytes.fetch_add(static_cast<uint64_t>(new_capacity - old_capacity),
-                                                   std::memory_order_relaxed);
+        slot->response_output_grow_bytes.fetch_add(
+            static_cast<uint64_t>(new_capacity - old_capacity), std::memory_order_relaxed);
     }
 }
 
@@ -447,59 +447,54 @@ void syscall_metrics_registry::emit_delta_report(const syscall_metrics_snapshot&
         return;
     }
 
-    std::cerr << std::fixed << std::setprecision(3)
-              << "[syscall_metrics] label=" << label << " interval_ms=" << interval_ms_
-              << " completed_requests=" << delta.completed_requests
-              << " recv=" << delta.recv_calls
-              << " recv_would_block=" << delta.recv_would_block
-              << " send=" << delta.send_calls
-              << " send_would_block=" << delta.send_would_block
-              << " epoll_wait=" << delta.epoll_wait_calls
-              << " epoll_wait_ready=" << delta.epoll_wait_ready_events
-              << " epoll_wait_timeouts=" << delta.epoll_wait_timeouts
-              << " epoll_ctl_add=" << delta.epoll_ctl_add_calls
-              << " epoll_ctl_mod=" << delta.epoll_ctl_mod_calls
-              << " epoll_ctl_del=" << delta.epoll_ctl_del_calls
-              << " arena_alloc_calls=" << delta.arena_alloc_calls
-              << " arena_alloc_bytes=" << delta.arena_alloc_bytes
-              << " arena_new_blocks=" << delta.arena_new_blocks
-              << " arena_new_block_bytes=" << delta.arena_new_block_bytes
-              << " parser_reserve_calls=" << delta.parser_reserve_calls
-              << " parser_grow_calls=" << delta.parser_grow_calls
-              << " parser_buffer_copy_bytes=" << delta.parser_buffer_copy_bytes
-              << " parser_compact_calls=" << delta.parser_compact_calls
-              << " parser_compact_move_bytes=" << delta.parser_compact_move_bytes
-              << " response_serialize_calls=" << delta.response_serialize_calls
-              << " response_serialize_bytes=" << delta.response_serialize_bytes
-              << " response_output_grow_calls=" << delta.response_output_grow_calls
-              << " response_output_grow_bytes=" << delta.response_output_grow_bytes
-              << " socket_syscalls_per_req=" << per_request(socket_syscalls, delta.completed_requests)
-              << " recv_per_req=" << per_request(delta.recv_calls, delta.completed_requests)
-              << " send_per_req=" << per_request(delta.send_calls, delta.completed_requests)
-              << " epoll_wait_per_req="
-              << per_request(delta.epoll_wait_calls, delta.completed_requests)
-              << " epoll_ctl_mod_per_req="
-              << per_request(delta.epoll_ctl_mod_calls, delta.completed_requests)
-              << " epoll_ctl_total_per_req="
-              << per_request(epoll_ctl_calls, delta.completed_requests)
-              << " arena_alloc_calls_per_req="
-              << per_request(delta.arena_alloc_calls, delta.completed_requests)
-              << " arena_alloc_bytes_per_req="
-              << per_request(delta.arena_alloc_bytes, delta.completed_requests)
-              << " arena_new_blocks_per_req="
-              << per_request(delta.arena_new_blocks, delta.completed_requests)
-              << " parser_grow_per_req="
-              << per_request(delta.parser_grow_calls, delta.completed_requests)
-              << " parser_copy_bytes_per_req="
-              << per_request(delta.parser_buffer_copy_bytes, delta.completed_requests)
-              << " parser_compact_bytes_per_req="
-              << per_request(delta.parser_compact_move_bytes, delta.completed_requests)
-              << " response_serialize_bytes_per_req="
-              << per_request(delta.response_serialize_bytes, delta.completed_requests)
-              << " response_output_grow_per_req="
-              << per_request(delta.response_output_grow_calls, delta.completed_requests)
-              << " ready_events_per_wait="
-              << per_request(delta.epoll_wait_ready_events, delta.epoll_wait_calls) << '\n';
+    std::cerr
+        << std::fixed << std::setprecision(3) << "[syscall_metrics] label=" << label
+        << " interval_ms=" << interval_ms_ << " completed_requests=" << delta.completed_requests
+        << " recv=" << delta.recv_calls << " recv_would_block=" << delta.recv_would_block
+        << " send=" << delta.send_calls << " send_would_block=" << delta.send_would_block
+        << " epoll_wait=" << delta.epoll_wait_calls
+        << " epoll_wait_ready=" << delta.epoll_wait_ready_events
+        << " epoll_wait_timeouts=" << delta.epoll_wait_timeouts
+        << " epoll_ctl_add=" << delta.epoll_ctl_add_calls
+        << " epoll_ctl_mod=" << delta.epoll_ctl_mod_calls
+        << " epoll_ctl_del=" << delta.epoll_ctl_del_calls
+        << " arena_alloc_calls=" << delta.arena_alloc_calls
+        << " arena_alloc_bytes=" << delta.arena_alloc_bytes
+        << " arena_new_blocks=" << delta.arena_new_blocks
+        << " arena_new_block_bytes=" << delta.arena_new_block_bytes
+        << " parser_reserve_calls=" << delta.parser_reserve_calls
+        << " parser_grow_calls=" << delta.parser_grow_calls
+        << " parser_buffer_copy_bytes=" << delta.parser_buffer_copy_bytes
+        << " parser_compact_calls=" << delta.parser_compact_calls
+        << " parser_compact_move_bytes=" << delta.parser_compact_move_bytes
+        << " response_serialize_calls=" << delta.response_serialize_calls
+        << " response_serialize_bytes=" << delta.response_serialize_bytes
+        << " response_output_grow_calls=" << delta.response_output_grow_calls
+        << " response_output_grow_bytes=" << delta.response_output_grow_bytes
+        << " socket_syscalls_per_req=" << per_request(socket_syscalls, delta.completed_requests)
+        << " recv_per_req=" << per_request(delta.recv_calls, delta.completed_requests)
+        << " send_per_req=" << per_request(delta.send_calls, delta.completed_requests)
+        << " epoll_wait_per_req=" << per_request(delta.epoll_wait_calls, delta.completed_requests)
+        << " epoll_ctl_mod_per_req="
+        << per_request(delta.epoll_ctl_mod_calls, delta.completed_requests)
+        << " epoll_ctl_total_per_req=" << per_request(epoll_ctl_calls, delta.completed_requests)
+        << " arena_alloc_calls_per_req="
+        << per_request(delta.arena_alloc_calls, delta.completed_requests)
+        << " arena_alloc_bytes_per_req="
+        << per_request(delta.arena_alloc_bytes, delta.completed_requests)
+        << " arena_new_blocks_per_req="
+        << per_request(delta.arena_new_blocks, delta.completed_requests)
+        << " parser_grow_per_req=" << per_request(delta.parser_grow_calls, delta.completed_requests)
+        << " parser_copy_bytes_per_req="
+        << per_request(delta.parser_buffer_copy_bytes, delta.completed_requests)
+        << " parser_compact_bytes_per_req="
+        << per_request(delta.parser_compact_move_bytes, delta.completed_requests)
+        << " response_serialize_bytes_per_req="
+        << per_request(delta.response_serialize_bytes, delta.completed_requests)
+        << " response_output_grow_per_req="
+        << per_request(delta.response_output_grow_calls, delta.completed_requests)
+        << " ready_events_per_wait="
+        << per_request(delta.epoll_wait_ready_events, delta.epoll_wait_calls) << '\n';
 }
 
 scoped_syscall_metrics_reporter::scoped_syscall_metrics_reporter() {

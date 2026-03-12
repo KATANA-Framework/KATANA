@@ -252,8 +252,8 @@ TEST(HttpParser, ParsePipelinedPostRequestsWithBodiesIncrementallyViaWritableCom
     EXPECT_EQ(*initial, parser::state::request_line);
 
     while (offset < batch.size()) {
-        size_t chunk = std::min(chunk_pattern[chunk_index % chunk_pattern.size()],
-                                batch.size() - offset);
+        size_t chunk =
+            std::min(chunk_pattern[chunk_index % chunk_pattern.size()], batch.size() - offset);
         ++chunk_index;
 
         auto writable = p.writable_input_span(chunk);

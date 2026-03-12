@@ -140,8 +140,7 @@ void generate_field_parse_body(std::ostream& out,
                         out << indent << "            if (auto v = cur.string()) {\n";
                         out << indent << "                auto enum_val = " << enum_item_name
                             << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
-                        out << indent
-                            << "                if (enum_val) obj." << prop.name
+                        out << indent << "                if (enum_val) obj." << prop.name
                             << ".push_back(*enum_val);\n";
                         out << indent << "            } else { cur.skip_value(); }\n";
                     } else {
@@ -257,9 +256,8 @@ size_t compute_reserve_estimate(const document& /*doc*/, const katana::openapi::
     return estimated;
 }
 
-size_t compute_value_estimate(const document& doc,
-                              const katana::openapi::schema* s,
-                              int depth = 0) {
+size_t
+compute_value_estimate(const document& doc, const katana::openapi::schema* s, int depth = 0) {
     using katana::openapi::schema_kind;
     if (!s) {
         return 32;
@@ -408,24 +406,24 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
                 return;
             }
             out << "    if (!cur.try_array_start()) return std::nullopt;\n";
-        if (use_pmr) {
-            // For PMR allocators, construct with arena allocator for the item type
-            // Use brace initialization to avoid most vexing parse
-            auto item_type_name = schema_identifier(doc, s.items);
-            out << "    " << struct_name << " result{arena_allocator<" << item_type_name
-                << ">(arena)};\n";
-        } else {
-            out << "    " << struct_name << " result;\n";
-        }
-        if (!(use_pmr && inline_arena_array_capacity(&s) > 0)) {
-            out << "    size_t reserve_hint = 0;\n";
-            out << "    for (const char* p = cur.ptr; p < cur.end; ++p) {\n";
-            out << "        if (*p == ',') ++reserve_hint;\n";
-            out << "    }\n";
-            out << "    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;\n";
-            out << "    result.reserve(reserve_hint);\n";
-        }
-        out << "    while (!cur.eof()) {\n";
+            if (use_pmr) {
+                // For PMR allocators, construct with arena allocator for the item type
+                // Use brace initialization to avoid most vexing parse
+                auto item_type_name = schema_identifier(doc, s.items);
+                out << "    " << struct_name << " result{arena_allocator<" << item_type_name
+                    << ">(arena)};\n";
+            } else {
+                out << "    " << struct_name << " result;\n";
+            }
+            if (!(use_pmr && inline_arena_array_capacity(&s) > 0)) {
+                out << "    size_t reserve_hint = 0;\n";
+                out << "    for (const char* p = cur.ptr; p < cur.end; ++p) {\n";
+                out << "        if (*p == ',') ++reserve_hint;\n";
+                out << "    }\n";
+                out << "    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;\n";
+                out << "    result.reserve(reserve_hint);\n";
+            }
+            out << "    while (!cur.eof()) {\n";
             out << "        cur.skip_ws();\n";
             out << "        if (cur.try_array_end()) break;\n";
 

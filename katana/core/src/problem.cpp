@@ -80,8 +80,7 @@ void append_json_int_field(std::string& out, std::string_view key, int value, bo
 namespace katana {
 
 std::string problem_details::to_json() const {
-    size_t reserve =
-        48 + type.size() + title.size() + extensions.size() * 24;
+    size_t reserve = 48 + type.size() + title.size() + extensions.size() * 24;
     if (detail) {
         reserve += detail->size();
     }

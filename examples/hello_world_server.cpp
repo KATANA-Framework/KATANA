@@ -26,7 +26,9 @@ uint16_t read_port(const char* env_name, uint16_t fallback) {
     return fallback;
 }
 
-uint16_t server_port() { return read_port("PORT", read_port("HELLO_PORT", DEFAULT_PORT)); }
+uint16_t server_port() {
+    return read_port("PORT", read_port("HELLO_PORT", DEFAULT_PORT));
+}
 
 uint16_t worker_count() {
     if (const char* value = std::getenv("KATANA_WORKERS")) {

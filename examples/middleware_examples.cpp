@@ -77,27 +77,27 @@ middleware_fn request_id_middleware() {
 middleware_fn cors_middleware(std::string_view allowed_origin = "*") {
     return middleware_fn(
         [allowed_origin](const request& req, request_context& ctx, response& out, next_fn next) {
-        (void)ctx;
-        // Handle preflight OPTIONS request
-        if (req.http_method == method::options) {
-            out.status = 204;
-            out.reason = "No Content";
-            out.set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
-            out.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            out.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            out.set_header("Access-Control-Max-Age", "86400");
-            return result<void>{};
-        }
+            (void)ctx;
+            // Handle preflight OPTIONS request
+            if (req.http_method == method::options) {
+                out.status = 204;
+                out.reason = "No Content";
+                out.set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
+                out.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                out.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                out.set_header("Access-Control-Max-Age", "86400");
+                return result<void>{};
+            }
 
-        // Process normal request
-        auto result = next(out);
+            // Process normal request
+            auto result = next(out);
 
-        if (result) {
-            out.set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
-        }
+            if (result) {
+                out.set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
+            }
 
-        return result;
-    });
+            return result;
+        });
 }
 
 // ============================================================================
@@ -107,35 +107,35 @@ middleware_fn cors_middleware(std::string_view allowed_origin = "*") {
 middleware_fn auth_middleware(std::string_view valid_token = "secret-token-123") {
     return middleware_fn(
         [valid_token](const request& req, request_context& ctx, response& out, next_fn next) {
-        (void)ctx;
-        auto auth_header = req.headers.get("Authorization");
+            (void)ctx;
+            auto auth_header = req.headers.get("Authorization");
 
-        if (!auth_header) {
-            auto problem = problem_details::unauthorized("Missing Authorization header");
-            problem.detail = "Please provide a valid Bearer token";
-            out = response::error(problem);
-            return result<void>{};
-        }
+            if (!auth_header) {
+                auto problem = problem_details::unauthorized("Missing Authorization header");
+                problem.detail = "Please provide a valid Bearer token";
+                out = response::error(problem);
+                return result<void>{};
+            }
 
-        // Check if it starts with "Bearer "
-        if (!auth_header->starts_with("Bearer ")) {
-            auto problem = problem_details::unauthorized("Invalid Authorization format");
-            problem.detail = "Expected: Bearer <token>";
-            out = response::error(problem);
-            return result<void>{};
-        }
+            // Check if it starts with "Bearer "
+            if (!auth_header->starts_with("Bearer ")) {
+                auto problem = problem_details::unauthorized("Invalid Authorization format");
+                problem.detail = "Expected: Bearer <token>";
+                out = response::error(problem);
+                return result<void>{};
+            }
 
-        auto token = auth_header->substr(7); // Skip "Bearer "
+            auto token = auth_header->substr(7); // Skip "Bearer "
 
-        if (token != valid_token) {
-            auto problem = problem_details::unauthorized("Invalid token");
-            out = response::error(problem);
-            return result<void>{};
-        }
+            if (token != valid_token) {
+                auto problem = problem_details::unauthorized("Invalid token");
+                out = response::error(problem);
+                return result<void>{};
+            }
 
-        // Token is valid, proceed
-        return next(out);
-    });
+            // Token is valid, proceed
+            return next(out);
+        });
 }
 
 // ============================================================================
@@ -196,31 +196,31 @@ middleware_fn rate_limit_middleware(size_t max_requests = 100,
 middleware_fn content_type_middleware(std::string_view required_type = "application/json") {
     return middleware_fn(
         [required_type](const request& req, request_context& ctx, response& out, next_fn next) {
-        (void)ctx;
-        // Only check POST/PUT/PATCH requests
-        if (req.http_method == method::post || req.http_method == method::put ||
-            req.http_method == method::patch) {
+            (void)ctx;
+            // Only check POST/PUT/PATCH requests
+            if (req.http_method == method::post || req.http_method == method::put ||
+                req.http_method == method::patch) {
 
-            auto content_type = req.headers.get("Content-Type");
+                auto content_type = req.headers.get("Content-Type");
 
-            if (!content_type) {
-                auto problem = problem_details::bad_request("Missing Content-Type header");
-                problem.detail = "Expected: " + std::string(required_type);
-                out = response::error(problem);
-                return result<void>{};
+                if (!content_type) {
+                    auto problem = problem_details::bad_request("Missing Content-Type header");
+                    problem.detail = "Expected: " + std::string(required_type);
+                    out = response::error(problem);
+                    return result<void>{};
+                }
+
+                // Simple check (not parsing charset, etc.)
+                if (!content_type->starts_with(required_type)) {
+                    auto problem = problem_details::bad_request("Expected Content-Type: " +
+                                                                std::string(required_type));
+                    out = response::error(problem);
+                    return result<void>{};
+                }
             }
 
-            // Simple check (not parsing charset, etc.)
-            if (!content_type->starts_with(required_type)) {
-                auto problem = problem_details::bad_request("Expected Content-Type: " +
-                                                            std::string(required_type));
-                out = response::error(problem);
-                return result<void>{};
-            }
-        }
-
-        return next(out);
-    });
+            return next(out);
+        });
 }
 
 // ============================================================================

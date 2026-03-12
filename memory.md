@@ -676,3 +676,27 @@
 - Приведены в соответствие generated/doc comments для codegen handler interfaces:
   - `tools/katana_gen/router_generator.cpp` и checked-in `generated_handlers.hpp` теперь рекомендуют `respond::into(out)...` / `out = response::...`, а не старый `response::ok(...)`-centric стиль
 - Локальный `scripts/__pycache__/` остался только как незастейдженный runtime мусор; в commit не включать
+
+## 2026-03-12 CI stabilization after benchmark/pipeline merge
+- Разобран и починен первый красный слой GitHub Actions:
+  - `Backend Matrix (epoll)` и `fuzzing` падали на `-Werror,-Wunused-lambda-capture` в `katana/core/src/syscall_metrics.cpp`
+  - причина: `reporter_state::start()` создавал `std::thread([this, &registry] { ... })`, хотя `this` не использовался
+  - фикс: удалён лишний capture
+- Разобран и починен слой unit regressions, всплывший в `Code Coverage`:
+  - `VectoredIO.*` падали потому, что generic helper `write_vectored()` в `katana/core/src/io_buffer.cpp` был переведён на `sendmsg()`, а unit tests гоняют его через `pipe2()`
+  - на pipe fd это давало `ENOTSOCK (88)` вместо ожидаемого успешного `writev()` / `EAGAIN`
+  - фикс: generic `write_vectored()` возвращён на `writev()`
+- Разобран и починен слой reactor metrics regressions:
+  - `ReactorTest.RegisterFdWithTimeout`, `ReactorTest.MetricsTracking` и `ReactorPoolTest.MetricsAggregation` ожидали, что reactor metrics являются always-on контрактом
+  - фактически metrics были загейтаны через `KATANA_REACTOR_METRICS`, из-за чего snapshot'ы в тестах оставались нулевыми
+  - фикс: internal reactor metrics снова считаются всегда; env-gate больше не отключает счётчики
+- Линт/формат:
+  - локально прогнан `pre-commit run --all-files`
+  - hooks поправили trailing whitespace / EOF / clang-format по checked-in generated headers и нескольким benchmark/core файлам
+  - после повторного прогона весь pre-commit зелёный
+- Валидация после фиксов:
+  - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA && cmake --build build/bench-wsl --target unit_tests -j4'`
+  - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA && ./build/bench-wsl/test/unit_tests --gtest_filter="VectoredIO.*:ReactorPoolTest.MetricsAggregation:ReactorTest.RegisterFdWithTimeout:ReactorTest.MetricsTracking"'`
+  - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA && pre-commit run --all-files'`
+  - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl && ctest --output-on-failure -j4'`
+  - итог: `unit_tests`, `integration_tests` и весь локальный pre-commit pipeline зелёные

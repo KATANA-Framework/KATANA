@@ -18,7 +18,7 @@ constexpr int WRITE_FLAGS = MSG_DONTWAIT | MSG_NOSIGNAL;
 #else
 constexpr int WRITE_FLAGS = MSG_DONTWAIT;
 #endif
-}
+} // namespace
 
 result<std::span<uint8_t>> tcp_socket::read(std::span<uint8_t> buf) {
     if (fd_ < 0) {
@@ -73,10 +73,7 @@ result<size_t> tcp_socket::write(std::span<const uint8_t> data) {
     while (total_written < data.size()) {
         ssize_t n;
         do {
-            n = ::send(fd_,
-                       data.data() + total_written,
-                       data.size() - total_written,
-                       WRITE_FLAGS);
+            n = ::send(fd_, data.data() + total_written, data.size() - total_written, WRITE_FLAGS);
             metrics.note_send(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
         } while (n < 0 && errno == EINTR);
 

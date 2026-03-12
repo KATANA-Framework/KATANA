@@ -79,12 +79,12 @@ std::vector<T> build_profile_dataset(size_t count,
 
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> which_pool(0.0, 1.0);
-    std::uniform_int_distribution<size_t> pick_best(
-        0, best_pool.empty() ? 0 : best_pool.size() - 1);
+    std::uniform_int_distribution<size_t> pick_best(0,
+                                                    best_pool.empty() ? 0 : best_pool.size() - 1);
     std::uniform_int_distribution<size_t> pick_typical(
         0, typical_pool.empty() ? 0 : typical_pool.size() - 1);
-    std::uniform_int_distribution<size_t> pick_hard(
-        0, hard_pool.empty() ? 0 : hard_pool.size() - 1);
+    std::uniform_int_distribution<size_t> pick_hard(0,
+                                                    hard_pool.empty() ? 0 : hard_pool.size() - 1);
 
     for (size_t i = 0; i < count; ++i) {
         const double token = which_pool(rng);

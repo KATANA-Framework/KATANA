@@ -1,12 +1,12 @@
 // layer: flat
 // Auto-generated handler interfaces from OpenAPI specification
-// 
+//
 // Zero-boilerplate design:
 //   - Clean signatures: result<void> method(params, response& out)
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
-// 
+//
 // Example:
 //   katana::result<void> get_user(int64_t id, response& out) override {
 //       auto user = db.find(id, &arena());  // arena() from context
@@ -15,16 +15,16 @@
 //   }
 #pragma once
 
+#include "generated_dtos.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/router.hpp"
-#include "generated_dtos.hpp"
-#include <string_view>
 #include <optional>
+#include <string_view>
 #include <variant>
 
 using katana::http::request;
-using katana::http::response;
 using katana::http::request_context;
+using katana::http::response;
 
 namespace generated {
 
@@ -47,7 +47,6 @@ struct api_handler {
 
     // PUT /users/{id}
     virtual katana::result<void> update_user(int64_t id, const UserInput& body, response& out) = 0;
-
 };
 
 // ============================================================================

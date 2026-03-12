@@ -88,8 +88,7 @@ Task to_dto(const stored_task& src, monotonic_arena& arena) {
 
     task.assignee.id = src.assignee_id.value_or(0);
     if (src.assignee_id) {
-        task.assignee.email =
-            arena_string<>("user@example.com", arena_allocator<char>(&arena));
+        task.assignee.email = arena_string<>("user@example.com", arena_allocator<char>(&arena));
         std::string name = "User " + std::to_string(*src.assignee_id);
         task.assignee.name = arena_string<>(name, arena_allocator<char>(&arena));
     } else {

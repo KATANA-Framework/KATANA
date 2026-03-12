@@ -16,19 +16,6 @@ namespace katana {
 
 namespace {
 
-bool reactor_metrics_enabled() {
-    static bool enabled = [] {
-        const char* value = std::getenv("KATANA_REACTOR_METRICS");
-        if (!value || !*value) {
-            return false;
-        }
-        return std::strcmp(value, "1") == 0 || std::strcmp(value, "true") == 0 ||
-               std::strcmp(value, "TRUE") == 0 || std::strcmp(value, "yes") == 0 ||
-               std::strcmp(value, "YES") == 0;
-    }();
-    return enabled;
-}
-
 constexpr uint32_t to_epoll_events(event_type events) noexcept {
     uint32_t result = 0;
 
@@ -72,7 +59,7 @@ constexpr event_type from_epoll_events(uint32_t events) noexcept {
 epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
     : epoll_fd_(-1), wakeup_fd_(-1), max_events_(max_events), running_(false),
       graceful_shutdown_(false), pending_tasks_(max_pending_tasks),
-      pending_timers_(max_pending_tasks), metrics_enabled_(reactor_metrics_enabled()),
+      pending_timers_(max_pending_tasks), metrics_enabled_(true),
       exception_handler_([](const exception_context& ctx) {
           std::cerr << "[reactor] Exception in " << ctx.location;
           if (ctx.fd >= 0) {

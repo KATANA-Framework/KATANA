@@ -49,8 +49,7 @@ monotonic_arena::~monotonic_arena() noexcept = default;
 monotonic_arena::monotonic_arena(monotonic_arena&& other) noexcept
     : blocks_(std::move(other.blocks_)), num_blocks_(other.num_blocks_),
       current_block_index_(other.current_block_index_), block_size_(other.block_size_),
-      bytes_allocated_(other.bytes_allocated_),
-      total_capacity_(other.total_capacity_) {
+      bytes_allocated_(other.bytes_allocated_), total_capacity_(other.total_capacity_) {
     other.num_blocks_ = 0;
     other.current_block_index_ = 0;
     other.bytes_allocated_ = 0;

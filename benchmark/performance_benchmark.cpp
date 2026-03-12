@@ -1,3 +1,4 @@
+#include "bench_utils.hpp"
 #include "katana/core/arena.hpp"
 #include "katana/core/circular_buffer.hpp"
 #include "katana/core/http.hpp"
@@ -5,7 +6,6 @@
 #include "katana/core/ring_buffer_queue.hpp"
 #include "katana/core/simd_utils.hpp"
 #include "katana/core/tcp_listener.hpp"
-#include "bench_utils.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -53,8 +53,7 @@ inline double throughput_ops_per_sec(uint64_t operations, steady_clock::duration
         return 0.0;
     }
 
-    return (static_cast<double>(operations) * 1'000'000'000.0) /
-           static_cast<double>(duration_ns);
+    return (static_cast<double>(operations) * 1'000'000'000.0) / static_cast<double>(duration_ns);
 }
 } // namespace
 
@@ -107,8 +106,8 @@ void print_result(const benchmark_result& result) {
                   << " us\n";
         std::cout << "Latency p99: " << std::fixed << std::setprecision(6) << result.latency_p99
                   << " us\n";
-        std::cout << "Latency p999: " << std::fixed << std::setprecision(6)
-                  << result.latency_p999 << " us\n";
+        std::cout << "Latency p999: " << std::fixed << std::setprecision(6) << result.latency_p999
+                  << " us\n";
     }
     if (result.retries_per_op_total >= 0.0) {
         std::cout << "Producer retries: " << result.producer_retries << "\n";
@@ -202,10 +201,10 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
                     ++sampled_ops;
                     if (sampled_ops >= effective_sample_rate) {
                         auto batch_end = steady_clock::now();
-                        double latency_us = static_cast<double>(
-                                                duration_cast<nanoseconds>(batch_end - batch_start)
-                                                    .count()) /
-                                            (1000.0 * static_cast<double>(sampled_ops));
+                        double latency_us =
+                            static_cast<double>(
+                                duration_cast<nanoseconds>(batch_end - batch_start).count()) /
+                            (1000.0 * static_cast<double>(sampled_ops));
                         samples.push_back(latency_us);
                         sampled_ops = 0;
                         batch_start = steady_clock::now();
@@ -219,7 +218,8 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
             if (sampled_ops > 0) {
                 auto batch_end = steady_clock::now();
                 double latency_us =
-                    static_cast<double>(duration_cast<nanoseconds>(batch_end - batch_start).count()) /
+                    static_cast<double>(
+                        duration_cast<nanoseconds>(batch_end - batch_start).count()) /
                     (1000.0 * static_cast<double>(sampled_ops));
                 samples.push_back(latency_us);
             }
@@ -246,10 +246,10 @@ benchmark_result benchmark_ring_buffer_mpmc(const std::string& name,
         merged_latencies.insert(merged_latencies.end(), local.begin(), local.end());
     }
     std::sort(merged_latencies.begin(), merged_latencies.end());
-    const uint64_t total_producer_retries =
-        std::accumulate(producer_retries_per_thread.begin(), producer_retries_per_thread.end(), uint64_t{0});
-    const uint64_t total_consumer_retries =
-        std::accumulate(consumer_retries_per_thread.begin(), consumer_retries_per_thread.end(), uint64_t{0});
+    const uint64_t total_producer_retries = std::accumulate(
+        producer_retries_per_thread.begin(), producer_retries_per_thread.end(), uint64_t{0});
+    const uint64_t total_consumer_retries = std::accumulate(
+        consumer_retries_per_thread.begin(), consumer_retries_per_thread.end(), uint64_t{0});
 
     benchmark_result result;
     result.name = name;
@@ -330,22 +330,12 @@ benchmark_result benchmark_ring_buffer_queue() {
 
 benchmark_result benchmark_ring_buffer_concurrent() {
     return benchmark_ring_buffer_mpmc(
-        "Ring Buffer Queue (Concurrent 4x4)",
-        2000000,
-        4,
-        4,
-        4096,
-        64);
+        "Ring Buffer Queue (Concurrent 4x4)", 2000000, 4, 4, 4096, 64);
 }
 
 benchmark_result benchmark_ring_buffer_high_contention() {
     return benchmark_ring_buffer_mpmc(
-        "Ring Buffer Queue (High Contention 8x8)",
-        2000000,
-        8,
-        8,
-        2048,
-        64);
+        "Ring Buffer Queue (High Contention 8x8)", 2000000, 8, 8, 2048, 64);
 }
 
 benchmark_result benchmark_circular_buffer() {
@@ -781,22 +771,12 @@ benchmark_result benchmark_simd_crlf_128kb() {
 
 benchmark_result benchmark_ring_buffer_extreme_contention() {
     return benchmark_ring_buffer_mpmc(
-        "Ring Buffer Queue (Extreme Contention 12x12)",
-        2000000,
-        12,
-        12,
-        4096,
-        64);
+        "Ring Buffer Queue (Extreme Contention 12x12)", 2000000, 12, 12, 4096, 64);
 }
 
 benchmark_result benchmark_ring_buffer_max_contention() {
     return benchmark_ring_buffer_mpmc(
-        "Ring Buffer Queue (Max Contention 16x16)",
-        2000000,
-        16,
-        16,
-        8192,
-        64);
+        "Ring Buffer Queue (Max Contention 16x16)", 2000000, 16, 16, 8192, 64);
 }
 
 std::pair<int, int> derive_core_saturation_pair() {
@@ -841,12 +821,7 @@ benchmark_result benchmark_ring_buffer_oversubscribed() {
 
 benchmark_result benchmark_ring_buffer_2x2() {
     return benchmark_ring_buffer_mpmc(
-        "Ring Buffer Queue (Concurrent 2x2)",
-        2000000,
-        2,
-        2,
-        4096,
-        64);
+        "Ring Buffer Queue (Concurrent 2x2)", 2000000, 2, 2, 4096, 64);
 }
 
 benchmark_result benchmark_http_parser_fragmented() {

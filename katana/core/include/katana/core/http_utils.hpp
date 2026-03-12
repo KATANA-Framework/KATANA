@@ -47,9 +47,8 @@ inline std::optional<std::string_view> query_param(std::string_view uri,
 }
 
 template <size_t N>
-inline void extract_query_params(
-    std::string_view uri,
-    const std::array<named_param_target, N>& targets) noexcept {
+inline void extract_query_params(std::string_view uri,
+                                 const std::array<named_param_target, N>& targets) noexcept {
     if constexpr (N == 0) {
         return;
     }
@@ -124,9 +123,8 @@ inline std::optional<std::string_view> cookie_param(const katana::http::request&
 }
 
 template <size_t N>
-inline void extract_cookie_params(
-    const katana::http::request& req,
-    const std::array<named_param_target, N>& targets) noexcept {
+inline void extract_cookie_params(const katana::http::request& req,
+                                  const std::array<named_param_target, N>& targets) noexcept {
     if constexpr (N == 0) {
         return;
     }
