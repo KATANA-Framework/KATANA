@@ -408,8 +408,8 @@ void generate_validator_for_schema(std::ostream& out,
                         out << "        if (" << obj_prefix << " && !" << obj_prefix
                             << "->empty() && !std::regex_match(" << deref_prefix << ", re_)) {\n";
                     } else {
-                        out << "        if (!" << obj_prefix
-                            << ".empty() && !std::regex_match(" << obj_prefix << ", re_)) {\n";
+                        out << "        if (!" << obj_prefix << ".empty() && !std::regex_match("
+                            << obj_prefix << ", re_)) {\n";
                     }
                     out << "            return validation_error{\"" << prop.name
                         << "\", validation_error_code::pattern_mismatch};\n";
@@ -512,10 +512,12 @@ void generate_validator_for_schema(std::ostream& out,
                 out << "    {\n";
                 if (is_optional) {
                     out << "        if (!" << obj_prefix << ") {\n";
-                    out << "            // nullable/omitted array: uniqueness check does not apply\n";
+                    out << "            // nullable/omitted array: uniqueness check does not "
+                           "apply\n";
                     out << "        } else {\n";
                     if (prop.type->items) {
-                        generate_unique_items_check(out, doc, prop.name, deref_prefix, prop.type->items);
+                        generate_unique_items_check(
+                            out, doc, prop.name, deref_prefix, prop.type->items);
                     }
                     out << "        }\n";
                 } else if (prop.type->items) {

@@ -590,8 +590,7 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
             uint64_t hash = fnv1a_hash(prop.name);
             out << "            case " << hash << "ull: // \"" << escape_cpp_string(prop.name)
                 << "\"\n";
-            out << "                if (*key == \"" << escape_cpp_string(prop.name)
-                << "\") {\n";
+            out << "                if (*key == \"" << escape_cpp_string(prop.name) << "\") {\n";
             generate_field_parse_body(out, doc, prop, use_pmr, "                ");
             out << "                } else { cur.skip_value(); }\n";
             out << "                break;\n";
@@ -983,8 +982,7 @@ void generate_json_serializer_for_schema(std::ostream& out,
                     }
                     out << "        char buf[64];\n";
                     out << "        auto res = std::to_chars(buf, buf + sizeof(buf), "
-                        << (is_optional ? "*obj." + member_name : "obj." + member_name)
-                        << ");\n";
+                        << (is_optional ? "*obj." + member_name : "obj." + member_name) << ");\n";
                     out << "        if (res.ec == std::errc()) json.append(buf, "
                            "static_cast<size_t>(res.ptr - buf));\n";
                     if (is_optional) {

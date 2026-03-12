@@ -1,6 +1,6 @@
 // layer: flat
 // Auto-generated router bindings from OpenAPI specification
-// 
+//
 // Performance characteristics:
 //   - Compile-time route parsing (constexpr path_pattern)
 //   - Zero-copy parameter extraction (string_view)
@@ -10,7 +10,7 @@
 //   - Thread-local handler context (reactor-per-core compatible)
 //   - std::from_chars for fastest integer parsing
 //   - Inplace functions (160 bytes SBO, no heap allocation)
-// 
+//
 // Hot path optimizations:
 //   1. Content negotiation: O(1) for */*, single type, or exact match
 //   2. Validation: Only on error path, single allocation
@@ -18,40 +18,40 @@
 //   4. Handler context: RAII scope guard (zero-cost abstraction)
 #pragma once
 
-#include "katana/core/router.hpp"
-#include "katana/core/problem.hpp"
-#include "katana/core/serde.hpp"
+#include "generated_handlers.hpp"
+#include "generated_json.hpp"
+#include "generated_routes.hpp"
+#include "generated_validators.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 #include "katana/core/http_utils.hpp"
-#include "generated_routes.hpp"
-#include "generated_handlers.hpp"
-#include "generated_json.hpp"
-#include "generated_validators.hpp"
+#include "katana/core/problem.hpp"
+#include "katana/core/router.hpp"
+#include "katana/core/serde.hpp"
 #include <array>
 #include <charconv>
 #include <chrono>
 #include <functional>
 #include <optional>
-#include <variant>
 #include <span>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 namespace generated {
 
-using katana::http_utils::query_param;
+using katana::http_utils::content_type_info;
 using katana::http_utils::cookie_param;
-using katana::http_utils::extract_query_params;
 using katana::http_utils::extract_cookie_params;
+using katana::http_utils::extract_query_params;
 using katana::http_utils::find_content_type;
-using katana::http_utils::negotiate_response_type;
 using katana::http_utils::format_validation_error;
 using katana::http_utils::format_validation_error_into;
 using katana::http_utils::hash_string;
-using katana::http_utils::content_type_info;
 using katana::http_utils::named_param_target;
+using katana::http_utils::negotiate_response_type;
+using katana::http_utils::query_param;
 
 // Pre-computed path hashes for static routes
 constexpr uint64_t HASH_LIST_TASKS = hash_string("/tasks");
@@ -64,7 +64,10 @@ constexpr uint64_t HASH_HEALTH_CHECK = hash_string("/health");
 // ============================================================
 
 // Dispatch for /tasks
-inline katana::result<void> dispatch_list_tasks(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_list_tasks(const katana::http::request& req,
+                                                katana::http::request_context& ctx,
+                                                api_handler& handler,
+                                                katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_0_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
@@ -75,33 +78,49 @@ inline katana::result<void> dispatch_list_tasks(const katana::http::request& req
     std::optional<std::string_view> p_priority = std::nullopt;
     std::optional<std::string_view> p_limit = std::nullopt;
     std::optional<std::string_view> p_offset = std::nullopt;
-    extract_query_params(req.uri, std::array{
-        named_param_target{"status", &p_status},
-        named_param_target{"priority", &p_priority},
-        named_param_target{"limit", &p_limit},
-        named_param_target{"offset", &p_offset},
-    });
+    extract_query_params(req.uri,
+                         std::array{
+                             named_param_target{"status", &p_status},
+                             named_param_target{"priority", &p_priority},
+                             named_param_target{"limit", &p_limit},
+                             named_param_target{"offset", &p_offset},
+                         });
     std::optional<std::string_view> status = std::nullopt;
-    if (p_status) status = *p_status;
+    if (p_status)
+        status = *p_status;
     std::optional<int64_t> priority;
     if (p_priority) {
         int64_t tmp = 0;
-        auto [ptr, ec] = std::from_chars(p_priority->data(), p_priority->data() + p_priority->size(), tmp);
-        if (ec != std::errc() || ptr != p_priority->data() + p_priority->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param priority")); return {}; }
+        auto [ptr, ec] =
+            std::from_chars(p_priority->data(), p_priority->data() + p_priority->size(), tmp);
+        if (ec != std::errc() || ptr != p_priority->data() + p_priority->size()) {
+            out = katana::http::response::error(
+                katana::problem_details::bad_request("invalid param priority"));
+            return {};
+        }
         priority = tmp;
     }
     std::optional<int64_t> limit;
     if (p_limit) {
         int64_t tmp = 0;
         auto [ptr, ec] = std::from_chars(p_limit->data(), p_limit->data() + p_limit->size(), tmp);
-        if (ec != std::errc() || ptr != p_limit->data() + p_limit->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param limit")); return {}; }
+        if (ec != std::errc() || ptr != p_limit->data() + p_limit->size()) {
+            out = katana::http::response::error(
+                katana::problem_details::bad_request("invalid param limit"));
+            return {};
+        }
         limit = tmp;
     }
     std::optional<int64_t> offset;
     if (p_offset) {
         int64_t tmp = 0;
-        auto [ptr, ec] = std::from_chars(p_offset->data(), p_offset->data() + p_offset->size(), tmp);
-        if (ec != std::errc() || ptr != p_offset->data() + p_offset->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param offset")); return {}; }
+        auto [ptr, ec] =
+            std::from_chars(p_offset->data(), p_offset->data() + p_offset->size(), tmp);
+        if (ec != std::errc() || ptr != p_offset->data() + p_offset->size()) {
+            out = katana::http::response::error(
+                katana::problem_details::bad_request("invalid param offset"));
+            return {};
+        }
         offset = tmp;
     }
     // Set handler context for zero-boilerplate access
@@ -110,25 +129,35 @@ inline katana::result<void> dispatch_list_tasks(const katana::http::request& req
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
 }
 
 // Dispatch for /tasks
-inline katana::result<void> dispatch_create_task(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_create_task(const katana::http::request& req,
+                                                 katana::http::request_context& ctx,
+                                                 api_handler& handler,
+                                                 katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_1_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
         return {};
     }
     std::string_view response_content_type = *negotiated_content_type;
-    auto content_type_index = find_content_type(req.headers.get(katana::http::field::content_type), route_1_consumes);
-    if (!content_type_index) { out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {}; }
+    auto content_type_index =
+        find_content_type(req.headers.get(katana::http::field::content_type), route_1_consumes);
+    if (!content_type_index) {
+        out.assign_error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+        return {};
+    }
     auto parsed_body = parse_CreateTaskRequest(req.body, &ctx.arena);
     if (!parsed_body) {
-        out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
+        out.assign_error(katana::problem_details::bad_request("invalid request body"));
+        return {};
     }
 
     // Automatic validation (optimized: single allocation)
@@ -142,14 +171,18 @@ inline katana::result<void> dispatch_create_task(const katana::http::request& re
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
 }
 
 // Dispatch for /tasks/{id}
-inline katana::result<void> dispatch_get_task(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_get_task(const katana::http::request& req,
+                                              katana::http::request_context& ctx,
+                                              api_handler& handler,
+                                              katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_2_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
@@ -157,11 +190,19 @@ inline katana::result<void> dispatch_get_task(const katana::http::request& req, 
     }
     std::string_view response_content_type = *negotiated_content_type;
     auto p_id = ctx.params.get("id");
-    if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    if (!p_id) {
+        out = katana::http::response::error(
+            katana::problem_details::bad_request("missing path param id"));
+        return {};
+    }
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
-        if (ec != std::errc() || ptr != p_id->data() + p_id->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid path param id")); return {}; }
+        if (ec != std::errc() || ptr != p_id->data() + p_id->size()) {
+            out = katana::http::response::error(
+                katana::problem_details::bad_request("invalid path param id"));
+            return {};
+        }
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
@@ -169,14 +210,18 @@ inline katana::result<void> dispatch_get_task(const katana::http::request& req, 
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
 }
 
 // Dispatch for /tasks/{id}
-inline katana::result<void> dispatch_update_task(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_update_task(const katana::http::request& req,
+                                                 katana::http::request_context& ctx,
+                                                 api_handler& handler,
+                                                 katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_3_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
@@ -184,17 +229,31 @@ inline katana::result<void> dispatch_update_task(const katana::http::request& re
     }
     std::string_view response_content_type = *negotiated_content_type;
     auto p_id = ctx.params.get("id");
-    if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    if (!p_id) {
+        out = katana::http::response::error(
+            katana::problem_details::bad_request("missing path param id"));
+        return {};
+    }
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
-        if (ec != std::errc() || ptr != p_id->data() + p_id->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid path param id")); return {}; }
+        if (ec != std::errc() || ptr != p_id->data() + p_id->size()) {
+            out = katana::http::response::error(
+                katana::problem_details::bad_request("invalid path param id"));
+            return {};
+        }
     }
-    auto content_type_index = find_content_type(req.headers.get(katana::http::field::content_type), route_3_consumes);
-    if (!content_type_index) { out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {}; }
+    auto content_type_index =
+        find_content_type(req.headers.get(katana::http::field::content_type), route_3_consumes);
+    if (!content_type_index) {
+        out.assign_error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+        return {};
+    }
     auto parsed_body = parse_UpdateTaskRequest(req.body, &ctx.arena);
     if (!parsed_body) {
-        out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
+        out.assign_error(katana::problem_details::bad_request("invalid request body"));
+        return {};
     }
 
     // Automatic validation (optimized: single allocation)
@@ -208,14 +267,18 @@ inline katana::result<void> dispatch_update_task(const katana::http::request& re
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
 }
 
 // Dispatch for /tasks/{id}
-inline katana::result<void> dispatch_delete_task(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_delete_task(const katana::http::request& req,
+                                                 katana::http::request_context& ctx,
+                                                 api_handler& handler,
+                                                 katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_4_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
@@ -223,11 +286,19 @@ inline katana::result<void> dispatch_delete_task(const katana::http::request& re
     }
     std::string_view response_content_type = *negotiated_content_type;
     auto p_id = ctx.params.get("id");
-    if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    if (!p_id) {
+        out = katana::http::response::error(
+            katana::problem_details::bad_request("missing path param id"));
+        return {};
+    }
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
-        if (ec != std::errc() || ptr != p_id->data() + p_id->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid path param id")); return {}; }
+        if (ec != std::errc() || ptr != p_id->data() + p_id->size()) {
+            out = katana::http::response::error(
+                katana::problem_details::bad_request("invalid path param id"));
+            return {};
+        }
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
@@ -235,25 +306,35 @@ inline katana::result<void> dispatch_delete_task(const katana::http::request& re
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
 }
 
 // Dispatch for /tasks/batch
-inline katana::result<void> dispatch_batch_create_tasks(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_batch_create_tasks(const katana::http::request& req,
+                                                        katana::http::request_context& ctx,
+                                                        api_handler& handler,
+                                                        katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_5_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
         return {};
     }
     std::string_view response_content_type = *negotiated_content_type;
-    auto content_type_index = find_content_type(req.headers.get(katana::http::field::content_type), route_5_consumes);
-    if (!content_type_index) { out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {}; }
+    auto content_type_index =
+        find_content_type(req.headers.get(katana::http::field::content_type), route_5_consumes);
+    if (!content_type_index) {
+        out.assign_error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+        return {};
+    }
     auto parsed_body = parse_BatchCreateRequest(req.body, &ctx.arena);
     if (!parsed_body) {
-        out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
+        out.assign_error(katana::problem_details::bad_request("invalid request body"));
+        return {};
     }
 
     // Automatic validation (optimized: single allocation)
@@ -267,25 +348,35 @@ inline katana::result<void> dispatch_batch_create_tasks(const katana::http::requ
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
 }
 
 // Dispatch for /tasks/search
-inline katana::result<void> dispatch_search_tasks(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_search_tasks(const katana::http::request& req,
+                                                  katana::http::request_context& ctx,
+                                                  api_handler& handler,
+                                                  katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_6_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
         return {};
     }
     std::string_view response_content_type = *negotiated_content_type;
-    auto content_type_index = find_content_type(req.headers.get(katana::http::field::content_type), route_6_consumes);
-    if (!content_type_index) { out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {}; }
+    auto content_type_index =
+        find_content_type(req.headers.get(katana::http::field::content_type), route_6_consumes);
+    if (!content_type_index) {
+        out.assign_error(
+            katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+        return {};
+    }
     auto parsed_body = parse_SearchRequest(req.body, &ctx.arena);
     if (!parsed_body) {
-        out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
+        out.assign_error(katana::problem_details::bad_request("invalid request body"));
+        return {};
     }
 
     // Automatic validation (optimized: single allocation)
@@ -299,14 +390,18 @@ inline katana::result<void> dispatch_search_tasks(const katana::http::request& r
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
 }
 
 // Dispatch for /health
-inline katana::result<void> dispatch_health_check(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+inline katana::result<void> dispatch_health_check(const katana::http::request& req,
+                                                  katana::http::request_context& ctx,
+                                                  api_handler& handler,
+                                                  katana::http::response& out) {
     auto negotiated_content_type = negotiate_response_type(req, route_7_produces);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
@@ -319,7 +414,8 @@ inline katana::result<void> dispatch_health_check(const katana::http::request& r
     if (!handler_result) {
         return std::unexpected(handler_result.error());
     }
-    if (out.status != 204 && !out.body.empty() && !out.headers.get(katana::http::field::content_type)) {
+    if (out.status != 204 && !out.body.empty() &&
+        !out.headers.get(katana::http::field::content_type)) {
         out.set_header("Content-Type", response_content_type);
     }
     return {};
@@ -333,55 +429,87 @@ class generated_router {
 public:
     explicit generated_router(api_handler& handler)
         : route_entries_{
-        katana::http::route_entry{katana::http::method::get,
-                   katana::http::path_pattern::from_literal<"/tasks">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_list_tasks(req, ctx, *handler_ptr, out);
-                   })
-        },
-        katana::http::route_entry{katana::http::method::post,
-                   katana::http::path_pattern::from_literal<"/tasks">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_create_task(req, ctx, *handler_ptr, out);
-                   })
-        },
-        katana::http::route_entry{katana::http::method::get,
-                   katana::http::path_pattern::from_literal<"/tasks/{id}">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_get_task(req, ctx, *handler_ptr, out);
-                   })
-        },
-        katana::http::route_entry{katana::http::method::put,
-                   katana::http::path_pattern::from_literal<"/tasks/{id}">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_update_task(req, ctx, *handler_ptr, out);
-                   })
-        },
-        katana::http::route_entry{katana::http::method::del,
-                   katana::http::path_pattern::from_literal<"/tasks/{id}">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_delete_task(req, ctx, *handler_ptr, out);
-                   })
-        },
-        katana::http::route_entry{katana::http::method::post,
-                   katana::http::path_pattern::from_literal<"/tasks/batch">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_batch_create_tasks(req, ctx, *handler_ptr, out);
-                   })
-        },
-        katana::http::route_entry{katana::http::method::post,
-                   katana::http::path_pattern::from_literal<"/tasks/search">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_search_tasks(req, ctx, *handler_ptr, out);
-                   })
-        },
-        katana::http::route_entry{katana::http::method::get,
-                   katana::http::path_pattern::from_literal<"/health">(),
-                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
-                       return dispatch_health_check(req, ctx, *handler_ptr, out);
-                   })
-        },
-        } {
+              katana::http::route_entry{
+                  katana::http::method::get,
+                  katana::http::path_pattern::from_literal<"/tasks">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_list_tasks(req, ctx, *handler_ptr, out);
+                      })},
+              katana::http::route_entry{
+                  katana::http::method::post,
+                  katana::http::path_pattern::from_literal<"/tasks">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_create_task(req, ctx, *handler_ptr, out);
+                      })},
+              katana::http::route_entry{
+                  katana::http::method::get,
+                  katana::http::path_pattern::from_literal<"/tasks/{id}">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_get_task(req, ctx, *handler_ptr, out);
+                      })},
+              katana::http::route_entry{
+                  katana::http::method::put,
+                  katana::http::path_pattern::from_literal<"/tasks/{id}">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_update_task(req, ctx, *handler_ptr, out);
+                      })},
+              katana::http::route_entry{
+                  katana::http::method::del,
+                  katana::http::path_pattern::from_literal<"/tasks/{id}">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_delete_task(req, ctx, *handler_ptr, out);
+                      })},
+              katana::http::route_entry{
+                  katana::http::method::post,
+                  katana::http::path_pattern::from_literal<"/tasks/batch">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_batch_create_tasks(req, ctx, *handler_ptr, out);
+                      })},
+              katana::http::route_entry{
+                  katana::http::method::post,
+                  katana::http::path_pattern::from_literal<"/tasks/search">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_search_tasks(req, ctx, *handler_ptr, out);
+                      })},
+              katana::http::route_entry{
+                  katana::http::method::get,
+                  katana::http::path_pattern::from_literal<"/health">(),
+                  katana::http::handler_fn(
+                      [handler_ptr =
+                           &handler](const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) -> katana::result<void> {
+                          return dispatch_health_check(req, ctx, *handler_ptr, out);
+                      })},
+          } {
         router_.emplace(route_entries_);
     }
 
@@ -410,10 +538,9 @@ public:
     explicit fast_router(api_handler& handler, const katana::http::router& fallback)
         : handler_(handler), fallback_router_(fallback) {}
 
-    katana::result<void> dispatch_to(
-        const katana::http::request& req,
-        katana::http::request_context& ctx,
-        katana::http::response& out) const {
+    katana::result<void> dispatch_to(const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) const {
         // Strip query string for matching
         std::string_view path = req.uri;
         auto query_pos = path.find('?');
@@ -424,34 +551,39 @@ public:
         // Fast path: O(1) hash-based dispatch for static routes
         uint64_t path_hash = hash_string(path);
         switch (path_hash) {
-            case HASH_LIST_TASKS:
-                if (path == "/tasks") {
-                    if (req.http_method == katana::http::method::get)
-                        { return dispatch_list_tasks(req, ctx, handler_, out); }
-                    if (req.http_method == katana::http::method::post)
-                        { return dispatch_create_task(req, ctx, handler_, out); }
+        case HASH_LIST_TASKS:
+            if (path == "/tasks") {
+                if (req.http_method == katana::http::method::get) {
+                    return dispatch_list_tasks(req, ctx, handler_, out);
                 }
-                break;
-            case HASH_BATCH_CREATE_TASKS:
-                if (path == "/tasks/batch") {
-                    if (req.http_method == katana::http::method::post)
-                        { return dispatch_batch_create_tasks(req, ctx, handler_, out); }
+                if (req.http_method == katana::http::method::post) {
+                    return dispatch_create_task(req, ctx, handler_, out);
                 }
-                break;
-            case HASH_SEARCH_TASKS:
-                if (path == "/tasks/search") {
-                    if (req.http_method == katana::http::method::post)
-                        { return dispatch_search_tasks(req, ctx, handler_, out); }
+            }
+            break;
+        case HASH_BATCH_CREATE_TASKS:
+            if (path == "/tasks/batch") {
+                if (req.http_method == katana::http::method::post) {
+                    return dispatch_batch_create_tasks(req, ctx, handler_, out);
                 }
-                break;
-            case HASH_HEALTH_CHECK:
-                if (path == "/health") {
-                    if (req.http_method == katana::http::method::get)
-                        { return dispatch_health_check(req, ctx, handler_, out); }
+            }
+            break;
+        case HASH_SEARCH_TASKS:
+            if (path == "/tasks/search") {
+                if (req.http_method == katana::http::method::post) {
+                    return dispatch_search_tasks(req, ctx, handler_, out);
                 }
-                break;
-            default:
-                break;
+            }
+            break;
+        case HASH_HEALTH_CHECK:
+            if (path == "/health") {
+                if (req.http_method == katana::http::method::get) {
+                    return dispatch_health_check(req, ctx, handler_, out);
+                }
+            }
+            break;
+        default:
+            break;
         }
 
         // Fallback to standard router for:
@@ -461,9 +593,8 @@ public:
         return fallback_router_.dispatch(req, ctx, out);
     }
 
-    katana::result<katana::http::response> operator()(
-        const katana::http::request& req,
-        katana::http::request_context& ctx) const {
+    katana::result<katana::http::response> operator()(const katana::http::request& req,
+                                                      katana::http::request_context& ctx) const {
         katana::http::response out;
         auto status = dispatch_to(req, ctx, out);
         if (!status) {
@@ -488,16 +619,14 @@ public:
     generated_fast_router(generated_fast_router&&) = delete;
     generated_fast_router& operator=(generated_fast_router&&) = delete;
 
-    katana::result<void> dispatch_to(
-        const katana::http::request& req,
-        katana::http::request_context& ctx,
-        katana::http::response& out) const {
+    katana::result<void> dispatch_to(const katana::http::request& req,
+                                     katana::http::request_context& ctx,
+                                     katana::http::response& out) const {
         return fast_router_.dispatch_to(req, ctx, out);
     }
 
-    katana::result<katana::http::response> operator()(
-        const katana::http::request& req,
-        katana::http::request_context& ctx) const {
+    katana::result<katana::http::response> operator()(const katana::http::request& req,
+                                                      katana::http::request_context& ctx) const {
         return fast_router_(req, ctx);
     }
 
@@ -514,13 +643,11 @@ inline generated_fast_router make_fast_router(api_handler& handler) {
 
 // Zero-boilerplate server creation
 // Usage: return generated::serve<MyHandler>(8080);
-template<typename Handler>
-class generated_server {
+template <typename Handler> class generated_server {
 public:
-    template<typename... Args>
+    template <typename... Args>
     explicit generated_server(Args&&... args)
-        : handler_(std::forward<Args>(args)...),
-          router_bundle_(handler_),
+        : handler_(std::forward<Args>(args)...), router_bundle_(handler_),
           server_(router_bundle_.router()) {}
 
     generated_server(const generated_server&) = delete;
@@ -576,13 +703,12 @@ private:
     katana::http::server server_;
 };
 
-template<typename Handler, typename... Args>
+template <typename Handler, typename... Args>
 inline generated_server<Handler> make_server(Args&&... args) {
     return generated_server<Handler>(std::forward<Args>(args)...);
 }
 
-template<typename Handler, typename... Args>
-inline int serve(uint16_t port, Args&&... args) {
+template <typename Handler, typename... Args> inline int serve(uint16_t port, Args&&... args) {
     return make_server<Handler>(std::forward<Args>(args)...)
         .listen(port)
         .workers(4)

@@ -146,9 +146,8 @@ std::string cpp_type_from_schema(const document& doc,
     }
 }
 
-std::string cpp_type_for_property(const document& doc,
-                                  const katana::openapi::property& prop,
-                                  bool use_pmr) {
+std::string
+cpp_type_for_property(const document& doc, const katana::openapi::property& prop, bool use_pmr) {
     auto base = cpp_type_from_schema(doc, prop.type, use_pmr, false, false);
     if (is_optional_property(prop)) {
         return "std::optional<" + base + ">";
@@ -373,8 +372,8 @@ void generate_dto_for_schema(std::ostream& out,
                     << ind << "          " << member_name << "(arena_allocator<" << inner
                     << ">(arena))";
             } else if (cpp_type.find("arena_string") != std::string::npos) {
-                out << ",\n" << ind << "          " << member_name
-                    << "(arena_allocator<char>(arena))";
+                out << ",\n"
+                    << ind << "          " << member_name << "(arena_allocator<char>(arena))";
             }
         }
         out << " {}\n\n";
