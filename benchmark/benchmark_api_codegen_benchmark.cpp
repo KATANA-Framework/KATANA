@@ -55,14 +55,16 @@ public:
         stored_item it;
         it.id = next_id_++;
         it.name.assign(body.name.data(), body.name.size());
-        if (!body.description.empty()) {
-            it.description.assign(body.description.data(), body.description.size());
+        if (body.description) {
+            it.description.assign(body.description->data(), body.description->size());
         }
         it.price = body.price;
-        it.stock = body.stock;
+        it.stock = body.stock.value_or(0);
         it.category = body.category;
-        for (const auto& tag : body.tags) {
-            it.tags.emplace_back(tag.data(), tag.size());
+        if (body.tags) {
+            for (const auto& tag : *body.tags) {
+                it.tags.emplace_back(tag.data(), tag.size());
+            }
         }
         int64_t id = it.id;
         items_[id] = std::move(it);
@@ -82,21 +84,24 @@ public:
         if (it == items_.end()) {
             return false;
         }
-        if (!body.name.empty()) {
-            it->second.name.assign(body.name.data(), body.name.size());
+        if (body.name) {
+            it->second.name.assign(body.name->data(), body.name->size());
         }
-        if (!body.description.empty()) {
-            it->second.description.assign(body.description.data(), body.description.size());
+        if (body.description) {
+            it->second.description.assign(body.description->data(), body.description->size());
         }
-        if (body.price > 0.0) {
-            it->second.price = body.price;
+        if (body.price) {
+            it->second.price = *body.price;
         }
-        if (body.stock > 0) {
-            it->second.stock = body.stock;
+        if (body.stock) {
+            it->second.stock = *body.stock;
         }
-        if (!body.tags.empty()) {
+        if (body.category) {
+            it->second.category = *body.category;
+        }
+        if (body.tags) {
             it->second.tags.clear();
-            for (const auto& tag : body.tags) {
+            for (const auto& tag : *body.tags) {
                 it->second.tags.emplace_back(tag.data(), tag.size());
             }
         }
@@ -172,8 +177,11 @@ static void fill_item_dto(Item& item, const stored_item& src, monotonic_arena& a
     item.price = src.price;
     item.stock = src.stock;
     item.category = src.category;
-    for (const auto& tag : src.tags) {
-        item.tags.emplace_back(tag, arena_allocator<char>(&arena));
+    if (!src.tags.empty()) {
+        item.tags.emplace(arena_allocator<arena_string<>>(&arena));
+        for (const auto& tag : src.tags) {
+            item.tags->emplace_back(tag, arena_allocator<char>(&arena));
+        }
     }
 }
 
@@ -216,7 +224,7 @@ public:
         resp.sum = sum;
         resp.mean = sum / static_cast<double>(body.values.size());
         resp.count = static_cast<int64_t>(body.values.size());
-        if (body.include_median) {
+        if (body.include_median.value_or(false)) {
             std::vector<double> sorted(body.values.begin(), body.values.end());
             const size_t n = sorted.size();
             auto mid = sorted.begin() + static_cast<std::ptrdiff_t>(n / 2);
@@ -243,7 +251,7 @@ public:
             body.username.data(), body.username.size(), arena_allocator<char>(&arena));
         resp.email =
             arena_string<>(body.email.data(), body.email.size(), arena_allocator<char>(&arena));
-        resp.role = body.role;
+        resp.role = body.role.value_or(UserRole_enum::user);
         resp.created_at = arena_string<>("2026-01-01T00:00:00Z", arena_allocator<char>(&arena));
         out.assign_json(serialize_UserResponse(resp), 201, "Created");
         return {};
@@ -333,7 +341,7 @@ public:
 
     result<void> echo(const EchoRequest& body, response& out) override {
         std::string payload(body.message.data(), body.message.size());
-        const int repeat_count = static_cast<int>(body.repeat);
+        const int repeat_count = static_cast<int>(body.repeat.value_or(1));
         if (repeat_count > 1) {
             std::string base = payload;
             payload.reserve(base.size() * static_cast<size_t>(repeat_count));
@@ -341,7 +349,7 @@ public:
                 payload += base;
             }
         }
-        if (body.uppercase) {
+        if (body.uppercase.value_or(false)) {
             for (char& ch : payload) {
                 ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             }

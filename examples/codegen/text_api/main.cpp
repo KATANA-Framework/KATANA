@@ -8,6 +8,7 @@
 #include "generated/generated_router_bindings.hpp"
 #include "generated/generated_routes.hpp"
 #include "generated/generated_validators.hpp"
+#include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 
 #include <algorithm>
@@ -25,11 +26,12 @@ using namespace katana::http;
 struct text_handler : generated::api_handler {
     // Convert text to uppercase
     result<void> text_uppercase(const text_uppercase_request& req, response& out) override {
-        text_uppercase_response resp;
-        resp.result = req.text;
-        std::transform(resp.result.begin(),
-                       resp.result.end(),
-                       resp.result.begin(),
+        auto& arena = handler_context::arena();
+        text_uppercase_response resp(&arena);
+        resp.result.emplace(req.text.begin(), req.text.end(), arena_allocator<char>(&arena));
+        std::transform(resp.result->begin(),
+                       resp.result->end(),
+                       resp.result->begin(),
                        [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
         out = response::json(serialize_text_uppercase_response(resp));
         return {};
@@ -37,11 +39,12 @@ struct text_handler : generated::api_handler {
 
     // Convert text to lowercase
     result<void> text_lowercase(const text_lowercase_request& req, response& out) override {
-        text_lowercase_response resp;
-        resp.result = req.text;
-        std::transform(resp.result.begin(),
-                       resp.result.end(),
-                       resp.result.begin(),
+        auto& arena = handler_context::arena();
+        text_lowercase_response resp(&arena);
+        resp.result.emplace(req.text.begin(), req.text.end(), arena_allocator<char>(&arena));
+        std::transform(resp.result->begin(),
+                       resp.result->end(),
+                       resp.result->begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         out = response::json(serialize_text_lowercase_response(resp));
         return {};
@@ -49,16 +52,18 @@ struct text_handler : generated::api_handler {
 
     // Reverse text
     result<void> text_reverse(const text_reverse_request& req, response& out) override {
-        text_reverse_response resp;
-        resp.result = req.text;
-        std::reverse(resp.result.begin(), resp.result.end());
+        auto& arena = handler_context::arena();
+        text_reverse_response resp(&arena);
+        resp.result.emplace(req.text.begin(), req.text.end(), arena_allocator<char>(&arena));
+        std::reverse(resp.result->begin(), resp.result->end());
         out = response::json(serialize_text_reverse_response(resp));
         return {};
     }
 
     // Calculate text statistics
     result<void> text_stats(const text_stats_request& req, response& out) override {
-        text_stats_response stats;
+        auto& arena = handler_context::arena();
+        text_stats_response stats(&arena);
         stats.chars = static_cast<int64_t>(req.text.length());
 
         // Count words (split by whitespace)
@@ -88,14 +93,15 @@ struct text_handler : generated::api_handler {
 
     // Apply transformation based on operation type
     result<void> text_transform(const text_transform_request& req, response& out) override {
-        text_transform_response resp;
+        auto& arena = handler_context::arena();
+        text_transform_response resp(&arena);
         resp.original_length = static_cast<int64_t>(req.text.length());
-        resp.operation_applied = to_string(req.operation);
+        resp.operation_applied.emplace(to_string(req.operation), arena_allocator<char>(&arena));
 
         std::string text(req.text.begin(), req.text.end());
 
         // Trim if requested
-        if (req.trim) {
+        if (req.trim.value_or(false)) {
             // Trim leading whitespace
             size_t start = text.find_first_not_of(" \t\n\r");
             if (start != std::string::npos) {
@@ -136,7 +142,7 @@ struct text_handler : generated::api_handler {
             }
         }
 
-        resp.result = text;
+        resp.result.emplace(text, arena_allocator<char>(&arena));
         out = response::json(serialize_text_transform_response(resp));
         return {};
     }

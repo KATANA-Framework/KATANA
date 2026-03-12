@@ -21,9 +21,9 @@ using katana::arena_string;
 using katana::arena_vector;
 using katana::monotonic_arena;
 
-#include <cctype>
 #include <optional>
 #include <string_view>
+#include <cctype>
 
 #include <variant>
 
@@ -48,20 +48,19 @@ struct RegisterUserRequest {
         static constexpr double AGE_MAXIMUM = 120;
     };
 
-    static_assert(metadata::PASSWORD_MIN_LENGTH <= metadata::PASSWORD_MAX_LENGTH,
-                  "password: min_length must be <= max_length");
-    static_assert(metadata::AGE_MINIMUM <= metadata::AGE_MAXIMUM,
-                  "age: minimum must be <= maximum");
+    static_assert(metadata::PASSWORD_MIN_LENGTH <= metadata::PASSWORD_MAX_LENGTH, "password: min_length must be <= max_length");
+    static_assert(metadata::AGE_MINIMUM <= metadata::AGE_MAXIMUM, "age: minimum must be <= maximum");
 
     explicit RegisterUserRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), email(arena_allocator<char>(arena)),
+        : arena_(arena),
+          email(arena_allocator<char>(arena)),
           password(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> email;
     arena_string<> password;
     /// Optional field
-    std::optional<int64_t> age = {};
+    std::optional<int64_t> age;
 };
 
 using RegisterUserRequest_Email_t = arena_string<>;
@@ -73,3 +72,4 @@ using RegisterUserRequest_Age_t = std::optional<int64_t>;
 using schema = std::monostate;
 
 using register_user_response = arena_string<>;
+

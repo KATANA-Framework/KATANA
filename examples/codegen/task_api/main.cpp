@@ -82,18 +82,19 @@ Task to_dto(const stored_task& src, monotonic_arena& arena) {
     }
     task.status = src.status;
     task.priority = src.priority;
-    for (const auto& tag : src.tags) {
-        task.tags.emplace_back(tag, arena_allocator<char>(&arena));
+    if (!src.tags.empty()) {
+        task.tags.emplace(arena_allocator<arena_string<>>(&arena));
+        for (const auto& tag : src.tags) {
+            task.tags->emplace_back(tag, arena_allocator<char>(&arena));
+        }
     }
 
-    task.assignee.id = src.assignee_id.value_or(0);
     if (src.assignee_id) {
-        task.assignee.email = arena_string<>("user@example.com", arena_allocator<char>(&arena));
+        task.assignee.emplace(&arena);
+        task.assignee->id = *src.assignee_id;
+        task.assignee->email = arena_string<>("user@example.com", arena_allocator<char>(&arena));
         std::string name = "User " + std::to_string(*src.assignee_id);
-        task.assignee.name = arena_string<>(name, arena_allocator<char>(&arena));
-    } else {
-        task.assignee.email = arena_string<>("", arena_allocator<char>(&arena));
-        task.assignee.name = arena_string<>("", arena_allocator<char>(&arena));
+        task.assignee->name = arena_string<>(name, arena_allocator<char>(&arena));
     }
 
     if (src.due_date) {
@@ -116,13 +117,15 @@ public:
         stored_task task;
         task.id = next_id_++;
         task.title.assign(req.title.data(), req.title.size());
-        if (!req.description.empty()) {
-            task.description.assign(req.description.data(), req.description.size());
+        if (req.description && !req.description->empty()) {
+            task.description.assign(req.description->data(), req.description->size());
         }
         task.status = Task_Status_t_enum::pending;
         task.priority = req.priority;
-        for (const auto& tag : req.tags) {
-            task.tags.emplace_back(tag.data(), tag.size());
+        if (req.tags) {
+            for (const auto& tag : *req.tags) {
+                task.tags.emplace_back(tag.data(), tag.size());
+            }
         }
         if (req.assignee_id) {
             task.assignee_id = *req.assignee_id;
@@ -159,27 +162,24 @@ public:
         }
 
         auto& task = it->second;
-        if (!req.title.empty()) {
-            task.title.assign(req.title.data(), req.title.size());
+        if (req.title) {
+            task.title.assign(req.title->data(), req.title->size());
         }
-        if (!req.description.empty()) {
-            task.description.assign(req.description.data(), req.description.size());
+        if (req.description) {
+            task.description.assign(req.description->data(), req.description->size());
         }
-        if (req.priority >= 1 && req.priority <= 5) {
-            task.priority = req.priority;
+        if (req.priority) {
+            task.priority = *req.priority;
         }
-        if (!req.tags.empty()) {
+        if (req.tags) {
             task.tags.clear();
-            for (const auto& tag : req.tags) {
+            for (const auto& tag : *req.tags) {
                 task.tags.emplace_back(tag.data(), tag.size());
             }
         }
 
-        const bool only_status_field = req.title.empty() && req.description.empty() &&
-                                       req.tags.empty() && !req.assignee_id && !req.due_date &&
-                                       req.priority == 0;
-        if (req.status != UpdateTaskRequest_Status_t_enum::pending || only_status_field) {
-            task.status = update_status_to_task_status(req.status);
+        if (req.status) {
+            task.status = update_status_to_task_status(*req.status);
         }
         if (req.assignee_id) {
             task.assignee_id = *req.assignee_id;
@@ -233,15 +233,15 @@ public:
         result.reserve(tasks_.size());
 
         for (const auto& [_, task] : tasks_) {
-            if (!req.title_contains.empty()) {
-                std::string needle(req.title_contains.data(), req.title_contains.size());
+            if (req.title_contains) {
+                std::string needle(req.title_contains->data(), req.title_contains->size());
                 if (task.title.find(needle) == std::string::npos) {
                     continue;
                 }
             }
-            if (!req.statuses.empty()) {
+            if (req.statuses && !req.statuses->empty()) {
                 bool status_match = false;
-                for (auto s : req.statuses) {
+                for (auto s : *req.statuses) {
                     if (task.status == search_status_to_task_status(s)) {
                         status_match = true;
                         break;
@@ -251,15 +251,15 @@ public:
                     continue;
                 }
             }
-            if (req.min_priority > 0 && task.priority < req.min_priority) {
+            if (req.min_priority && task.priority < *req.min_priority) {
                 continue;
             }
-            if (req.max_priority > 0 && task.priority > req.max_priority) {
+            if (req.max_priority && task.priority > *req.max_priority) {
                 continue;
             }
-            if (!req.tags.empty()) {
+            if (req.tags && !req.tags->empty()) {
                 bool tag_match = false;
-                for (const auto& filter_tag : req.tags) {
+                for (const auto& filter_tag : *req.tags) {
                     auto it = std::find(task.tags.begin(),
                                         task.tags.end(),
                                         std::string(filter_tag.data(), filter_tag.size()));
@@ -272,7 +272,7 @@ public:
                     continue;
                 }
             }
-            if (req.has_assignee && !task.assignee_id) {
+            if (req.has_assignee.value_or(false) && !task.assignee_id) {
                 continue;
             }
             result.push_back(task);

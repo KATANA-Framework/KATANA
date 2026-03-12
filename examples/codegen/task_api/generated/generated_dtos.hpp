@@ -21,9 +21,9 @@ using katana::arena_string;
 using katana::arena_vector;
 using katana::monotonic_arena;
 
-#include <cctype>
 #include <optional>
 #include <string_view>
+#include <cctype>
 
 #include <variant>
 
@@ -32,147 +32,129 @@ using katana::monotonic_arena;
 // ============================================================
 
 /// Enum with 4 possible values
-enum class Task_Status_t_enum { pending, in_progress, completed, cancelled };
+enum class Task_Status_t_enum {
+    pending,
+    in_progress,
+    completed,
+    cancelled
+};
 
 inline std::string_view to_string(Task_Status_t_enum e) {
     switch (e) {
-    case Task_Status_t_enum::pending:
-        return "pending";
-    case Task_Status_t_enum::in_progress:
-        return "in_progress";
-    case Task_Status_t_enum::completed:
-        return "completed";
-    case Task_Status_t_enum::cancelled:
-        return "cancelled";
+    case Task_Status_t_enum::pending: return "pending";
+    case Task_Status_t_enum::in_progress: return "in_progress";
+    case Task_Status_t_enum::completed: return "completed";
+    case Task_Status_t_enum::cancelled: return "cancelled";
     }
     return "";
 }
 
 inline std::optional<Task_Status_t_enum> Task_Status_t_enum_from_string(std::string_view s) {
-    if (s == "pending")
-        return Task_Status_t_enum::pending;
-    if (s == "in_progress")
-        return Task_Status_t_enum::in_progress;
-    if (s == "completed")
-        return Task_Status_t_enum::completed;
-    if (s == "cancelled")
-        return Task_Status_t_enum::cancelled;
+    if (s == "pending") return Task_Status_t_enum::pending;
+    if (s == "in_progress") return Task_Status_t_enum::in_progress;
+    if (s == "completed") return Task_Status_t_enum::completed;
+    if (s == "cancelled") return Task_Status_t_enum::cancelled;
     return std::nullopt;
 }
 
 /// Enum with 4 possible values
-enum class UpdateTaskRequest_Status_t_enum { pending, in_progress, completed, cancelled };
+enum class UpdateTaskRequest_Status_t_enum {
+    pending,
+    in_progress,
+    completed,
+    cancelled
+};
 
 inline std::string_view to_string(UpdateTaskRequest_Status_t_enum e) {
     switch (e) {
-    case UpdateTaskRequest_Status_t_enum::pending:
-        return "pending";
-    case UpdateTaskRequest_Status_t_enum::in_progress:
-        return "in_progress";
-    case UpdateTaskRequest_Status_t_enum::completed:
-        return "completed";
-    case UpdateTaskRequest_Status_t_enum::cancelled:
-        return "cancelled";
+    case UpdateTaskRequest_Status_t_enum::pending: return "pending";
+    case UpdateTaskRequest_Status_t_enum::in_progress: return "in_progress";
+    case UpdateTaskRequest_Status_t_enum::completed: return "completed";
+    case UpdateTaskRequest_Status_t_enum::cancelled: return "cancelled";
     }
     return "";
 }
 
-inline std::optional<UpdateTaskRequest_Status_t_enum>
-UpdateTaskRequest_Status_t_enum_from_string(std::string_view s) {
-    if (s == "pending")
-        return UpdateTaskRequest_Status_t_enum::pending;
-    if (s == "in_progress")
-        return UpdateTaskRequest_Status_t_enum::in_progress;
-    if (s == "completed")
-        return UpdateTaskRequest_Status_t_enum::completed;
-    if (s == "cancelled")
-        return UpdateTaskRequest_Status_t_enum::cancelled;
+inline std::optional<UpdateTaskRequest_Status_t_enum> UpdateTaskRequest_Status_t_enum_from_string(std::string_view s) {
+    if (s == "pending") return UpdateTaskRequest_Status_t_enum::pending;
+    if (s == "in_progress") return UpdateTaskRequest_Status_t_enum::in_progress;
+    if (s == "completed") return UpdateTaskRequest_Status_t_enum::completed;
+    if (s == "cancelled") return UpdateTaskRequest_Status_t_enum::cancelled;
     return std::nullopt;
 }
 
 /// Enum with 4 possible values
-enum class SearchRequest_Item_t_enum { pending, in_progress, completed, cancelled };
+enum class SearchRequest_Item_t_enum {
+    pending,
+    in_progress,
+    completed,
+    cancelled
+};
 
 inline std::string_view to_string(SearchRequest_Item_t_enum e) {
     switch (e) {
-    case SearchRequest_Item_t_enum::pending:
-        return "pending";
-    case SearchRequest_Item_t_enum::in_progress:
-        return "in_progress";
-    case SearchRequest_Item_t_enum::completed:
-        return "completed";
-    case SearchRequest_Item_t_enum::cancelled:
-        return "cancelled";
+    case SearchRequest_Item_t_enum::pending: return "pending";
+    case SearchRequest_Item_t_enum::in_progress: return "in_progress";
+    case SearchRequest_Item_t_enum::completed: return "completed";
+    case SearchRequest_Item_t_enum::cancelled: return "cancelled";
     }
     return "";
 }
 
-inline std::optional<SearchRequest_Item_t_enum>
-SearchRequest_Item_t_enum_from_string(std::string_view s) {
-    if (s == "pending")
-        return SearchRequest_Item_t_enum::pending;
-    if (s == "in_progress")
-        return SearchRequest_Item_t_enum::in_progress;
-    if (s == "completed")
-        return SearchRequest_Item_t_enum::completed;
-    if (s == "cancelled")
-        return SearchRequest_Item_t_enum::cancelled;
+inline std::optional<SearchRequest_Item_t_enum> SearchRequest_Item_t_enum_from_string(std::string_view s) {
+    if (s == "pending") return SearchRequest_Item_t_enum::pending;
+    if (s == "in_progress") return SearchRequest_Item_t_enum::in_progress;
+    if (s == "completed") return SearchRequest_Item_t_enum::completed;
+    if (s == "cancelled") return SearchRequest_Item_t_enum::cancelled;
     return std::nullopt;
 }
 
 /// Enum with 3 possible values
-enum class HealthResponse_Status_t_enum { healthy, degraded, unhealthy };
+enum class HealthResponse_Status_t_enum {
+    healthy,
+    degraded,
+    unhealthy
+};
 
 inline std::string_view to_string(HealthResponse_Status_t_enum e) {
     switch (e) {
-    case HealthResponse_Status_t_enum::healthy:
-        return "healthy";
-    case HealthResponse_Status_t_enum::degraded:
-        return "degraded";
-    case HealthResponse_Status_t_enum::unhealthy:
-        return "unhealthy";
+    case HealthResponse_Status_t_enum::healthy: return "healthy";
+    case HealthResponse_Status_t_enum::degraded: return "degraded";
+    case HealthResponse_Status_t_enum::unhealthy: return "unhealthy";
     }
     return "";
 }
 
-inline std::optional<HealthResponse_Status_t_enum>
-HealthResponse_Status_t_enum_from_string(std::string_view s) {
-    if (s == "healthy")
-        return HealthResponse_Status_t_enum::healthy;
-    if (s == "degraded")
-        return HealthResponse_Status_t_enum::degraded;
-    if (s == "unhealthy")
-        return HealthResponse_Status_t_enum::unhealthy;
+inline std::optional<HealthResponse_Status_t_enum> HealthResponse_Status_t_enum_from_string(std::string_view s) {
+    if (s == "healthy") return HealthResponse_Status_t_enum::healthy;
+    if (s == "degraded") return HealthResponse_Status_t_enum::degraded;
+    if (s == "unhealthy") return HealthResponse_Status_t_enum::unhealthy;
     return std::nullopt;
 }
 
 /// Enum with 4 possible values
-enum class listTasks_param_status_enum { pending, in_progress, completed, cancelled };
+enum class listTasks_param_status_enum {
+    pending,
+    in_progress,
+    completed,
+    cancelled
+};
 
 inline std::string_view to_string(listTasks_param_status_enum e) {
     switch (e) {
-    case listTasks_param_status_enum::pending:
-        return "pending";
-    case listTasks_param_status_enum::in_progress:
-        return "in_progress";
-    case listTasks_param_status_enum::completed:
-        return "completed";
-    case listTasks_param_status_enum::cancelled:
-        return "cancelled";
+    case listTasks_param_status_enum::pending: return "pending";
+    case listTasks_param_status_enum::in_progress: return "in_progress";
+    case listTasks_param_status_enum::completed: return "completed";
+    case listTasks_param_status_enum::cancelled: return "cancelled";
     }
     return "";
 }
 
-inline std::optional<listTasks_param_status_enum>
-listTasks_param_status_enum_from_string(std::string_view s) {
-    if (s == "pending")
-        return listTasks_param_status_enum::pending;
-    if (s == "in_progress")
-        return listTasks_param_status_enum::in_progress;
-    if (s == "completed")
-        return listTasks_param_status_enum::completed;
-    if (s == "cancelled")
-        return listTasks_param_status_enum::cancelled;
+inline std::optional<listTasks_param_status_enum> listTasks_param_status_enum_from_string(std::string_view s) {
+    if (s == "pending") return listTasks_param_status_enum::pending;
+    if (s == "in_progress") return listTasks_param_status_enum::in_progress;
+    if (s == "completed") return listTasks_param_status_enum::completed;
+    if (s == "cancelled") return listTasks_param_status_enum::cancelled;
     return std::nullopt;
 }
 
@@ -218,19 +200,18 @@ struct User {
         static constexpr size_t NAME_MAX_LENGTH = 100;
     };
 
-    static_assert(metadata::EMAIL_MIN_LENGTH <= metadata::EMAIL_MAX_LENGTH,
-                  "email: min_length must be <= max_length");
-    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH,
-                  "name: min_length must be <= max_length");
+    static_assert(metadata::EMAIL_MIN_LENGTH <= metadata::EMAIL_MAX_LENGTH, "email: min_length must be <= max_length");
+    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
 
     explicit User(monotonic_arena* arena = nullptr)
-        : arena_(arena), email(arena_allocator<char>(arena)), name(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          email(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     int64_t id;
     arena_string<> email;
     /// Optional field
-    arena_string<> name;
+    std::optional<arena_string<>> name;
 };
 
 using User_Id_t = int64_t;
@@ -259,25 +240,22 @@ struct CreateTaskRequest {
         static constexpr bool DUE_DATE_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH,
-                  "title: min_length must be <= max_length");
-    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM,
-                  "priority: minimum must be <= maximum");
+    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
+    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
 
     explicit CreateTaskRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), title(arena_allocator<char>(arena)),
-          description(arena_allocator<char>(arena)), tags(arena_allocator<arena_string<>>(arena)),
-          due_date(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          title(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> title;
     /// Optional field
-    arena_string<> description;
+    std::optional<arena_string<>> description;
     int64_t priority;
     /// Optional field
-    arena_vector<arena_string<>> tags;
+    std::optional<arena_vector<arena_string<>>> tags;
     /// Optional field
-    std::optional<int64_t> assignee_id = {};
+    std::optional<int64_t> assignee_id;
     /// Optional field
     std::optional<arena_string<>> due_date;
 };
@@ -317,29 +295,25 @@ struct UpdateTaskRequest {
         static constexpr bool DUE_DATE_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH,
-                  "title: min_length must be <= max_length");
-    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM,
-                  "priority: minimum must be <= maximum");
+    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
+    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
 
     explicit UpdateTaskRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), title(arena_allocator<char>(arena)),
-          description(arena_allocator<char>(arena)), tags(arena_allocator<arena_string<>>(arena)),
-          due_date(arena_allocator<char>(arena)) {}
+        : arena_(arena) {}
 
     monotonic_arena* arena_;
     /// Optional field
-    arena_string<> title;
+    std::optional<arena_string<>> title;
     /// Optional field
-    arena_string<> description;
+    std::optional<arena_string<>> description;
     /// Optional field
-    UpdateTaskRequest_Status_t_enum status = {};
+    std::optional<UpdateTaskRequest_Status_t_enum> status;
     /// Optional field
-    int64_t priority = {};
+    std::optional<int64_t> priority;
     /// Optional field
-    arena_vector<arena_string<>> tags;
+    std::optional<arena_vector<arena_string<>>> tags;
     /// Optional field
-    std::optional<int64_t> assignee_id = {};
+    std::optional<int64_t> assignee_id;
     /// Optional field
     std::optional<arena_string<>> due_date;
 };
@@ -372,8 +346,10 @@ struct BatchCreateResponse_Item_t_1 {
         static constexpr bool ERROR_REQUIRED = true;
     };
 
+
     explicit BatchCreateResponse_Item_t_1(monotonic_arena* arena = nullptr)
-        : arena_(arena), error(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          error(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     int64_t index;
@@ -408,38 +384,31 @@ struct SearchRequest {
         static constexpr bool HAS_ASSIGNEE_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_CONTAINS_MIN_LENGTH <= metadata::TITLE_CONTAINS_MAX_LENGTH,
-                  "title_contains: min_length must be <= max_length");
-    static_assert(metadata::STATUSES_MIN_ITEMS <= metadata::STATUSES_MAX_ITEMS,
-                  "statuses: min_items must be <= max_items");
-    static_assert(metadata::MIN_PRIORITY_MINIMUM <= metadata::MIN_PRIORITY_MAXIMUM,
-                  "min_priority: minimum must be <= maximum");
-    static_assert(metadata::MAX_PRIORITY_MINIMUM <= metadata::MAX_PRIORITY_MAXIMUM,
-                  "max_priority: minimum must be <= maximum");
+    static_assert(metadata::TITLE_CONTAINS_MIN_LENGTH <= metadata::TITLE_CONTAINS_MAX_LENGTH, "title_contains: min_length must be <= max_length");
+    static_assert(metadata::STATUSES_MIN_ITEMS <= metadata::STATUSES_MAX_ITEMS, "statuses: min_items must be <= max_items");
+    static_assert(metadata::MIN_PRIORITY_MINIMUM <= metadata::MIN_PRIORITY_MAXIMUM, "min_priority: minimum must be <= maximum");
+    static_assert(metadata::MAX_PRIORITY_MINIMUM <= metadata::MAX_PRIORITY_MAXIMUM, "max_priority: minimum must be <= maximum");
 
     explicit SearchRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), title_contains(arena_allocator<char>(arena)),
-          statuses(arena_allocator<SearchRequest_Item_t_enum>(arena)),
-          tags(arena_allocator<arena_string<>>(arena)), created_after(arena_allocator<char>(arena)),
-          created_before(arena_allocator<char>(arena)) {}
+        : arena_(arena) {}
 
     monotonic_arena* arena_;
     /// Optional field
-    arena_string<> title_contains;
+    std::optional<arena_string<>> title_contains;
     /// Optional field
-    arena_vector<SearchRequest_Item_t_enum> statuses;
+    std::optional<arena_vector<SearchRequest_Item_t_enum>> statuses;
     /// Optional field
-    int64_t min_priority = {};
+    std::optional<int64_t> min_priority;
     /// Optional field
-    int64_t max_priority = {};
+    std::optional<int64_t> max_priority;
     /// Optional field
-    arena_vector<arena_string<>> tags;
+    std::optional<arena_vector<arena_string<>>> tags;
     /// Optional field
-    arena_string<> created_after;
+    std::optional<arena_string<>> created_after;
     /// Optional field
-    arena_string<> created_before;
+    std::optional<arena_string<>> created_before;
     /// Optional field
-    bool has_assignee = {};
+    std::optional<bool> has_assignee;
 };
 
 using SearchRequest_Title_contains_t = arena_string<>;
@@ -480,16 +449,18 @@ struct HealthResponse {
         static constexpr double TOTAL_REQUESTS_MINIMUM = 0;
     };
 
+
     explicit HealthResponse(monotonic_arena* arena = nullptr)
-        : arena_(arena), timestamp(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          timestamp(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     HealthResponse_Status_t_enum status;
     arena_string<> timestamp;
     /// Optional field
-    int64_t uptime_seconds = {};
+    std::optional<int64_t> uptime_seconds;
     /// Optional field
-    int64_t total_requests = {};
+    std::optional<int64_t> total_requests;
 };
 
 using HealthResponse_Status_t = HealthResponse_Status_t_enum;
@@ -511,18 +482,20 @@ struct ProblemDetails {
         static constexpr bool INSTANCE_REQUIRED = false;
     };
 
+
     explicit ProblemDetails(monotonic_arena* arena = nullptr)
-        : arena_(arena), type(arena_allocator<char>(arena)), title(arena_allocator<char>(arena)),
-          detail(arena_allocator<char>(arena)), instance(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          type(arena_allocator<char>(arena)),
+          title(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> type;
     arena_string<> title;
     int64_t status;
     /// Optional field
-    arena_string<> detail;
+    std::optional<arena_string<>> detail;
     /// Optional field
-    arena_string<> instance;
+    std::optional<arena_string<>> instance;
 };
 
 using ProblemDetails_Type_t = arena_string<>;
@@ -604,35 +577,32 @@ struct Task {
         static constexpr bool METADATA_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH,
-                  "title: min_length must be <= max_length");
-    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM,
-                  "priority: minimum must be <= maximum");
+    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
+    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
 
     explicit Task(monotonic_arena* arena = nullptr)
-        : arena_(arena), title(arena_allocator<char>(arena)),
-          description(arena_allocator<char>(arena)), tags(arena_allocator<arena_string<>>(arena)),
-          due_date(arena_allocator<char>(arena)), created_at(arena_allocator<char>(arena)),
-          updated_at(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          title(arena_allocator<char>(arena)),
+          created_at(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     int64_t id;
     arena_string<> title;
     /// Optional field
-    arena_string<> description;
+    std::optional<arena_string<>> description;
     Task_Status_t_enum status;
     int64_t priority;
     /// Optional field
-    arena_vector<arena_string<>> tags;
+    std::optional<arena_vector<arena_string<>>> tags;
     /// Optional field
-    User assignee;
+    std::optional<User> assignee;
     /// Optional field
     std::optional<arena_string<>> due_date;
     arena_string<> created_at;
     /// Optional field
     std::optional<arena_string<>> updated_at;
     /// Optional field
-    std::monostate metadata = {};
+    std::optional<std::monostate> metadata;
 };
 
 /// Data type with 1 fields
@@ -644,11 +614,11 @@ struct BatchCreateRequest {
         static constexpr size_t TASKS_MAX_ITEMS = 100;
     };
 
-    static_assert(metadata::TASKS_MIN_ITEMS <= metadata::TASKS_MAX_ITEMS,
-                  "tasks: min_items must be <= max_items");
+    static_assert(metadata::TASKS_MIN_ITEMS <= metadata::TASKS_MAX_ITEMS, "tasks: min_items must be <= max_items");
 
     explicit BatchCreateRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), tasks(arena_allocator<CreateTaskRequest>(arena)) {}
+        : arena_(arena),
+          tasks(arena_allocator<CreateTaskRequest>(arena)) {}
 
     monotonic_arena* arena_;
     arena_vector<CreateTaskRequest> tasks;
@@ -666,8 +636,10 @@ struct BatchCreateResponse {
         static constexpr bool FAILED_REQUIRED = true;
     };
 
+
     explicit BatchCreateResponse(monotonic_arena* arena = nullptr)
-        : arena_(arena), created(arena_allocator<Task>(arena)),
+        : arena_(arena),
+          created(arena_allocator<Task>(arena)),
           failed(arena_allocator<BatchCreateResponse_Item_t_1>(arena)) {}
 
     monotonic_arena* arena_;
@@ -687,14 +659,17 @@ struct TaskList {
         static constexpr bool HAS_MORE_REQUIRED = false;
     };
 
+
     explicit TaskList(monotonic_arena* arena = nullptr)
-        : arena_(arena), tasks(arena_allocator<Task>(arena)) {}
+        : arena_(arena),
+          tasks(arena_allocator<Task>(arena)) {}
 
     monotonic_arena* arena_;
     arena_vector<Task> tasks;
     int64_t total;
     /// Optional field
-    bool has_more = {};
+    std::optional<bool> has_more;
 };
 
 using TaskList_Tasks_t = arena_vector<Task>;
+

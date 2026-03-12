@@ -309,39 +309,24 @@ void generate_validator_for_schema(std::ostream& out,
         }
         using katana::openapi::schema_kind;
 
-        std::string prop_name_upper(prop.name.begin(), prop.name.end());
-        for (auto& c : prop_name_upper) {
-            if (c == '-' || c == ' ')
-                c = '_';
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
-        const std::string prop_name_str(prop.name);
-        const std::string obj_prefix = "obj." + prop_name_str;
-        const std::string deref_prefix = "*obj." + prop_name_str;
-        bool is_optional = prop.type->nullable;
+        const auto prop_name_upper = metadata_constant_identifier(prop.name);
+        const auto member_name = property_member_identifier(prop.name);
+        const std::string obj_prefix = "obj." + member_name;
+        const std::string deref_prefix = "(*obj." + member_name + ")";
+        bool is_optional = is_optional_property(prop);
 
         // Skip required check for enums - they're strongly typed and can't be empty
         bool is_enum = prop.type->kind == schema_kind::string && !prop.type->enum_values.empty();
 
-        if (prop.required && prop.type->kind == schema_kind::string && !is_enum) {
-            if (is_optional) {
-                out << "    if (!obj." << prop.name << ") {\n";
-                out << "        return validation_error{\"" << prop.name
-                    << "\", validation_error_code::required_field_missing};\n";
-                out << "    }\n";
-            } else {
-                out << "    if (obj." << prop.name << ".empty()) {\n";
-                out << "        return validation_error{\"" << prop.name
-                    << "\", validation_error_code::required_field_missing};\n";
-                out << "    }\n";
-            }
+        if (prop.required && prop.type->kind == schema_kind::string && !is_enum && !is_optional) {
+            out << "    if (" << obj_prefix << ".empty()) {\n";
+            out << "        return validation_error{\"" << prop.name
+                << "\", validation_error_code::required_field_missing};\n";
+            out << "    }\n";
         }
         if (prop.required && prop.type->kind == schema_kind::array && prop.type->min_items &&
-            *prop.type->min_items > 0) {
-            out << "    if ("
-                << (is_optional ? "!" + obj_prefix + " || " + obj_prefix + "->empty()"
-                                : obj_prefix + ".empty()")
-                << ") {\n";
+            *prop.type->min_items > 0 && !is_optional) {
+            out << "    if (" << obj_prefix << ".empty()) {\n";
             out << "        return validation_error{\"" << prop.name
                 << "\", validation_error_code::required_field_missing};\n";
             out << "    }\n";
@@ -420,11 +405,11 @@ void generate_validator_for_schema(std::ostream& out,
                     out << "        static const std::regex re_{\""
                         << escape_cpp_string(prop.type->pattern) << "\"};\n";
                     if (is_optional) {
-                        out << "        if (obj." << prop.name << " && !obj." << prop.name
-                            << "->empty() && !std::regex_match(*obj." << prop.name << ", re_)) {\n";
+                        out << "        if (" << obj_prefix << " && !" << obj_prefix
+                            << "->empty() && !std::regex_match(" << deref_prefix << ", re_)) {\n";
                     } else {
-                        out << "        if (!obj." << prop.name
-                            << ".empty() && !std::regex_match(obj." << prop.name << ", re_)) {\n";
+                        out << "        if (!" << obj_prefix
+                            << ".empty() && !std::regex_match(" << obj_prefix << ", re_)) {\n";
                     }
                     out << "            return validation_error{\"" << prop.name
                         << "\", validation_error_code::pattern_mismatch};\n";
@@ -527,12 +512,14 @@ void generate_validator_for_schema(std::ostream& out,
                 out << "    {\n";
                 if (is_optional) {
                     out << "        if (!" << obj_prefix << ") {\n";
-                    out << "            return std::nullopt;\n";
+                    out << "            // nullable/omitted array: uniqueness check does not apply\n";
+                    out << "        } else {\n";
+                    if (prop.type->items) {
+                        generate_unique_items_check(out, doc, prop.name, deref_prefix, prop.type->items);
+                    }
                     out << "        }\n";
-                }
-                if (prop.type->items) {
-                    std::string arr_expr = is_optional ? deref_prefix : obj_prefix;
-                    generate_unique_items_check(out, doc, prop.name, arr_expr, prop.type->items);
+                } else if (prop.type->items) {
+                    generate_unique_items_check(out, doc, prop.name, obj_prefix, prop.type->items);
                 }
                 out << "    }\n";
             }

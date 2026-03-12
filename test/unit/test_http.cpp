@@ -1,5 +1,6 @@
 #include "katana/core/arena.hpp"
 #include "katana/core/http.hpp"
+#include "katana/core/http_utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -8,6 +9,7 @@
 
 using namespace katana;
 using namespace katana::http;
+using namespace katana::http_utils;
 using katana::monotonic_arena;
 
 TEST(HttpParser, ParseSimpleGetRequest) {
@@ -270,6 +272,25 @@ TEST(HttpParser, ParsePipelinedPostRequestsWithBodiesIncrementallyViaWritableCom
         advance_completed_requests();
     }
     EXPECT_EQ(completed, 20);
+}
+
+TEST(HttpUtils, FindContentTypeMatchesExactTypeWithParameters) {
+    constexpr std::array<content_type_info, 1> allowed = {
+        content_type_info{"application/json"},
+    };
+
+    auto match = find_content_type(std::string_view("application/json; charset=utf-8"), allowed);
+    ASSERT_TRUE(match.has_value());
+    EXPECT_EQ(*match, 0U);
+}
+
+TEST(HttpUtils, FindContentTypeRejectsInvalidPrefixMatches) {
+    constexpr std::array<content_type_info, 1> allowed = {
+        content_type_info{"application/json"},
+    };
+
+    auto match = find_content_type(std::string_view("application/jsonx"), allowed);
+    EXPECT_FALSE(match.has_value());
 }
 
 TEST(MonotonicArena, ResetReusesExistingSpillBlocks) {

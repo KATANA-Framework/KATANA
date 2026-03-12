@@ -75,14 +75,20 @@ size_t inline_arena_array_capacity(const katana::openapi::schema* s) {
     return DEFAULT_INLINE_ARENA_ARRAY_CAPACITY;
 }
 
+std::string member_expr(std::string_view object_expr, std::string_view property_name) {
+    return std::string(object_expr) + "." + property_member_identifier(property_name);
+}
+
 // Generate the field parsing body for a single property (reusable across strategies)
 void generate_field_parse_body(std::ostream& out,
                                const document& doc,
                                const katana::openapi::property& prop,
                                bool use_pmr,
                                const std::string& indent) {
+    const auto member_name = property_member_identifier(prop.name);
+    const bool is_optional = is_optional_property(prop);
     if (prop.required) {
-        out << indent << "    has_" << prop.name << " = true;\n";
+        out << indent << "    has_" << member_name << " = true;\n";
     }
     if (!prop.type) {
         out << indent << "    cur.skip_value();\n";
@@ -95,44 +101,53 @@ void generate_field_parse_body(std::ostream& out,
         out << indent << "    if (auto v = cur.string()) {\n";
         out << indent << "        auto enum_val = " << nested_name
             << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
-        out << indent << "        if (enum_val) obj." << prop.name << " = *enum_val;\n";
+        out << indent << "        if (enum_val) obj." << member_name << " = *enum_val;\n";
         out << indent << "    } else { cur.skip_value(); }\n";
     } else {
         switch (prop.type->kind) {
         case schema_kind::string:
             out << indent << "    if (auto v = cur.string()) {\n";
             if (use_pmr) {
-                out << indent << "        obj." << prop.name
+                out << indent << "        obj." << member_name
                     << " = arena_string<>(v->begin(), v->end(), "
                        "arena_allocator<char>(arena));\n";
             } else {
-                out << indent << "        obj." << prop.name
+                out << indent << "        obj." << member_name
                     << " = std::string(v->begin(), v->end());\n";
             }
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::integer:
             out << indent << "    if (auto v = katana::serde::parse_int64(cur)) {\n";
-            out << indent << "        obj." << prop.name << " = *v;\n";
+            out << indent << "        obj." << member_name << " = *v;\n";
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::number:
             out << indent << "    if (auto v = katana::serde::parse_double(cur)) {\n";
-            out << indent << "        obj." << prop.name << " = *v;\n";
+            out << indent << "        obj." << member_name << " = *v;\n";
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::boolean:
             out << indent << "    if (auto v = katana::serde::parse_bool(cur)) {\n";
-            out << indent << "        obj." << prop.name << " = *v;\n";
+            out << indent << "        obj." << member_name << " = *v;\n";
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::array:
             out << indent << "    if (cur.try_array_start()) {\n";
+            if (is_optional) {
+                if (use_pmr) {
+                    out << indent << "        obj." << member_name << ".emplace(arena);\n";
+                } else {
+                    out << indent << "        obj." << member_name << ".emplace();\n";
+                }
+            }
             out << indent << "        while (!cur.eof()) {\n";
             out << indent << "            cur.skip_ws();\n";
             out << indent << "            if (cur.try_array_end()) break;\n";
             if (prop.type->items) {
                 auto* item = prop.type->items;
+                const std::string array_expr =
+                    is_optional ? "(*obj." + member_name + ")" : "obj." + member_name;
                 switch (item->kind) {
                 case schema_kind::string:
                     if (!item->enum_values.empty()) {
@@ -140,17 +155,17 @@ void generate_field_parse_body(std::ostream& out,
                         out << indent << "            if (auto v = cur.string()) {\n";
                         out << indent << "                auto enum_val = " << enum_item_name
                             << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
-                        out << indent << "                if (enum_val) obj." << prop.name
+                        out << indent << "                if (enum_val) " << array_expr
                             << ".push_back(*enum_val);\n";
                         out << indent << "            } else { cur.skip_value(); }\n";
                     } else {
                         out << indent << "            if (auto v = cur.string()) {\n";
                         if (use_pmr) {
-                            out << indent << "                obj." << prop.name
+                            out << indent << "                " << array_expr
                                 << ".emplace_back(v->begin(), v->end(), "
                                    "arena_allocator<char>(arena));\n";
                         } else {
-                            out << indent << "                obj." << prop.name
+                            out << indent << "                " << array_expr
                                 << ".emplace_back(v->begin(), v->end());\n";
                         }
                         out << indent << "            } else { cur.skip_value(); }\n";
@@ -160,28 +175,28 @@ void generate_field_parse_body(std::ostream& out,
                     out << indent
                         << "            if (auto v = "
                            "katana::serde::parse_int64(cur)) {\n";
-                    out << indent << "                obj." << prop.name << ".push_back(*v);\n";
+                    out << indent << "                " << array_expr << ".push_back(*v);\n";
                     out << indent << "            } else { cur.skip_value(); }\n";
                     break;
                 case schema_kind::number:
                     out << indent
                         << "            if (auto v = "
                            "katana::serde::parse_double(cur)) {\n";
-                    out << indent << "                obj." << prop.name << ".push_back(*v);\n";
+                    out << indent << "                " << array_expr << ".push_back(*v);\n";
                     out << indent << "            } else { cur.skip_value(); }\n";
                     break;
                 case schema_kind::boolean:
                     out << indent
                         << "            if (auto v = "
                            "katana::serde::parse_bool(cur)) {\n";
-                    out << indent << "                obj." << prop.name << ".push_back(*v);\n";
+                    out << indent << "                " << array_expr << ".push_back(*v);\n";
                     out << indent << "            } else { cur.skip_value(); }\n";
                     break;
                 case schema_kind::object: {
                     auto nested_array_name = schema_identifier(doc, item);
                     if (!nested_array_name.empty()) {
                         out << indent << "            if (auto nested = parse_" << nested_array_name
-                            << "(cur, arena)) { obj." << prop.name
+                            << "(cur, arena)) { " << array_expr
                             << ".push_back(std::move(*nested)); }\n";
                         out << indent << "            else { cur.skip_value(); }\n";
                     } else {
@@ -205,7 +220,7 @@ void generate_field_parse_body(std::ostream& out,
             if (!nested_obj_name.empty()) {
                 out << indent << "    if (auto nested = parse_" << nested_obj_name
                     << "(cur, arena)) {\n";
-                out << indent << "        obj." << prop.name << " = std::move(*nested);\n";
+                out << indent << "        obj." << member_name << " = std::move(*nested);\n";
                 out << indent << "    } else { cur.skip_value(); }\n";
             } else {
                 out << indent << "    cur.skip_value();\n";
@@ -296,9 +311,8 @@ void emit_runtime_reserve_adjustment(std::ostream& out,
         return;
     }
 
-    const std::string field_expr =
-        std::string(object_expr) + "." + std::string(prop.name.data(), prop.name.size());
-    const bool is_optional = prop.type->nullable;
+    const std::string field_expr = member_expr(object_expr, prop.name);
+    const bool is_optional = is_optional_property(prop);
 
     auto emit_optional = [&](const std::string& add_expr) {
         if (is_optional) {
@@ -509,7 +523,7 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
     // track required properties
     for (const auto& prop : s.properties) {
         if (prop.required) {
-            out << "    bool has_" << prop.name << " = false;\n";
+            out << "    bool has_" << property_member_identifier(prop.name) << " = false;\n";
         }
     }
     out << "\n";
@@ -525,7 +539,7 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
     if (field_count <= 3) {
         // Strategy 1: Linear chain (1-3 fields) — branch predictor handles well
         for (const auto& prop : s.properties) {
-            out << "        if (*key == \"" << prop.name << "\") {\n";
+            out << "        if (*key == \"" << escape_cpp_string(prop.name) << "\") {\n";
             generate_field_parse_body(out, doc, prop, use_pmr, "        ");
             out << "        } else ";
         }
@@ -546,10 +560,12 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
             bool first = true;
             for (const auto* prop : props) {
                 if (first) {
-                    out << "            if (*key == \"" << prop->name << "\") {\n";
+                    out << "            if (*key == \"" << escape_cpp_string(prop->name)
+                        << "\") {\n";
                     first = false;
                 } else {
-                    out << "            } else if (*key == \"" << prop->name << "\") {\n";
+                    out << "            } else if (*key == \"" << escape_cpp_string(prop->name)
+                        << "\") {\n";
                 }
                 generate_field_parse_body(out, doc, *prop, use_pmr, "            ");
             }
@@ -572,8 +588,10 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
         out << "            switch (fnv1a(*key)) {\n";
         for (const auto& prop : s.properties) {
             uint64_t hash = fnv1a_hash(prop.name);
-            out << "            case " << hash << "ull: // \"" << prop.name << "\"\n";
-            out << "                if (*key == \"" << prop.name << "\") {\n";
+            out << "            case " << hash << "ull: // \"" << escape_cpp_string(prop.name)
+                << "\"\n";
+            out << "                if (*key == \"" << escape_cpp_string(prop.name)
+                << "\") {\n";
             generate_field_parse_body(out, doc, prop, use_pmr, "                ");
             out << "                } else { cur.skip_value(); }\n";
             out << "                break;\n";
@@ -590,7 +608,8 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
     // required check
     for (const auto& prop : s.properties) {
         if (prop.required) {
-            out << "    if (!has_" << prop.name << ") return std::nullopt;\n";
+            out << "    if (!has_" << property_member_identifier(prop.name)
+                << ") return std::nullopt;\n";
         }
     }
 
@@ -884,11 +903,13 @@ void generate_json_serializer_for_schema(std::ostream& out,
 
     bool first_field = true;
     for (const auto& prop : s.properties) {
+        const auto member_name = property_member_identifier(prop.name);
+        const auto prop_key = escape_cpp_string(prop.name);
         if (first_field) {
-            out << "    json.append(\"\\\"" << prop.name << "\\\":\");\n";
+            out << "    json.append(\"\\\"" << prop_key << "\\\":\");\n";
             first_field = false;
         } else {
-            out << "    json.append(\",\\\"" << prop.name << "\\\":\");\n";
+            out << "    json.append(\",\\\"" << prop_key << "\\\":\");\n";
         }
 
         if (prop.type) {
@@ -896,19 +917,29 @@ void generate_json_serializer_for_schema(std::ostream& out,
             bool is_enum =
                 prop.type->kind == schema_kind::string && !prop.type->enum_values.empty();
             auto nested_name = schema_identifier(doc, prop.type);
-            bool is_optional = prop.type->nullable;
+            bool is_optional = is_optional_property(prop);
 
             if (is_enum && !nested_name.empty()) {
-                out << "    json.push_back('\"');\n";
-                out << "    json.append(to_string(obj." << prop.name << "));\n";
-                out << "    json.push_back('\"');\n";
+                if (is_optional) {
+                    out << "    if (obj." << member_name << ") {\n";
+                    out << "        json.push_back('\"');\n";
+                    out << "        json.append(to_string(*obj." << member_name << "));\n";
+                    out << "        json.push_back('\"');\n";
+                    out << "    } else {\n";
+                    out << "        json.append(\"null\");\n";
+                    out << "    }\n";
+                } else {
+                    out << "    json.push_back('\"');\n";
+                    out << "    json.append(to_string(obj." << member_name << "));\n";
+                    out << "    json.push_back('\"');\n";
+                }
             } else {
                 switch (prop.type->kind) {
                 case schema_kind::string:
                     if (is_optional) {
-                        out << "    if (obj." << prop.name << ") {\n";
+                        out << "    if (obj." << member_name << ") {\n";
                         out << "        json.push_back('\"');\n";
-                        out << "        katana::serde::escape_json_string_into(*obj." << prop.name
+                        out << "        katana::serde::escape_json_string_into(*obj." << member_name
                             << ", json);\n";
                         out << "        json.push_back('\"');\n";
                         out << "    } else {\n";
@@ -916,7 +947,7 @@ void generate_json_serializer_for_schema(std::ostream& out,
                         out << "    }\n";
                     } else {
                         out << "    json.push_back('\"');\n";
-                        out << "    katana::serde::escape_json_string_into(obj." << prop.name
+                        out << "    katana::serde::escape_json_string_into(obj." << member_name
                             << ", json);\n";
                         out << "    json.push_back('\"');\n";
                     }
@@ -924,13 +955,13 @@ void generate_json_serializer_for_schema(std::ostream& out,
                 case schema_kind::integer:
                     if (is_optional) {
                         out << "    {\n";
-                        out << "        if (!obj." << prop.name << ") {\n";
+                        out << "        if (!obj." << member_name << ") {\n";
                         out << "            json.append(\"null\");\n";
                         out << "        } else {\n";
                         out << "            char buf[32];\n";
                         out << "            auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), "
                                "*obj."
-                            << prop.name << ");\n";
+                            << member_name << ");\n";
                         out << "            json.append(buf, static_cast<size_t>(ptr - buf));\n";
                         out << "        }\n";
                         out << "    }\n";
@@ -938,7 +969,7 @@ void generate_json_serializer_for_schema(std::ostream& out,
                         out << "    {\n";
                         out << "        char buf[32];\n";
                         out << "        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj."
-                            << prop.name << ");\n";
+                            << member_name << ");\n";
                         out << "        json.append(buf, static_cast<size_t>(ptr - buf));\n";
                         out << "    }\n";
                     }
@@ -946,13 +977,14 @@ void generate_json_serializer_for_schema(std::ostream& out,
                 case schema_kind::number:
                     out << "    {\n";
                     if (is_optional) {
-                        out << "        if (!obj." << prop.name << ") {\n";
+                        out << "        if (!obj." << member_name << ") {\n";
                         out << "            json.append(\"null\");\n";
                         out << "        } else {\n";
                     }
                     out << "        char buf[64];\n";
                     out << "        auto res = std::to_chars(buf, buf + sizeof(buf), "
-                        << (is_optional ? "*obj." + prop.name : "obj." + prop.name) << ");\n";
+                        << (is_optional ? "*obj." + member_name : "obj." + member_name)
+                        << ");\n";
                     out << "        if (res.ec == std::errc()) json.append(buf, "
                            "static_cast<size_t>(res.ptr - buf));\n";
                     if (is_optional) {
@@ -962,27 +994,27 @@ void generate_json_serializer_for_schema(std::ostream& out,
                     break;
                 case schema_kind::boolean:
                     if (is_optional) {
-                        out << "    if (!obj." << prop.name << ") {\n";
+                        out << "    if (!obj." << member_name << ") {\n";
                         out << "        json.append(\"null\");\n";
                         out << "    } else {\n";
-                        out << "        json.append(*obj." << prop.name
+                        out << "        json.append(*obj." << member_name
                             << " ? \"true\" : \"false\");\n";
                         out << "    }\n";
                     } else {
-                        out << "    json.append(obj." << prop.name << " ? \"true\" : \"false\");\n";
+                        out << "    json.append(obj." << member_name
+                            << " ? \"true\" : \"false\");\n";
                     }
                     break;
                 case schema_kind::array:
                     if (is_optional) {
-                        out << "    if (!obj." << prop.name << ") {\n";
+                        out << "    if (!obj." << member_name << ") {\n";
                         out << "        json.append(\"null\");\n";
-                        out << "        break;\n";
-                        out << "    }\n";
+                        out << "    } else {\n";
                     }
                     out << "    json.push_back('[');\n";
                     out << "    for (size_t i = 0; i < "
-                        << (is_optional ? "obj." + prop.name + "->size()"
-                                        : "obj." + prop.name + ".size()")
+                        << (is_optional ? "obj." + member_name + "->size()"
+                                        : "obj." + member_name + ".size()")
                         << "; ++i) {\n";
                     out << "        if (i > 0) json.push_back(',');\n";
                     if (prop.type->items) {
@@ -991,15 +1023,15 @@ void generate_json_serializer_for_schema(std::ostream& out,
                             if (!prop.type->items->enum_values.empty()) {
                                 out << "        json.push_back('\"');\n";
                                 out << "        json.append(to_string("
-                                    << (is_optional ? "(*obj." + prop.name + ")[i]"
-                                                    : "obj." + prop.name + "[i]")
+                                    << (is_optional ? "(*obj." + member_name + ")[i]"
+                                                    : "obj." + member_name + "[i]")
                                     << "));\n";
                                 out << "        json.push_back('\"');\n";
                             } else {
                                 out << "        json.push_back('\"');\n";
                                 out << "        katana::serde::escape_json_string_into("
-                                    << (is_optional ? "(*obj." + prop.name + ")[i]"
-                                                    : "obj." + prop.name + "[i]")
+                                    << (is_optional ? "(*obj." + member_name + ")[i]"
+                                                    : "obj." + member_name + "[i]")
                                     << ", json);\n";
                                 out << "        json.push_back('\"');\n";
                             }
@@ -1009,8 +1041,8 @@ void generate_json_serializer_for_schema(std::ostream& out,
                             out << "            char buf[32];\n";
                             out << "            auto [ptr, ec] = std::to_chars(buf, buf + "
                                    "sizeof(buf), "
-                                << (is_optional ? "(*obj." + prop.name + ")[i]"
-                                                : "obj." + prop.name + "[i]")
+                                << (is_optional ? "(*obj." + member_name + ")[i]"
+                                                : "obj." + member_name + "[i]")
                                 << ");\n";
                             out << "            json.append(buf, static_cast<size_t>(ptr - "
                                    "buf));\n";
@@ -1020,8 +1052,8 @@ void generate_json_serializer_for_schema(std::ostream& out,
                             out << "        {\n";
                             out << "            char buf[64];\n";
                             out << "            auto res = std::to_chars(buf, buf + sizeof(buf), "
-                                << (is_optional ? "(*obj." + prop.name + ")[i]"
-                                                : "obj." + prop.name + "[i]")
+                                << (is_optional ? "(*obj." + member_name + ")[i]"
+                                                : "obj." + member_name + "[i]")
                                 << ");\n";
                             out << "            if (res.ec == std::errc()) json.append(buf, "
                                    "static_cast<size_t>(res.ptr - buf));\n";
@@ -1029,15 +1061,15 @@ void generate_json_serializer_for_schema(std::ostream& out,
                             break;
                         case schema_kind::boolean:
                             out << "        json.append("
-                                << (is_optional ? "(*obj." + prop.name + ")[i]"
-                                                : "obj." + prop.name + "[i]")
+                                << (is_optional ? "(*obj." + member_name + ")[i]"
+                                                : "obj." + member_name + "[i]")
                                 << " ? \"true\" : \"false\");\n";
                             break;
                         case schema_kind::object: {
                             auto nested_array_name = schema_identifier(doc, prop.type->items);
                             out << "        serialize_" << nested_array_name << "_into("
-                                << (is_optional ? "(*obj." + prop.name + ")[i]"
-                                                : "obj." + prop.name + "[i]")
+                                << (is_optional ? "(*obj." + member_name + ")[i]"
+                                                : "obj." + member_name + "[i]")
                                 << ", json);\n";
                             break;
                         }
@@ -1054,10 +1086,22 @@ void generate_json_serializer_for_schema(std::ostream& out,
                     }
                     out << "    }\n";
                     out << "    json.push_back(']');\n";
+                    if (is_optional) {
+                        out << "    }\n";
+                    }
                     break;
                 case schema_kind::object:
-                    out << "    serialize_" << nested_name << "_into(obj." << prop.name
-                        << ", json);\n";
+                    if (is_optional) {
+                        out << "    if (obj." << member_name << ") {\n";
+                        out << "        serialize_" << nested_name << "_into(*obj." << member_name
+                            << ", json);\n";
+                        out << "    } else {\n";
+                        out << "        json.append(\"null\");\n";
+                        out << "    }\n";
+                    } else {
+                        out << "    serialize_" << nested_name << "_into(obj." << member_name
+                            << ", json);\n";
+                    }
                     break;
                 case schema_kind::null_type:
                     out << "    json.append(\"null\");\n";

@@ -109,7 +109,7 @@ components:
 
     EXPECT_NE(dto.find("// layer: flat"), std::string::npos);
     EXPECT_NE(dto.find("struct User"), std::string::npos);
-    EXPECT_NE(dto.find("arena_string<> name;"), std::string::npos);
+    EXPECT_NE(dto.find("std::optional<arena_string<>> name;"), std::string::npos);
     // Verify it compiles by checking for valid C++ struct syntax
     EXPECT_NE(dto.find("explicit User("), std::string::npos);
 }

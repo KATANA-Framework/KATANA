@@ -1905,6 +1905,10 @@ def _metric_direction(metric_name: str) -> Optional[str]:
     return None
 
 
+WRK_COMPARISON_METRICS = {"throughput", "errors"}
+WRK_POLICY_NOTE = "wrk_http compares throughput/errors only and requires repeated runs on both current and baseline."
+
+
 def _cv_pct(metric_stats: Dict[str, float]) -> Optional[float]:
     mean = metric_stats.get("mean")
     stddev = metric_stats.get("stddev")
@@ -1921,6 +1925,8 @@ def _extract_metrics(report_json: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         stage_id = stage.get("stage_id")
         if stage.get("success") is False:
             continue
+        stage_kind = stage.get("config", {}).get("kind")
+        run_count = int(stage.get("run_count") or 0)
 
         by_name = {b.get("name"): b for b in stage.get("benchmarks", []) if b.get("name")}
         by_stats = stage.get("benchmark_stats", {})
@@ -1957,11 +1963,16 @@ def _extract_metrics(report_json: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
                     if isinstance(p50, (int, float)):
                         value = float(p50)
                     cv = _cv_pct(metric_stats)
+                    sample_count = int(metric_stats.get("count", 0) or 0)
+                else:
+                    sample_count = 0
 
                 if value is None:
                     raw = bench.get(metric_name)
                     if isinstance(raw, (int, float)):
                         value = float(raw)
+                        if sample_count == 0:
+                            sample_count = 1
 
                 if value is None:
                     continue
@@ -1978,8 +1989,30 @@ def _extract_metrics(report_json: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
                     "stage_id": stage_id,
                     "benchmark": bench_name,
                     "metric": metric_name,
+                    "stage_kind": stage_kind,
+                    "run_count": run_count,
+                    "sample_count": sample_count,
                 }
     return metrics
+
+
+def _comparison_policy_reason(
+    current_metric: Dict[str, Any],
+    baseline_metric: Dict[str, Any],
+) -> Optional[str]:
+    if current_metric.get("stage_kind") != "wrk_http" and baseline_metric.get("stage_kind") != "wrk_http":
+        return None
+
+    metric_name = str(current_metric.get("metric") or baseline_metric.get("metric") or "")
+    if metric_name not in WRK_COMPARISON_METRICS:
+        return "wrk_informational_only"
+
+    current_samples = int(current_metric.get("sample_count") or 0)
+    baseline_samples = int(baseline_metric.get("sample_count") or 0)
+    if current_samples < 2 or baseline_samples < 2:
+        return "wrk_requires_repeats"
+
+    return None
 
 
 def compare_reports_with_cv(
@@ -2003,6 +2036,10 @@ def compare_reports_with_cv(
             "hard_regressions_count": 0,
             "noisy_regressions_count": 0,
             "improvements_count": 0,
+            "policy_skipped": [],
+            "policy_skipped_count": 0,
+            "policy_skipped_breakdown": {},
+            "policy_notes": [WRK_POLICY_NOTE],
         }
     common_keys = sorted(set(current_metrics.keys()) & set(baseline_metrics.keys()))
 
@@ -2010,10 +2047,26 @@ def compare_reports_with_cv(
     noisy_regressions: List[Dict[str, Any]] = []
     improvements: List[Dict[str, Any]] = []
     unchanged: List[Dict[str, Any]] = []
+    policy_skipped: List[Dict[str, Any]] = []
 
     for key in common_keys:
         cur = current_metrics[key]
         base = baseline_metrics[key]
+        skip_reason = _comparison_policy_reason(cur, base)
+        if skip_reason is not None:
+            policy_skipped.append(
+                {
+                    "key": key,
+                    "stage_id": cur["stage_id"],
+                    "benchmark": cur["benchmark"],
+                    "metric": cur["metric"],
+                    "reason": skip_reason,
+                    "current_sample_count": cur.get("sample_count"),
+                    "baseline_sample_count": base.get("sample_count"),
+                }
+            )
+            continue
+
         cur_value = float(cur["value"])
         base_value = float(base["value"])
         if base_value == 0.0:
@@ -2058,12 +2111,20 @@ def compare_reports_with_cv(
     regressions.sort(key=lambda x: abs(x["delta_pct"]), reverse=True)
     noisy_regressions.sort(key=lambda x: abs(x["delta_pct"]), reverse=True)
     improvements.sort(key=lambda x: abs(x["delta_pct"]), reverse=True)
+    policy_skipped.sort(key=lambda x: (str(x["reason"]), str(x["key"])))
+
+    policy_skipped_breakdown: Dict[str, int] = {}
+    for item in policy_skipped:
+        reason = str(item["reason"])
+        policy_skipped_breakdown[reason] = policy_skipped_breakdown.get(reason, 0) + 1
+
+    compared_metrics = len(regressions) + len(noisy_regressions) + len(improvements) + len(unchanged)
 
     return {
         "baseline_loaded": True,
         "threshold_pct": threshold_pct,
         "cv_threshold_pct": cv_threshold_pct,
-        "compared_metrics": len(common_keys),
+        "compared_metrics": compared_metrics,
         "regressions": regressions,
         "noisy_regressions": noisy_regressions,
         "improvements": improvements,
@@ -2071,6 +2132,10 @@ def compare_reports_with_cv(
         "hard_regressions_count": len(regressions),
         "noisy_regressions_count": len(noisy_regressions),
         "improvements_count": len(improvements),
+        "policy_skipped": policy_skipped,
+        "policy_skipped_count": len(policy_skipped),
+        "policy_skipped_breakdown": policy_skipped_breakdown,
+        "policy_notes": [WRK_POLICY_NOTE],
     }
 
 
@@ -2699,9 +2764,14 @@ def generate_markdown(report: BenchmarkReport) -> str:
                 f"- Hard regressions: {summary.get('hard_regressions_count', 0)}",
                 f"- Noisy regressions (ignored by CV gate): {summary.get('noisy_regressions_count', 0)}",
                 f"- Improvements: {summary.get('improvements_count', 0)}",
+                f"- Policy-skipped metrics: {summary.get('policy_skipped_count', 0)}",
                 f"- Thresholds: delta={summary.get('threshold_pct', 0):.2f}% | CV gate={summary.get('cv_threshold_pct', 0):.2f}%",
                 "",
             ])
+            for note in summary.get("policy_notes", []):
+                lines.append(f"- Policy: {note}")
+            if summary.get("policy_notes"):
+                lines.append("")
 
             hard = summary.get("regressions", [])[:10]
             if hard:
@@ -2716,6 +2786,19 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     base_cv_s = f"{base_cv:.2f}%" if isinstance(base_cv, (int, float)) else "-"
                     lines.append(
                         f"| {item.get('key')} | {item.get('delta_pct', 0):+.2f}% | {cur_cv_s} | {base_cv_s} |"
+                    )
+                lines.append("")
+
+            skipped = summary.get("policy_skipped", [])[:10]
+            if skipped:
+                lines.extend([
+                    "| Policy-Skipped Metric | Reason | Current Samples | Baseline Samples |",
+                    "|-----------------------|--------|-----------------|------------------|",
+                ])
+                for item in skipped:
+                    lines.append(
+                        f"| {item.get('key')} | {item.get('reason')} | "
+                        f"{item.get('current_sample_count', '-')} | {item.get('baseline_sample_count', '-')} |"
                     )
                 lines.append("")
 
@@ -2850,6 +2933,9 @@ def print_comparison_summary(summary: Dict[str, Any]) -> None:
     print(f"  Hard regressions: {summary.get('hard_regressions_count', 0)}")
     print(f"  Noisy regressions: {summary.get('noisy_regressions_count', 0)}")
     print(f"  Improvements: {summary.get('improvements_count', 0)}")
+    print(f"  Policy-skipped metrics: {summary.get('policy_skipped_count', 0)}")
+    for note in summary.get("policy_notes", []):
+        print(f"  Policy: {note}")
 
     hard = summary.get("regressions", [])
     if hard:
@@ -2862,6 +2948,15 @@ def print_comparison_summary(summary: Dict[str, Any]) -> None:
             print(
                 f"    - {item['key']}: {item['delta_pct']:+.2f}% "
                 f"(cur_cv={cur_cv_s}, base_cv={base_cv_s})"
+            )
+
+    skipped = summary.get("policy_skipped", [])
+    if skipped:
+        print("  Top policy-skipped metrics:")
+        for item in skipped[:10]:
+            print(
+                f"    - {item['key']}: {item.get('reason')} "
+                f"(samples {item.get('current_sample_count', '-')}/{item.get('baseline_sample_count', '-')})"
             )
 
 

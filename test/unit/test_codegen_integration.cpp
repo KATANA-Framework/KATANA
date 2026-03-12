@@ -438,3 +438,163 @@ paths:
     auto ast_dump = read_generated_file("openapi_ast.json");
     EXPECT_NE(ast_dump.find("\"id\":\"InlineSchema1\""), std::string::npos);
 }
+
+TEST_F(CodegenIntegrationTest, SanitizesPropertyNamesAndKeepsOptionalPropertiesOptional) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Property Names API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    WeirdFields:
+      type: object
+      required:
+        - display-name
+      properties:
+        display-name:
+          type: string
+        class:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: integer
+)";
+
+    create_openapi_spec("weird_fields.yaml", spec);
+    ASSERT_TRUE(run_codegen("weird_fields.yaml", "dto,serdes,validator"));
+
+    auto dtos = read_generated_file("generated_dtos.hpp");
+    EXPECT_NE(dtos.find("arena_string<> display_name;"), std::string::npos);
+    EXPECT_NE(dtos.find("std::optional<int64_t> class_;"), std::string::npos);
+    EXPECT_NE(dtos.find("std::optional<arena_vector<int64_t"), std::string::npos);
+
+    auto json = read_generated_file("generated_json.hpp");
+    EXPECT_NE(json.find("*key == \"display-name\""), std::string::npos);
+    EXPECT_NE(json.find("obj.display_name ="), std::string::npos);
+    EXPECT_NE(json.find("obj.tags.emplace(arena);"), std::string::npos);
+    EXPECT_NE(json.find("(*obj.tags).push_back"), std::string::npos);
+}
+
+TEST_F(CodegenIntegrationTest, GeneratesDistinctEnumIdentifiersAndEscapedPatterns) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Enum Pattern API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Mode:
+      type: string
+      enum: ["a-b", "a_b"]
+    Patterned:
+      type: object
+      properties:
+        value:
+          type: string
+          pattern: '^[A-Z]+\.[0-9]+$'
+)";
+
+    create_openapi_spec("enum_pattern.yaml", spec);
+    ASSERT_TRUE(run_codegen("enum_pattern.yaml", "dto,validator"));
+
+    auto dtos = read_generated_file("generated_dtos.hpp");
+    EXPECT_NE(dtos.find("enum class Mode_enum"), std::string::npos);
+    EXPECT_NE(dtos.find("a_b,"), std::string::npos);
+    EXPECT_NE(dtos.find("a_b_2"), std::string::npos);
+    EXPECT_NE(dtos.find("^[A-Z]+\\\\\\\\.[0-9]+$"), std::string::npos);
+
+    auto validators = read_generated_file("generated_validators.hpp");
+    EXPECT_NE(validators.find("std::regex re_{\"^[A-Z]+\\\\\\\\.[0-9]+$\"}"),
+              std::string::npos);
+}
+
+TEST_F(CodegenIntegrationTest, ValidatorsDoNotExitEarlyForOptionalUniqueItemsArrays) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Unique Items API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    UniqueList:
+      type: object
+      properties:
+        items:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
+        label:
+          type: string
+          minLength: 3
+)";
+
+    create_openapi_spec("unique_items.yaml", spec);
+    ASSERT_TRUE(run_codegen("unique_items.yaml", "dto,validator,serdes"));
+
+    auto validators = read_generated_file("generated_validators.hpp");
+    EXPECT_NE(validators.find("nullable/omitted array: uniqueness check does not apply"),
+              std::string::npos);
+    EXPECT_EQ(validators.find("if (!obj.items) {\n            return std::nullopt;"),
+              std::string::npos);
+    EXPECT_NE(validators.find("if ((*obj.items).size() <= 64)"), std::string::npos);
+    EXPECT_EQ(validators.find("*obj.items.size()"), std::string::npos);
+    EXPECT_NE(validators.find("obj.label"), std::string::npos);
+
+    auto json = read_generated_file("generated_json.hpp");
+    EXPECT_NE(json.find("json.append(\"\\\"items\\\":\");"), std::string::npos);
+    EXPECT_NE(json.find("if (!obj.items) {\n        json.append(\"null\");\n    } else {"),
+              std::string::npos);
+    EXPECT_NE(json.find("obj.items->size()"), std::string::npos);
+    EXPECT_EQ(json.find("json.append(\"null\");\n        break;"), std::string::npos);
+}
+
+TEST_F(CodegenIntegrationTest, RouterBindingsUseOwnedRoutersAndSharedHttpUtilities) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Router Ownership API
+  version: 1.0.0
+paths:
+  /items:
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: string
+        '204':
+          description: no content
+)";
+
+    create_openapi_spec("router_ownership.yaml", spec);
+    ASSERT_TRUE(run_codegen("router_ownership.yaml", "all"));
+
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
+    EXPECT_NE(bindings.find("class generated_router"), std::string::npos);
+    EXPECT_NE(bindings.find("handler_ptr = &handler"), std::string::npos);
+    EXPECT_NE(bindings.find("negotiate_response_type(req, route_0_produces)"), std::string::npos);
+    EXPECT_NE(bindings.find("find_content_type(req.headers.get(katana::http::field::content_type), route_0_consumes)"),
+              std::string::npos);
+    EXPECT_NE(bindings.find("out.status != 204 && !out.body.empty()"), std::string::npos);
+    EXPECT_NE(bindings.find("class generated_server"), std::string::npos);
+    EXPECT_EQ(bindings.find("static Handler handler_instance"), std::string::npos);
+    EXPECT_EQ(bindings.find("static katana::http::router router_instance"), std::string::npos);
+}

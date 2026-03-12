@@ -1,30 +1,30 @@
 // layer: flat
 // Auto-generated handler interfaces from OpenAPI specification
-//
+// 
 // Zero-boilerplate design:
 //   - Clean signatures: result<void> method(params, response& out)
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
-//
+// 
 // Example:
 //   katana::result<void> get_user(int64_t id, response& out) override {
 //       auto user = db.find(id, &arena());  // arena() from context
-//       out = response::json(serialize_User(user));
+//       respond::into(out).json(serialize_User(user));
 //       return {};
 //   }
 #pragma once
 
-#include "generated_dtos.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/router.hpp"
-#include <optional>
+#include "generated_dtos.hpp"
 #include <string_view>
+#include <optional>
 #include <variant>
 
 using katana::http::request;
-using katana::http::request_context;
 using katana::http::response;
+using katana::http::request_context;
 
 namespace generated {
 
@@ -36,6 +36,7 @@ struct api_handler {
     // POST /compute/sum
     // Compute sum of numbers
     virtual katana::result<void> compute_sum(const compute_sum_request& body, response& out) = 0;
+
 };
 
 // ============================================================================
@@ -47,9 +48,9 @@ struct api_handler {
 // class my_api : public generated::api_handler {
 // public:
 //     // Example 1: Simple request/response with arena allocator
-//     response compute_sum(const compute_sum_request& req) override {
+//     katana::result<void> compute_sum(const compute_sum_request& body, response& out) override {
 //         // Access request fields
-//         auto input = req.text;
+//         auto input = body.text;
 //
 //         // Create response using arena allocator
 //         compute_sum_response resp(&katana::http::arena());
@@ -57,43 +58,49 @@ struct api_handler {
 //         // Process and set response fields
 //         // resp.result = ...your logic here...
 //
-//         // Serialize and return
-//         return response::json(serialize_compute_sum_response(resp));
+//         // Serialize into the provided response
+//         respond::into(out).json(serialize_compute_sum_response(resp));
+//         return {};
 //     }
 //
 //     // Example 2: Error handling
-//     response handle_request(const some_request& req) override {
+//     katana::result<void> handle_request(const some_request& req, response& out) override {
 //         if (req.value < 0) {
-//             return response::bad_request("value must be positive");
+//             out.assign_error(katana::problem_details::bad_request("value must be positive"));
+//             return {};
 //         }
 //         // ... normal processing ...
-//         return response::json(serialize_some_response(resp));
+//         respond::into(out).json(serialize_some_response(resp));
+//         return {};
 //     }
 //
 //     // Example 3: Different response status codes
-//     response create_item(const create_request& req) override {
+//     katana::result<void> create_item(const create_request& req, response& out) override {
 //         auto item = db.create(req, &katana::http::arena());
 //         if (!item) {
-//             return response::internal_error("failed to create item");
+//             out.assign_error(katana::problem_details::internal_server_error("failed to create item"));
+//             return {};
 //         }
-//         return response::created(serialize_item(*item));
+//         respond::into(out).created_json(serialize_item(*item));
+//         return {};
 //     }
 //
 //     // Example 4: Enum handling
-//     response transform_text(const text_transform_request& req) override {
+//     katana::result<void> transform_text(const text_transform_request& req, response& out) override {
 //         std::string result;
 //         switch (req.operation) {
-//             case text_transform_operation::upper:
+//             case text_transform_request_operation_enum::upper:
 //                 result = to_upper(req.text);
 //                 break;
-//             case text_transform_operation::lower:
+//             case text_transform_request_operation_enum::lower:
 //                 result = to_lower(req.text);
 //                 break;
 //             // ... other cases ...
 //         }
 //         text_transform_response resp(&katana::http::arena());
 //         resp.result = result;
-//         return response::json(serialize_text_transform_response(resp));
+//         respond::into(out).json(serialize_text_transform_response(resp));
+//         return {};
 //     }
 // };
 //
@@ -102,11 +109,11 @@ struct api_handler {
 //   - respond::into(out).json(...)
 //   - respond::into(out).created_json(...)
 //   - respond::into(out).no_content()
-//   - out = response::bad_request(message)
-//   - out = response::unauthorized(message)
-//   - out = response::forbidden(message)
-//   - out = response::not_found(message)
-//   - out = response::internal_error(message)
+//   - out.assign_error(katana::problem_details::bad_request(message))
+//   - out.assign_error(katana::problem_details::unauthorized(message))
+//   - out.assign_error(katana::problem_details::forbidden(message))
+//   - out.assign_error(katana::problem_details::not_found(message))
+//   - out.assign_error(katana::problem_details::internal_server_error(message))
 //
 // Context access functions (available in handler methods):
 //   - katana::http::req()    - Get current request
