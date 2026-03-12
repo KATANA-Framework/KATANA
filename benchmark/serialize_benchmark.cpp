@@ -10,8 +10,8 @@
 #include "bench_utils.hpp"
 #include "katana/core/serde.hpp"
 
-using bench_util::clobber_memory;
 using bench_util::build_profile_dataset;
+using bench_util::clobber_memory;
 using bench_util::do_not_optimize;
 using bench_util::profile_mix;
 
@@ -22,7 +22,8 @@ template <typename Fn> void bench(const char* name, int iterations, Fn&& fn) {
     constexpr bool returns_bytes = std::is_same_v<invoke_result, size_t>;
     constexpr int max_rounds = 64;
     constexpr int min_rounds = 3;
-    constexpr double min_measure_seconds = 0.20; // Keep ultra-fast tests above timer/frequency noise.
+    constexpr double min_measure_seconds =
+        0.20; // Keep ultra-fast tests above timer/frequency noise.
 
     for (int i = 0; i < iterations / 10; ++i)
         if constexpr (returns_bytes) {
@@ -56,7 +57,8 @@ template <typename Fn> void bench(const char* name, int iterations, Fn&& fn) {
         measured_seconds += std::chrono::duration<double>(round_end - round_start).count();
 
         if constexpr (returns_bytes) {
-            round_bytes_per_op.push_back(static_cast<double>(round_bytes) / static_cast<double>(iterations));
+            round_bytes_per_op.push_back(static_cast<double>(round_bytes) /
+                                         static_cast<double>(iterations));
         }
 
         if (measured_seconds >= min_measure_seconds && (round + 1) >= min_rounds) {
@@ -70,10 +72,9 @@ template <typename Fn> void bench(const char* name, int iterations, Fn&& fn) {
 
     std::sort(round_ns_per.begin(), round_ns_per.end());
     const size_t mid = round_ns_per.size() / 2;
-    const double ns_per =
-        (round_ns_per.size() % 2 == 0)
-            ? (round_ns_per[mid - 1] + round_ns_per[mid]) * 0.5
-            : round_ns_per[mid];
+    const double ns_per = (round_ns_per.size() % 2 == 0)
+                              ? (round_ns_per[mid - 1] + round_ns_per[mid]) * 0.5
+                              : round_ns_per[mid];
     const double ops = 1e9 / ns_per;
 
     double bytes_per_sec = 0.0;
@@ -88,23 +89,21 @@ template <typename Fn> void bench(const char* name, int iterations, Fn&& fn) {
     }
     if (ns_per < 1000.0) {
         if constexpr (returns_bytes) {
-            std::printf(
-                "  %-45s %8.1f ns    %12.0f ops/sec    %14.0f bytes/sec\n",
-                name,
-                ns_per,
-                ops,
-                bytes_per_sec);
+            std::printf("  %-45s %8.1f ns    %12.0f ops/sec    %14.0f bytes/sec\n",
+                        name,
+                        ns_per,
+                        ops,
+                        bytes_per_sec);
         } else {
             std::printf("  %-45s %8.1f ns    %12.0f ops/sec\n", name, ns_per, ops);
         }
     } else {
         if constexpr (returns_bytes) {
-            std::printf(
-                "  %-45s %8.2f us    %12.0f ops/sec    %14.0f bytes/sec\n",
-                name,
-                ns_per / 1000.0,
-                ops,
-                bytes_per_sec);
+            std::printf("  %-45s %8.2f us    %12.0f ops/sec    %14.0f bytes/sec\n",
+                        name,
+                        ns_per / 1000.0,
+                        ops,
+                        bytes_per_sec);
         } else {
             std::printf("  %-45s %8.2f us    %12.0f ops/sec\n", name, ns_per / 1000.0, ops);
         }
@@ -202,41 +201,39 @@ int main() {
         std::string(1024, '\n'),
     };
 
-    const auto escape_best_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 1,
-        escape_best_pool,
-        escape_typical_pool,
-        escape_hard_pool,
-        profile_mix{1.0, 0.0, 0.0});
-    const auto escape_mixed_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 2,
-        escape_best_pool,
-        escape_typical_pool,
-        escape_hard_pool,
-        profile_mix{0.75, 0.20, 0.05});
-    const auto escape_hard_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 3,
-        escape_best_pool,
-        escape_typical_pool,
-        escape_hard_pool,
-        profile_mix{0.10, 0.20, 0.70});
+    const auto escape_best_dataset = build_profile_dataset(profile_dataset_size,
+                                                           profile_seed + 1,
+                                                           escape_best_pool,
+                                                           escape_typical_pool,
+                                                           escape_hard_pool,
+                                                           profile_mix{1.0, 0.0, 0.0});
+    const auto escape_mixed_dataset = build_profile_dataset(profile_dataset_size,
+                                                            profile_seed + 2,
+                                                            escape_best_pool,
+                                                            escape_typical_pool,
+                                                            escape_hard_pool,
+                                                            profile_mix{0.75, 0.20, 0.05});
+    const auto escape_hard_dataset = build_profile_dataset(profile_dataset_size,
+                                                           profile_seed + 3,
+                                                           escape_best_pool,
+                                                           escape_typical_pool,
+                                                           escape_hard_pool,
+                                                           profile_mix{0.10, 0.20, 0.70});
 
-    auto bench_escape_profile = [&](const char* label, const std::vector<std::string>& ds, int iterations) {
-        std::string out;
-        out.reserve(8192);
-        size_t idx = 0;
-        bench(label, iterations, [&]() -> size_t {
-            const auto& input = ds[idx % ds.size()];
-            ++idx;
-            out.clear();
-            katana::serde::escape_json_string_into(input, out);
-            do_not_optimize(out.data());
-            return input.size();
-        });
-    };
+    auto bench_escape_profile =
+        [&](const char* label, const std::vector<std::string>& ds, int iterations) {
+            std::string out;
+            out.reserve(8192);
+            size_t idx = 0;
+            bench(label, iterations, [&]() -> size_t {
+                const auto& input = ds[idx % ds.size()];
+                ++idx;
+                out.clear();
+                katana::serde::escape_json_string_into(input, out);
+                do_not_optimize(out.data());
+                return input.size();
+            });
+        };
 
     bench_escape_profile("escape profile (best case)", escape_best_dataset, N);
     bench_escape_profile("escape profile (typical mixed)", escape_mixed_dataset, N);
@@ -258,27 +255,24 @@ int main() {
         {std::string(512, '\n'), "heavy@sample.org", std::string(1024, '\t'), 300, true},
     };
 
-    const auto object_best_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 4,
-        object_best_pool,
-        object_typical_pool,
-        object_hard_pool,
-        profile_mix{1.0, 0.0, 0.0});
-    const auto object_mixed_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 5,
-        object_best_pool,
-        object_typical_pool,
-        object_hard_pool,
-        profile_mix{0.70, 0.25, 0.05});
-    const auto object_hard_dataset = build_profile_dataset(
-        profile_dataset_size,
-        profile_seed + 6,
-        object_best_pool,
-        object_typical_pool,
-        object_hard_pool,
-        profile_mix{0.10, 0.20, 0.70});
+    const auto object_best_dataset = build_profile_dataset(profile_dataset_size,
+                                                           profile_seed + 4,
+                                                           object_best_pool,
+                                                           object_typical_pool,
+                                                           object_hard_pool,
+                                                           profile_mix{1.0, 0.0, 0.0});
+    const auto object_mixed_dataset = build_profile_dataset(profile_dataset_size,
+                                                            profile_seed + 5,
+                                                            object_best_pool,
+                                                            object_typical_pool,
+                                                            object_hard_pool,
+                                                            profile_mix{0.70, 0.25, 0.05});
+    const auto object_hard_dataset = build_profile_dataset(profile_dataset_size,
+                                                           profile_seed + 6,
+                                                           object_best_pool,
+                                                           object_typical_pool,
+                                                           object_hard_pool,
+                                                           profile_mix{0.10, 0.20, 0.70});
 
     auto bench_object_profile =
         [&](const char* label, const std::vector<serialization_case>& ds, int iterations) {

@@ -21,9 +21,9 @@ using katana::arena_string;
 using katana::arena_vector;
 using katana::monotonic_arena;
 
+#include <cctype>
 #include <optional>
 #include <string_view>
-#include <cctype>
 
 #include <variant>
 
@@ -46,11 +46,8 @@ struct UserInput {
         static constexpr double AGE_MINIMUM = 0;
     };
 
-
     explicit UserInput(monotonic_arena* arena = nullptr)
-        : arena_(arena),
-          name(arena_allocator<char>(arena)),
-          email(arena_allocator<char>(arena)) {}
+        : arena_(arena), name(arena_allocator<char>(arena)), email(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> name;
@@ -70,4 +67,3 @@ using schema = std::monostate;
 using getUser_param_id = int64_t;
 
 using schema_1 = std::monostate;
-

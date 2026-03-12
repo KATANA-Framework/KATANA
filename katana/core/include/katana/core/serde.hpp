@@ -408,14 +408,44 @@ inline std::optional<double> parse_double(json_cursor& cur) noexcept {
         p = exp_ptr;
     }
 
-    static constexpr double pow10_pos[] = {
-        1.0,       1e1,       1e2,       1e3,       1e4,       1e5,       1e6,
-        1e7,       1e8,       1e9,       1e10,      1e11,      1e12,      1e13,
-        1e14,      1e15,      1e16,      1e17,      1e18};
-    static constexpr double pow10_neg[] = {
-        1.0,       1e-1,      1e-2,      1e-3,      1e-4,      1e-5,      1e-6,
-        1e-7,      1e-8,      1e-9,      1e-10,     1e-11,     1e-12,     1e-13,
-        1e-14,     1e-15,     1e-16,     1e-17,     1e-18};
+    static constexpr double pow10_pos[] = {1.0,
+                                           1e1,
+                                           1e2,
+                                           1e3,
+                                           1e4,
+                                           1e5,
+                                           1e6,
+                                           1e7,
+                                           1e8,
+                                           1e9,
+                                           1e10,
+                                           1e11,
+                                           1e12,
+                                           1e13,
+                                           1e14,
+                                           1e15,
+                                           1e16,
+                                           1e17,
+                                           1e18};
+    static constexpr double pow10_neg[] = {1.0,
+                                           1e-1,
+                                           1e-2,
+                                           1e-3,
+                                           1e-4,
+                                           1e-5,
+                                           1e-6,
+                                           1e-7,
+                                           1e-8,
+                                           1e-9,
+                                           1e-10,
+                                           1e-11,
+                                           1e-12,
+                                           1e-13,
+                                           1e-14,
+                                           1e-15,
+                                           1e-16,
+                                           1e-17,
+                                           1e-18};
 
     double value = static_cast<double>(mantissa);
     if (frac_digits > 0) {

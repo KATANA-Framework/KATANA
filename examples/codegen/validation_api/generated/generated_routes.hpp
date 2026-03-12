@@ -29,21 +29,25 @@ inline constexpr content_type_info route_0_produces[] = {
 };
 
 inline constexpr route_entry routes[] = {
-    {"/user/register", katana::http::method::post, "register_user", route_0_consumes, route_0_produces},
+    {"/user/register",
+     katana::http::method::post,
+     "register_user",
+     route_0_consumes,
+     route_0_produces},
 };
 
 inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);
 
 // Compile-time route metadata for type safety
 namespace route_metadata {
-    // register_user: POST /user/register
-    struct register_user_metadata {
-        static constexpr std::string_view path = "/user/register";
-        static constexpr katana::http::method method = katana::http::method::post;
-        static constexpr std::string_view operation_id = "register_user";
-        static constexpr size_t path_param_count = 0;
-        static constexpr bool has_request_body = true;
-    };
+// register_user: POST /user/register
+struct register_user_metadata {
+    static constexpr std::string_view path = "/user/register";
+    static constexpr katana::http::method method = katana::http::method::post;
+    static constexpr std::string_view operation_id = "register_user";
+    static constexpr size_t path_param_count = 0;
+    static constexpr bool has_request_body = true;
+};
 
 } // namespace route_metadata
 

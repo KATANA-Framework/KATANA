@@ -319,7 +319,8 @@ paths:
 
     auto bindings = read_generated_file("generated_router_bindings.hpp");
     EXPECT_NE(bindings.find("invalid path param enabled"), std::string::npos);
-    EXPECT_NE(bindings.find("else if (*p_enabled == \"false\") enabled = false;"), std::string::npos);
+    EXPECT_NE(bindings.find("else if (*p_enabled == \"false\") enabled = false;"),
+              std::string::npos);
     EXPECT_NE(bindings.find("if (ec != std::errc() || ptr != p_page->data() + p_page->size())"),
               std::string::npos);
     EXPECT_NE(bindings.find("if (ec != std::errc() || ptr != p_ratio->data() + p_ratio->size())"),

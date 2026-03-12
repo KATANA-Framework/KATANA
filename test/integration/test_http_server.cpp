@@ -99,8 +99,8 @@ bool try_extract_response(std::string& buffer, parsed_response& out) {
         }
         const std::string_view line(headers.data() + scan_pos, line_end - scan_pos);
         if (line.starts_with(content_length_prefix)) {
-            content_length = static_cast<size_t>(std::stoul(std::string(
-                line.substr(content_length_prefix.size()))));
+            content_length = static_cast<size_t>(
+                std::stoul(std::string(line.substr(content_length_prefix.size()))));
             found_content_length = true;
             break;
         }
@@ -116,8 +116,8 @@ bool try_extract_response(std::string& buffer, parsed_response& out) {
         return false;
     }
 
-    out.status = std::stoi(std::string(
-        status_line.substr(first_space + 1, second_space - first_space - 1)));
+    out.status =
+        std::stoi(std::string(status_line.substr(first_space + 1, second_space - first_space - 1)));
     out.body.assign(buffer.data() + header_end + 4, content_length);
     buffer.erase(0, total_size);
     return true;
@@ -181,16 +181,19 @@ pid_t spawn_pipeline_server(uint16_t port) {
          })},
         {http::method::get,
          http::path_pattern::from_literal<"/large">(),
-         http::handler_fn([&large_body](const http::request&,
-                                        http::request_context&,
-                                        http::response& out) {
-             out.assign_text(large_body);
-             return result<void>{};
-         })},
+         http::handler_fn(
+             [&large_body](const http::request&, http::request_context&, http::response& out) {
+                 out.assign_text(large_body);
+                 return result<void>{};
+             })},
     };
 
     const http::router r(routes);
-    std::_Exit(http::server(r).listen(port).workers(1).graceful_shutdown(std::chrono::milliseconds(100)).run());
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
 }
 
 int connect_with_retry(uint16_t port) {

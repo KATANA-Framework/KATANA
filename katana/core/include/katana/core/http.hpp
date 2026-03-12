@@ -115,9 +115,8 @@ struct response {
                      std::string_view content_type = "text/plain",
                      int32_t status_code = 200,
                      std::string_view reason_phrase = "OK");
-    void assign_json(std::string body,
-                     int32_t status_code = 200,
-                     std::string_view reason_phrase = "OK");
+    void
+    assign_json(std::string body, int32_t status_code = 200, std::string_view reason_phrase = "OK");
     void assign_error(const problem_details& problem);
 
     static response ok(std::string body = "", std::string content_type = "text/plain");

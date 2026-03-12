@@ -21,26 +21,26 @@ struct bench_handler : generated::api_handler {
     }
 
     result<void> list_users(response& out) override {
-    out.assign_json(R"([{"id":1,"name":"Alice"}])");
+        out.assign_json(R"([{"id":1,"name":"Alice"}])");
         return {};
     }
 
     result<void> create_user(const UserInput& body, response& out) override {
         (void)body;
-    out.assign_json(R"({"id":42})", 201, "Created");
+        out.assign_json(R"({"id":42})", 201, "Created");
         return {};
     }
 
     result<void> get_user(int64_t id, response& out) override {
         std::string payload = std::string("{\"id\":") + std::to_string(id) + ",\"name\":\"User\"}";
-    out.assign_json(std::move(payload));
+        out.assign_json(std::move(payload));
         return {};
     }
 
     result<void> update_user(int64_t id, const UserInput&, response& out) override {
         std::string payload =
             std::string("{\"id\":") + std::to_string(id) + ",\"status\":\"updated\"}";
-    out.assign_json(std::move(payload));
+        out.assign_json(std::move(payload));
         return {};
     }
 };
@@ -132,9 +132,9 @@ bench_result bench_dispatch(const std::string& name,
     return result;
 }
 
-    int main() {
-        bench_handler handler;
-        auto r = generated::make_fast_router(handler);
+int main() {
+    bench_handler handler;
+    auto r = generated::make_fast_router(handler);
     auto dispatch = [&](const request& req, request_context& ctx, response& out) -> result<void> {
         auto status = r.dispatch_to(req, ctx, out);
         if (!status) {

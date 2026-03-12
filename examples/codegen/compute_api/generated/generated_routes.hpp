@@ -36,14 +36,14 @@ inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);
 
 // Compile-time route metadata for type safety
 namespace route_metadata {
-    // compute_sum: POST /compute/sum
-    struct compute_sum_metadata {
-        static constexpr std::string_view path = "/compute/sum";
-        static constexpr katana::http::method method = katana::http::method::post;
-        static constexpr std::string_view operation_id = "compute_sum";
-        static constexpr size_t path_param_count = 0;
-        static constexpr bool has_request_body = true;
-    };
+// compute_sum: POST /compute/sum
+struct compute_sum_metadata {
+    static constexpr std::string_view path = "/compute/sum";
+    static constexpr katana::http::method method = katana::http::method::post;
+    static constexpr std::string_view operation_id = "compute_sum";
+    static constexpr size_t path_param_count = 0;
+    static constexpr bool has_request_body = true;
+};
 
 } // namespace route_metadata
 

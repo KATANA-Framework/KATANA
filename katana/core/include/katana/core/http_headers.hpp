@@ -507,8 +507,8 @@ public:
         }
 
         bool operator!=(const iterator& other) const {
-            return phase != other.phase || index != other.index || known_chunk != other.known_chunk ||
-                   unknown_chunk != other.unknown_chunk;
+            return phase != other.phase || index != other.index ||
+                   known_chunk != other.known_chunk || unknown_chunk != other.unknown_chunk;
         }
 
         std::pair<std::string_view, std::string_view> operator*() const {
@@ -552,7 +552,9 @@ public:
     }
 
 private:
-    [[nodiscard]] monotonic_arena* allocator() noexcept { return arena_ ? arena_ : fallback_arena_; }
+    [[nodiscard]] monotonic_arena* allocator() noexcept {
+        return arena_ ? arena_ : fallback_arena_;
+    }
 
     [[nodiscard]] known_entry* find_known_entry(field f) noexcept {
         for (auto& entry : known_inline_) {
@@ -590,8 +592,9 @@ private:
 
         using chunk_t = entry_chunk<known_entry, KNOWN_HEADERS_CHUNK_SIZE>;
         auto* alloc = allocator();
-        auto* chunk = alloc ? static_cast<chunk_t*>(alloc->allocate(sizeof(chunk_t), alignof(chunk_t)))
-                            : nullptr;
+        auto* chunk =
+            alloc ? static_cast<chunk_t*>(alloc->allocate(sizeof(chunk_t), alignof(chunk_t)))
+                  : nullptr;
         if (!chunk) {
             return nullptr;
         }
@@ -639,8 +642,9 @@ private:
 
         using chunk_t = entry_chunk<unknown_entry, UNKNOWN_HEADERS_CHUNK_SIZE>;
         auto* alloc = allocator();
-        auto* chunk = alloc ? static_cast<chunk_t*>(alloc->allocate(sizeof(chunk_t), alignof(chunk_t)))
-                            : nullptr;
+        auto* chunk =
+            alloc ? static_cast<chunk_t*>(alloc->allocate(sizeof(chunk_t), alignof(chunk_t)))
+                  : nullptr;
         if (!chunk) {
             return nullptr;
         }

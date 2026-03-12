@@ -235,7 +235,8 @@ public:
     result<void> create_product(const CreateProductRequest& body, response& out) override {
         auto product_opt = store_.create(body);
         if (!product_opt) {
-            out = response::error(problem_details::conflict("Product with this SKU already exists"));
+            out =
+                response::error(problem_details::conflict("Product with this SKU already exists"));
             return {};
         }
 
@@ -294,7 +295,8 @@ public:
         return {};
     }
 
-    result<void> update_product(int64_t id, const UpdateProductRequest& body, response& out) override {
+    result<void>
+    update_product(int64_t id, const UpdateProductRequest& body, response& out) override {
         if (!store_.update(id, body)) {
             out = response::error(problem_details::not_found("Product not found"));
             return {};

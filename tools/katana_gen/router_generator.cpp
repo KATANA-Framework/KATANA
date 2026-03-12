@@ -419,8 +419,9 @@ std::string generate_router_bindings(const document& doc) {
                 }
 
                 if (single_produces_type) {
-                    dispatch_functions << "    constexpr std::string_view response_content_type = \""
-                                       << *single_produces_type << "\";\n";
+                    dispatch_functions
+                        << "    constexpr std::string_view response_content_type = \""
+                        << *single_produces_type << "\";\n";
                     dispatch_functions << "    auto accept_header = req.headers.get("
                                        << generate_headers_get("Accept") << ");\n";
                     dispatch_functions
@@ -428,8 +429,7 @@ std::string generate_router_bindings(const document& doc) {
                            "\"*/*\" && *accept_header != response_content_type) {\n";
                     dispatch_functions << "        auto comma = accept_header->find(',');\n";
                     dispatch_functions << "        auto semicolon = accept_header->find(';');\n";
-                    dispatch_functions
-                        << "        auto token_end = std::min(comma, semicolon);\n";
+                    dispatch_functions << "        auto token_end = std::min(comma, semicolon);\n";
                     dispatch_functions
                         << "        auto simple_accept = accept_header->substr(0, token_end);\n";
                     dispatch_functions << "        if (simple_accept != response_content_type) {\n";
@@ -449,8 +449,8 @@ std::string generate_router_bindings(const document& doc) {
                                           "\"unsupported Accept header\"));\n";
                     dispatch_functions << "        return {};\n";
                     dispatch_functions << "    }\n";
-                    dispatch_functions
-                        << "    std::string_view response_content_type = *negotiated_content_type;\n";
+                    dispatch_functions << "    std::string_view response_content_type = "
+                                          "*negotiated_content_type;\n";
                 }
             }
 
@@ -507,8 +507,8 @@ std::string generate_router_bindings(const document& doc) {
                         dispatch_functions << "    bool " << param_ident << " = false;\n";
                         dispatch_functions << "    if (*p_" << param_ident << " == \"true\") "
                                            << param_ident << " = true;\n";
-                        dispatch_functions << "    else if (*p_" << param_ident
-                                           << " == \"false\") " << param_ident << " = false;\n";
+                        dispatch_functions << "    else if (*p_" << param_ident << " == \"false\") "
+                                           << param_ident << " = false;\n";
                         dispatch_functions << "    else { out = "
                                               "katana::http::response::error(katana::problem_"
                                               "details::bad_request("
@@ -530,8 +530,7 @@ std::string generate_router_bindings(const document& doc) {
                 for (const auto& param : op.parameters) {
                     if (param.in == katana::openapi::param_location::query && param.type) {
                         ++query_param_count;
-                    } else if (param.in == katana::openapi::param_location::cookie &&
-                               param.type) {
+                    } else if (param.in == katana::openapi::param_location::cookie && param.type) {
                         ++cookie_param_count;
                     }
                 }
@@ -547,32 +546,26 @@ std::string generate_router_bindings(const document& doc) {
                     }
                     dispatch_functions << "    auto query_view = req.uri;\n";
                     dispatch_functions << "    auto query_qpos = query_view.find('?');\n";
-                    dispatch_functions
-                        << "    if (query_qpos != std::string_view::npos) {\n";
+                    dispatch_functions << "    if (query_qpos != std::string_view::npos) {\n";
                     dispatch_functions
                         << "        query_view = query_view.substr(query_qpos + 1);\n";
                     dispatch_functions << "        while (!query_view.empty()) {\n";
                     dispatch_functions << "            auto amp = query_view.find('&');\n";
-                    dispatch_functions
-                        << "            auto part = query_view.substr(0, amp);\n";
+                    dispatch_functions << "            auto part = query_view.substr(0, amp);\n";
                     dispatch_functions << "            auto eq = part.find('=');\n";
-                    dispatch_functions
-                        << "            auto name = part.substr(0, eq);\n";
-                    dispatch_functions
-                        << "            auto value = eq == std::string_view::npos ? "
-                           "std::string_view{} : part.substr(eq + 1);\n";
+                    dispatch_functions << "            auto name = part.substr(0, eq);\n";
+                    dispatch_functions << "            auto value = eq == std::string_view::npos ? "
+                                          "std::string_view{} : part.substr(eq + 1);\n";
                     bool first_query_branch = true;
                     for (const auto& param : op.parameters) {
                         if (param.in != katana::openapi::param_location::query || !param.type) {
                             continue;
                         }
                         auto param_ident = sanitize_identifier(param.name);
-                        dispatch_functions << "            "
-                                           << (first_query_branch ? "if" : "else if")
-                                           << " (!p_" << param_ident << " && name == \""
-                                           << param.name << "\") {\n";
-                        dispatch_functions << "                p_" << param_ident
-                                           << " = value;\n";
+                        dispatch_functions
+                            << "            " << (first_query_branch ? "if" : "else if") << " (!p_"
+                            << param_ident << " && name == \"" << param.name << "\") {\n";
+                        dispatch_functions << "                p_" << param_ident << " = value;\n";
                         dispatch_functions << "            }\n";
                         first_query_branch = false;
                     }
@@ -592,12 +585,10 @@ std::string generate_router_bindings(const document& doc) {
                     dispatch_functions << ") {\n";
                     dispatch_functions << "                break;\n";
                     dispatch_functions << "            }\n";
-                    dispatch_functions
-                        << "            if (amp == std::string_view::npos) {\n";
+                    dispatch_functions << "            if (amp == std::string_view::npos) {\n";
                     dispatch_functions << "                break;\n";
                     dispatch_functions << "            }\n";
-                    dispatch_functions
-                        << "            query_view.remove_prefix(amp + 1);\n";
+                    dispatch_functions << "            query_view.remove_prefix(amp + 1);\n";
                     dispatch_functions << "        }\n";
                     dispatch_functions << "    }\n";
                 }
@@ -611,18 +602,16 @@ std::string generate_router_bindings(const document& doc) {
                         dispatch_functions << "    std::optional<std::string_view> p_"
                                            << param_ident << " = std::nullopt;\n";
                     }
-                    dispatch_functions
-                        << "    auto cookie_header = req.headers.get("
-                        << generate_headers_get("Cookie") << ");\n";
+                    dispatch_functions << "    auto cookie_header = req.headers.get("
+                                       << generate_headers_get("Cookie") << ");\n";
                     dispatch_functions << "    if (cookie_header) {\n";
-                    dispatch_functions << "        std::string_view cookie_view = *cookie_header;\n";
+                    dispatch_functions
+                        << "        std::string_view cookie_view = *cookie_header;\n";
                     dispatch_functions << "        while (!cookie_view.empty()) {\n";
                     dispatch_functions << "            auto sep = cookie_view.find(';');\n";
-                    dispatch_functions
-                        << "            auto token = cookie_view.substr(0, sep);\n";
+                    dispatch_functions << "            auto token = cookie_view.substr(0, sep);\n";
                     dispatch_functions << "            auto eq = token.find('=');\n";
-                    dispatch_functions
-                        << "            if (eq != std::string_view::npos) {\n";
+                    dispatch_functions << "            if (eq != std::string_view::npos) {\n";
                     dispatch_functions
                         << "                auto name = katana::serde::trim_view(token.substr(0, "
                            "eq));\n";
@@ -636,9 +625,9 @@ std::string generate_router_bindings(const document& doc) {
                         }
                         auto param_ident = sanitize_identifier(param.name);
                         dispatch_functions << "                "
-                                           << (first_cookie_branch ? "if" : "else if")
-                                           << " (!p_" << param_ident << " && name == \""
-                                           << param.name << "\") {\n";
+                                           << (first_cookie_branch ? "if" : "else if") << " (!p_"
+                                           << param_ident << " && name == \"" << param.name
+                                           << "\") {\n";
                         dispatch_functions << "                    p_" << param_ident
                                            << " = value;\n";
                         dispatch_functions << "                }\n";
@@ -661,12 +650,10 @@ std::string generate_router_bindings(const document& doc) {
                     dispatch_functions << ") {\n";
                     dispatch_functions << "                break;\n";
                     dispatch_functions << "            }\n";
-                    dispatch_functions
-                        << "            if (sep == std::string_view::npos) {\n";
+                    dispatch_functions << "            if (sep == std::string_view::npos) {\n";
                     dispatch_functions << "                break;\n";
                     dispatch_functions << "            }\n";
-                    dispatch_functions
-                        << "            cookie_view.remove_prefix(sep + 1);\n";
+                    dispatch_functions << "            cookie_view.remove_prefix(sep + 1);\n";
                     dispatch_functions << "        }\n";
                     dispatch_functions << "    }\n";
                 }
@@ -687,8 +674,7 @@ std::string generate_router_bindings(const document& doc) {
                         source_expr = "req.headers.get(" + generate_headers_get(param.name) + ")";
                     } else if (param.in == katana::openapi::param_location::cookie) {
                         if (cookie_param_count <= 1) {
-                            source_expr =
-                                "cookie_param(req, \"" + std::string(param.name) + "\")";
+                            source_expr = "cookie_param(req, \"" + std::string(param.name) + "\")";
                         }
                     }
 
@@ -854,7 +840,8 @@ std::string generate_router_bindings(const document& doc) {
                            "Content-Type\")); return {}; }\n";
                 }
 
-                const bool has_single_body_schema = !body_is_variant && body_schema_names.size() == 1;
+                const bool has_single_body_schema =
+                    !body_is_variant && body_schema_names.size() == 1;
 
                 if (body_is_variant) {
                     dispatch_functions << "    std::optional<" << body_type_expr
@@ -933,7 +920,8 @@ std::string generate_router_bindings(const document& doc) {
                     dispatch_functions << "    if (validation_result) {\n";
                     dispatch_functions << "        out.assign_error(\n";
                     dispatch_functions
-                        << "            katana::problem_details::bad_request(std::move(*validation_result))\n";
+                        << "            "
+                           "katana::problem_details::bad_request(std::move(*validation_result))\n";
                     dispatch_functions << "        );\n";
                     dispatch_functions << "        return {};\n";
                     dispatch_functions << "    }\n";
@@ -1015,7 +1003,8 @@ std::string generate_router_bindings(const document& doc) {
                                << path.path << "\">(),\n";
             make_router_stream
                 << "                   handler_fn([&handler](const katana::http::request& req, "
-                   "katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> "
+                   "katana::http::request_context& ctx, katana::http::response& out) -> "
+                   "katana::result<void> "
                    "{\n";
             make_router_stream << "                       return dispatch_" << method_name
                                << "(req, ctx, handler, out);\n";

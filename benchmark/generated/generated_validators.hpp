@@ -17,15 +17,15 @@
 #pragma once
 
 #include "generated_dtos.hpp"
-#include "katana/core/validation.hpp"
 #include "katana/core/format_validators.hpp"
+#include "katana/core/validation.hpp"
 #include <algorithm>
-#include <optional>
-#include <string_view>
-#include <string>
-#include <cmath>
 #include <cctype>
+#include <cmath>
+#include <optional>
 #include <regex>
+#include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -36,9 +36,9 @@ using katana::validation_error_code;
 // Format Validators (from framework)
 // ============================================================
 
+using katana::format_validators::is_valid_datetime;
 using katana::format_validators::is_valid_email;
 using katana::format_validators::is_valid_uuid;
-using katana::format_validators::is_valid_datetime;
 
 // ============================================================
 // Validation Functions
@@ -49,7 +49,8 @@ using katana::format_validators::is_valid_datetime;
         return validation_error{"name", validation_error_code::required_field_missing};
     }
     if (!obj.name.empty() && obj.name.size() < UserInput::metadata::NAME_MIN_LENGTH) {
-        return validation_error{"name", validation_error_code::string_too_short, UserInput::metadata::NAME_MIN_LENGTH};
+        return validation_error{
+            "name", validation_error_code::string_too_short, UserInput::metadata::NAME_MIN_LENGTH};
     }
     if (obj.email.empty()) {
         return validation_error{"email", validation_error_code::required_field_missing};
@@ -58,8 +59,8 @@ using katana::format_validators::is_valid_datetime;
         return validation_error{"email", validation_error_code::invalid_email_format};
     }
     if (static_cast<double>(obj.age) < UserInput::metadata::AGE_MINIMUM) {
-        return validation_error{"age", validation_error_code::value_too_small, UserInput::metadata::AGE_MINIMUM};
+        return validation_error{
+            "age", validation_error_code::value_too_small, UserInput::metadata::AGE_MINIMUM};
     }
     return std::nullopt;
 }
-

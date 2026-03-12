@@ -52,15 +52,14 @@ public:
     result<void> register_user(const RegisterRequest& body, response& out) override {
         auto& arena = handler_context::arena();
         UserResponse resp(&arena);
-        resp.id = arena_string<>("550e8400-e29b-41d4-a716-446655440000",
-                                 arena_allocator<char>(&arena));
-        resp.username =
-            arena_string<>(body.username.data(), body.username.size(), arena_allocator<char>(&arena));
+        resp.id =
+            arena_string<>("550e8400-e29b-41d4-a716-446655440000", arena_allocator<char>(&arena));
+        resp.username = arena_string<>(
+            body.username.data(), body.username.size(), arena_allocator<char>(&arena));
         resp.email =
             arena_string<>(body.email.data(), body.email.size(), arena_allocator<char>(&arena));
         resp.role = body.role;
-        resp.created_at =
-            arena_string<>("2026-01-01T00:00:00Z", arena_allocator<char>(&arena));
+        resp.created_at = arena_string<>("2026-01-01T00:00:00Z", arena_allocator<char>(&arena));
         out.assign_json(serialize_UserResponse(resp), 201, "Created");
         return {};
     }
@@ -78,8 +77,8 @@ public:
         Item item(&arena);
         item.id = 42;
         item.name = arena_string<>("Benchmark Item", arena_allocator<char>(&arena));
-        item.description = arena_string<>("Generated framework path",
-                                          arena_allocator<char>(&arena));
+        item.description =
+            arena_string<>("Generated framework path", arena_allocator<char>(&arena));
         item.price = 99.0;
         item.stock = 7;
         item.category = category ? ItemCategory_enum::tools : ItemCategory_enum::other;
@@ -97,10 +96,10 @@ public:
         auto& arena = handler_context::arena();
         Item item(&arena);
         item.id = 100;
-        item.name = arena_string<>(body.name.data(), body.name.size(), arena_allocator<char>(&arena));
-        item.description =
-            arena_string<>(body.description.data(), body.description.size(),
-                           arena_allocator<char>(&arena));
+        item.name =
+            arena_string<>(body.name.data(), body.name.size(), arena_allocator<char>(&arena));
+        item.description = arena_string<>(
+            body.description.data(), body.description.size(), arena_allocator<char>(&arena));
         item.price = body.price;
         item.stock = body.stock;
         item.category = body.category;
@@ -130,10 +129,10 @@ public:
         auto& arena = handler_context::arena();
         Item item(&arena);
         item.id = id;
-        item.name = arena_string<>(body.name.data(), body.name.size(), arena_allocator<char>(&arena));
-        item.description =
-            arena_string<>(body.description.data(), body.description.size(),
-                           arena_allocator<char>(&arena));
+        item.name =
+            arena_string<>(body.name.data(), body.name.size(), arena_allocator<char>(&arena));
+        item.description = arena_string<>(
+            body.description.data(), body.description.size(), arena_allocator<char>(&arena));
         item.price = body.price;
         item.stock = body.stock;
         item.category = ItemCategory_enum::tools;
@@ -256,25 +255,23 @@ static void print_result(const bench_result& r) {
     if (r.ns_per_op < 1000.0) {
         std::printf("  %-45s %8.1f ns    %12.0f ops/sec\n", r.name, r.ns_per_op, r.ops_per_sec);
     } else {
-        std::printf("  %-45s %8.2f us    %12.0f ops/sec\n",
-                    r.name,
-                    r.ns_per_op / 1000.0,
-                    r.ops_per_sec);
+        std::printf(
+            "  %-45s %8.2f us    %12.0f ops/sec\n", r.name, r.ns_per_op / 1000.0, r.ops_per_sec);
     }
 
     const double error_pct =
         (r.iterations == 0)
             ? 0.0
             : (100.0 * static_cast<double>(r.errors) / static_cast<double>(r.iterations));
-    std::printf(
-        "      p50: %.3f us | p95: %.3f us | p99: %.3f us | p999: %.3f us | errors: %.3f%% (%llu/%zu)\n",
-        r.p50_us,
-        r.p95_us,
-        r.p99_us,
-        r.p999_us,
-        error_pct,
-        static_cast<unsigned long long>(r.errors),
-        r.iterations);
+    std::printf("      p50: %.3f us | p95: %.3f us | p99: %.3f us | p999: %.3f us | errors: %.3f%% "
+                "(%llu/%zu)\n",
+                r.p50_us,
+                r.p95_us,
+                r.p99_us,
+                r.p999_us,
+                error_pct,
+                static_cast<unsigned long long>(r.errors),
+                r.iterations);
 }
 
 static request make_request(method m, std::string_view uri, std::string_view body = {}) {
@@ -307,10 +304,10 @@ int main() {
         return {};
     };
 
-    request req_create =
-        make_request(method::post,
-                     "/items",
-                     R"({"name":"Drill","description":"Cordless drill","price":119.99,"stock":25,"category":"tools","tags":["power","workshop"]})");
+    request req_create = make_request(
+        method::post,
+        "/items",
+        R"({"name":"Drill","description":"Cordless drill","price":119.99,"stock":25,"category":"tools","tags":["power","workshop"]})");
     req_create.headers.set_view("X-Request-Id", "550e8400-e29b-41d4-a716-446655440001");
     req_create.headers.set(field::cookie, "session=bench-session");
 
@@ -322,32 +319,27 @@ int main() {
         make_request(method::post,
                      "/compute/stats",
                      R"({"values":[10,20,30,40,50,60,70,80,90,100],"include_median":true})"));
-    valid_workload.push_back(
-        make_request(method::post,
-                     "/users/register",
-                     R"({"username":"bench_user_1","email":"bench1@example.com","password":"StrongPass123","age":30,"role":"moderator","tags":["perf","stage2"]})"));
+    valid_workload.push_back(make_request(
+        method::post,
+        "/users/register",
+        R"({"username":"bench_user_1","email":"bench1@example.com","password":"StrongPass123","age":30,"role":"moderator","tags":["perf","stage2"]})"));
     valid_workload.push_back(std::move(req_create));
     valid_workload.push_back(make_request(method::get, "/items?limit=20&offset=0&category=tools"));
     valid_workload.push_back(make_request(method::get, "/items/42"));
-    valid_workload.push_back(make_request(method::put,
-                                          "/items/42",
-                                          R"({"name":"Updated Drill","price":109.99,"stock":20,"tags":["updated","bench"]})"));
-    valid_workload.push_back(
-        make_request(method::post, "/echo", R"({"message":"benchmark","repeat":3,"uppercase":true})"));
+    valid_workload.push_back(make_request(
+        method::put,
+        "/items/42",
+        R"({"name":"Updated Drill","price":109.99,"stock":20,"tags":["updated","bench"]})"));
+    valid_workload.push_back(make_request(
+        method::post, "/echo", R"({"message":"benchmark","repeat":3,"uppercase":true})"));
     valid_workload.push_back(make_request(method::get, "/health"));
 
-    request req_invalid_missing_header =
-        make_request(method::post,
-                     "/items",
-                     R"({"name":"NoHeader","price":1.0,"category":"tools"})");
-    request req_invalid_register =
-        make_request(method::post,
-                     "/users/register",
-                     R"({"username":"x","email":"bad","password":"123"})");
+    request req_invalid_missing_header = make_request(
+        method::post, "/items", R"({"name":"NoHeader","price":1.0,"category":"tools"})");
+    request req_invalid_register = make_request(
+        method::post, "/users/register", R"({"username":"x","email":"bad","password":"123"})");
     request req_invalid_echo =
-        make_request(method::post,
-                     "/echo",
-                     R"({"message":"bad","repeat":1000,"uppercase":false})");
+        make_request(method::post, "/echo", R"({"message":"bad","repeat":1000,"uppercase":false})");
     request req_invalid_path = make_request(method::get, "/items/not-an-int");
 
     std::vector<request> error_workload;
