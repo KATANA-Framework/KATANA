@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 12.03 13:39 — perf: optimize HTTP pipeline path and refresh benchmark tooling (19ac2cb)
+* 12.03 17:18 — fix: harden codegen outputs and benchmark regression gating (c361a28)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
