@@ -8,7 +8,7 @@ The KATANA benchmarking system provides:
 
 - **Unified Automation**: Single command to run all benchmarks
 - **Comprehensive Coverage**: Tests core runtime, codegen quality, routing, serialization, and integration
-- **Profile-Based Workloads**: `best case` / `typical mixed` / `hard edge` scenarios per operation category
+- **Profile-Based Workloads**: `best case` / `typical mixed` / `hard edge` scenarios per operation category, plus canonical and peak `wrk` HTTP profiles
 - **Seeded Dataset Generation**: Fixed-seed workload synthesis with configurable scenario proportions
 - **Detailed Reporting**: JSON and Markdown reports with metrics, trends, and regression detection
 - **CI Integration**: Can be used in continuous integration pipelines
@@ -36,15 +36,11 @@ cmake --build build/bench -j$(nproc)
   --aggregation median \
   --stage-repeat 1=20 \
   --output benchmark_results \
-  --update-docs
+  --update-docs \
+  --include-e2e
 ```
 
-### Using the Original Script
-
-```bash
-# Run using the original unified script
-./run_benchmarks.sh
-```
+The maintained source of truth is `scripts/run_benchmarks.py`. Legacy helper scripts may still exist for ad hoc experiments, but they are not the benchmark contract.
 
 ## Benchmark Categories
 
@@ -81,6 +77,8 @@ Tests the `katana_gen` tool output quality:
 - `build/bench/benchmark/codegen_quality_benchmark`
 - `build/bench/benchmark/generated_json_benchmark`
 - `build/bench/benchmark/generated_api_benchmark`
+- `build/bench/benchmark/benchmark_api_codegen_benchmark`
+- `build/bench/benchmark/benchmark_api_framework_benchmark`
 
 ### 3. Router Benchmarks
 
@@ -113,14 +111,16 @@ Tests JSON handling:
 
 End-to-end tests with complete services:
 
-- **Task API**: Full CRUD service with complex validation
-- **Compute API**: CPU-intensive operations
-- **Validation API**: Complex validation rules
+- **Hello World Server**: Raw framework HTTP path
+- **Compute API**: Generated parse/dispatch/business path
+- **Benchmark API Framework**: Generated framework path without network
+- **Benchmark API Codegen**: Mixed generated API workload
 
 **Services:**
-- `build/examples/examples/codegen/task_api/task_api`
-- `build/examples/examples/codegen/compute_api/compute_api`
-- `build/examples/examples/codegen/validation_api/validation_api`
+- `build/bench/examples/hello_world_server`
+- `build/bench/examples/examples/codegen/compute_api/compute_api`
+- `build/bench/benchmark/benchmark_api_framework_benchmark`
+- `build/bench/benchmark/benchmark_api_codegen_benchmark`
 
 ## Edge Case Testing
 
@@ -152,15 +152,7 @@ The benchmark system tests comprehensive edge cases with deterministic datasets
 
 ## Task API Edge Cases
 
-The Task Management API (`examples/codegen/task_api`) demonstrates comprehensive testing:
-
-```bash
-# Start the service
-./build/examples/examples/codegen/task_api/task_api 18081
-
-# Run full benchmark suite (includes parser/serialization/validation edge profiles)
-./scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20
-```
+The Task Management API (`examples/codegen/task_api`) remains a useful spec for edge-case generation and integration tests, even though the maintained E2E benchmark contract now focuses on `hello_world_server` and `compute_api`.
 
 ### Tested Scenarios
 
@@ -191,7 +183,7 @@ The unified runner `scripts/run_benchmarks.py` can automatically generate
 - **Optional Raw Runs**: `--include-runs` adds per-run data to JSON for deep analysis
 - **CV-Aware Regression Checks**: `--compare` + `--cv-threshold-pct` distinguish hard vs noisy regressions
 - **Optional perf Counters**: `--perf-stat` adds cycles/instructions/IPC/cache/branch/context-switch metrics
-- **Optional E2E Stage**: `--include-e2e` runs keep-alive compute API scenario
+- **Optional E2E Stages**: `--include-e2e` runs maintained `wrk` stages for `hello_world_server` and `compute_api`
 
 Recommended command:
 
@@ -314,12 +306,12 @@ The hook will:
 - **Object Parse (3 fields)**: <50ns
 - **Object Parse (8 fields)**: <80ns
 
-### Integration (Task API)
+### Integration (Current Runner)
 
-- **Simple Create**: <1ms end-to-end
-- **Batch Create (100)**: <10ms end-to-end
-- **Search (complex filters)**: <2ms end-to-end
-- **Edge Case Tests**: All pass with correct status codes
+- **Hello canonical**: use committed `BENCHMARK_RESULTS.md` or benchmark artifacts as source of truth
+- **Compute canonical**: use committed `BENCHMARK_RESULTS.md` or benchmark artifacts as source of truth
+- **Peak profiles**: tracked separately from canonical low-latency operating points
+- **Edge Case Tests**: integration tests stay green alongside benchmark runs
 
 ## Regression Detection
 
@@ -349,16 +341,16 @@ python3 scripts/run_benchmarks.py \
 
 ```bash
 # Start service
-./build/examples/examples/codegen/task_api/task_api 18081 &
+./build/bench/examples/examples/codegen/compute_api/compute_api &
 PID=$!
 
 # Test with curl
-curl -X POST http://localhost:18081/tasks \
+curl -X POST http://localhost:8080/compute/sum \
   -H "Content-Type: application/json" \
-  -d '{"title":"Test","priority":5}'
+  -d '[1,2,3,4,5,6,7,8]'
 
 # Load test with wrk (if installed)
-wrk -t4 -c100 -d30s --latency http://localhost:18081/health
+KATANA_PIPELINE_DEPTH=10 wrk -t4 -c512 -d10s --latency -s test/load/scripts/compute_sum_pipeline.lua http://localhost:8080/
 
 # Cleanup
 kill $PID

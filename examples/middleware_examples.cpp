@@ -24,19 +24,19 @@ using namespace std::chrono;
 // ============================================================================
 
 middleware_fn logging_middleware() {
-    return middleware_fn([](const request& req, request_context& ctx, next_fn next) {
+    return middleware_fn([](const request& req, request_context& ctx, response& out, next_fn next) {
         (void)ctx;
         auto start = steady_clock::now();
 
         std::cout << "[REQUEST] " << method_to_string(req.http_method) << " " << req.uri << "\n";
 
-        auto result = next();
+        auto result = next(out);
 
         auto end = steady_clock::now();
         auto duration_ms = duration_cast<milliseconds>(end - start).count();
 
         if (result) {
-            std::cout << "[RESPONSE] " << req.uri << " -> " << result->status << " (" << duration_ms
+            std::cout << "[RESPONSE] " << req.uri << " -> " << out.status << " (" << duration_ms
                       << "ms)\n";
         } else {
             std::cout << "[ERROR] " << req.uri << " -> error (" << duration_ms << "ms)\n";
@@ -53,18 +53,17 @@ middleware_fn logging_middleware() {
 middleware_fn request_id_middleware() {
     static std::atomic<uint64_t> counter{0};
 
-    return middleware_fn([](const request& req, request_context& ctx, next_fn next) {
-        (void)ctx;
+    return middleware_fn([](const request& req, request_context& ctx, response& out, next_fn next) {
         (void)ctx;
         uint64_t request_id = counter.fetch_add(1, std::memory_order_relaxed);
 
         std::cout << "[REQ-" << request_id << "] Processing " << req.uri << "\n";
 
-        auto result = next();
+        auto result = next(out);
 
         if (result) {
             // Add X-Request-ID header to response
-            result->set_header("X-Request-ID", std::to_string(request_id));
+            out.set_header("X-Request-ID", std::to_string(request_id));
         }
 
         return result;
@@ -76,25 +75,25 @@ middleware_fn request_id_middleware() {
 // ============================================================================
 
 middleware_fn cors_middleware(std::string_view allowed_origin = "*") {
-    return middleware_fn([allowed_origin](const request& req, request_context& ctx, next_fn next) {
+    return middleware_fn(
+        [allowed_origin](const request& req, request_context& ctx, response& out, next_fn next) {
         (void)ctx;
         // Handle preflight OPTIONS request
         if (req.http_method == method::options) {
-            response resp;
-            resp.status = 204;
-            resp.reason = "No Content";
-            resp.set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
-            resp.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            resp.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            resp.set_header("Access-Control-Max-Age", "86400");
-            return result<response>(std::move(resp));
+            out.status = 204;
+            out.reason = "No Content";
+            out.set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
+            out.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            out.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            out.set_header("Access-Control-Max-Age", "86400");
+            return result<void>{};
         }
 
         // Process normal request
-        auto result = next();
+        auto result = next(out);
 
         if (result) {
-            result->set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
+            out.set_header("Access-Control-Allow-Origin", std::string(allowed_origin));
         }
 
         return result;
@@ -106,32 +105,36 @@ middleware_fn cors_middleware(std::string_view allowed_origin = "*") {
 // ============================================================================
 
 middleware_fn auth_middleware(std::string_view valid_token = "secret-token-123") {
-    return middleware_fn([valid_token](const request& req, request_context& ctx, next_fn next) {
+    return middleware_fn(
+        [valid_token](const request& req, request_context& ctx, response& out, next_fn next) {
         (void)ctx;
         auto auth_header = req.headers.get("Authorization");
 
         if (!auth_header) {
             auto problem = problem_details::unauthorized("Missing Authorization header");
             problem.detail = "Please provide a valid Bearer token";
-            return result<response>(response::error(problem));
+            out = response::error(problem);
+            return result<void>{};
         }
 
         // Check if it starts with "Bearer "
         if (!auth_header->starts_with("Bearer ")) {
             auto problem = problem_details::unauthorized("Invalid Authorization format");
             problem.detail = "Expected: Bearer <token>";
-            return result<response>(response::error(problem));
+            out = response::error(problem);
+            return result<void>{};
         }
 
         auto token = auth_header->substr(7); // Skip "Bearer "
 
         if (token != valid_token) {
             auto problem = problem_details::unauthorized("Invalid token");
-            return result<response>(response::error(problem));
+            out = response::error(problem);
+            return result<void>{};
         }
 
         // Token is valid, proceed
-        return next();
+        return next(out);
     });
 }
 
@@ -172,17 +175,17 @@ middleware_fn rate_limit_middleware(size_t max_requests = 100,
     // This is a global rate limiter for demonstration
     auto limiter = std::make_shared<simple_rate_limiter>(max_requests, window);
 
-    return middleware_fn([limiter](const request&, request_context&, next_fn next) {
+    return middleware_fn([limiter](const request&, request_context&, response& out, next_fn next) {
         if (!limiter->allow_request()) {
             auto problem = problem_details::service_unavailable(
                 "Rate limit exceeded. Please try again later.");
 
-            auto resp = response::error(problem);
-            resp.set_header("Retry-After", "60");
-            return result<response>(std::move(resp));
+            out = response::error(problem);
+            out.set_header("Retry-After", "60");
+            return result<void>{};
         }
 
-        return next();
+        return next(out);
     });
 }
 
@@ -191,7 +194,8 @@ middleware_fn rate_limit_middleware(size_t max_requests = 100,
 // ============================================================================
 
 middleware_fn content_type_middleware(std::string_view required_type = "application/json") {
-    return middleware_fn([required_type](const request& req, request_context& ctx, next_fn next) {
+    return middleware_fn(
+        [required_type](const request& req, request_context& ctx, response& out, next_fn next) {
         (void)ctx;
         // Only check POST/PUT/PATCH requests
         if (req.http_method == method::post || req.http_method == method::put ||
@@ -202,18 +206,20 @@ middleware_fn content_type_middleware(std::string_view required_type = "applicat
             if (!content_type) {
                 auto problem = problem_details::bad_request("Missing Content-Type header");
                 problem.detail = "Expected: " + std::string(required_type);
-                return result<response>(response::error(problem));
+                out = response::error(problem);
+                return result<void>{};
             }
 
             // Simple check (not parsing charset, etc.)
             if (!content_type->starts_with(required_type)) {
                 auto problem = problem_details::bad_request("Expected Content-Type: " +
                                                             std::string(required_type));
-                return result<response>(response::error(problem));
+                out = response::error(problem);
+                return result<void>{};
             }
         }
 
-        return next();
+        return next(out);
     });
 }
 
@@ -222,23 +228,25 @@ middleware_fn content_type_middleware(std::string_view required_type = "applicat
 // ============================================================================
 
 middleware_fn error_recovery_middleware() {
-    return middleware_fn([](const request& req, request_context& ctx, next_fn next) {
+    return middleware_fn([](const request& req, request_context& ctx, response& out, next_fn next) {
         (void)req;
         (void)ctx;
         try {
-            return next();
+            return next(out);
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] Exception in handler: " << e.what() << "\n";
 
             auto problem = problem_details::internal_server_error();
             problem.detail = "An unexpected error occurred";
-            return result<response>(response::error(problem));
+            out = response::error(problem);
+            return result<void>{};
         } catch (...) {
             std::cerr << "[ERROR] Unknown exception in handler\n";
 
             auto problem = problem_details::internal_server_error();
             problem.detail = "An unknown error occurred";
-            return result<response>(response::error(problem));
+            out = response::error(problem);
+            return result<void>{};
         }
     });
 }
@@ -381,36 +389,40 @@ int main() {
         // Public endpoint
         {method::get,
          path_pattern::from_literal<"/api/health">(),
-         handler_fn([](const request&, request_context&) {
-             return response::json("{\"status\":\"healthy\"}");
+         handler_fn([](const request&, request_context&, response& out) {
+             out = response::json("{\"status\":\"healthy\"}");
+             return result<void>{};
          }),
          middleware_chain},
 
         // Public endpoint with rate limiting
         {method::get,
          path_pattern::from_literal<"/api/public">(),
-         handler_fn([](const request&, request_context&) {
-             return response::json("{\"message\":\"This is a public endpoint\"}");
+         handler_fn([](const request&, request_context&, response& out) {
+             out = response::json("{\"message\":\"This is a public endpoint\"}");
+             return result<void>{};
          }),
          middleware_chain},
 
         // Protected endpoint (requires auth token)
         {method::get,
          path_pattern::from_literal<"/api/protected">(),
-         handler_fn([](const request&, request_context&) {
-             return response::json("{\"message\":\"This is a protected resource\"}");
+         handler_fn([](const request&, request_context&, response& out) {
+             out = response::json("{\"message\":\"This is a protected resource\"}");
+             return result<void>{};
          }),
          protected_chain},
 
         // Echo endpoint (with all middleware)
         {method::post,
          path_pattern::from_literal<"/api/echo">(),
-         handler_fn([](const request& req, request_context&) {
+         handler_fn([](const request& req, request_context&, response& out) {
              std::string body = "{\"echo\":\"";
              body.append(req.body.data(), req.body.size());
              body.push_back('"');
              body.push_back('}');
-             return response::json(std::move(body));
+             out = response::json(std::move(body));
+             return result<void>{};
          }),
          middleware_chain},
     };

@@ -8,12 +8,11 @@
 #include <cctype>
 #include <cstdint>
 #include <cstring>
-#include <memory>
+#include <new>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -200,60 +199,54 @@ struct ci_equal_fn {
 class headers_map {
 private:
     struct known_entry {
+        field key = field::unknown;
         const char* value = nullptr;
-        size_t length = 0;
+        uint16_t length = 0;
     };
 
     struct unknown_entry {
-        const char* name;
-        size_t name_length;
-        const char* value;
-        size_t value_length;
+        const char* name = nullptr;
+        uint16_t name_length = 0;
+        const char* value = nullptr;
+        uint16_t value_length = 0;
     };
 
+    template <typename Entry, size_t Capacity> struct entry_chunk {
+        std::array<Entry, Capacity> entries{};
+        entry_chunk* next = nullptr;
+    };
+
+    static constexpr size_t KNOWN_HEADERS_INLINE_SIZE = 16;
+    static constexpr size_t KNOWN_HEADERS_CHUNK_SIZE = 16;
     static constexpr size_t UNKNOWN_HEADERS_INLINE_SIZE = 8;
-    static constexpr size_t KNOWN_HEADERS_COUNT = static_cast<size_t>(field::MAX_FIELD_VALUE);
-
-    struct known_headers_storage {
-        std::array<known_entry, KNOWN_HEADERS_COUNT> entries{};
-    };
+    static constexpr size_t UNKNOWN_HEADERS_CHUNK_SIZE = 8;
 
 public:
     explicit headers_map(monotonic_arena* arena = nullptr) noexcept
-        : arena_(arena), fallback_arena_(arena ? nullptr : &owned_arena_),
-          known_entries_(std::make_unique<known_headers_storage>()) {}
+        : arena_(arena), fallback_arena_(arena ? nullptr : &owned_arena_) {}
 
     headers_map(headers_map&& other) noexcept
         : arena_(other.arena_ == &other.owned_arena_ ? nullptr : other.arena_),
           fallback_arena_(nullptr), owned_arena_(std::move(other.owned_arena_)),
-          known_entries_(std::move(other.known_entries_)), known_size_(other.known_size_),
-          unknown_entries_(std::move(other.unknown_entries_)),
-          known_touched_indices_(other.known_touched_indices_),
-          known_touched_flags_(other.known_touched_flags_),
-          known_touched_count_(other.known_touched_count_) {
+          known_inline_(other.known_inline_), known_chunks_(other.known_chunks_),
+          known_size_(other.known_size_), unknown_inline_(other.unknown_inline_),
+          unknown_chunks_(other.unknown_chunks_), unknown_size_(other.unknown_size_) {
         fallback_arena_ = arena_ ? nullptr : &owned_arena_;
-        other.arena_ = nullptr;
-        other.fallback_arena_ = &other.owned_arena_;
-        other.known_size_ = 0;
-        other.known_touched_count_ = 0;
+        other.reset_storage();
     }
 
     headers_map& operator=(headers_map&& other) noexcept {
         if (this != &other) {
             arena_ = other.arena_ == &other.owned_arena_ ? nullptr : other.arena_;
             owned_arena_ = std::move(other.owned_arena_);
-            known_entries_ = std::move(other.known_entries_);
+            known_inline_ = other.known_inline_;
+            known_chunks_ = other.known_chunks_;
             known_size_ = other.known_size_;
-            unknown_entries_ = std::move(other.unknown_entries_);
-            known_touched_indices_ = other.known_touched_indices_;
-            known_touched_flags_ = other.known_touched_flags_;
-            known_touched_count_ = other.known_touched_count_;
+            unknown_inline_ = other.unknown_inline_;
+            unknown_chunks_ = other.unknown_chunks_;
+            unknown_size_ = other.unknown_size_;
             fallback_arena_ = arena_ ? nullptr : &owned_arena_;
-
-            other.arena_ = nullptr;
-            other.fallback_arena_ = &other.owned_arena_;
-            other.known_size_ = 0;
-            other.known_touched_count_ = 0;
+            other.reset_storage();
         }
         return *this;
     }
@@ -264,48 +257,98 @@ public:
     void set(field f, std::string_view value) noexcept { set_known(f, value); }
 
     void set_known(field f, std::string_view value) noexcept {
-        auto idx = static_cast<size_t>(f);
-        if (idx == static_cast<size_t>(field::unknown) || idx >= KNOWN_HEADERS_COUNT) {
+        if (f == field::unknown || f >= field::MAX_FIELD_VALUE) {
             return;
         }
 
-        monotonic_arena* alloc = arena_ ? arena_ : fallback_arena_;
+        monotonic_arena* alloc = allocator();
         const char* value_ptr = alloc ? alloc->allocate_string(value) : nullptr;
-        if (!value_ptr)
+        if (!value_ptr) {
             return;
+        }
 
-        auto& entry = known_entries_->entries[idx];
-        if (!entry.value) {
-            if (!known_touched_flags_[idx]) {
-                known_touched_flags_[idx] = 1;
-                known_touched_indices_[known_touched_count_++] = static_cast<uint16_t>(idx);
+        known_entry* entry = find_known_entry(f);
+        if (!entry) {
+            entry = append_known_entry();
+            if (!entry) {
+                return;
             }
             ++known_size_;
         }
-        entry.value = value_ptr;
-        entry.length = static_cast<uint16_t>(value.size());
+
+        entry->key = f;
+        entry->value = value_ptr;
+        entry->length = static_cast<uint16_t>(value.size());
+    }
+
+    void set_known_borrowed(field f, std::string_view value) noexcept {
+        if (f == field::unknown || f >= field::MAX_FIELD_VALUE) {
+            return;
+        }
+
+        known_entry* entry = find_known_entry(f);
+        if (!entry) {
+            entry = append_known_entry();
+            if (!entry) {
+                return;
+            }
+            ++known_size_;
+        }
+
+        entry->key = f;
+        entry->value = value.data();
+        entry->length = static_cast<uint16_t>(value.size());
     }
 
     void set_unknown(std::string_view name, std::string_view value) noexcept {
-        monotonic_arena* alloc = arena_ ? arena_ : fallback_arena_;
-        if (!alloc)
+        monotonic_arena* alloc = allocator();
+        if (!alloc) {
             return;
+        }
 
         const char* name_ptr = alloc->allocate_string(name);
         const char* value_ptr = alloc->allocate_string(value);
-        if (!name_ptr || !value_ptr)
+        if (!name_ptr || !value_ptr) {
             return;
-
-        for (auto& ue : unknown_entries_) {
-            if (ue.name_length == name.size() &&
-                ci_equal_fast(std::string_view(ue.name, ue.name_length), name)) {
-                ue.value = value_ptr;
-                ue.value_length = value.size();
-                return;
-            }
         }
 
-        unknown_entries_.push_back(unknown_entry{name_ptr, name.size(), value_ptr, value.size()});
+        if (unknown_entry* entry = find_unknown_entry(name)) {
+            entry->value = value_ptr;
+            entry->value_length = static_cast<uint16_t>(value.size());
+            return;
+        }
+
+        unknown_entry* entry = append_unknown_entry();
+        if (!entry) {
+            return;
+        }
+
+        entry->name = name_ptr;
+        entry->name_length = static_cast<uint16_t>(name.size());
+        entry->value = value_ptr;
+        entry->value_length = static_cast<uint16_t>(value.size());
+        ++unknown_size_;
+    }
+
+    void set_unknown_borrowed(std::string_view name, std::string_view value) noexcept {
+        if (unknown_entry* entry = find_unknown_entry(name)) {
+            entry->name = name.data();
+            entry->name_length = static_cast<uint16_t>(name.size());
+            entry->value = value.data();
+            entry->value_length = static_cast<uint16_t>(value.size());
+            return;
+        }
+
+        unknown_entry* entry = append_unknown_entry();
+        if (!entry) {
+            return;
+        }
+
+        entry->name = name.data();
+        entry->name_length = static_cast<uint16_t>(name.size());
+        entry->value = value.data();
+        entry->value_length = static_cast<uint16_t>(value.size());
+        ++unknown_size_;
     }
 
     void set_view(std::string_view name, std::string_view value) noexcept {
@@ -322,23 +365,19 @@ public:
             return std::nullopt;
         }
 
-        const auto& entry = known_entries_->entries[static_cast<size_t>(f)];
-        if (!entry.value) {
+        const known_entry* entry = find_known_entry(f);
+        if (!entry) {
             return std::nullopt;
         }
-        return std::string_view(entry.value, entry.length);
+        return std::string_view(entry->value, entry->length);
     }
 
     [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const noexcept {
         field f = string_to_field(name);
 
         if (f == field::unknown) {
-            // Search in unknown headers
-            for (const auto& ue : unknown_entries_) {
-                if (ue.name_length == name.size() &&
-                    ci_equal(std::string_view(ue.name, ue.name_length), name)) {
-                    return std::string_view(ue.value, ue.value_length);
-                }
+            if (const unknown_entry* entry = find_unknown_entry(name)) {
+                return std::string_view(entry->value, entry->value_length);
             }
             return std::nullopt;
         }
@@ -346,41 +385,19 @@ public:
         return get(f);
     }
 
-    [[nodiscard]] bool contains(field f) const noexcept {
-        auto idx = static_cast<size_t>(f);
-        if (idx == static_cast<size_t>(field::unknown) || idx >= KNOWN_HEADERS_COUNT) {
-            return false;
-        }
-
-        return known_entries_->entries[idx].value != nullptr;
-    }
+    [[nodiscard]] bool contains(field f) const noexcept { return find_known_entry(f) != nullptr; }
 
     [[nodiscard]] bool contains(std::string_view name) const noexcept {
         field f = string_to_field(name);
-
         if (f == field::unknown) {
-            // Search in unknown headers
-            for (const auto& ue : unknown_entries_) {
-                if (ue.name_length == name.size() &&
-                    ci_equal(std::string_view(ue.name, ue.name_length), name)) {
-                    return true;
-                }
-            }
-            return false;
+            return find_unknown_entry(name) != nullptr;
         }
-
         return contains(f);
     }
 
     void remove(field f) noexcept {
-        auto idx = static_cast<size_t>(f);
-        if (idx == static_cast<size_t>(field::unknown) || idx >= KNOWN_HEADERS_COUNT) {
-            return;
-        }
-
-        auto& entry = known_entries_->entries[idx];
-        if (entry.value) {
-            entry = {};
+        if (known_entry* entry = find_known_entry(f)) {
+            *entry = {};
             if (known_size_ > 0) {
                 --known_size_;
             }
@@ -389,117 +406,268 @@ public:
 
     void remove(std::string_view name) noexcept {
         field f = string_to_field(name);
-
         if (f == field::unknown) {
-            // Remove from unknown headers
-            auto it = unknown_entries_.begin();
-            while (it != unknown_entries_.end()) {
-                if (it->name_length == name.size() &&
-                    ci_equal(std::string_view(it->name, it->name_length), name)) {
-                    unknown_entries_.erase(it);
-                    return;
+            if (unknown_entry* entry = find_unknown_entry(name)) {
+                *entry = {};
+                if (unknown_size_ > 0) {
+                    --unknown_size_;
                 }
-                ++it;
             }
-        } else {
-            remove(f);
+            return;
         }
+
+        remove(f);
     }
 
     void clear() noexcept {
-        for (size_t i = 0; i < known_touched_count_; ++i) {
-            auto idx = static_cast<size_t>(known_touched_indices_[i]);
-            known_entries_->entries[idx] = {};
-            known_touched_flags_[idx] = 0;
+        known_inline_.fill({});
+        for (auto* chunk = known_chunks_; chunk; chunk = chunk->next) {
+            chunk->entries.fill({});
         }
-        known_touched_count_ = 0;
         known_size_ = 0;
-        unknown_entries_.clear();
+
+        unknown_inline_.fill({});
+        for (auto* chunk = unknown_chunks_; chunk; chunk = chunk->next) {
+            chunk->entries.fill({});
+        }
+        unknown_size_ = 0;
     }
 
     struct iterator {
-        const headers_map* map;
-        size_t index;
-        bool in_known;
+        const headers_map* map = nullptr;
+        size_t index = 0;
+        uint8_t phase = 0;
+        const entry_chunk<known_entry, KNOWN_HEADERS_CHUNK_SIZE>* known_chunk = nullptr;
+        const entry_chunk<unknown_entry, UNKNOWN_HEADERS_CHUNK_SIZE>* unknown_chunk = nullptr;
 
-        void advance_known() noexcept {
-            while (in_known && index < KNOWN_HEADERS_COUNT &&
-                   !map->known_entries_->entries[index].value) {
-                ++index;
-            }
+        void advance() noexcept {
+            for (;;) {
+                if (phase == 0) {
+                    while (index < KNOWN_HEADERS_INLINE_SIZE) {
+                        if (map->known_inline_[index].key != field::unknown) {
+                            return;
+                        }
+                        ++index;
+                    }
+                    phase = 1;
+                    index = 0;
+                    known_chunk = map->known_chunks_;
+                    continue;
+                }
 
-            if (in_known && index >= KNOWN_HEADERS_COUNT) {
-                in_known = false;
-                index = 0;
+                if (phase == 1) {
+                    while (known_chunk) {
+                        while (index < KNOWN_HEADERS_CHUNK_SIZE) {
+                            if (known_chunk->entries[index].key != field::unknown) {
+                                return;
+                            }
+                            ++index;
+                        }
+                        known_chunk = known_chunk->next;
+                        index = 0;
+                    }
+                    phase = 2;
+                    index = 0;
+                    continue;
+                }
+
+                if (phase == 2) {
+                    while (index < UNKNOWN_HEADERS_INLINE_SIZE) {
+                        if (map->unknown_inline_[index].name) {
+                            return;
+                        }
+                        ++index;
+                    }
+                    phase = 3;
+                    index = 0;
+                    unknown_chunk = map->unknown_chunks_;
+                    continue;
+                }
+
+                while (unknown_chunk) {
+                    while (index < UNKNOWN_HEADERS_CHUNK_SIZE) {
+                        if (unknown_chunk->entries[index].name) {
+                            return;
+                        }
+                        ++index;
+                    }
+                    unknown_chunk = unknown_chunk->next;
+                    index = 0;
+                }
+
+                phase = 4;
+                return;
             }
         }
 
         iterator& operator++() {
-            if (in_known) {
-                ++index;
-                advance_known();
-            } else {
-                ++index;
-            }
+            ++index;
+            advance();
             return *this;
         }
 
         bool operator!=(const iterator& other) const {
-            return in_known != other.in_known || index != other.index;
+            return phase != other.phase || index != other.index || known_chunk != other.known_chunk ||
+                   unknown_chunk != other.unknown_chunk;
         }
 
         std::pair<std::string_view, std::string_view> operator*() const {
-            if (in_known) {
-                const auto& e = map->known_entries_->entries[index];
-                return {field_to_string(static_cast<field>(index)),
-                        std::string_view(e.value, e.length)};
+            if (phase == 0) {
+                const auto& entry = map->known_inline_[index];
+                return {field_to_string(entry.key), std::string_view(entry.value, entry.length)};
             }
-            const auto& ue = map->unknown_entries_[index];
-            return {std::string_view(ue.name, ue.name_length),
-                    std::string_view(ue.value, ue.value_length)};
+            if (phase == 1) {
+                const auto& entry = known_chunk->entries[index];
+                return {field_to_string(entry.key), std::string_view(entry.value, entry.length)};
+            }
+
+            const auto& entry =
+                (phase == 2) ? map->unknown_inline_[index] : unknown_chunk->entries[index];
+            return {std::string_view(entry.name, entry.name_length),
+                    std::string_view(entry.value, entry.value_length)};
         }
     };
 
     iterator begin() const noexcept {
-        iterator it{this, 0, true};
-        it.advance_known();
-
-        if (!it.in_known && unknown_entries_.empty()) {
-            return end();
-        }
+        iterator it;
+        it.map = this;
+        it.advance();
         return it;
     }
 
-    iterator end() const noexcept { return {this, unknown_entries_.size(), false}; }
-
-    [[nodiscard]] size_t size() const noexcept { return known_size_ + unknown_entries_.size(); }
-    [[nodiscard]] bool empty() const noexcept {
-        return known_size_ == 0 && unknown_entries_.empty();
+    iterator end() const noexcept {
+        iterator it;
+        it.map = this;
+        it.phase = 4;
+        return it;
     }
+
+    [[nodiscard]] size_t size() const noexcept { return known_size_ + unknown_size_; }
+    [[nodiscard]] bool empty() const noexcept { return known_size_ == 0 && unknown_size_ == 0; }
 
     void reset(monotonic_arena* arena) noexcept {
         arena_ = arena;
         fallback_arena_ = arena_ ? nullptr : &owned_arena_;
-        for (size_t i = 0; i < known_touched_count_; ++i) {
-            auto idx = static_cast<size_t>(known_touched_indices_[i]);
-            known_entries_->entries[idx] = {};
-            known_touched_flags_[idx] = 0;
-        }
-        known_touched_count_ = 0;
-        known_size_ = 0;
-        unknown_entries_.clear();
+        reset_storage();
     }
 
 private:
-    monotonic_arena* arena_;
-    monotonic_arena* fallback_arena_;
+    [[nodiscard]] monotonic_arena* allocator() noexcept { return arena_ ? arena_ : fallback_arena_; }
+
+    [[nodiscard]] known_entry* find_known_entry(field f) noexcept {
+        for (auto& entry : known_inline_) {
+            if (entry.key == f) {
+                return &entry;
+            }
+        }
+        for (auto* chunk = known_chunks_; chunk; chunk = chunk->next) {
+            for (auto& entry : chunk->entries) {
+                if (entry.key == f) {
+                    return &entry;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] const known_entry* find_known_entry(field f) const noexcept {
+        return const_cast<headers_map*>(this)->find_known_entry(f);
+    }
+
+    [[nodiscard]] known_entry* append_known_entry() noexcept {
+        for (auto& entry : known_inline_) {
+            if (entry.key == field::unknown) {
+                return &entry;
+            }
+        }
+        for (auto* chunk = known_chunks_; chunk; chunk = chunk->next) {
+            for (auto& entry : chunk->entries) {
+                if (entry.key == field::unknown) {
+                    return &entry;
+                }
+            }
+        }
+
+        using chunk_t = entry_chunk<known_entry, KNOWN_HEADERS_CHUNK_SIZE>;
+        auto* alloc = allocator();
+        auto* chunk = alloc ? static_cast<chunk_t*>(alloc->allocate(sizeof(chunk_t), alignof(chunk_t)))
+                            : nullptr;
+        if (!chunk) {
+            return nullptr;
+        }
+        new (chunk) chunk_t{};
+        chunk->next = known_chunks_;
+        known_chunks_ = chunk;
+        return &chunk->entries[0];
+    }
+
+    [[nodiscard]] unknown_entry* find_unknown_entry(std::string_view name) noexcept {
+        for (auto& entry : unknown_inline_) {
+            if (entry.name && entry.name_length == name.size() &&
+                ci_equal_fast(std::string_view(entry.name, entry.name_length), name)) {
+                return &entry;
+            }
+        }
+        for (auto* chunk = unknown_chunks_; chunk; chunk = chunk->next) {
+            for (auto& entry : chunk->entries) {
+                if (entry.name && entry.name_length == name.size() &&
+                    ci_equal_fast(std::string_view(entry.name, entry.name_length), name)) {
+                    return &entry;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] const unknown_entry* find_unknown_entry(std::string_view name) const noexcept {
+        return const_cast<headers_map*>(this)->find_unknown_entry(name);
+    }
+
+    [[nodiscard]] unknown_entry* append_unknown_entry() noexcept {
+        for (auto& entry : unknown_inline_) {
+            if (!entry.name) {
+                return &entry;
+            }
+        }
+        for (auto* chunk = unknown_chunks_; chunk; chunk = chunk->next) {
+            for (auto& entry : chunk->entries) {
+                if (!entry.name) {
+                    return &entry;
+                }
+            }
+        }
+
+        using chunk_t = entry_chunk<unknown_entry, UNKNOWN_HEADERS_CHUNK_SIZE>;
+        auto* alloc = allocator();
+        auto* chunk = alloc ? static_cast<chunk_t*>(alloc->allocate(sizeof(chunk_t), alignof(chunk_t)))
+                            : nullptr;
+        if (!chunk) {
+            return nullptr;
+        }
+        new (chunk) chunk_t{};
+        chunk->next = unknown_chunks_;
+        unknown_chunks_ = chunk;
+        return &chunk->entries[0];
+    }
+
+    void reset_storage() noexcept {
+        known_inline_.fill({});
+        known_chunks_ = nullptr;
+        known_size_ = 0;
+        unknown_inline_.fill({});
+        unknown_chunks_ = nullptr;
+        unknown_size_ = 0;
+    }
+
+    monotonic_arena* arena_ = nullptr;
+    monotonic_arena* fallback_arena_ = nullptr;
     monotonic_arena owned_arena_{4096};
-    std::unique_ptr<known_headers_storage> known_entries_;
+    std::array<known_entry, KNOWN_HEADERS_INLINE_SIZE> known_inline_{};
+    entry_chunk<known_entry, KNOWN_HEADERS_CHUNK_SIZE>* known_chunks_ = nullptr;
     size_t known_size_ = 0;
-    std::vector<unknown_entry> unknown_entries_;
-    std::array<uint16_t, KNOWN_HEADERS_COUNT> known_touched_indices_{};
-    std::array<uint8_t, KNOWN_HEADERS_COUNT> known_touched_flags_{};
-    size_t known_touched_count_ = 0;
+    std::array<unknown_entry, UNKNOWN_HEADERS_INLINE_SIZE> unknown_inline_{};
+    entry_chunk<unknown_entry, UNKNOWN_HEADERS_CHUNK_SIZE>* unknown_chunks_ = nullptr;
+    size_t unknown_size_ = 0;
 };
 
 } // namespace katana::http

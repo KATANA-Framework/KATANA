@@ -244,7 +244,10 @@ inline void serialize_RegisterUserRequest_into(const RegisterUserRequest& obj, s
 
 inline std::string serialize_RegisterUserRequest(const RegisterUserRequest& obj) {
     std::string json;
-    json.reserve(114);
+    size_t reserve_estimate = 114;
+    reserve_estimate += obj.email.size();
+    reserve_estimate += obj.password.size();
+    json.reserve(reserve_estimate);
     serialize_RegisterUserRequest_into(obj, json);
     return json;
 }
@@ -469,7 +472,7 @@ inline void serialize_RegisterUserRequest_array_into(const std::vector<RegisterU
 
 inline std::string serialize_RegisterUserRequest_array(const std::vector<RegisterUserRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 114 + 2);
     serialize_RegisterUserRequest_array_into(arr, json);
     return json;
 }
@@ -485,7 +488,7 @@ inline void serialize_RegisterUserRequest_array_into(const arena_vector<Register
 
 inline std::string serialize_RegisterUserRequest_array(const arena_vector<RegisterUserRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 114 + 2);
     serialize_RegisterUserRequest_array_into(arr, json);
     return json;
 }
@@ -565,7 +568,7 @@ inline void serialize_RegisterUserRequest_Age_t_array_into(const std::vector<Reg
 
 inline std::string serialize_RegisterUserRequest_Age_t_array(const std::vector<RegisterUserRequest_Age_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_RegisterUserRequest_Age_t_array_into(arr, json);
     return json;
 }
@@ -581,7 +584,7 @@ inline void serialize_RegisterUserRequest_Age_t_array_into(const arena_vector<Re
 
 inline std::string serialize_RegisterUserRequest_Age_t_array(const arena_vector<RegisterUserRequest_Age_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_RegisterUserRequest_Age_t_array_into(arr, json);
     return json;
 }
@@ -597,7 +600,7 @@ inline void serialize_schema_array_into(const std::vector<schema>& arr, std::str
 
 inline std::string serialize_schema_array(const std::vector<schema>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_array_into(arr, json);
     return json;
 }
@@ -613,7 +616,7 @@ inline void serialize_schema_array_into(const arena_vector<schema>& arr, std::st
 
 inline std::string serialize_schema_array(const arena_vector<schema>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_array_into(arr, json);
     return json;
 }

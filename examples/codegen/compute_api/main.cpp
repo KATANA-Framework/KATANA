@@ -20,12 +20,13 @@ using namespace katana;
 using namespace katana::http;
 
 struct compute_handler : generated::api_handler {
-    response compute_sum(const compute_sum_request& nums) override {
+    result<void> compute_sum(const compute_sum_request& nums, response& out) override {
         double acc = 0.0;
         // Tight loop over arena-backed vector to stress CPU/serialization only.
         for (double v : nums)
             acc += v;
-        return response::json(serialize_schema(acc));
+        out.assign_json(serialize_schema(acc));
+        return {};
     }
 };
 
@@ -39,6 +40,11 @@ static uint16_t read_port(const char* env_name, uint16_t fallback) {
 }
 
 static uint16_t worker_count() {
+    if (const char* value = std::getenv("KATANA_WORKERS")) {
+        int parsed = std::atoi(value);
+        if (parsed > 0 && parsed < 65536)
+            return static_cast<uint16_t>(parsed);
+    }
     const uint32_t hw = std::max(1u, std::thread::hardware_concurrency());
     const uint32_t capped = std::min<uint32_t>(hw, 64);
     return static_cast<uint16_t>(capped);

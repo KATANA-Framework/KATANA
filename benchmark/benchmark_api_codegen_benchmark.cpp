@@ -105,21 +105,32 @@ public:
 
     bool remove(int64_t id) { return items_.erase(id) > 0; }
 
-    std::vector<const stored_item*> list(size_t limit,
-                                         size_t offset,
-                                         std::optional<std::string_view> category) const {
-        std::optional<ItemCategory_enum> cat;
-        if (category) {
-            cat = ItemCategory_enum_from_string(*category);
-            if (!cat) {
-                return {};
-            }
+    std::optional<ItemCategory_enum> parse_category(std::optional<std::string_view> category,
+                                                    bool& valid) const {
+        valid = true;
+        if (!category) {
+            return std::nullopt;
+        }
+        auto cat = ItemCategory_enum_from_string(*category);
+        if (!cat) {
+            valid = false;
+        }
+        return cat;
+    }
+
+    template <typename Fn>
+    bool for_each_listed(size_t limit,
+                         size_t offset,
+                         std::optional<std::string_view> category,
+                         Fn&& fn) const {
+        bool valid_category = true;
+        auto cat = parse_category(category, valid_category);
+        if (!valid_category) {
+            return false;
         }
 
-        std::vector<const stored_item*> out;
-        out.reserve(limit);
-
         size_t seen = 0;
+        size_t emitted = 0;
         for (const auto& kv : items_) {
             const auto& item = kv.second;
             if (cat && item.category != *cat) {
@@ -128,11 +139,20 @@ public:
             if (seen++ < offset) {
                 continue;
             }
-            out.push_back(&item);
-            if (out.size() >= limit) {
+            fn(item);
+            if (++emitted >= limit) {
                 break;
             }
         }
+        return true;
+    }
+
+    std::vector<const stored_item*> list(size_t limit,
+                                         size_t offset,
+                                         std::optional<std::string_view> category) const {
+        std::vector<const stored_item*> out;
+        out.reserve(limit);
+        for_each_listed(limit, offset, category, [&](const stored_item& item) { out.push_back(&item); });
         return out;
     }
 
@@ -143,8 +163,7 @@ private:
     int64_t next_id_ = 1;
 };
 
-static Item to_item_dto(const stored_item& src, monotonic_arena& arena) {
-    Item item(&arena);
+static void fill_item_dto(Item& item, const stored_item& src, monotonic_arena& arena) {
     item.id = src.id;
     item.name = arena_string<>(src.name, arena_allocator<char>(&arena));
     if (!src.description.empty()) {
@@ -156,14 +175,13 @@ static Item to_item_dto(const stored_item& src, monotonic_arena& arena) {
     for (const auto& tag : src.tags) {
         item.tags.emplace_back(tag, arena_allocator<char>(&arena));
     }
-    return item;
 }
 
 class benchmark_handler : public generated::api_handler {
 public:
     explicit benchmark_handler(item_store& store) : store_(store) {}
 
-    response compute_sum(const SumRequest& body) override {
+    result<void> compute_sum(const SumRequest& body, response& out) override {
         double sum = 0.0;
         for (double v : body.values) {
             sum += v;
@@ -172,12 +190,14 @@ public:
         SumResponse resp(&arena);
         resp.result = sum;
         resp.count = static_cast<int64_t>(body.values.size());
-        return response::json(serialize_SumResponse(resp));
+        out.assign_json(serialize_SumResponse(resp));
+        return {};
     }
 
-    response compute_stats(const StatsRequest& body) override {
+    result<void> compute_stats(const StatsRequest& body, response& out) override {
         if (body.values.empty()) {
-            return response::error(problem_details::bad_request("empty values"));
+            out.assign_error(problem_details::bad_request("empty values"));
+            return {};
         }
 
         double sum = 0.0;
@@ -198,15 +218,23 @@ public:
         resp.count = static_cast<int64_t>(body.values.size());
         if (body.include_median) {
             std::vector<double> sorted(body.values.begin(), body.values.end());
-            std::sort(sorted.begin(), sorted.end());
             const size_t n = sorted.size();
-            resp.median =
-                (n % 2 == 0) ? ((sorted[n / 2 - 1] + sorted[n / 2]) * 0.5) : sorted[n / 2];
+            auto mid = sorted.begin() + static_cast<std::ptrdiff_t>(n / 2);
+            std::nth_element(sorted.begin(), mid, sorted.end());
+            if ((n & 1U) != 0U) {
+                resp.median = *mid;
+            } else {
+                const double upper = *mid;
+                auto lower_it = sorted.begin() + static_cast<std::ptrdiff_t>(n / 2 - 1);
+                std::nth_element(sorted.begin(), lower_it, mid);
+                resp.median = (*lower_it + upper) * 0.5;
+            }
         }
-        return response::json(serialize_StatsResponse(resp));
+        out.assign_json(serialize_StatsResponse(resp));
+        return {};
     }
 
-    response register_user(const RegisterRequest& body) override {
+    result<void> register_user(const RegisterRequest& body, response& out) override {
         auto& arena = handler_context::arena();
         UserResponse resp(&arena);
         resp.id = arena_string<>("550e8400-e29b-41d4-a716-446655440000", arena_allocator<char>(&arena));
@@ -215,77 +243,93 @@ public:
         resp.email = arena_string<>(body.email.data(), body.email.size(), arena_allocator<char>(&arena));
         resp.role = body.role;
         resp.created_at = arena_string<>("2026-01-01T00:00:00Z", arena_allocator<char>(&arena));
-        auto out = response::json(serialize_UserResponse(resp));
-        out.status = 201;
-        out.reason = "Created";
-        return out;
+        out.assign_json(serialize_UserResponse(resp), 201, "Created");
+        return {};
     }
 
-    response list_items(std::optional<int64_t> limit,
-                        std::optional<int64_t> offset,
-                        std::optional<std::string_view> category) override {
+    result<void> list_items(std::optional<int64_t> limit,
+                            std::optional<int64_t> offset,
+                            std::optional<std::string_view> category,
+                            response& out) override {
         const size_t lim = static_cast<size_t>(limit.value_or(20));
         const size_t off = static_cast<size_t>(offset.value_or(0));
-        auto list = store_.list(lim, off, category);
 
         auto& arena = handler_context::arena();
         ItemList resp(&arena);
         resp.total = store_.size();
         resp.limit = static_cast<int64_t>(lim);
         resp.offset = static_cast<int64_t>(off);
-        for (const auto* item : list) {
-            resp.items.push_back(to_item_dto(*item, arena));
+        const bool listed = store_.for_each_listed(lim, off, category, [&](const stored_item& src) {
+            Item item(&arena);
+            fill_item_dto(item, src, arena);
+            resp.items.push_back(std::move(item));
+        });
+        if (!listed) {
+            out.assign_error(problem_details::bad_request("invalid category"));
+            return {};
         }
-        return response::json(serialize_ItemList(resp));
+        out.assign_json(serialize_ItemList(resp));
+        return {};
     }
 
-    response create_item([[maybe_unused]] std::string_view X_Request_Id,
-                         [[maybe_unused]] std::optional<std::string_view> session,
-                         const CreateItemRequest& body) override {
+    result<void> create_item([[maybe_unused]] std::string_view X_Request_Id,
+                             [[maybe_unused]] std::optional<std::string_view> session,
+                             const CreateItemRequest& body,
+                             response& out) override {
         int64_t id = store_.create(body);
         const auto* item = store_.get(id);
         if (!item) {
-            return response::error(problem_details::internal_server_error());
+            out.assign_error(problem_details::internal_server_error());
+            return {};
         }
         auto& arena = handler_context::arena();
-        auto out = response::json(serialize_Item(to_item_dto(*item, arena)));
-        out.status = 201;
-        out.reason = "Created";
-        return out;
+        Item dto(&arena);
+        fill_item_dto(dto, *item, arena);
+        out.assign_json(serialize_Item(dto), 201, "Created");
+        return {};
     }
 
-    response get_item(int64_t id) override {
+    result<void> get_item(int64_t id, response& out) override {
         const auto* item = store_.get(id);
         if (!item) {
-            return response::error(problem_details::not_found("item not found"));
+            out.assign_error(problem_details::not_found("item not found"));
+            return {};
         }
         auto& arena = handler_context::arena();
-        return response::json(serialize_Item(to_item_dto(*item, arena)));
+        Item dto(&arena);
+        fill_item_dto(dto, *item, arena);
+        out.assign_json(serialize_Item(dto));
+        return {};
     }
 
-    response update_item(int64_t id, const UpdateItemRequest& body) override {
+    result<void> update_item(int64_t id, const UpdateItemRequest& body, response& out) override {
         if (!store_.update(id, body)) {
-            return response::error(problem_details::not_found("item not found"));
+            out.assign_error(problem_details::not_found("item not found"));
+            return {};
         }
         const auto* item = store_.get(id);
         if (!item) {
-            return response::error(problem_details::internal_server_error());
+            out.assign_error(problem_details::internal_server_error());
+            return {};
         }
         auto& arena = handler_context::arena();
-        return response::json(serialize_Item(to_item_dto(*item, arena)));
+        Item dto(&arena);
+        fill_item_dto(dto, *item, arena);
+        out.assign_json(serialize_Item(dto));
+        return {};
     }
 
-    response delete_item(int64_t id) override {
+    result<void> delete_item(int64_t id, response& out) override {
         if (!store_.remove(id)) {
-            return response::error(problem_details::not_found("item not found"));
+            out.assign_error(problem_details::not_found("item not found"));
+            return {};
         }
-        response out;
         out.status = 204;
         out.reason = "No Content";
-        return out;
+        return {};
     }
 
-    response echo(const EchoRequest& body) override {
+    result<void> echo(const EchoRequest& body, response& out) override {
         std::string payload(body.message.data(), body.message.size());
         const int repeat_count = static_cast<int>(body.repeat);
         if (repeat_count > 1) {
@@ -305,10 +349,14 @@ public:
         EchoResponse resp(&arena);
         resp.message = arena_string<>(payload, arena_allocator<char>(&arena));
         resp.length = static_cast<int64_t>(payload.size());
-        return response::json(serialize_EchoResponse(resp));
+        out.assign_json(serialize_EchoResponse(resp));
+        return {};
     }
 
-    response health_check() override { return response::json(R"({"status":"ok","uptime_ms":1234})"); }
+    result<void> health_check(response& out) override {
+        out.assign_json(R"({"status":"ok","uptime_ms":1234})");
+        return {};
+    }
 
 private:
     item_store& store_;
@@ -351,7 +399,9 @@ static bench_result run_dispatch_bench(const char* name,
         monotonic_arena arena;
         request_context ctx{arena};
         const auto& req = requests[i % requests.size()];
-        auto resp = dispatch(req, ctx);
+        response resp;
+        auto status = dispatch(req, ctx, resp);
+        do_not_optimize(status.has_value());
         do_not_optimize(resp.status);
     }
 
@@ -365,15 +415,17 @@ static bench_result run_dispatch_bench(const char* name,
         request_context ctx{arena};
         const auto& req = requests[i % requests.size()];
 
+        response resp;
         const auto t0 = std::chrono::steady_clock::now();
-        auto resp = dispatch(req, ctx);
+        auto status = dispatch(req, ctx, resp);
         const auto t1 = std::chrono::steady_clock::now();
 
-        if (resp.status >= 400) {
+        if (!status || resp.status >= 400) {
             ++errors;
         }
         latencies_ns.push_back(
             static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count()));
+        do_not_optimize(status.has_value());
         do_not_optimize(resp.status);
     }
     const auto run_end = std::chrono::steady_clock::now();
@@ -435,10 +487,15 @@ int main() {
     item_store store;
     store.seed(256);
     benchmark_handler handler(store);
-    const auto& r = generated::make_router(handler);
+    auto r = generated::make_fast_router(handler);
 
-    auto dispatch = [&](const request& req, request_context& ctx) -> response {
-        return dispatch_or_problem(r, req, ctx);
+    auto dispatch = [&](const request& req, request_context& ctx, response& out) -> result<void> {
+        auto status = r.dispatch_to(req, ctx, out);
+        if (!status) {
+            out = response::error(problem_details::internal_server_error());
+            return status;
+        }
+        return {};
     };
 
     request req_create =

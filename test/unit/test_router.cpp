@@ -24,8 +24,9 @@ request make_request(method m, std::string_view uri) {
 }
 
 handler_fn make_handler(std::string body) {
-    return [body = std::move(body)](const request&, request_context&) {
-        return response::ok(body, "text/plain");
+    return [body = std::move(body)](const request&, request_context&, response& out) {
+        out = response::ok(body, "text/plain");
+        return result<void>{};
     };
 }
 
@@ -106,15 +107,15 @@ TEST(Router, MiddlewareOrderAndShortCircuit) {
     std::vector<std::string> trace;
 
     std::array<middleware_fn, 2> middleware{
-        middleware_fn([&](const request&, request_context&, next_fn next) {
+        middleware_fn([&](const request&, request_context&, response& out, next_fn next) {
             trace.push_back("m1-before");
-            auto result = next();
+            auto result = next(out);
             trace.push_back("m1-after");
             return result;
         }),
-        middleware_fn([&](const request&, request_context&, next_fn next) {
+        middleware_fn([&](const request&, request_context&, response& out, next_fn next) {
             trace.push_back("m2-before");
-            auto result = next();
+            auto result = next(out);
             trace.push_back("m2-after");
             return result;
         }),
@@ -167,9 +168,10 @@ TEST(Router, HarnessIntegrationAndProblemDetails) {
     route_entry routes[] = {
         route_entry{method::get,
                     path_pattern::from_literal<"/hello/{name}">(),
-                    handler_fn([](const request&, request_context& ctx) {
+                    handler_fn([](const request&, request_context& ctx, response& out) {
                         auto name = ctx.params.get("name").value_or("anonymous");
-                        return response::ok(std::string{name});
+                        out = response::ok(std::string{name});
+                        return result<void>{};
                     })},
     };
 

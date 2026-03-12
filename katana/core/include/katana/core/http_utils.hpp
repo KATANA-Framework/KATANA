@@ -5,6 +5,7 @@
 #include "katana/core/serde.hpp"
 #include "katana/core/validation.hpp"
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -15,6 +16,11 @@ namespace katana::http_utils {
 
 struct content_type_info {
     std::string_view mime_type;
+};
+
+struct named_param_target {
+    std::string_view name;
+    std::optional<std::string_view>* value;
 };
 
 inline std::optional<std::string_view> query_param(std::string_view uri,
@@ -38,6 +44,56 @@ inline std::optional<std::string_view> query_param(std::string_view uri,
         query.remove_prefix(amp + 1);
     }
     return std::nullopt;
+}
+
+template <size_t N>
+inline void extract_query_params(
+    std::string_view uri,
+    const std::array<named_param_target, N>& targets) noexcept {
+    if constexpr (N == 0) {
+        return;
+    }
+
+    size_t remaining = 0;
+    for (const auto& target : targets) {
+        if (target.value != nullptr) {
+            *target.value = std::nullopt;
+            ++remaining;
+        }
+    }
+    if (remaining == 0) {
+        return;
+    }
+
+    auto qpos = uri.find('?');
+    if (qpos == std::string_view::npos) {
+        return;
+    }
+
+    auto query = uri.substr(qpos + 1);
+    while (!query.empty() && remaining != 0) {
+        auto amp = query.find('&');
+        auto part = query.substr(0, amp);
+        auto eq = part.find('=');
+        auto name = part.substr(0, eq);
+        auto value = eq == std::string_view::npos ? std::string_view{} : part.substr(eq + 1);
+
+        for (const auto& target : targets) {
+            if (target.value == nullptr || target.value->has_value()) {
+                continue;
+            }
+            if (target.name == name) {
+                *target.value = value;
+                --remaining;
+                break;
+            }
+        }
+
+        if (amp == std::string_view::npos) {
+            break;
+        }
+        query.remove_prefix(amp + 1);
+    }
 }
 
 inline std::optional<std::string_view> cookie_param(const katana::http::request& req,
@@ -65,6 +121,59 @@ inline std::optional<std::string_view> cookie_param(const katana::http::request&
             break;
     }
     return std::nullopt;
+}
+
+template <size_t N>
+inline void extract_cookie_params(
+    const katana::http::request& req,
+    const std::array<named_param_target, N>& targets) noexcept {
+    if constexpr (N == 0) {
+        return;
+    }
+
+    size_t remaining = 0;
+    for (const auto& target : targets) {
+        if (target.value != nullptr) {
+            *target.value = std::nullopt;
+            ++remaining;
+        }
+    }
+    if (remaining == 0) {
+        return;
+    }
+
+    auto cookie = req.headers.get(katana::http::field::cookie);
+    if (!cookie) {
+        return;
+    }
+
+    std::string_view rest = *cookie;
+    while (!rest.empty() && remaining != 0) {
+        auto sep = rest.find(';');
+        auto token = rest.substr(0, sep);
+        auto eq = token.find('=');
+
+        if (eq != std::string_view::npos) {
+            auto name = katana::serde::trim_view(token.substr(0, eq));
+            auto value = katana::serde::trim_view(token.substr(eq + 1));
+
+            for (const auto& target : targets) {
+                if (target.value == nullptr || target.value->has_value()) {
+                    continue;
+                }
+                if (target.name == name) {
+                    *target.value = value;
+                    --remaining;
+                    break;
+                }
+            }
+        }
+
+        if (sep == std::string_view::npos) {
+            break;
+        }
+        rest.remove_prefix(sep + 1);
+    }
 }
 
 inline std::optional<size_t>
@@ -146,6 +255,16 @@ inline katana::http::response format_validation_error(const katana::validation_e
     error_msg.append(err.message());
     return katana::http::response::error(
         katana::problem_details::bad_request(std::move(error_msg)));
+}
+
+inline void format_validation_error_into(katana::http::response& out,
+                                         const katana::validation_error& err) {
+    std::string error_msg;
+    error_msg.reserve(err.field.size() + err.message().size() + 2);
+    error_msg.append(err.field);
+    error_msg.append(": ");
+    error_msg.append(err.message());
+    out.assign_error(katana::problem_details::bad_request(std::move(error_msg)));
 }
 
 // Hash-based routing optimization (FNV-1a)

@@ -132,6 +132,7 @@ private:
     alignas(64) std::atomic<size_t> active_fds_{0};
     alignas(64) std::atomic<bool> needs_wakeup_{false};
     alignas(64) std::atomic<uint32_t> pending_count_{0};
+    bool metrics_enabled_{false};
     exception_handler exception_handler_;
     reactor_metrics metrics_;
 

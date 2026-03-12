@@ -1,5 +1,5 @@
-#include "generated/generated_handlers.hpp"
-#include "generated/generated_router_bindings.hpp"
+#include "generated_handlers.hpp"
+#include "generated_router_bindings.hpp"
 #include "katana/core/arena.hpp"
 #include "katana/core/http.hpp"
 
@@ -15,27 +15,33 @@ using namespace katana::http;
 using namespace std::chrono;
 
 struct bench_handler : generated::api_handler {
-    response health() override { return response::ok("ok"); }
+    result<void> health(response& out) override {
+        out = response::ok("ok");
+        return {};
+    }
 
-    response list_users() override { return response::json(R"([{"id":1,"name":"Alice"}])"); }
+    result<void> list_users(response& out) override {
+    out.assign_json(R"([{"id":1,"name":"Alice"}])");
+        return {};
+    }
 
-    response create_user(const UserInput& body) override {
+    result<void> create_user(const UserInput& body, response& out) override {
         (void)body;
-        auto resp = response::json(R"({"id":42})");
-        resp.status = 201;
-        resp.reason = "Created";
-        return resp;
+    out.assign_json(R"({"id":42})", 201, "Created");
+        return {};
     }
 
-    response get_user(int64_t id) override {
+    result<void> get_user(int64_t id, response& out) override {
         std::string payload = std::string("{\"id\":") + std::to_string(id) + ",\"name\":\"User\"}";
-        return response::json(std::move(payload));
+    out.assign_json(std::move(payload));
+        return {};
     }
 
-    response update_user(int64_t id, const UserInput&) override {
+    result<void> update_user(int64_t id, const UserInput&, response& out) override {
         std::string payload =
             std::string("{\"id\":") + std::to_string(id) + ",\"status\":\"updated\"}";
-        return response::json(std::move(payload));
+    out.assign_json(std::move(payload));
+        return {};
     }
 };
 
@@ -78,8 +84,9 @@ request make_request(std::string_view uri, method m, std::string_view body = "")
     return req;
 }
 
+template <typename DispatchFn>
 bench_result bench_dispatch(const std::string& name,
-                            const router& r,
+                            DispatchFn&& dispatch,
                             const std::vector<request>& requests,
                             size_t iterations) {
     std::vector<double> latencies;
@@ -93,11 +100,12 @@ bench_result bench_dispatch(const std::string& name,
         request_context ctx{arena};
         const auto& req = requests[i % requests.size()];
 
+        response final;
         auto t0 = steady_clock::now();
-        auto res = dispatch_or_problem(r, req, ctx);
+        auto status = dispatch(req, ctx, final);
         auto t1 = steady_clock::now();
 
-        if (res.status >= 400) {
+        if (!status || final.status >= 400) {
             ++errors;
         }
 
@@ -124,9 +132,17 @@ bench_result bench_dispatch(const std::string& name,
     return result;
 }
 
-int main() {
-    bench_handler handler;
-    auto r = generated::make_router(handler);
+    int main() {
+        bench_handler handler;
+        auto r = generated::make_fast_router(handler);
+    auto dispatch = [&](const request& req, request_context& ctx, response& out) -> result<void> {
+        auto status = r.dispatch_to(req, ctx, out);
+        if (!status) {
+            out = response::error(problem_details::internal_server_error());
+            return status;
+        }
+        return {};
+    };
 
     // Requests: mix path params and JSON body
     std::vector<request> reqs;
@@ -140,7 +156,7 @@ int main() {
 
     const size_t iterations = 200000;
 
-    auto result = bench_dispatch("Generated API dispatch+parse", r, reqs, iterations);
+    auto result = bench_dispatch("Generated API dispatch+parse", dispatch, reqs, iterations);
     print_result(result);
 
     return 0;

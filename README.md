@@ -58,7 +58,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 3. Сборка: `cmake --build --preset debug`.
 4. Тесты: `ctest --preset debug` (используется лёгкий gtest-совместимый харнес из `test/gtest/gtest.h`).
 5. Примеры: `cmake --build --preset examples && ./build/examples/hello_world_server`.
-6. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && ./build/bench/benchmark/performance_benchmark`.
+6. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && python3 scripts/run_benchmarks.py --build-dir build/bench --include-e2e`.
 7. Удобно через Makefile: `make build PRESET=debug`, `make test PRESET=debug`, `make bench`, `make fuzz`, `make profile`.
 8. CRUD бенч: по умолчанию in-memory; для высокого RPS можно задать `KATANA_CRUD_BACKEND=memcached` (опционально `MEMCACHED_HOST`/`MEMCACHED_PORT`). Docker бенч-сборка поднимает memcached автоматически.
 

@@ -10,7 +10,10 @@
 - `benchmark_api/` — широкий API для codegen-бенчей (CRUD + compute + validation).
 - `task_api/` — сложная спецификация для стресс-теста генератора.
 
-`products_api/` сейчас legacy-папка (только `main.cpp`, без подключенного CMake/OpenAPI пайплайна).
+`products_api/` сохранён только как архивный reference-код и не считается поддерживаемым примером:
+- не подключён в CMake;
+- не участвует в benchmark pipeline;
+- не имеет актуального OpenAPI/codegen пайплайна.
 
 ## Сборка
 

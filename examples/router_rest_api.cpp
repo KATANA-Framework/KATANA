@@ -130,7 +130,7 @@ public:
     explicit user_handlers(user_repository& repo) : repo_(repo) {}
 
     // GET /api/users
-    result<response> list_users(const request&, request_context&) {
+    result<void> list_users(const request&, request_context&, response& out) {
         auto users = repo_.find_all();
         std::ostringstream json;
         json << "[";
@@ -142,97 +142,111 @@ public:
             first = false;
         }
         json << "]";
-        return response::json(json.str());
+        out = response::json(json.str());
+        return {};
     }
 
     // GET /api/users/{id}
-    result<response> get_user(const request&, request_context& ctx) {
+    result<void> get_user(const request&, request_context& ctx, response& out) {
         auto id_str = ctx.params.get("id");
         if (!id_str) {
-            return response::error(problem_details::bad_request("Missing user ID"));
+            out = response::error(problem_details::bad_request("Missing user ID"));
+            return {};
         }
 
         int id = 0;
         auto [ptr, ec] = std::from_chars(id_str->data(), id_str->data() + id_str->size(), id);
         if (ec != std::errc{}) {
-            return response::error(problem_details::bad_request("Invalid user ID"));
+            out = response::error(problem_details::bad_request("Invalid user ID"));
+            return {};
         }
 
         auto user = repo_.find_by_id(id);
         if (!user) {
-            return response::error(problem_details::not_found("User not found"));
+            out = response::error(problem_details::not_found("User not found"));
+            return {};
         }
 
-        return response::json(user_to_json(*user));
+        out = response::json(user_to_json(*user));
+        return {};
     }
 
     // POST /api/users
-    result<response> create_user(const request& req, request_context&) {
+    result<void> create_user(const request& req, request_context&, response& out) {
         auto dto = parse_user_dto(req.body);
         if (!dto) {
-            return response::error(problem_details::bad_request("Name and email required"));
+            out = response::error(problem_details::bad_request("Name and email required"));
+            return {};
         }
 
         auto user = repo_.create(std::move(dto->name), std::move(dto->email));
 
-        auto resp = response::json(user_to_json(user));
-        resp.status = 201;
-        resp.reason = "Created";
-        return resp;
+        out = response::json(user_to_json(user));
+        out.status = 201;
+        out.reason = "Created";
+        return {};
     }
 
     // PUT /api/users/{id}
-    result<response> update_user(const request& req, request_context& ctx) {
+    result<void> update_user(const request& req, request_context& ctx, response& out) {
         auto id_str = ctx.params.get("id");
         if (!id_str) {
-            return response::error(problem_details::bad_request("Missing user ID"));
+            out = response::error(problem_details::bad_request("Missing user ID"));
+            return {};
         }
 
         int id = 0;
         auto [ptr, ec] = std::from_chars(id_str->data(), id_str->data() + id_str->size(), id);
         if (ec != std::errc{}) {
-            return response::error(problem_details::bad_request("Invalid user ID"));
+            out = response::error(problem_details::bad_request("Invalid user ID"));
+            return {};
         }
 
         auto dto = parse_user_dto(req.body);
         if (!dto) {
-            return response::error(problem_details::bad_request("Name and email required"));
+            out = response::error(problem_details::bad_request("Name and email required"));
+            return {};
         }
 
         if (!repo_.update(id, std::move(dto->name), std::move(dto->email))) {
-            return response::error(problem_details::not_found("User not found"));
+            out = response::error(problem_details::not_found("User not found"));
+            return {};
         }
 
         auto user = repo_.find_by_id(id);
-        return response::json(user_to_json(*user));
+        out = response::json(user_to_json(*user));
+        return {};
     }
 
     // DELETE /api/users/{id}
-    result<response> delete_user(const request&, request_context& ctx) {
+    result<void> delete_user(const request&, request_context& ctx, response& out) {
         auto id_str = ctx.params.get("id");
         if (!id_str) {
-            return response::error(problem_details::bad_request("Missing user ID"));
+            out = response::error(problem_details::bad_request("Missing user ID"));
+            return {};
         }
 
         int id = 0;
         auto [ptr, ec] = std::from_chars(id_str->data(), id_str->data() + id_str->size(), id);
         if (ec != std::errc{}) {
-            return response::error(problem_details::bad_request("Invalid user ID"));
+            out = response::error(problem_details::bad_request("Invalid user ID"));
+            return {};
         }
 
         if (!repo_.remove(id)) {
-            return response::error(problem_details::not_found("User not found"));
+            out = response::error(problem_details::not_found("User not found"));
+            return {};
         }
 
-        response resp;
-        resp.status = 204;
-        resp.reason = "No Content";
-        return resp;
+        out.status = 204;
+        out.reason = "No Content";
+        return {};
     }
 
     // GET /api/health
-    result<response> health_check(const request&, request_context&) {
-        return response::json("{\"status\":\"healthy\"}");
+    result<void> health_check(const request&, request_context&, response& out) {
+        out = response::json("{\"status\":\"healthy\"}");
+        return {};
     }
 
 private:
@@ -357,33 +371,33 @@ int main() {
     route_entry routes[] = {
         {method::get,
          path_pattern::from_literal<"/api/users">(),
-         handler_fn([&handlers](const request& req, request_context& ctx) {
-             return handlers.list_users(req, ctx);
+         handler_fn([&handlers](const request& req, request_context& ctx, response& out) {
+             return handlers.list_users(req, ctx, out);
          })},
         {method::get,
          path_pattern::from_literal<"/api/users/{id}">(),
-         handler_fn([&handlers](const request& req, request_context& ctx) {
-             return handlers.get_user(req, ctx);
+         handler_fn([&handlers](const request& req, request_context& ctx, response& out) {
+             return handlers.get_user(req, ctx, out);
          })},
         {method::post,
          path_pattern::from_literal<"/api/users">(),
-         handler_fn([&handlers](const request& req, request_context& ctx) {
-             return handlers.create_user(req, ctx);
+         handler_fn([&handlers](const request& req, request_context& ctx, response& out) {
+             return handlers.create_user(req, ctx, out);
          })},
         {method::put,
          path_pattern::from_literal<"/api/users/{id}">(),
-         handler_fn([&handlers](const request& req, request_context& ctx) {
-             return handlers.update_user(req, ctx);
+         handler_fn([&handlers](const request& req, request_context& ctx, response& out) {
+             return handlers.update_user(req, ctx, out);
          })},
         {method::del,
          path_pattern::from_literal<"/api/users/{id}">(),
-         handler_fn([&handlers](const request& req, request_context& ctx) {
-             return handlers.delete_user(req, ctx);
+         handler_fn([&handlers](const request& req, request_context& ctx, response& out) {
+             return handlers.delete_user(req, ctx, out);
          })},
         {method::get,
          path_pattern::from_literal<"/api/health">(),
-         handler_fn([&handlers](const request& req, request_context& ctx) {
-             return handlers.health_check(req, ctx);
+         handler_fn([&handlers](const request& req, request_context& ctx, response& out) {
+             return handlers.health_check(req, ctx, out);
          })},
     };
 

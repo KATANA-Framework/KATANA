@@ -1,14 +1,23 @@
 #include "katana/core/tcp_socket.hpp"
+#include "katana/core/detail/syscall_metrics.hpp"
 
 #include <algorithm>
 #include <cerrno>
+#include <sys/socket.h>
+#include <sys/uio.h>
 #include <system_error>
 #include <unistd.h>
 
 namespace katana {
 
 namespace {
-constexpr size_t MIN_BUFFER_SIZE = 16384;
+constexpr size_t SMALL_WRITE_FAST_PATH = 16384;
+
+#ifdef MSG_NOSIGNAL
+constexpr int WRITE_FLAGS = MSG_DONTWAIT | MSG_NOSIGNAL;
+#else
+constexpr int WRITE_FLAGS = MSG_DONTWAIT;
+#endif
 }
 
 result<std::span<uint8_t>> tcp_socket::read(std::span<uint8_t> buf) {
@@ -16,12 +25,11 @@ result<std::span<uint8_t>> tcp_socket::read(std::span<uint8_t> buf) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
-    const size_t read_size = std::max(buf.size(), MIN_BUFFER_SIZE);
-    const size_t actual_size = std::min(read_size, buf.size());
-
+    auto& metrics = detail::syscall_metrics_registry::instance();
     ssize_t n;
     do {
-        n = ::read(fd_, buf.data(), actual_size);
+        n = ::recv(fd_, buf.data(), buf.size(), MSG_DONTWAIT);
+        metrics.note_recv(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
     } while (n < 0 && errno == EINTR);
 
     if (n < 0) {
@@ -43,11 +51,33 @@ result<size_t> tcp_socket::write(std::span<const uint8_t> data) {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
 
+    auto& metrics = detail::syscall_metrics_registry::instance();
+    if (data.size() <= SMALL_WRITE_FAST_PATH) {
+        ssize_t n;
+        do {
+            n = ::send(fd_, data.data(), data.size(), WRITE_FLAGS);
+            metrics.note_send(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
+        } while (n < 0 && errno == EINTR);
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return size_t{0};
+            }
+            return std::unexpected(std::error_code(errno, std::system_category()));
+        }
+
+        return static_cast<size_t>(n);
+    }
+
     size_t total_written = 0;
     while (total_written < data.size()) {
         ssize_t n;
         do {
-            n = ::write(fd_, data.data() + total_written, data.size() - total_written);
+            n = ::send(fd_,
+                       data.data() + total_written,
+                       data.size() - total_written,
+                       WRITE_FLAGS);
+            metrics.note_send(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
         } while (n < 0 && errno == EINTR);
 
         if (n < 0) {
@@ -65,6 +95,39 @@ result<size_t> tcp_socket::write(std::span<const uint8_t> data) {
     }
 
     return total_written;
+}
+
+result<size_t> tcp_socket::writev(const iovec* iov, size_t count) {
+    if (fd_ < 0) {
+        return std::unexpected(make_error_code(error_code::invalid_fd));
+    }
+    if (count == 0) {
+        return size_t{0};
+    }
+    if (count == 1) {
+        auto* bytes = static_cast<const uint8_t*>(iov[0].iov_base);
+        return write(std::span<const uint8_t>(bytes, iov[0].iov_len));
+    }
+
+    msghdr msg{};
+    msg.msg_iov = const_cast<iovec*>(iov);
+    msg.msg_iovlen = count;
+
+    auto& metrics = detail::syscall_metrics_registry::instance();
+    ssize_t n;
+    do {
+        n = ::sendmsg(fd_, &msg, WRITE_FLAGS);
+        metrics.note_send(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK));
+    } while (n < 0 && errno == EINTR);
+
+    if (n < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return size_t{0};
+        }
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+
+    return static_cast<size_t>(n);
 }
 
 void tcp_socket::close() noexcept {

@@ -88,7 +88,17 @@ inline std::string serialize_compute_sum_response_array(const arena_vector<compu
 
 [[nodiscard]] inline std::optional<compute_sum_request> parse_compute_sum_request(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_compute_sum_request(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    compute_sum_request result{arena_allocator<schema>(arena)};
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto v = katana::serde::parse_double(cur)) {
+            result.push_back(*v);
+        } else { cur.skip_value(); }
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<schema> parse_schema(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -246,7 +256,7 @@ inline void serialize_compute_sum_request_array_into(const std::vector<compute_s
 
 inline std::string serialize_compute_sum_request_array(const std::vector<compute_sum_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 102 + 2);
     serialize_compute_sum_request_array_into(arr, json);
     return json;
 }
@@ -262,7 +272,7 @@ inline void serialize_compute_sum_request_array_into(const arena_vector<compute_
 
 inline std::string serialize_compute_sum_request_array(const arena_vector<compute_sum_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 102 + 2);
     serialize_compute_sum_request_array_into(arr, json);
     return json;
 }
@@ -278,7 +288,7 @@ inline void serialize_schema_array_into(const std::vector<schema>& arr, std::str
 
 inline std::string serialize_schema_array(const std::vector<schema>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 25 + 2);
     serialize_schema_array_into(arr, json);
     return json;
 }
@@ -294,7 +304,7 @@ inline void serialize_schema_array_into(const arena_vector<schema>& arr, std::st
 
 inline std::string serialize_schema_array(const arena_vector<schema>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 25 + 2);
     serialize_schema_array_into(arr, json);
     return json;
 }
@@ -310,7 +320,7 @@ inline void serialize_compute_sum_response_array_into(const std::vector<compute_
 
 inline std::string serialize_compute_sum_response_array(const std::vector<compute_sum_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 25 + 2);
     serialize_compute_sum_response_array_into(arr, json);
     return json;
 }
@@ -326,7 +336,7 @@ inline void serialize_compute_sum_response_array_into(const arena_vector<compute
 
 inline std::string serialize_compute_sum_response_array(const arena_vector<compute_sum_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 25 + 2);
     serialize_compute_sum_response_array_into(arr, json);
     return json;
 }

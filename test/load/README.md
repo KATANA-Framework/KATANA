@@ -1,6 +1,6 @@
 # Load Testing
 
-This directory contains load testing scripts and configurations for KATANA.
+This directory contains load testing scripts and configurations for KATANA. The maintained entrypoint is `scripts/run_benchmarks.py`; files here are the `wrk` Lua payloads used by the E2E stages.
 
 ## Tools
 
@@ -31,6 +31,26 @@ go install github.com/rakyll/hey@latest
 
 ## Running Load Tests
 
+### Recommended: Unified Runner
+
+```bash
+# Build benchmark layout
+cmake --preset bench
+cmake --build --preset bench
+
+# Run microbenchmarks + maintained E2E wrk stages
+python3 scripts/run_benchmarks.py --build-dir build/bench --include-e2e
+
+# WSL example
+python3 scripts/run_benchmarks.py --build-dir build/bench-wsl --no-build --include-e2e
+```
+
+Current maintained E2E stages:
+- `hello_world_server` canonical pipeline: `w4/t4/c512/depth10`
+- `compute_api` canonical pipeline: `w4/t4/c512/depth10`
+- `hello_world_server` peak pipeline: `w4/t4/c512/depth20`
+- `compute_api` peak pipeline: `w4/t4/c512/depth40`
+
 ### Basic HTTP Server Test
 
 First, start the server:
@@ -40,14 +60,14 @@ First, start the server:
 
 #### Using wrk
 ```bash
-# Simple test - 12 threads, 400 connections, 30 seconds
-wrk -t12 -c400 -d30s http://localhost:8080/
+# Simple GET test
+wrk -t4 -c256 -d10s http://localhost:8080/
 
 # With latency distribution
-wrk -t12 -c400 -d30s --latency http://localhost:8080/
+wrk -t4 -c256 -d10s --latency http://localhost:8080/
 
-# Using Lua script for POST requests
-wrk -t12 -c400 -d30s -s scripts/post.lua http://localhost:8080/
+# Maintained pipeline profile
+KATANA_PIPELINE_DEPTH=10 wrk -t4 -c512 -d10s --latency -s scripts/hello_pipeline.lua http://localhost:8080/
 ```
 
 #### Using bombardier
@@ -83,14 +103,11 @@ Start the REST API server:
 
 Then run:
 ```bash
-# GET all users
-wrk -t4 -c100 -d10s http://localhost:8080/api/users
+# Compute API canonical pipeline
+KATANA_PIPELINE_DEPTH=10 wrk -t4 -c512 -d10s --latency -s scripts/compute_sum_pipeline.lua http://localhost:8080/
 
-# Health check endpoint
-hey -n 10000 -c 200 http://localhost:8080/api/health
-
-# Mixed workload with Lua script
-wrk -t4 -c100 -d10s -s scripts/rest_api.lua http://localhost:8080/
+# Compute API non-pipelined request script
+wrk -t4 -c256 -d10s --latency -s scripts/compute_sum.lua http://localhost:8080/
 ```
 
 ## Analyzing Results
@@ -138,15 +155,19 @@ Transfer/sec:     42.15MB
 
 | Metric | Target | Notes |
 |--------|--------|-------|
-| Throughput | > 100k req/s | Single-threaded on modern CPU |
-| P50 Latency | < 1ms | Under normal load |
-| P99 Latency | < 5ms | Under normal load |
-| P99.9 Latency | < 20ms | Under normal load |
+| Throughput | profile-dependent | Use canonical and peak pipeline stages from `scripts/run_benchmarks.py` |
+| Avg/P50 Latency | profile-dependent | For pipeline scripts this is batch latency per `request()` call |
+| P99 Latency | watch for regressions | Compare against committed benchmark reports, not hardcoded generic numbers |
+| Error Rate | 0 | Canonical and peak E2E stages should stay error-free |
 | Max Connections | > 10k | Concurrent connections |
 
 ## Custom Lua Scripts
 
-See the `scripts/` directory for example Lua scripts for wrk.
+Maintained scripts:
+- `scripts/hello_get.lua` and `scripts/compute_sum.lua` for non-pipelined probes
+- `scripts/hello_pipeline.lua` and `scripts/compute_sum_pipeline.lua` for benchmark pipeline stages
+
+Legacy ad hoc scripts may still exist for manual experimentation, but the benchmark runner is the source of truth.
 
 ## Monitoring
 

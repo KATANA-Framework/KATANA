@@ -38,6 +38,8 @@ struct path_segment {
 struct path_params {
     using param_entry = std::pair<std::string_view, std::string_view>;
 
+    path_params() noexcept : size_(0) {}
+
     void add(std::string_view name, std::string_view value) noexcept {
         if (size_ < MAX_PATH_PARAMS) {
             entries_[size_] = param_entry{name, value};
@@ -225,10 +227,11 @@ struct path_pattern {
     }
 };
 
-using handler_fn = inplace_function<result<response>(const request&, request_context&), 160>;
-using next_fn = function_ref<result<response>()>;
+using handler_fn =
+    inplace_function<result<void>(const request&, request_context&, response&), 160>;
+using next_fn = function_ref<result<void>(response&)>;
 using middleware_fn =
-    inplace_function<result<response>(const request&, request_context&, next_fn), 160>;
+    inplace_function<result<void>(const request&, request_context&, response&, next_fn), 160>;
 
 struct middleware_chain {
     const middleware_fn* ptr{nullptr};
@@ -236,10 +239,10 @@ struct middleware_chain {
 
     [[nodiscard]] bool empty() const noexcept { return size == 0 || ptr == nullptr; }
 
-    result<response>
-    run(const request& req, request_context& ctx, const handler_fn& handler) const {
+    result<void>
+    run(const request& req, request_context& ctx, const handler_fn& handler, response& out) const {
         if (empty()) {
-            return handler(req, ctx);
+            return handler(req, ctx, out);
         }
 
         struct invoker {
@@ -249,19 +252,21 @@ struct middleware_chain {
             const request& req;
             request_context& ctx;
 
-            result<response> call(size_t index) const {
+            result<void> call(size_t index, response& out) const {
                 if (index >= size) {
-                    return terminal(req, ctx);
+                    return terminal(req, ctx, out);
                 }
                 const middleware_fn& mw = ptr[index];
-                auto next_lambda = [this, index]() -> result<response> { return call(index + 1); };
+                auto next_lambda = [this, index](response& next_out) -> result<void> {
+                    return call(index + 1, next_out);
+                };
                 next_fn next{next_lambda};
-                return mw(req, ctx, next);
+                return mw(req, ctx, out, next);
             }
         };
 
         invoker inv{ptr, size, handler, req, ctx};
-        return inv.call(0);
+        return inv.call(0, out);
     }
 };
 
@@ -318,7 +323,8 @@ inline std::string allow_header_from_mask(uint32_t mask) {
 }
 
 struct dispatch_result {
-    result<response> route_response;
+    std::error_code route_error{};
+    bool has_error{false};
     bool path_matched{false};
     uint32_t allowed_methods_mask{0};
 };
@@ -327,12 +333,13 @@ class router {
 public:
     explicit router(std::span<const route_entry> routes) : routes_(routes) {}
 
-    dispatch_result dispatch_with_info(const request& req, request_context& ctx) const {
+    dispatch_result dispatch_with_info(const request& req,
+                                       request_context& ctx,
+                                       response& out) const {
         auto path = strip_query(req.uri);
         auto split = path_pattern::split_path(path);
         if (split.overflow) {
-            return dispatch_result{
-                std::unexpected(make_error_code(error_code::not_found)), false, 0};
+            return dispatch_result{make_error_code(error_code::not_found), true, false, 0};
         }
         std::span<const std::string_view> path_segments(split.parts.data(), split.count);
 
@@ -358,7 +365,7 @@ public:
                 continue;
             }
 
-            path_params candidate_params{};
+            path_params candidate_params;
             if (!entry.pattern.match_segments(path_segments, split.count, candidate_params)) {
                 continue;
             }
@@ -375,8 +382,11 @@ public:
         // If we found a matching route, return immediately
         if (best_route) {
             ctx.params = best_params;
-            return dispatch_result{
-                best_route->middleware.run(req, ctx, best_route->handler), true, 0};
+            auto route_result = best_route->middleware.run(req, ctx, best_route->handler, out);
+            if (!route_result) {
+                return dispatch_result{route_result.error(), true, true, 0};
+            }
+            return dispatch_result{};
         }
 
         // Phase 2: No method match - check if path exists with other methods
@@ -385,7 +395,7 @@ public:
                 continue;
             }
 
-            path_params candidate_params{};
+            path_params candidate_params;
             if (!entry.pattern.match_segments(path_segments, split.count, candidate_params)) {
                 continue;
             }
@@ -395,15 +405,27 @@ public:
         }
 
         if (path_matched) {
-            return dispatch_result{std::unexpected(make_error_code(error_code::method_not_allowed)),
-                                   true,
-                                   allowed_methods_mask};
+            return dispatch_result{
+                make_error_code(error_code::method_not_allowed), true, true, allowed_methods_mask};
         }
-        return dispatch_result{std::unexpected(make_error_code(error_code::not_found)), false, 0};
+        return dispatch_result{make_error_code(error_code::not_found), true, false, 0};
     }
 
     result<response> dispatch(const request& req, request_context& ctx) const {
-        return dispatch_with_info(req, ctx).route_response;
+        response out;
+        auto dispatch_info = dispatch_with_info(req, ctx, out);
+        if (dispatch_info.has_error) {
+            return std::unexpected(dispatch_info.route_error);
+        }
+        return out;
+    }
+
+    result<void> dispatch(const request& req, request_context& ctx, response& out) const {
+        auto dispatch_info = dispatch_with_info(req, ctx, out);
+        if (dispatch_info.has_error) {
+            return std::unexpected(dispatch_info.route_error);
+        }
+        return {};
     }
 
 private:
@@ -421,30 +443,51 @@ private:
     std::span<const route_entry> routes_;
 };
 
-inline response map_dispatch_error(dispatch_result result) {
-    if (result.route_response) {
-        return std::move(*result.route_response);
-    }
-
-    auto ec = result.route_response.error();
+inline void map_route_error(std::error_code ec, response& out) {
     switch (static_cast<error_code>(ec.value())) {
     case error_code::not_found:
-        return response::error(problem_details::not_found());
+        respond::into(out).problem(problem_details::not_found());
+        return;
+    case error_code::method_not_allowed:
+        respond::into(out).problem(problem_details::method_not_allowed());
+        return;
+    default:
+        respond::into(out).problem(problem_details::internal_server_error());
+        return;
+    }
+}
+
+inline void map_dispatch_error(const dispatch_result& result, response& out) {
+    auto ec = result.route_error;
+    switch (static_cast<error_code>(ec.value())) {
     case error_code::method_not_allowed: {
-        auto res = response::error(problem_details::method_not_allowed());
+        respond::into(out).problem(problem_details::method_not_allowed());
         auto allow = allow_header_from_mask(result.allowed_methods_mask);
         if (!allow.empty()) {
-            res.set_header("Allow", allow);
+            out.set_header("Allow", allow);
         }
-        return res;
+        return;
     }
     default:
-        return response::error(problem_details::internal_server_error());
+        map_route_error(ec, out);
+        return;
+    }
+}
+
+inline void dispatch_or_problem(const router& r,
+                                const request& req,
+                                request_context& ctx,
+                                response& out) {
+    auto dispatch_info = r.dispatch_with_info(req, ctx, out);
+    if (dispatch_info.has_error) {
+        map_dispatch_error(dispatch_info, out);
     }
 }
 
 inline response dispatch_or_problem(const router& r, const request& req, request_context& ctx) {
-    return map_dispatch_error(r.dispatch_with_info(req, ctx));
+    response out;
+    dispatch_or_problem(r, req, ctx, out);
+    return out;
 }
 
 // Helper functor to plug router into existing handler harnesses or server code.
@@ -454,7 +497,9 @@ public:
 
     response operator()(const request& req, monotonic_arena& arena) const {
         request_context ctx{arena};
-        return dispatch_or_problem(*router_, req, ctx);
+        response out;
+        dispatch_or_problem(*router_, req, ctx, out);
+        return out;
     }
 
 private:

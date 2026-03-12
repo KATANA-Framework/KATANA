@@ -35,7 +35,7 @@ using katana::monotonic_arena;
 // Data Transfer Objects (DTOs)
 // ============================================================
 
-using compute_sum_request = arena_vector<double>;
+using compute_sum_request = arena_vector<double, 8>;
 
 using schema = double;
 

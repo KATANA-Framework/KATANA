@@ -76,6 +76,7 @@ add_library(katana_core STATIC
     ${REACTOR_SOURCE}
     katana/core/src/cpu_info.cpp
     katana/core/src/reactor_pool.cpp
+    katana/core/src/syscall_metrics.cpp
     katana/core/src/io_buffer.cpp
     katana/core/src/arena.cpp
     katana/core/src/problem.cpp

@@ -190,7 +190,9 @@ class products_handler : public generated::api_handler {
 public:
     explicit products_handler(product_store& store) : store_(store) {}
 
-    response list_products(std::optional<int64_t> limit, std::optional<int64_t> offset) override {
+    result<void> list_products(std::optional<int64_t> limit,
+                               std::optional<int64_t> offset,
+                               response& out) override {
         int lim = limit.value_or(10);
         int off = offset.value_or(0);
 
@@ -226,14 +228,15 @@ public:
             list.items.push_back(std::move(p));
         }
 
-        return response::json(serialize_ProductList(list));
+        out = response::json(serialize_ProductList(list));
+        return {};
     }
 
-    response create_product(const CreateProductRequest& body) override {
+    result<void> create_product(const CreateProductRequest& body, response& out) override {
         auto product_opt = store_.create(body);
         if (!product_opt) {
-            return response::error(problem_details::conflict(
-                "product.duplicate_sku", "Product with this SKU already exists"));
+            out = response::error(problem_details::conflict("Product with this SKU already exists"));
+            return {};
         }
 
         const auto& sp = *product_opt;
@@ -256,14 +259,15 @@ public:
             }
         }
 
-        return response::json(serialize_Product(p), 201);
+        respond::into(out).created_json(serialize_Product(p));
+        return {};
     }
 
-    response get_product(int64_t id) override {
+    result<void> get_product(int64_t id, response& out) override {
         auto product_opt = store_.get(id);
         if (!product_opt) {
-            return response::error(
-                problem_details::not_found("product.not_found", "Product not found"));
+            out = response::error(problem_details::not_found("Product not found"));
+            return {};
         }
 
         const auto& sp = *product_opt;
@@ -286,19 +290,21 @@ public:
             }
         }
 
-        return response::json(serialize_Product(p));
+        out = response::json(serialize_Product(p));
+        return {};
     }
 
-    response update_product(int64_t id, const UpdateProductRequest& body) override {
+    result<void> update_product(int64_t id, const UpdateProductRequest& body, response& out) override {
         if (!store_.update(id, body)) {
-            return response::error(
-                problem_details::not_found("product.not_found", "Product not found"));
+            out = response::error(problem_details::not_found("Product not found"));
+            return {};
         }
 
         // Fetch updated product
         auto product_opt = store_.get(id);
         if (!product_opt) {
-            return response::error(problem_details::internal_error("product.internal_error"));
+            out = response::error(problem_details::internal_server_error("Internal product error"));
+            return {};
         }
 
         const auto& sp = *product_opt;
@@ -321,18 +327,20 @@ public:
             }
         }
 
-        return response::json(serialize_Product(p));
+        out = response::json(serialize_Product(p));
+        return {};
     }
 
-    response delete_product(int64_t id) override {
+    result<void> delete_product(int64_t id, response& out) override {
         if (!store_.remove(id)) {
-            return response::error(
-                problem_details::not_found("product.not_found", "Product not found"));
+            out = response::error(problem_details::not_found("Product not found"));
+            return {};
         }
-        return response::no_content();
+        respond::into(out).no_content();
+        return {};
     }
 
-    response search_products(std::string_view query) override {
+    result<void> search_products(std::string_view query, response& out) override {
         auto products = store_.search(query);
 
         monotonic_arena* arena = handler_context::arena();
@@ -370,23 +378,26 @@ public:
         }
         json += "]";
 
-        return response::json(json);
+        out = response::json(json);
+        return {};
     }
 
-    response adjust_stock(int64_t id, const StockAdjustment& body) override {
+    result<void> adjust_stock(int64_t id, const StockAdjustment& body, response& out) override {
         auto new_stock_opt = store_.adjust_stock(id, body.delta);
         if (!new_stock_opt) {
             auto product_opt = store_.get(id);
             if (!product_opt) {
-                return response::error(
-                    problem_details::not_found("product.not_found", "Product not found"));
+                out = response::error(problem_details::not_found("Product not found"));
+                return {};
             }
-            return response::error(problem_details::bad_request(
-                "stock.invalid_adjustment", "Stock adjustment would result in invalid value"));
+            out = response::error(
+                problem_details::bad_request("Stock adjustment would result in invalid value"));
+            return {};
         }
 
         std::string json = R"({"new_stock":)" + std::to_string(*new_stock_opt) + "}";
-        return response::json(json);
+        out = response::json(json);
+        return {};
     }
 
 private:

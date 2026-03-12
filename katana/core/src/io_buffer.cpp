@@ -9,6 +9,7 @@
 
 #ifdef __linux__
 #include <sys/uio.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #endif
 
@@ -200,7 +201,20 @@ result<size_t> read_vectored(int32_t fd, scatter_gather_read& sg) {
 result<size_t> write_vectored(int32_t fd, scatter_gather_write& sg) {
 #ifdef __linux__
     int iov_count = static_cast<int>(std::min<size_t>(sg.count(), IOV_MAX));
-    ssize_t result = writev(fd, sg.iov(), iov_count);
+    msghdr msg{};
+    msg.msg_iov = const_cast<iovec*>(sg.iov());
+    msg.msg_iovlen = static_cast<size_t>(iov_count);
+
+#ifdef MSG_NOSIGNAL
+    constexpr int send_flags = MSG_DONTWAIT | MSG_NOSIGNAL;
+#else
+    constexpr int send_flags = MSG_DONTWAIT;
+#endif
+
+    ssize_t result;
+    do {
+        result = sendmsg(fd, &msg, send_flags);
+    } while (result < 0 && errno == EINTR);
 
     if (result < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));

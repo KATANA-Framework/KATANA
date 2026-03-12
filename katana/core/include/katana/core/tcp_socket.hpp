@@ -6,6 +6,8 @@
 #include <span>
 #include <utility>
 
+struct iovec;
+
 namespace katana {
 
 class tcp_socket {
@@ -31,6 +33,7 @@ public:
 
     result<std::span<uint8_t>> read(std::span<uint8_t> buf);
     result<size_t> write(std::span<const uint8_t> data);
+    result<size_t> writev(const iovec* iov, size_t count);
 
     void close() noexcept;
 

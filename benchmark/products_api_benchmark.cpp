@@ -112,22 +112,33 @@ void bench_routing_only(size_t iterations) {
     route_entry routes[] = {
         {method::get,
          path_pattern::from_literal<"/products">(),
-         handler_fn([](const request&, request_context&) { return response::ok("[]"); })},
+         handler_fn([](const request&, request_context&, response& out) {
+             out = response::ok("[]");
+             return result<void>{};
+         })},
         {method::post,
          path_pattern::from_literal<"/products">(),
-         handler_fn([](const request&, request_context&) {
-             return response{}.with_status(201).with_body("{}");
+         handler_fn([](const request&, request_context&, response& out) {
+             respond::into(out).created_json("{}");
+             return result<void>{};
          })},
         {method::get,
          path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context&) { return response::ok("{}"); })},
+         handler_fn([](const request&, request_context&, response& out) {
+             out = response::ok("{}");
+             return result<void>{};
+         })},
         {method::put,
          path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context&) { return response::ok("{}"); })},
+         handler_fn([](const request&, request_context&, response& out) {
+             out = response::ok("{}");
+             return result<void>{};
+         })},
         {method::del,
          path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context&) {
-             return response{}.with_status(204).with_body("");
+         handler_fn([](const request&, request_context&, response& out) {
+             respond::into(out).no_content();
+             return result<void>{};
          })},
     };
 
@@ -302,49 +313,56 @@ void bench_mixed_crud(size_t iterations) {
     route_entry routes[] = {
         {method::get,
          path_pattern::from_literal<"/products">(),
-         handler_fn([](const request&, request_context&) {
+         handler_fn([](const request&, request_context&, response& out) {
              // Simulate list operation
-             return response::ok("{\"items\":[],\"total\":0}");
+             out = response::ok("{\"items\":[],\"total\":0}");
+             return result<void>{};
          })},
         {method::post,
          path_pattern::from_literal<"/products">(),
-         handler_fn([](const request&, request_context&) {
+         handler_fn([](const request&, request_context&, response& out) {
              // Simulate create
              int64_t id = global_store.create("PROD-001", "Product", 99.99, 100);
-             return response{}.with_status(201).with_body("{\"id\":" + std::to_string(id) + "}");
+             respond::into(out).created_json("{\"id\":" + std::to_string(id) + "}");
+             return result<void>{};
          })},
         {method::get,
          path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context& ctx) {
+         handler_fn([](const request&, request_context& ctx, response& out) {
              // Simulate get by ID
              auto id_str = ctx.params.get("id").value_or("0");
              int64_t id = std::strtoll(id_str.data(), nullptr, 10);
              auto product = global_store.get(id);
              if (!product) {
-                 return response{}.with_status(404).with_body("{\"error\":\"not found\"}");
+                 respond::into(out).json("{\"error\":\"not found\"}", 404);
+                 return result<void>{};
              }
-             return response::ok("{\"id\":" + std::to_string(product->id) + "}");
+             out = response::ok("{\"id\":" + std::to_string(product->id) + "}");
+             return result<void>{};
          })},
         {method::put,
          path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context& ctx) {
+         handler_fn([](const request&, request_context& ctx, response& out) {
              // Simulate update
              auto id_str = ctx.params.get("id").value_or("0");
              int64_t id = std::strtoll(id_str.data(), nullptr, 10);
              bool updated = global_store.update(id, 89.99, 90);
              if (!updated) {
-                 return response{}.with_status(404).with_body("{\"error\":\"not found\"}");
+                 respond::into(out).json("{\"error\":\"not found\"}", 404);
+                 return result<void>{};
              }
-             return response::ok("{\"id\":" + std::to_string(id) + "}");
+             out = response::ok("{\"id\":" + std::to_string(id) + "}");
+             return result<void>{};
          })},
         {method::del,
          path_pattern::from_literal<"/products/{id}">(),
-         handler_fn([](const request&, request_context& ctx) {
+         handler_fn([](const request&, request_context& ctx, response& out) {
              // Simulate delete
              auto id_str = ctx.params.get("id").value_or("0");
              int64_t id = std::strtoll(id_str.data(), nullptr, 10);
              [[maybe_unused]] bool deleted = global_store.remove(id);
-             return response{}.with_status(204).with_body("");
+             respond::into(out).no_content();
+             return result<void>{};
          })},
     };
 
