@@ -741,46 +741,30 @@ TEST(OpenAPILoader, AcceptsVersionHint) {
 
 ### Не поддерживается (пока):
 
-1. **`$ref` resolution** — ссылки не разрешаются, сохраняются как строки
-2. **`allOf`, `oneOf`, `anyOf`** — схемы composition пока shallow
-3. **Components** — `components/schemas` не материализуются отдельно
-4. **Security schemes** — не парсятся
-5. **Servers** — не парсятся
-6. **Examples** — не парсятся
-7. **External docs** — не парсятся
-
-Эти фичи будут добавлены в следующих этапах Stage 2.
+1. **Security schemes** — не участвуют в runtime/codegen contract
+2. **Servers** — не используются генератором и runtime
+3. **Examples / example payloads** — не материализуются в generated артефакты
+4. **External docs** — игнорируются loader/codegen
+5. **Полная OpenAPI coverage** — фокус остаётся на runtime-critical subset, а не на полном зеркале спецификации
 
 ---
 
 ## Roadmap
 
-### Stage 2.3: Schema Resolution
+Stage 2 закрыт. Дальнейшее развитие OpenAPI-слоя идёт уже в общих roadmap-этапах репозитория.
 
-- [ ] `$ref` resolution для schemas
-- [ ] Полная материализация schema tree
-- [ ] `allOf`, `oneOf`, `anyOf` composition
-- [ ] Components/schemas namespace
+### Ближайшие задачи OpenAPI-направления
 
-### Stage 2.4: DTO Generation
+- [ ] conformance harness для generated endpoints по OpenAPI fixtures
+- [ ] media type registry integration для JSON/CBOR/MessagePack
+- [ ] чёткая спецификация поддерживаемых `x-katana-*` extensions
+- [ ] стабилизация runtime/codegen test path в canonical Linux/WSL CI
 
-- [ ] C++ struct codegen из schemas
-- [ ] `std::pmr` allocators
-- [ ] `std::string_view` для zero-copy
-- [ ] Enum → `enum class`
+### Дальше, после стабилизации runtime
 
-### Stage 2.5: Validation Generation
-
-- [ ] Required field validators
-- [ ] String constraints (minLength, pattern, format)
-- [ ] Number constraints (min, max, multipleOf)
-- [ ] Array constraints (minItems, uniqueItems)
-
-### Stage 2.6: Route Table Codegen
-
-- [ ] Compile-time route table из paths
-- [ ] Binding operation → handler signature
-- [ ] Type-safe parameter extraction
+- [ ] интеграция generated contract с SQL layer
+- [ ] интеграция policy annotations (`cache`, `idempotency`, `rate-limit`) с runtime
+- [ ] compatibility tooling и SDK generation только после стабилизации core milestones
 
 ---
 

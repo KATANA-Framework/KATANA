@@ -593,447 +593,125 @@ Thread pinning (опциональная оптимизация):
 
 ### Этап 2 — OpenAPI → Compile-time API
 
-**Цель**: любые расхождения API → ошибки компиляции; property-тесты валидаторов.
+**Статус**: завершён.
 
-**Подэтапы и DoD**
+**Что считаем закрытым**
+- compile-time router с middleware, `dispatch_or_problem`, 404/405 и `Allow` header.
+- arena-backed OpenAPI loader для JSON/YAML, `$ref`, `allOf`, базовой валидации спецификации.
+- `katana_gen`: DTO, валидаторы, JSON parsers/serializers, route table, handler interfaces, router bindings.
+- unit/integration/benchmark контур для router, loader и codegen.
 
-1. ✅ Роутер + middleware-каркас
-   - compile-time таблица маршрутов без аллокаций в hot-path; поддержка path params, 404/405/415.
-   - middleware-chain с единым ABI (`req, ctx → result<response>`), конвейер без virtual/heap в критике.
-   - тесты: path matching, приоритет статических/динамических сегментов, бенч dispatch-only.
-2. ✅ Парсер OpenAPI → AST
-   - YAML/JSON загрузка (без тяжёлых зависимостей), валидация спецификации, `$ref`-resolution, лимиты.
-   - AST для paths/schemas/params/responses с нормализацией типов/format.
-   - тесты: фикстуры валидных/битых спецификаций, property-тесты инвариантов AST.
-3. ✅ DTO + валидация + JSON ser/deser
-   - DTO на `std::pmr`/arena, `string_view` по умолчанию, enums → `enum class`.
-   - валидаторы для required/ranges/pattern/uniqueItems/custom formats; nullable/optional корректно разведены.
-   - JSON: zero-copy/ondemand профиль по умолчанию, streaming serializer; round-trip/property/fuzz тесты.
-4. ✅ Генерация роутов и интерфейсов контроллеров
-   - compile-time привязка метода/пути к сигнатурам контроллеров; статические ошибки при расхождении.
-   - автоген интерфейсов контроллеров (виртуальный/CRTP слой), ручной код реализует только бизнес-логику.
-   - тесты: negative compile-time кейсы, интеграция на фиктивной спецификации.
-5. Интеграция в runtime + контрактные проверки
-   - подключение роутера к HTTP серверу, хуки для auth/logging/tracing (пока no-op), дедлайны/лимиты.
-   - conformance-тесты по OpenAPI фикстурам, latency/alloc бенч (dispatch+parse без бизнес-кода).
-   - DoD: p99 dispatch не хуже текущего baseline, 0 heap alloc в hot-path, CI preset с unit+property+perf smoke.
+**Почему этап закрыт**
+- API-контракт теперь материализуется в код: роуты, DTO и bindings генерируются из OpenAPI и валидируются тестами.
+- Stage 2 больше не рассматривается как backlog для доработки; новые работы поверх OpenAPI идут уже как развитие Stage 3+.
 
-**Stage 2.1 (router + middleware skeleton)**
-- API: `katana/core/router.hpp`
-  - `path_pattern::from_literal<"/users/{id}">()` — compile-time парсинг, приоритет статических сегментов над параметрами, query string отрезается.
-  - `handler_fn` сигнатура: `(const http::request&, http::request_context&) -> result<http::response>`.
-  - `middleware_fn` сигнатура: `(req, ctx, next_fn) -> result<http::response>`; `make_middleware_chain(std::array<middleware_fn, N>)` собирает цепочку без heap.
-  - `request_context` содержит `monotonic_arena&` и `path_params` (lookup по имени без аллокаций).
-  - Ошибки: `not_found` (404) и `method_not_allowed` (405) через `katana::error_code` без исключений; `dispatch_or_problem` мапит их в RFC7807 + `Allow` header.
-  - `router_handler` — адаптер к харнесам/серверу: `(req, arena) -> response`, zero-alloc hot-path.
-- Минимальный скелет исполнения без привязки к серверу; готов для подключения к HTTP loop и future OpenAPI codegen.
-- Инварианты hot-path: без виртуальных вызовов/heap-alloc, линейное сканирование таблицы маршрутов со специфичностью по числу literal-сегментов.
-- Бенч: `router_benchmark` (ENABLE_BENCHMARKS=ON) — dispatch hits/misses/405 без аллокаций.
-
-Пример использования:
-
-```cpp
-using namespace katana::http;
-
-route_entry routes[] = {
-  {method::get,
-   path_pattern::from_literal<"/users/{id}">(),
-   handler_fn([](const request& req, request_context& ctx) {
-     auto id = ctx.params.get("id").value_or("");
-     return response::ok(std::string{id});
-   })}
-};
-
-router r(routes);
-monotonic_arena arena;
-request_context ctx{arena};
-request req;
-req.http_method = method::get;
-req.uri = "/users/42";
-auto res = dispatch_or_problem(r, req, ctx); // 404/405 → ProblemDetails + Allow
-```
-
-- [ ] Парсер OpenAPI 3.x
-  - [ ] Загрузка YAML/JSON спецификации
-  - [ ] Валидация соответствия стандарту OpenAPI
-  - [x] Построение базового AST (paths, schemas, parameters) — `katana/core/openapi_ast.hpp` (arena-backed)
-  - [x] Лоадер-каркас: `load_from_string` проверяет OpenAPI 3.x версию и возвращает AST-заготовку
-- [ ] Генерация роутов
-  - [ ] Compile-time таблица маршрутов (constexpr map)
-  - [ ] Path templates → regex/prefix trees
-  - [ ] Привязка HTTP-метода к handler-функции
-- [ ] Генерация DTO
-  - [ ] C++ структуры из `components/schemas`
-  - [ ] Использование `std::string_view` для zero-copy
-  - [ ] Вложенные объекты и массивы
-  - [ ] Enum → `enum class`
-- [ ] Генерация валидаторов
-  - [ ] `required`, `minLength`, `maxLength`, `pattern`
-  - [ ] `minimum`, `maximum`, `multipleOf`
-  - [ ] `minItems`, `maxItems`, `uniqueItems`
-  - [ ] Custom formats (email, uuid, date-time)
-- [ ] Генерация сериализаторов/десериализаторов
-  - [ ] JSON → DTO (simdjson ondemand режим)
-  - [ ] DTO → JSON (streaming serializer)
-  - [ ] Обработка nullable/optional полей
-- [ ] Обработка `x-katana-*` расширений
-  - [ ] `x-katana-alloc: {arena|pmr|heap}`
-  - [ ] `x-katana-json: {ondemand|dom|zero-copy}`
-  - [ ] `x-katana-cache`, `x-katana-rate-limit`
-- [x] CLI команда `katana gen openapi`
-  - [ ] Опции: `-i`, `-o`, `--layer`, `--strict`
-  - [ ] Вывод статистики генерации
-- [ ] Тесты
-  - [ ] Property-тесты валидаторов (fuzzing входов)
-  - [ ] Round-trip ser/deser тесты
-  - [ ] Compile-time проверка на несуществующий endpoint
+**Границы этапа**
+- В Stage 2 не входят SQL, Redis, OpenTelemetry, Prometheus, structured logging и production orchestration.
+- Дополнительные протоколы и SDK-генераторы вынесены в дальний backlog и не блокируют следующий этап.
 
 ---
 
-### Этап 3 — SQL-генерация
+### Этап 3 — Runtime Hardening + Contract Surface
 
-**Цель**: отсутствует N+1 в демо-сервисе; стабильный p99 CRUD.
+**Фокус**: довести текущий HTTP/OpenAPI runtime до состояния, на которое можно безопасно навешивать storage и policy-слой.
 
-- [ ] Media type registry + бинарные кодеки (CBOR/MessagePack)
-  - [ ] Централизованное сопоставление MIME→кодек (request/response)
-  - [ ] Content negotiation для JSON/CBOR/MessagePack
-  - [ ] Интеграция в codegen и runtime (body parse/serialize)
+**Что входит**
+- media type registry и общий механизм `Content-Type`/`Accept` для JSON, CBOR, MessagePack;
+- единый conformance harness для generated router/bindings по OpenAPI fixtures;
+- стабилизация тестового контура: одинаковые сценарии запуска в Linux/WSL, perf smoke, нормальный preset path;
+- ревизия `x-katana-*` extension contract: что реально поддерживается в runtime, что остаётся декларативным.
 
-- [ ] Парсер SQL-файлов
-  - [ ] Аннотации `-- name: <query_name> :one|:many|:exec`
-  - [ ] Извлечение параметров `$1`, `$2`, ...
-  - [ ] Определение возвращаемых колонок (через `EXPLAIN`)
-- [ ] Генерация моделей
-  - [ ] C++ структуры из `SELECT` полей
-  - [ ] Маппинг SQL-типов → C++ (`int4` → `int32_t`, `text` → `std::string_view`)
-  - [ ] Nullable колонки → `std::optional`
-- [ ] Генерация репозиториев
-  - [ ] Класс репозитория с методами по SQL-файлам
-  - [ ] Методы принимают `katana::ctx&` и параметры запроса
-  - [ ] Возвращают `result<T>` или `result<std::vector<T>>`
-- [ ] Поддержка транзакций
-  - [ ] `ctx.tx().begin()`, `commit()`, `rollback()`
-  - [ ] RAII-обёртка для auto-rollback
-  - [ ] Вложенные транзакции (savepoints)
-- [ ] UPSERT и conflict resolution
-  - [ ] `ON CONFLICT DO UPDATE`
-  - [ ] `ON CONFLICT DO NOTHING`
-  - [ ] Генерация методов из аннотаций
-- [ ] Bulk-операции
-  - [ ] Batch insert через `COPY` или `INSERT ... VALUES`
-  - [ ] Batch update через `UPDATE ... FROM unnest()`
-- [ ] libpq binary protocol
-  - [ ] Prepared statements (PQprepare/PQexecPrepared)
-  - [ ] Binary формат параметров и результатов
-  - [ ] Обработка ошибок (PQresultStatus)
-- [ ] Per-core connection pools
-  - [ ] Каждый reactor владеет своим пулом
-  - [ ] Настраиваемые размеры пула
-  - [ ] Health checks и переподключения
-- [ ] Prefetch механизм
-  - [ ] Аннотация `x-katana-prefetch: [user.posts, user.profile]`
-  - [ ] Генерация batch-запросов
-  - [ ] Сборка результатов в единую структуру
-- [ ] CLI команда `katana gen sql`
-  - [ ] Опции: `-i`, `-o`, `--db-url` (для introspection)
-- [ ] Тесты
-  - [ ] Integration тесты с testcontainers (PostgreSQL)
-  - [ ] Проверка отсутствия N+1 (query counter)
-  - [ ] p99 benchmark для CRUD операций
+**Что не входит**
+- SQL runtime, Redis runtime, tracing exporters.
+
+**DoD**
+- весь current HTTP/OpenAPI контур зелёный в canonical Linux/WSL CI;
+- media type registry подключён и используется codegen/runtime без дублирования логики;
+- есть conformance suite для generated endpoints, а не только unit-тесты отдельных артефактов;
+- README и docs описывают фактическое состояние, а не целевую картину.
 
 ---
 
-### Этап 4 — Redis/кэш
+### Этап 4 — PostgreSQL / SQL-first Data Layer
 
-**Цель**: кэш и лимиты — часть контракта, не middleware.
+**Фокус**: добавить data access как часть контракта, а не как ручной слой вокруг framework.
 
-- [ ] Redis клиент (RESP3 protocol)
-  - [ ] Async команды (GET/SET/DEL/EXPIRE)
-  - [ ] Pipelining для batch операций
-  - [ ] Connection pool per-core
-- [ ] Парсинг аннотаций кэша
-  - [ ] `x-katana-cache: { ttl, jitter, keys, invalidate_on }`
-  - [ ] `x-katana-idempotency: { ttl, key_from }`
-  - [ ] `x-katana-rate-limit: { requests, window, by }`
-- [ ] Генерация кэширующих обёрток
-  - [ ] Wrap контроллера: проверка кэша → handler → сохранение в кэш
-  - [ ] Ключи из параметров запроса/заголовков
-  - [ ] TTL с jitter для избежания thundering herd
-- [ ] Single-flight механизм
-  - [ ] Дедупликация параллельных запросов с одинаковым ключом
-  - [ ] Ожидание завершения первого запроса
-- [ ] Инвалидация кэша
-  - [ ] `invalidate_on: [POST /users, DELETE /users/:id]`
-  - [ ] Поддержка префиксов и wildcard-ключей
-  - [ ] Генерация хуков инвалидации
-- [ ] Idempotency для POST/PUT
-  - [ ] `Idempotency-Key` header
-  - [ ] Сохранение результата в Redis на TTL
-  - [ ] Возврат кэшированного ответа при повторе
-- [ ] Rate limiting
-  - [ ] Token bucket / sliding window
-  - [ ] Per-user, per-IP, global лимиты
-  - [ ] Ответ 429 с `Retry-After`
-- [ ] Stale-while-revalidate
-  - [ ] Отдача устаревшего кэша при обновлении
-  - [ ] Фоновое обновление
-- [ ] Тесты
-  - [ ] Unit-тесты Redis клиента
-  - [ ] E2E тесты кэширования (cache hit/miss)
-  - [ ] Проверка idempotency (повторные запросы)
-  - [ ] Rate limit тесты (превышение лимита → 429)
+**Что входит**
+- формат SQL-артефактов и аннотаций (`:one`, `:many`, `:exec`);
+- `katana gen sql` с генерацией typed repositories и result-models;
+- PostgreSQL runtime на `libpq`/prepared statements с per-reactor pools;
+- транзакции, UPSERT, базовые bulk-операции;
+- integration tests с PostgreSQL и benchmark на CRUD/read-heavy сценариях.
+
+**Зависимости**
+- Stage 3 должен закрыть contract/runtime harness и нормальный test path.
+
+**DoD**
+- generated repository API стабилен и покрыт integration tests;
+- на демо CRUD-сервисе нет N+1 в canonical сценариях;
+- p99 для базовых CRUD flows укладывается в утверждённый benchmark budget;
+- SQL слой не вносит скрытые heap-heavy пути в hot path без явного решения.
 
 ---
 
-### Этап 5 — Observability
+### Этап 5 — Redis + Contract Policies
 
-**Цель**: видимость проблем из коробки: RPS, p95/p99/p999, очереди, backpressure, арены.
+**Фокус**: перенести cache/idempotency/rate-limit из ad-hoc middleware в явный контракт runtime/codegen.
 
-- [ ] OpenTelemetry интеграция
-  - [ ] Span для каждого HTTP-запроса
-  - [ ] Span для SQL-запросов (с query text)
-  - [ ] Span для Redis-операций
-  - [ ] Trace propagation (W3C Trace Context)
-- [ ] Prometheus метрики
-  - [ ] HTTP метрики: `http_requests_total`, `http_request_duration_seconds`
-  - [ ] SQL метрики: `db_query_duration_seconds`, `db_connections_active`
-  - [ ] Redis метрики: `redis_commands_total`, `redis_command_duration_seconds`
-  - [ ] Системные метрики: CPU usage per-core, memory allocations
-  - [ ] Arena метрики: `arena_bytes_allocated`, `arena_resets_total`
-  - [ ] Backpressure: `reactor_queue_length`, `reactor_processing_delay`
-- [ ] Структурные JSON-логи
-  - [ ] Формат: timestamp, level, message, trace_id, span_id
-  - [ ] Контекстные поля (request_id, user_id, endpoint)
-  - [ ] Уровни: DEBUG, INFO, WARN, ERROR
-- [ ] Готовые Grafana дашборды
-  - [ ] Dashboard: HTTP Overview (RPS, latencies, error rate)
-  - [ ] Dashboard: Database (queries/sec, latencies, pool usage)
-  - [ ] Dashboard: Redis (ops/sec, hit rate, latencies)
-  - [ ] Dashboard: System (CPU, memory, arena usage)
-- [ ] Экспорт метрик
-  - [ ] Prometheus scrape endpoint `/metrics`
-  - [ ] OTLP exporter для traces (gRPC/HTTP)
-- [ ] Тесты
-  - [ ] Проверка генерации spans
-  - [ ] Проверка счётчиков метрик (increment after request)
-  - [ ] JSON log parsing тесты
+**Что входит**
+- Redis client/runtime с pipelining и per-reactor pools;
+- контракт `x-katana-cache`, `x-katana-idempotency`, `x-katana-rate-limit`;
+- generated wrappers для cache lookup/store/invalidation;
+- single-flight и stale-while-revalidate для read-heavy use cases;
+- E2E tests на cache hit/miss, idempotency replay и 429 semantics.
+
+**Что не входит**
+- произвольная distributed workflow orchestration;
+- advanced stream processing и pub/sub beyond minimal invalidation needs.
+
+**DoD**
+- policy-аннотации влияют на generated/runtime behaviour предсказуемо и тестируемо;
+- cache/idempotency/rate-limit работают без ручного glue-кода в пользовательском сервисе;
+- latency и error semantics зафиксированы benchmark и conformance тестами.
 
 ---
 
-### Этап 6 — Dev-режим
+### Этап 6 — Observability + Production Readiness
 
-**Цель**: «code → reload → запрос» < 2 с; DX уровня Node/FastAPI.
+**Фокус**: сделать runtime операбельным в реальной эксплуатации, а не только быстрым локально.
 
-- [ ] CLI команда `katana dev`
-  - [ ] Опции: `--hot`, `--no-arena`, `--mock-db`, `--mock-cache`, `--no-pin`
-  - [ ] Автоподнятие зависимостей (docker-compose)
-- [ ] Hot-reload контроллеров
-  - [ ] File watcher (inotify/kqueue)
-  - [ ] Пересборка только изменённых контроллеров (incremental)
-  - [ ] Динамическая загрузка `.so` без рестарта реактора
-  - [ ] Graceful transition (новые запросы → новый код, старые завершаются)
-- [ ] Быстрая сборка
-  - [ ] clang + lld (fast linker)
-  - [ ] ccache для кэширования объектных файлов
-  - [ ] Precompiled headers для stdlib и framework headers
-- [ ] Автоподнятие зависимостей
-  - [ ] PostgreSQL (testcontainers или docker-compose)
-  - [ ] Redis
-  - [ ] Prometheus
-  - [ ] Grafana (с преднастроенными дашбордами)
-  - [ ] Jaeger/Tempo для трейсов
-- [ ] Моки репозиториев
-  - [ ] `--mock-db`: использовать in-memory хранилище вместо PG
-  - [ ] Предзаполненные данные для разработки
-- [ ] Моки Redis
-  - [ ] `--mock-cache`: in-memory реализация
-- [ ] Отключение оптимизаций для dev
-  - [ ] `--no-arena`: использовать стандартный аллокатор
-  - [ ] `--no-pin`: не привязывать потоки к ядрам
-  - [ ] Debug symbols и AddressSanitizer
-- [ ] Тесты
-  - [ ] Проверка hot-reload (изменение → перезагрузка → новый код работает)
-  - [ ] Время сборки < 2 секунд для изменения одного файла
+**Что входит**
+- structured logging;
+- Prometheus metrics для HTTP/reactor/arena/storage/cache;
+- OpenTelemetry traces для request/storage/cache цепочек;
+- production presets, health checks, graceful shutdown, базовые deploy recipes;
+- runbooks и dashboards для p95/p99, saturation и pool exhaustion.
+
+**Зависимости**
+- storage и policy-слой должны быть уже стабилизированы, иначе метрики и traces будут зацементированы слишком рано.
+
+**DoD**
+- сервис можно поднять с метриками, логами и trace export без ручной переклейки framework internals;
+- есть production checklist и baseline dashboards;
+- soak/perf smoke прогоны входят в release path, а не выполняются вручную эпизодически.
 
 ---
 
-### Этап 7 — Протоколы/производственные профили
+### Этап 7 — Developer Workflow + Long-term Expansion
 
-**Цель**: линейный throughput, предсказуемые хвосты.
+**Фокус**: ускорять DX и расширять platform surface только после стабилизации core milestones.
 
-- [ ] HTTP/2 support
-  - [ ] HPACK compression для заголовков
-  - [ ] Stream multiplexing
-  - [ ] Server push (опционально)
-  - [ ] ALPN negotiation (h2/http/1.1)
-- [ ] HTTP/3 / QUIC
-  - [ ] QUIC transport (на базе picoquic/quiche)
-  - [ ] QPACK для заголовков
-  - [ ] 0-RTT connection establishment
-- [ ] Zero-copy статика
-  - [ ] `sendfile()` для больших файлов
-  - [ ] kTLS для TLS offload в ядро (если поддерживается)
-  - [ ] `splice()` для proxy режима
-- [ ] io_uring backend
-  - [ ] Абстракция `IoUringReactor`
-  - [ ] Submission queue batching
-  - [ ] Completion queue обработка
-  - [ ] Fallback на epoll если io_uring недоступен
-- [ ] NUMA-aware раскладка
-  - [ ] Определение NUMA topology
-  - [ ] Размещение реакторов на NUMA-локальных ядрах
-  - [ ] Аллокация памяти из NUMA-локальных узлов
-- [ ] TLS настройки
-  - [ ] BoringSSL/OpenSSL интеграция
-  - [ ] Кэш сессий TLS
-  - [ ] OCSP stapling
-- [ ] Настройки TCP
-  - [ ] `TCP_NODELAY` для низких задержек
-  - [ ] `SO_REUSEPORT` для распределения нагрузки
-  - [ ] `TCP_FASTOPEN`
-- [ ] Тесты
-  - [ ] HTTP/2 compliance тесты (h2spec)
-  - [ ] Benchmark HTTP/2 vs HTTP/1.1
-  - [ ] io_uring throughput тесты
-  - [ ] NUMA pinning влияние на p99
+**Краткосрочно**
+- `katana dev`, локальные mocks, ускорение incremental builds;
+- CI/perf budgets, cross-platform sanity, conformance packaging.
 
----
+**Долгосрочно, вне ближайшего горизонта**
+- HTTP/2, HTTP/3, deeper io_uring track, NUMA-aware placement;
+- SDK generation, admin UI, migration tooling;
+- продовый reference service и tuning guides под реальную нагрузку.
 
-### Этап 8 — Тесты и CI
-
-**Цель**: производительность — гарантируемое свойство сборки.
-
-- [ ] E2E тесты
-  - [ ] Автогенерация из OpenAPI (все endpoints)
-  - [ ] Проверка response schemas
-  - [ ] Проверка error cases (4xx, 5xx)
-- [ ] Property-based тесты
-  - [ ] Fuzzing валидаторов (random valid/invalid inputs)
-  - [ ] Round-trip ser/deser для всех DTO
-  - [ ] SQL injection тесты (prepared statements должны блокировать)
-- [ ] Фуззинг HTTP-парсера
-  - [ ] libFuzzer интеграция
-  - [ ] Corpus семплов (валидные HTTP запросы)
-  - [ ] Запуск в CI (обязательно)
-- [ ] Нагрузочные профили
-  - [ ] Профили: `light`, `medium`, `heavy`, `spike`
-  - [ ] Инструмент: wrk/vegeta/Gatling
-  - [ ] Сбор метрик: RPS, p50/p95/p99/p999, errors
-- [ ] Flamegraph генерация
-  - [ ] Профилирование через perf/dtrace
-  - [ ] Генерация flamegraph.svg
-  - [ ] Загрузка в CI artifacts
-- [ ] Performance-budget
-  - [ ] Определение baseline (например, `p99 < 5ms`)
-  - [ ] Сравнение с предыдущим коммитом
-  - [ ] Fail сборки при деградации > 10%
-- [ ] CI pipeline
-  - [ ] Build: Linux (gcc/clang), macOS (clang), Windows (MSVC)
-  - [ ] Tests: unit, integration, E2E
-  - [ ] Sanitizers: ASan, UBSan, TSan
-  - [ ] Fuzzing: continuous fuzzing с OSS-Fuzz
-  - [ ] Benchmark: автозапуск на каждом PR
-  - [ ] Conformance: проверка соответствия RFCs
-- [ ] Conformance suite
-  - [ ] HTTP/1.1 conformance (httptest)
-  - [ ] OpenAPI contract tests
-  - [ ] SQL semantics tests
-- [ ] Тесты
-  - [ ] CI проходит для всех платформ
-  - [ ] Fuzzer находит 0 crashes за 1 час
-  - [ ] Performance budget не нарушается
-
----
-
-### Этап 9 — Кодоген расширений
-
-**Цель**: самодостаточный контракт, минимум ручной поддержки клиентов.
-
-- [ ] SDK генераторы
-  - [ ] TypeScript: fetch-based client, типы из OpenAPI
-  - [ ] Go: net/http client, structs из schemas
-  - [ ] Rust: reqwest client, serde structs
-  - [ ] Python: httpx/requests client, pydantic models
-- [ ] Общие фичи SDK
-  - [ ] Retry с exponential backoff
-  - [ ] Timeout настройка
-  - [ ] Автоматическая десериализация ответов
-  - [ ] Обработка RFC 7807 ошибок
-- [ ] Административные интерфейсы
-  - [ ] Генерация CRUD UI из OpenAPI (React/Vue/Svelte шаблоны)
-  - [ ] Таблицы с пагинацией/сортировкой/фильтрацией
-  - [ ] Формы создания/редактирования с валидацией
-- [ ] Миграции БД
-  - [ ] Автогенерация миграций из SQL-схем
-  - [ ] Diff между версиями схемы
-  - [ ] Up/down миграции
-  - [ ] CLI: `katana db migrate up|down`, `katana db status`
-- [ ] Проверка совместимости
-  - [ ] OpenAPI breaking changes detection
-  - [ ] SQL schema breaking changes
-  - [ ] Semantic versioning enforcement
-  - [ ] CI проверка совместимости с предыдущей версией
-- [ ] Документация
-  - [ ] Автогенерация API docs из OpenAPI (Swagger UI/ReDoc)
-  - [ ] Примеры запросов для каждого endpoint
-  - [ ] Changelog из git history + OpenAPI diff
-- [ ] CLI команды
-  - [ ] `katana gen sdk --lang {ts|go|rust|py} -i api/openapi.yaml -o sdk/`
-  - [ ] `katana gen admin-ui --framework {react|vue|svelte} -o admin/`
-  - [ ] `katana db create`, `katana db migrate`, `katana db status`
-- [ ] Тесты
-  - [ ] Сгенерированные SDK проходят E2E тесты
-  - [ ] Admin UI отображает все endpoints
-  - [ ] Миграции корректно применяются и откатываются
-
----
-
-### Этап 10 — Стабилизация и прод-кейс
-
-**Цель**: подтверждение применимости в реальном проде.
-
-- [ ] Выбор целевого прод-проекта
-  - [ ] Критерии: высокая нагрузка, строгие SLA, реальные пользователи
-  - [ ] Примеры: биллинг-сервис, API gateway, real-time аналитика
-- [ ] Профилирование в проде
-  - [ ] CPU profiling (perf/flamegraph)
-  - [ ] Memory profiling (heaptrack/massif)
-  - [ ] Latency analysis (p95/p99/p999 breakdown)
-  - [ ] Hotspot identification
-- [ ] Фиксы узких мест
-  - [ ] Оптимизация hot paths
-  - [ ] Уменьшение аллокаций
-  - [ ] Избежание system calls в критическом пути
-  - [ ] Lock-free структуры данных где нужно
-- [ ] Стандартные конфигурации
-  - [ ] Profiles: `dev`, `staging`, `prod`, `prod-high-throughput`, `prod-low-latency`
-  - [ ] Рекомендуемые настройки: число реакторов, размеры пулов, TTL кэша
-  - [ ] Sysctl параметры (Linux): `net.core.somaxconn`, `net.ipv4.tcp_*`, etc.
-- [ ] Рекомендации деплоя
-  - [ ] Dockerfile (multi-stage build)
-  - [ ] Kubernetes manifests (deployment, service, HPA)
-  - [ ] Настройки ресурсов (CPU/memory requests/limits)
-  - [ ] Health checks (liveness, readiness)
-  - [ ] Graceful shutdown
-- [ ] Мониторинг и алертинг
-  - [ ] Алерты на p99 degradation
-  - [ ] Алерты на error rate spike
-  - [ ] Алерты на database/redis connection pool exhaustion
-  - [ ] Runbook для типовых проблем
-- [ ] Документация
-  - [ ] Production checklist
-  - [ ] Tuning guide
-  - [ ] Troubleshooting guide
-  - [ ] Performance best practices
-- [ ] Метрики успеха
-  - [ ] p99 < 5ms под нагрузкой
-  - [ ] RPS > 100k на одном инстансе (hello-world)
-  - [ ] 99.99% uptime
-  - [ ] Zero memory leaks
-- [ ] Тесты
-  - [ ] Soak tests (24h+ under load)
-  - [ ] Chaos engineering (kill random instances, network delays)
-  - [ ] Load tests с production-like трафиком
+**Правило приоритезации**
+- ни один пункт из long-term backlog не должен стартовать раньше, чем Stages 3-6 дадут стабильный contract/runtime/ops baseline.
 
 ---
 
