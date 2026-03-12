@@ -48,13 +48,13 @@ public:
         stored_item item;
         item.id = next_id_++;
         item.name.assign(req.name.data(), req.name.size());
-        if (!req.description.empty())
-            item.description.assign(req.description.data(), req.description.size());
+        if (req.description)
+            item.description.assign(req.description->data(), req.description->size());
         item.price = req.price;
-        item.stock = req.stock;
+        item.stock = req.stock.value_or(0);
         item.category = req.category;
-        if (!req.tags.empty()) {
-            for (const auto& t : req.tags)
+        if (req.tags) {
+            for (const auto& t : *req.tags)
                 item.tags.emplace_back(t.data(), t.size());
         }
         int64_t id = item.id;
@@ -95,17 +95,19 @@ public:
         if (it == items_.end())
             return false;
         auto& item = it->second;
-        if (!req.name.empty())
-            item.name.assign(req.name.data(), req.name.size());
-        if (!req.description.empty())
-            item.description.assign(req.description.data(), req.description.size());
-        if (req.price != 0.0)
-            item.price = req.price;
-        if (req.stock != 0)
-            item.stock = req.stock;
-        if (!req.tags.empty()) {
+        if (req.name)
+            item.name.assign(req.name->data(), req.name->size());
+        if (req.description)
+            item.description.assign(req.description->data(), req.description->size());
+        if (req.price)
+            item.price = *req.price;
+        if (req.stock)
+            item.stock = *req.stock;
+        if (req.category)
+            item.category = *req.category;
+        if (req.tags) {
             item.tags.clear();
-            for (const auto& t : req.tags)
+            for (const auto& t : *req.tags)
                 item.tags.emplace_back(t.data(), t.size());
         }
         return true;
@@ -136,8 +138,9 @@ static Item to_dto(const item_store::stored_item& src, monotonic_arena& arena) {
     item.stock = src.stock;
     item.category = src.category;
     if (!src.tags.empty()) {
+        item.tags.emplace(arena_allocator<arena_string<>>(&arena));
         for (const auto& t : src.tags)
-            item.tags.emplace_back(t, arena_allocator<char>(&arena));
+            item.tags->emplace_back(t, arena_allocator<char>(&arena));
     }
     return item;
 }
@@ -185,7 +188,7 @@ public:
         resp.sum = sum;
         resp.count = static_cast<int64_t>(vals.size());
 
-        if (req.include_median) {
+        if (req.include_median.value_or(false)) {
             std::vector<double> sorted(vals.begin(), vals.end());
             std::sort(sorted.begin(), sorted.end());
             size_t n = sorted.size();
@@ -208,7 +211,7 @@ public:
             arena_string<>(req.username.data(), req.username.size(), arena_allocator<char>(&arena));
         resp.email =
             arena_string<>(req.email.data(), req.email.size(), arena_allocator<char>(&arena));
-        resp.role = req.role;
+        resp.role = req.role.value_or(UserRole_enum::user);
         resp.created_at = arena_string<>("2025-01-01T00:00:00Z", arena_allocator<char>(&arena));
         out = response::json(serialize_UserResponse(resp));
         return {};
@@ -293,7 +296,7 @@ public:
     result<void> echo(const EchoRequest& req, response& out) override {
         std::string msg(req.message.data(), req.message.size());
 
-        int repeat_count = static_cast<int>(req.repeat);
+        int repeat_count = static_cast<int>(req.repeat.value_or(1));
         if (repeat_count > 1) {
             std::string base = msg;
             msg.reserve(base.size() * static_cast<size_t>(repeat_count));
@@ -301,7 +304,7 @@ public:
                 msg += base;
         }
 
-        if (req.uppercase) {
+        if (req.uppercase.value_or(false)) {
             for (char& c : msg)
                 c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
         }

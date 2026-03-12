@@ -93,7 +93,8 @@ size_t inline_arena_array_capacity(const katana::openapi::schema* s) {
 std::string cpp_type_from_schema(const document& doc,
                                  const katana::openapi::schema* s,
                                  bool use_pmr,
-                                 bool inline_top_level_small_array = false) {
+                                 bool inline_top_level_small_array = false,
+                                 bool wrap_optional = true) {
     if (!s) {
         return "std::monostate";
     }
@@ -104,12 +105,8 @@ std::string cpp_type_from_schema(const document& doc,
         return schema_identifier(doc, s) + "_enum";
     }
 
-    bool allow_optional =
-        false; // optional is intentionally disabled for now to keep arena ABI flat
-    const bool nullable = s->nullable || allow_optional;
-
     auto wrap = [&](std::string base) {
-        if (nullable || allow_optional) {
+        if (wrap_optional && s->nullable) {
             return "std::optional<" + base + ">";
         }
         return base;
@@ -147,6 +144,38 @@ std::string cpp_type_from_schema(const document& doc,
     default:
         return wrap("std::monostate");
     }
+}
+
+std::string cpp_type_for_property(const document& doc,
+                                  const katana::openapi::property& prop,
+                                  bool use_pmr) {
+    auto base = cpp_type_from_schema(doc, prop.type, use_pmr, false, false);
+    if (is_optional_property(prop)) {
+        return "std::optional<" + base + ">";
+    }
+    return base;
+}
+
+std::vector<std::string> enum_value_identifiers(const katana::openapi::schema& s) {
+    std::vector<std::string> identifiers;
+    identifiers.reserve(s.enum_values.size());
+    std::unordered_set<std::string> used;
+    used.reserve(s.enum_values.size());
+
+    for (const auto& val : s.enum_values) {
+        std::string identifier = sanitize_identifier(val);
+        if (identifier.empty()) {
+            identifier = "value";
+        }
+        auto candidate = identifier;
+        size_t suffix = 1;
+        while (!used.insert(candidate).second) {
+            candidate = identifier + "_" + std::to_string(++suffix);
+        }
+        identifiers.push_back(std::move(candidate));
+    }
+
+    return identifiers;
 }
 
 void generate_dto_for_schema(std::ostream& out,
@@ -199,13 +228,7 @@ void generate_dto_for_schema(std::ostream& out,
         if (!prop.type)
             continue;
 
-        std::string prop_name_upper(prop.name.begin(), prop.name.end());
-        // Convert to uppercase with underscores for constants
-        for (auto& c : prop_name_upper) {
-            if (c == '-' || c == ' ')
-                c = '_';
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
+        const auto prop_name_upper = metadata_constant_identifier(prop.name);
 
         // Required flag
         out << ind << "        static constexpr bool " << prop_name_upper
@@ -223,7 +246,7 @@ void generate_dto_for_schema(std::ostream& out,
             }
             if (!prop.type->pattern.empty()) {
                 out << ind << "        static constexpr std::string_view " << prop_name_upper
-                    << "_PATTERN = \"" << prop.type->pattern << "\";\n";
+                    << "_PATTERN = \"" << escape_cpp_string(prop.type->pattern) << "\";\n";
             }
         }
 
@@ -276,12 +299,7 @@ void generate_dto_for_schema(std::ostream& out,
         if (!prop.type)
             continue;
 
-        std::string prop_name_upper(prop.name.begin(), prop.name.end());
-        for (auto& c : prop_name_upper) {
-            if (c == '-' || c == ' ')
-                c = '_';
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
+        const auto prop_name_upper = metadata_constant_identifier(prop.name);
 
         // String constraint assertions
         if (prop.type->kind == katana::openapi::schema_kind::string) {
@@ -325,7 +343,7 @@ void generate_dto_for_schema(std::ostream& out,
     sorted_props.reserve(s.properties.size());
     for (size_t index = 0; index < s.properties.size(); ++index) {
         const auto& prop = s.properties[index];
-        auto cpp_type = cpp_type_from_schema(doc, prop.type, use_pmr);
+        auto cpp_type = cpp_type_for_property(doc, prop, use_pmr);
         sorted_props.push_back({&prop, cpp_type, alignment_rank(cpp_type), index});
     }
     // Keep deterministic source order within each alignment bucket without relying on stable_sort,
@@ -344,15 +362,19 @@ void generate_dto_for_schema(std::ostream& out,
 
         for (const auto& entry : sorted_props) {
             const auto& cpp_type = entry.cpp_type;
+            const auto member_name = property_member_identifier(entry.prop->name);
+            if (cpp_type.find("std::optional<") != std::string::npos) {
+                continue;
+            }
             if (cpp_type.find("arena_vector") != std::string::npos) {
                 // Use semantic allocator: arena_allocator<T> for arena_vector<T>
                 auto inner = extract_arena_vector_inner_type(cpp_type);
                 out << ",\n"
-                    << ind << "          " << entry.prop->name << "(arena_allocator<" << inner
+                    << ind << "          " << member_name << "(arena_allocator<" << inner
                     << ">(arena))";
             } else if (cpp_type.find("arena_string") != std::string::npos) {
-                out << ",\n"
-                    << ind << "          " << entry.prop->name << "(arena_allocator<char>(arena))";
+                out << ",\n" << ind << "          " << member_name
+                    << "(arena_allocator<char>(arena))";
             }
         }
         out << " {}\n\n";
@@ -363,15 +385,16 @@ void generate_dto_for_schema(std::ostream& out,
     for (const auto& entry : sorted_props) {
         const auto& cpp_type = entry.cpp_type;
         const auto* prop = entry.prop;
+        const auto member_name = property_member_identifier(prop->name);
 
         // Add doc comment for property if type has description
         if (prop->type && !prop->type->description.empty()) {
             out << ind << "    /// " << prop->type->description << "\n";
-        } else if (!prop->required) {
+        } else if (is_optional_property(*prop)) {
             out << ind << "    /// Optional field\n";
         }
 
-        out << ind << "    " << cpp_type << " " << prop->name;
+        out << ind << "    " << cpp_type << " " << member_name;
         bool is_arena_type = use_pmr && (cpp_type.find("arena_string") != std::string::npos ||
                                          cpp_type.find("arena_vector") != std::string::npos);
         // Don't use = {} for types with explicit arena constructors
@@ -379,7 +402,8 @@ void generate_dto_for_schema(std::ostream& out,
         bool is_arena_object = use_pmr && prop->type &&
                                prop->type->kind == katana::openapi::schema_kind::object &&
                                !prop->type->properties.empty();
-        if (!prop->required && !is_arena_type && !is_arena_object) {
+        bool is_optional_member = cpp_type.find("std::optional<") != std::string::npos;
+        if (!is_optional_member && !prop->required && !is_arena_type && !is_arena_object) {
             out << " = {}";
         }
         out << ";\n";
@@ -404,23 +428,11 @@ void generate_enum_for_schema(std::ostream& out,
         out << "/// Enum with " << s.enum_values.size() << " possible values\n";
     }
 
+    const auto identifiers = enum_value_identifiers(s);
+
     out << "enum class " << enum_name << "_enum {\n";
     for (size_t i = 0; i < s.enum_values.size(); ++i) {
-        const auto& val = s.enum_values[i];
-        // Convert enum value to valid C++ identifier
-        std::string identifier;
-        identifier.reserve(val.size());
-        for (char c : val) {
-            if (std::isalnum(static_cast<unsigned char>(c))) {
-                identifier.push_back(c);
-            } else if (c == '-' || c == '_' || c == ' ') {
-                identifier.push_back('_');
-            }
-        }
-        if (identifier.empty() || std::isdigit(static_cast<unsigned char>(identifier[0]))) {
-            identifier = "value_" + identifier;
-        }
-        out << "    " << identifier;
+        out << "    " << identifiers[i];
         if (i < s.enum_values.size() - 1) {
             out << ",";
         }
@@ -431,21 +443,9 @@ void generate_enum_for_schema(std::ostream& out,
     // Add string conversion functions
     out << "inline std::string_view to_string(" << enum_name << "_enum e) {\n";
     out << "    switch (e) {\n";
-    for (const auto& val : s.enum_values) {
-        std::string identifier;
-        identifier.reserve(val.size());
-        for (char c : val) {
-            if (std::isalnum(static_cast<unsigned char>(c))) {
-                identifier.push_back(c);
-            } else if (c == '-' || c == '_' || c == ' ') {
-                identifier.push_back('_');
-            }
-        }
-        if (identifier.empty() || std::isdigit(static_cast<unsigned char>(identifier[0]))) {
-            identifier = "value_" + identifier;
-        }
-        out << "    case " << enum_name << "_enum::" << identifier << ": return \"" << val
-            << "\";\n";
+    for (size_t i = 0; i < s.enum_values.size(); ++i) {
+        out << "    case " << enum_name << "_enum::" << identifiers[i] << ": return \""
+            << escape_cpp_string(s.enum_values[i]) << "\";\n";
     }
     out << "    }\n";
     out << "    return \"\";\n";
@@ -454,21 +454,9 @@ void generate_enum_for_schema(std::ostream& out,
     // Add from_string function
     out << "inline std::optional<" << enum_name << "_enum> " << enum_name
         << "_enum_from_string(std::string_view s) {\n";
-    for (const auto& val : s.enum_values) {
-        std::string identifier;
-        identifier.reserve(val.size());
-        for (char c : val) {
-            if (std::isalnum(static_cast<unsigned char>(c))) {
-                identifier.push_back(c);
-            } else if (c == '-' || c == '_' || c == ' ') {
-                identifier.push_back('_');
-            }
-        }
-        if (identifier.empty() || std::isdigit(static_cast<unsigned char>(identifier[0]))) {
-            identifier = "value_" + identifier;
-        }
-        out << "    if (s == \"" << val << "\") return " << enum_name << "_enum::" << identifier
-            << ";\n";
+    for (size_t i = 0; i < s.enum_values.size(); ++i) {
+        out << "    if (s == \"" << escape_cpp_string(s.enum_values[i]) << "\") return "
+            << enum_name << "_enum::" << identifiers[i] << ";\n";
     }
     out << "    return std::nullopt;\n";
     out << "}\n\n";

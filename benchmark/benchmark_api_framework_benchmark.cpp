@@ -42,7 +42,7 @@ public:
         resp.sum = base;
         resp.mean = base;
         resp.count = static_cast<int64_t>(body.values.size());
-        if (body.include_median) {
+        if (body.include_median.value_or(false)) {
             resp.median = base;
         }
         out.assign_json(serialize_StatsResponse(resp));
@@ -58,7 +58,7 @@ public:
             body.username.data(), body.username.size(), arena_allocator<char>(&arena));
         resp.email =
             arena_string<>(body.email.data(), body.email.size(), arena_allocator<char>(&arena));
-        resp.role = body.role;
+        resp.role = body.role.value_or(UserRole_enum::user);
         resp.created_at = arena_string<>("2026-01-01T00:00:00Z", arena_allocator<char>(&arena));
         out.assign_json(serialize_UserResponse(resp), 201, "Created");
         return {};
@@ -82,7 +82,8 @@ public:
         item.price = 99.0;
         item.stock = 7;
         item.category = category ? ItemCategory_enum::tools : ItemCategory_enum::other;
-        item.tags.emplace_back("bench", arena_allocator<char>(&arena));
+        item.tags.emplace(arena_allocator<arena_string<>>(&arena));
+        item.tags->emplace_back("bench", arena_allocator<char>(&arena));
         resp.items.push_back(std::move(item));
 
         out.assign_json(serialize_ItemList(resp));
@@ -98,13 +99,18 @@ public:
         item.id = 100;
         item.name =
             arena_string<>(body.name.data(), body.name.size(), arena_allocator<char>(&arena));
-        item.description = arena_string<>(
-            body.description.data(), body.description.size(), arena_allocator<char>(&arena));
+        if (body.description) {
+            item.description = arena_string<>(
+                body.description->data(), body.description->size(), arena_allocator<char>(&arena));
+        }
         item.price = body.price;
-        item.stock = body.stock;
+        item.stock = body.stock.value_or(0);
         item.category = body.category;
-        for (const auto& tag : body.tags) {
-            item.tags.emplace_back(tag.data(), tag.size(), arena_allocator<char>(&arena));
+        if (body.tags) {
+            item.tags.emplace(arena_allocator<arena_string<>>(&arena));
+            for (const auto& tag : *body.tags) {
+                item.tags->emplace_back(tag.data(), tag.size(), arena_allocator<char>(&arena));
+            }
         }
         out.assign_json(serialize_Item(item), 201, "Created");
         return {};
@@ -120,7 +126,8 @@ public:
         item.price = 99.0;
         item.stock = 7;
         item.category = ItemCategory_enum::tools;
-        item.tags.emplace_back("bench", arena_allocator<char>(&arena));
+        item.tags.emplace(arena_allocator<arena_string<>>(&arena));
+        item.tags->emplace_back("bench", arena_allocator<char>(&arena));
         out.assign_json(serialize_Item(item));
         return {};
     }
@@ -129,15 +136,24 @@ public:
         auto& arena = handler_context::arena();
         Item item(&arena);
         item.id = id;
-        item.name =
-            arena_string<>(body.name.data(), body.name.size(), arena_allocator<char>(&arena));
-        item.description = arena_string<>(
-            body.description.data(), body.description.size(), arena_allocator<char>(&arena));
-        item.price = body.price;
-        item.stock = body.stock;
+        if (body.name) {
+            item.name = arena_string<>(
+                body.name->data(), body.name->size(), arena_allocator<char>(&arena));
+        } else {
+            item.name = arena_string<>("Updated Item", arena_allocator<char>(&arena));
+        }
+        if (body.description) {
+            item.description = arena_string<>(
+                body.description->data(), body.description->size(), arena_allocator<char>(&arena));
+        }
+        item.price = body.price.value_or(99.0);
+        item.stock = body.stock.value_or(7);
         item.category = ItemCategory_enum::tools;
-        for (const auto& tag : body.tags) {
-            item.tags.emplace_back(tag.data(), tag.size(), arena_allocator<char>(&arena));
+        if (body.tags) {
+            item.tags.emplace(arena_allocator<arena_string<>>(&arena));
+            for (const auto& tag : *body.tags) {
+                item.tags->emplace_back(tag.data(), tag.size(), arena_allocator<char>(&arena));
+            }
         }
         out.assign_json(serialize_Item(item));
         return {};

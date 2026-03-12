@@ -11,6 +11,34 @@
 
 namespace katana_gen {
 
+namespace {
+
+bool is_cpp_keyword(std::string_view name) {
+    static const std::unordered_set<std::string_view> keywords = {
+        "alignas",      "alignof",       "and",           "and_eq",       "asm",
+        "auto",         "bitand",        "bitor",         "bool",         "break",
+        "case",         "catch",         "char",          "char8_t",      "char16_t",
+        "char32_t",     "class",         "compl",         "concept",      "const",
+        "consteval",    "constexpr",     "constinit",     "const_cast",   "continue",
+        "co_await",     "co_return",     "co_yield",      "decltype",     "default",
+        "delete",       "do",            "double",        "dynamic_cast", "else",
+        "enum",         "explicit",      "export",        "extern",       "false",
+        "float",        "for",           "friend",        "goto",         "if",
+        "inline",       "int",           "long",          "mutable",      "namespace",
+        "new",          "noexcept",      "not",           "not_eq",       "nullptr",
+        "operator",     "or",            "or_eq",         "private",      "protected",
+        "public",       "register",      "reinterpret_cast", "requires",  "return",
+        "short",        "signed",        "sizeof",        "static",       "static_assert",
+        "static_cast",  "struct",        "switch",        "template",     "this",
+        "thread_local", "throw",         "true",          "try",          "typedef",
+        "typeid",       "typename",      "union",         "unsigned",     "using",
+        "virtual",      "void",          "volatile",      "wchar_t",      "while",
+        "xor",          "xor_eq"};
+    return keywords.contains(name);
+}
+
+} // namespace
+
 std::string escape_json(std::string_view sv) {
     std::string out;
     out.reserve(sv.size() + 8);
@@ -179,7 +207,24 @@ std::string sanitize_identifier(std::string_view name) {
     if (id.empty() || std::isdigit(static_cast<unsigned char>(id.front()))) {
         id.insert(id.begin(), '_');
     }
+    if (is_cpp_keyword(id)) {
+        id.push_back('_');
+    }
     return id;
+}
+
+std::string property_member_identifier(std::string_view name) { return sanitize_identifier(name); }
+
+std::string metadata_constant_identifier(std::string_view name) {
+    std::string id = sanitize_identifier(name);
+    for (auto& c : id) {
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
+    return id;
+}
+
+bool is_optional_property(const katana::openapi::property& prop) {
+    return !prop.required || (prop.type && prop.type->nullable);
 }
 
 std::string method_enum_literal(katana::http::method m) {

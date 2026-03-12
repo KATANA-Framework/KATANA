@@ -6,6 +6,7 @@
 #include "katana/core/validation.hpp"
 
 #include <array>
+#include <cctype>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -13,6 +14,33 @@
 #include <string_view>
 
 namespace katana::http_utils {
+
+namespace detail {
+
+[[nodiscard]] inline bool ascii_iequals(std::string_view lhs, std::string_view rhs) noexcept {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < lhs.size(); ++i) {
+        unsigned char lc = static_cast<unsigned char>(lhs[i]);
+        unsigned char rc = static_cast<unsigned char>(rhs[i]);
+        if (std::tolower(lc) != std::tolower(rc)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] inline std::string_view media_type_token(std::string_view value) noexcept {
+    value = katana::serde::trim_view(value);
+    auto semicolon = value.find(';');
+    if (semicolon != std::string_view::npos) {
+        value = value.substr(0, semicolon);
+    }
+    return katana::serde::trim_view(value);
+}
+
+} // namespace detail
 
 struct content_type_info {
     std::string_view mime_type;
@@ -181,9 +209,13 @@ find_content_type(std::optional<std::string_view> header,
         return std::nullopt;
     if (!header)
         return std::nullopt;
+    auto requested = detail::media_type_token(*header);
+    if (requested.empty()) {
+        return std::nullopt;
+    }
     for (size_t i = 0; i < allowed.size(); ++i) {
         auto& ct = allowed[i];
-        if (header->substr(0, ct.mime_type.size()) == ct.mime_type)
+        if (detail::ascii_iequals(requested, ct.mime_type))
             return i;
     }
     return std::nullopt;

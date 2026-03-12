@@ -257,22 +257,29 @@ std::string generate_router_bindings(const document& doc) {
     out << "#include \"generated_validators.hpp\"\n";
     out << "#include <array>\n";
     out << "#include <charconv>\n";
+    out << "#include <chrono>\n";
+    out << "#include <functional>\n";
     out << "#include <optional>\n";
     out << "#include <variant>\n";
     out << "#include <span>\n";
+    out << "#include <string>\n";
     out << "#include <string_view>\n";
+    out << "#include <utility>\n";
     out << "\n";
     out << "namespace generated {\n\n";
 
     // Import framework utilities instead of generating them inline
     out << "using katana::http_utils::query_param;\n";
     out << "using katana::http_utils::cookie_param;\n";
+    out << "using katana::http_utils::extract_query_params;\n";
+    out << "using katana::http_utils::extract_cookie_params;\n";
     out << "using katana::http_utils::find_content_type;\n";
     out << "using katana::http_utils::negotiate_response_type;\n";
     out << "using katana::http_utils::format_validation_error;\n";
     out << "using katana::http_utils::format_validation_error_into;\n";
     out << "using katana::http_utils::hash_string;\n";
     out << "using katana::http_utils::content_type_info;\n";
+    out << "using katana::http_utils::named_param_target;\n";
     out << "\n";
 
     // Collect all static routes (routes without path parameters)
@@ -338,13 +345,10 @@ std::string generate_router_bindings(const document& doc) {
     make_router_stream << "// ============================================================\n";
     make_router_stream << "// Router Configuration\n";
     make_router_stream << "// ============================================================\n\n";
-
-    make_router_stream
-        << "inline const katana::http::router& make_router(api_handler& handler) {\n";
-    make_router_stream << "    using katana::http::route_entry;\n";
-    make_router_stream << "    using katana::http::path_pattern;\n";
-    make_router_stream << "    using katana::http::handler_fn;\n";
-    make_router_stream << "    static std::array<route_entry, route_count> route_entries = {\n";
+    make_router_stream << "class generated_router {\n";
+    make_router_stream << "public:\n";
+    make_router_stream << "    explicit generated_router(api_handler& handler)\n";
+    make_router_stream << "        : route_entries_{\n";
 
     size_t route_idx = 0;
     for (const auto& path : doc.paths) {
@@ -401,57 +405,17 @@ std::string generate_router_bindings(const document& doc) {
 
             // Content negotiation
             if (has_response_content) {
-                std::optional<std::string> single_produces_type;
-                for (const auto& resp : op.responses) {
-                    for (const auto& media : resp.content) {
-                        const std::string_view media_type_view(media.content_type.data(),
-                                                               media.content_type.size());
-                        if (!single_produces_type) {
-                            single_produces_type = std::string(media_type_view);
-                        } else if (std::string_view(*single_produces_type) != media_type_view) {
-                            single_produces_type.reset();
-                            break;
-                        }
-                    }
-                    if (!single_produces_type && !resp.content.empty()) {
-                        break;
-                    }
-                }
-
-                if (single_produces_type) {
-                    dispatch_functions
-                        << "    constexpr std::string_view response_content_type = \""
-                        << *single_produces_type << "\";\n";
-                    dispatch_functions << "    auto accept_header = req.headers.get("
-                                       << generate_headers_get("Accept") << ");\n";
-                    dispatch_functions
-                        << "    if (accept_header && !accept_header->empty() && *accept_header != "
-                           "\"*/*\" && *accept_header != response_content_type) {\n";
-                    dispatch_functions << "        auto comma = accept_header->find(',');\n";
-                    dispatch_functions << "        auto semicolon = accept_header->find(';');\n";
-                    dispatch_functions << "        auto token_end = std::min(comma, semicolon);\n";
-                    dispatch_functions
-                        << "        auto simple_accept = accept_header->substr(0, token_end);\n";
-                    dispatch_functions << "        if (simple_accept != response_content_type) {\n";
-                    dispatch_functions << "            out.assign_error("
-                                       << "katana::problem_details::not_acceptable("
-                                          "\"unsupported Accept header\"));\n";
-                    dispatch_functions << "            return {};\n";
-                    dispatch_functions << "        }\n";
-                    dispatch_functions << "    }\n";
-                } else {
-                    dispatch_functions
-                        << "    auto negotiated_content_type = negotiate_response_type(req, route_"
-                        << route_idx << "_produces);\n";
-                    dispatch_functions << "    if (!negotiated_content_type) {\n";
-                    dispatch_functions << "        out.assign_error("
-                                       << "katana::problem_details::not_acceptable("
-                                          "\"unsupported Accept header\"));\n";
-                    dispatch_functions << "        return {};\n";
-                    dispatch_functions << "    }\n";
-                    dispatch_functions << "    std::string_view response_content_type = "
-                                          "*negotiated_content_type;\n";
-                }
+                dispatch_functions
+                    << "    auto negotiated_content_type = negotiate_response_type(req, route_"
+                    << route_idx << "_produces);\n";
+                dispatch_functions << "    if (!negotiated_content_type) {\n";
+                dispatch_functions << "        out.assign_error("
+                                   << "katana::problem_details::not_acceptable("
+                                      "\"unsupported Accept header\"));\n";
+                dispatch_functions << "        return {};\n";
+                dispatch_functions << "    }\n";
+                dispatch_functions
+                    << "    std::string_view response_content_type = *negotiated_content_type;\n";
             }
 
             // Path params extraction (for dynamic routes)
@@ -544,53 +508,16 @@ std::string generate_router_bindings(const document& doc) {
                         dispatch_functions << "    std::optional<std::string_view> p_"
                                            << param_ident << " = std::nullopt;\n";
                     }
-                    dispatch_functions << "    auto query_view = req.uri;\n";
-                    dispatch_functions << "    auto query_qpos = query_view.find('?');\n";
-                    dispatch_functions << "    if (query_qpos != std::string_view::npos) {\n";
-                    dispatch_functions
-                        << "        query_view = query_view.substr(query_qpos + 1);\n";
-                    dispatch_functions << "        while (!query_view.empty()) {\n";
-                    dispatch_functions << "            auto amp = query_view.find('&');\n";
-                    dispatch_functions << "            auto part = query_view.substr(0, amp);\n";
-                    dispatch_functions << "            auto eq = part.find('=');\n";
-                    dispatch_functions << "            auto name = part.substr(0, eq);\n";
-                    dispatch_functions << "            auto value = eq == std::string_view::npos ? "
-                                          "std::string_view{} : part.substr(eq + 1);\n";
-                    bool first_query_branch = true;
+                    dispatch_functions << "    extract_query_params(req.uri, std::array{\n";
                     for (const auto& param : op.parameters) {
                         if (param.in != katana::openapi::param_location::query || !param.type) {
                             continue;
                         }
                         auto param_ident = sanitize_identifier(param.name);
-                        dispatch_functions
-                            << "            " << (first_query_branch ? "if" : "else if") << " (!p_"
-                            << param_ident << " && name == \"" << param.name << "\") {\n";
-                        dispatch_functions << "                p_" << param_ident << " = value;\n";
-                        dispatch_functions << "            }\n";
-                        first_query_branch = false;
+                        dispatch_functions << "        named_param_target{\"" << param.name
+                                           << "\", &p_" << param_ident << "},\n";
                     }
-                    dispatch_functions << "            if (";
-                    bool first_found = true;
-                    for (const auto& param : op.parameters) {
-                        if (param.in != katana::openapi::param_location::query || !param.type) {
-                            continue;
-                        }
-                        auto param_ident = sanitize_identifier(param.name);
-                        if (!first_found) {
-                            dispatch_functions << " && ";
-                        }
-                        dispatch_functions << "p_" << param_ident;
-                        first_found = false;
-                    }
-                    dispatch_functions << ") {\n";
-                    dispatch_functions << "                break;\n";
-                    dispatch_functions << "            }\n";
-                    dispatch_functions << "            if (amp == std::string_view::npos) {\n";
-                    dispatch_functions << "                break;\n";
-                    dispatch_functions << "            }\n";
-                    dispatch_functions << "            query_view.remove_prefix(amp + 1);\n";
-                    dispatch_functions << "        }\n";
-                    dispatch_functions << "    }\n";
+                    dispatch_functions << "    });\n";
                 }
 
                 if (cookie_param_count > 1) {
@@ -602,60 +529,16 @@ std::string generate_router_bindings(const document& doc) {
                         dispatch_functions << "    std::optional<std::string_view> p_"
                                            << param_ident << " = std::nullopt;\n";
                     }
-                    dispatch_functions << "    auto cookie_header = req.headers.get("
-                                       << generate_headers_get("Cookie") << ");\n";
-                    dispatch_functions << "    if (cookie_header) {\n";
-                    dispatch_functions
-                        << "        std::string_view cookie_view = *cookie_header;\n";
-                    dispatch_functions << "        while (!cookie_view.empty()) {\n";
-                    dispatch_functions << "            auto sep = cookie_view.find(';');\n";
-                    dispatch_functions << "            auto token = cookie_view.substr(0, sep);\n";
-                    dispatch_functions << "            auto eq = token.find('=');\n";
-                    dispatch_functions << "            if (eq != std::string_view::npos) {\n";
-                    dispatch_functions
-                        << "                auto name = katana::serde::trim_view(token.substr(0, "
-                           "eq));\n";
-                    dispatch_functions
-                        << "                auto value = katana::serde::trim_view(token.substr(eq "
-                           "+ 1));\n";
-                    bool first_cookie_branch = true;
+                    dispatch_functions << "    extract_cookie_params(req, std::array{\n";
                     for (const auto& param : op.parameters) {
                         if (param.in != katana::openapi::param_location::cookie || !param.type) {
                             continue;
                         }
                         auto param_ident = sanitize_identifier(param.name);
-                        dispatch_functions << "                "
-                                           << (first_cookie_branch ? "if" : "else if") << " (!p_"
-                                           << param_ident << " && name == \"" << param.name
-                                           << "\") {\n";
-                        dispatch_functions << "                    p_" << param_ident
-                                           << " = value;\n";
-                        dispatch_functions << "                }\n";
-                        first_cookie_branch = false;
+                        dispatch_functions << "        named_param_target{\"" << param.name
+                                           << "\", &p_" << param_ident << "},\n";
                     }
-                    dispatch_functions << "            }\n";
-                    dispatch_functions << "            if (";
-                    bool first_cookie_found = true;
-                    for (const auto& param : op.parameters) {
-                        if (param.in != katana::openapi::param_location::cookie || !param.type) {
-                            continue;
-                        }
-                        auto param_ident = sanitize_identifier(param.name);
-                        if (!first_cookie_found) {
-                            dispatch_functions << " && ";
-                        }
-                        dispatch_functions << "p_" << param_ident;
-                        first_cookie_found = false;
-                    }
-                    dispatch_functions << ") {\n";
-                    dispatch_functions << "                break;\n";
-                    dispatch_functions << "            }\n";
-                    dispatch_functions << "            if (sep == std::string_view::npos) {\n";
-                    dispatch_functions << "                break;\n";
-                    dispatch_functions << "            }\n";
-                    dispatch_functions << "            cookie_view.remove_prefix(sep + 1);\n";
-                    dispatch_functions << "        }\n";
-                    dispatch_functions << "    }\n";
+                    dispatch_functions << "    });\n";
                 }
 
                 for (const auto& param : op.parameters) {
@@ -817,28 +700,14 @@ std::string generate_router_bindings(const document& doc) {
 
             // Request body parsing (only if route has body)
             if (has_body) {
-                const bool has_single_content_type = op.body && op.body->content.size() == 1;
-                if (has_single_content_type) {
-                    const auto& only_media_type = op.body->content.front().content_type;
-                    dispatch_functions << "    auto content_type = req.headers.get("
-                                       << generate_headers_get("Content-Type") << ");\n";
-                    dispatch_functions << "    if (!content_type || "
-                                       << "content_type->substr(0, " << only_media_type.size()
-                                       << ") != \"" << only_media_type << "\") {\n";
-                    dispatch_functions << "        out.assign_error("
-                                       << "katana::problem_details::unsupported_media_type("
-                                          "\"unsupported Content-Type\")); return {};\n";
-                    dispatch_functions << "    }\n";
-                } else {
-                    dispatch_functions
-                        << "    auto content_type_index = find_content_type(req.headers.get("
-                        << generate_headers_get("Content-Type") << "), route_" << route_idx
-                        << "_consumes);\n";
-                    dispatch_functions
-                        << "    if (!content_type_index) { out.assign_error("
-                        << "katana::problem_details::unsupported_media_type(\"unsupported "
-                           "Content-Type\")); return {}; }\n";
-                }
+                dispatch_functions
+                    << "    auto content_type_index = find_content_type(req.headers.get("
+                    << generate_headers_get("Content-Type") << "), route_" << route_idx
+                    << "_consumes);\n";
+                dispatch_functions
+                    << "    if (!content_type_index) { out.assign_error("
+                    << "katana::problem_details::unsupported_media_type(\"unsupported "
+                       "Content-Type\")); return {}; }\n";
 
                 const bool has_single_body_schema =
                     !body_is_variant && body_schema_names.size() == 1;
@@ -906,11 +775,12 @@ std::string generate_router_bindings(const document& doc) {
                         dispatch_functions << "            if (auto err = validate_" << schema_name
                                            << "(body_val)) {\n";
                         dispatch_functions << "                std::string msg;\n";
+                        dispatch_functions << "                auto message = err->message();\n";
                         dispatch_functions << "                msg.reserve(err->field.size() + "
-                                              "err->message.size() + 2);\n";
+                                              "message.size() + 2);\n";
                         dispatch_functions << "                msg.append(err->field);\n";
                         dispatch_functions << "                msg.append(\": \");\n";
-                        dispatch_functions << "                msg.append(err->message);\n";
+                        dispatch_functions << "                msg.append(message);\n";
                         dispatch_functions << "                return msg;\n";
                         dispatch_functions << "            }\n";
                         dispatch_functions << "        }\n";
@@ -986,7 +856,8 @@ std::string generate_router_bindings(const document& doc) {
             dispatch_functions << "        return std::unexpected(handler_result.error());\n";
             dispatch_functions << "    }\n";
             if (has_response_content) {
-                dispatch_functions << "    if (!out.headers.get("
+                dispatch_functions << "    if (out.status != 204 && !out.body.empty() && "
+                                   << "!out.headers.get("
                                    << generate_headers_get("Content-Type") << ")) {\n";
                 dispatch_functions << "        out.set_header(\"Content-Type\", "
                                       "response_content_type);\n";
@@ -997,26 +868,44 @@ std::string generate_router_bindings(const document& doc) {
             dispatch_functions << "}\n\n";
 
             // Lambda in make_router now simply calls the dispatch function
-            make_router_stream << "        route_entry{katana::http::method::"
+            make_router_stream << "        katana::http::route_entry{katana::http::method::"
                                << method_enum_literal(op.method) << ",\n";
             make_router_stream << "                   katana::http::path_pattern::from_literal<\""
                                << path.path << "\">(),\n";
             make_router_stream
-                << "                   handler_fn([&handler](const katana::http::request& req, "
+                << "                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, "
                    "katana::http::request_context& ctx, katana::http::response& out) -> "
                    "katana::result<void> "
                    "{\n";
             make_router_stream << "                       return dispatch_" << method_name
-                               << "(req, ctx, handler, out);\n";
+                               << "(req, ctx, *handler_ptr, out);\n";
             make_router_stream << "                   })\n";
             make_router_stream << "        },\n";
             ++route_idx;
         }
     }
 
-    make_router_stream << "    };\n";
-    make_router_stream << "    static katana::http::router router_instance(route_entries);\n";
-    make_router_stream << "    return router_instance;\n";
+    make_router_stream << "        } {\n";
+    make_router_stream << "        router_.emplace(route_entries_);\n";
+    make_router_stream << "    }\n\n";
+    make_router_stream << "    generated_router(const generated_router&) = delete;\n";
+    make_router_stream << "    generated_router& operator=(const generated_router&) = delete;\n";
+    make_router_stream << "    generated_router(generated_router&&) = delete;\n";
+    make_router_stream << "    generated_router& operator=(generated_router&&) = delete;\n\n";
+    make_router_stream << "    [[nodiscard]] const katana::http::router& router() const noexcept { "
+                          "return *router_; }\n";
+    make_router_stream << "    [[nodiscard]] katana::http::router& router() noexcept { return "
+                          "*router_; }\n";
+    make_router_stream << "    [[nodiscard]] operator const katana::http::router&() const "
+                          "noexcept { return *router_; }\n";
+    make_router_stream << "    [[nodiscard]] operator katana::http::router&() noexcept { return "
+                          "*router_; }\n\n";
+    make_router_stream << "private:\n";
+    make_router_stream << "    std::array<katana::http::route_entry, route_count> route_entries_;\n";
+    make_router_stream << "    std::optional<katana::http::router> router_;\n";
+    make_router_stream << "};\n\n";
+    make_router_stream << "inline generated_router make_router(api_handler& handler) {\n";
+    make_router_stream << "    return generated_router(handler);\n";
     make_router_stream << "}\n\n";
 
     // Output in correct order: dispatch functions -> make_router -> fast_router
@@ -1101,18 +990,99 @@ std::string generate_router_bindings(const document& doc) {
     out << "};\n\n";
 
     out << "// Create optimized router (recommended for production)\n";
-    out << "inline fast_router make_fast_router(api_handler& handler) {\n";
-    out << "    return fast_router(handler, make_router(handler));\n";
+    out << "class generated_fast_router {\n";
+    out << "public:\n";
+    out << "    explicit generated_fast_router(api_handler& handler)\n";
+    out << "        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) {}\n\n";
+    out << "    generated_fast_router(const generated_fast_router&) = delete;\n";
+    out << "    generated_fast_router& operator=(const generated_fast_router&) = delete;\n";
+    out << "    generated_fast_router(generated_fast_router&&) = delete;\n";
+    out << "    generated_fast_router& operator=(generated_fast_router&&) = delete;\n\n";
+    out << "    katana::result<void> dispatch_to(\n";
+    out << "        const katana::http::request& req,\n";
+    out << "        katana::http::request_context& ctx,\n";
+    out << "        katana::http::response& out) const {\n";
+    out << "        return fast_router_.dispatch_to(req, ctx, out);\n";
+    out << "    }\n\n";
+    out << "    katana::result<katana::http::response> operator()(\n";
+    out << "        const katana::http::request& req,\n";
+    out << "        katana::http::request_context& ctx) const {\n";
+    out << "        return fast_router_(req, ctx);\n";
+    out << "    }\n\n";
+    out << "    [[nodiscard]] const generated_router& bundle() const noexcept { return "
+          "router_bundle_; }\n\n";
+    out << "private:\n";
+    out << "    generated_router router_bundle_;\n";
+    out << "    fast_router fast_router_;\n";
+    out << "};\n\n";
+    out << "inline generated_fast_router make_fast_router(api_handler& handler) {\n";
+    out << "    return generated_fast_router(handler);\n";
     out << "}\n\n";
 
     // Generate template helper for zero-boilerplate server creation
     out << "// Zero-boilerplate server creation\n";
     out << "// Usage: return generated::serve<MyHandler>(8080);\n";
+    out << "template<typename Handler>\n";
+    out << "class generated_server {\n";
+    out << "public:\n";
+    out << "    template<typename... Args>\n";
+    out << "    explicit generated_server(Args&&... args)\n";
+    out << "        : handler_(std::forward<Args>(args)...),\n";
+    out << "          router_bundle_(handler_),\n";
+    out << "          server_(router_bundle_.router()) {}\n\n";
+    out << "    generated_server(const generated_server&) = delete;\n";
+    out << "    generated_server& operator=(const generated_server&) = delete;\n";
+    out << "    generated_server(generated_server&&) = delete;\n";
+    out << "    generated_server& operator=(generated_server&&) = delete;\n\n";
+    out << "    generated_server& bind(const std::string& host, uint16_t port) {\n";
+    out << "        server_.bind(host, port);\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& listen(uint16_t port) {\n";
+    out << "        server_.listen(port);\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& workers(size_t count) {\n";
+    out << "        server_.workers(count);\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& backlog(int32_t size) {\n";
+    out << "        server_.backlog(size);\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& reuseport(bool enable = true) {\n";
+    out << "        server_.reuseport(enable);\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& graceful_shutdown(std::chrono::milliseconds timeout) {\n";
+    out << "        server_.graceful_shutdown(timeout);\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& on_start(std::function<void()> callback) {\n";
+    out << "        server_.on_start(std::move(callback));\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& on_stop(std::function<void()> callback) {\n";
+    out << "        server_.on_stop(std::move(callback));\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    generated_server& on_request(std::function<void(const request&, const response&)> callback) {\n";
+    out << "        server_.on_request(std::move(callback));\n";
+    out << "        return *this;\n";
+    out << "    }\n";
+    out << "    [[nodiscard]] Handler& handler() noexcept { return handler_; }\n";
+    out << "    [[nodiscard]] const Handler& handler() const noexcept { return handler_; }\n";
+    out << "    [[nodiscard]] katana::http::server& server() noexcept { return server_; }\n";
+    out << "    [[nodiscard]] const katana::http::server& server() const noexcept { return server_; }\n";
+    out << "    int run() { return server_.run(); }\n\n";
+    out << "private:\n";
+    out << "    Handler handler_;\n";
+    out << "    generated_router router_bundle_;\n";
+    out << "    katana::http::server server_;\n";
+    out << "};\n\n";
     out << "template<typename Handler, typename... Args>\n";
-    out << "inline auto make_server(Args&&... args) {\n";
-    out << "    static Handler handler_instance{std::forward<Args>(args)...};\n";
-    out << "    const auto& router = make_router(handler_instance);\n";
-    out << "    return katana::http::server(router);\n";
+    out << "inline generated_server<Handler> make_server(Args&&... args) {\n";
+    out << "    return generated_server<Handler>(std::forward<Args>(args)...);\n";
     out << "}\n\n";
 
     out << "template<typename Handler, typename... Args>\n";
@@ -1142,7 +1112,7 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "// Example:\n";
     out << "//   katana::result<void> get_user(int64_t id, response& out) override {\n";
     out << "//       auto user = db.find(id, &arena());  // arena() from context\n";
-    out << "//       out = response::json(serialize_User(user));\n";
+    out << "//       respond::into(out).json(serialize_User(user));\n";
     out << "//       return {};\n";
     out << "//   }\n";
     out << "#pragma once\n\n";
@@ -1326,10 +1296,10 @@ std::string generate_handler_interfaces(const document& doc) {
             }
 
             if (!body_type.empty() && !response_type.empty()) {
-                out << "//     response " << method_name << "(const " << body_type
-                    << "& req) override {\n";
+                out << "//     katana::result<void> " << method_name << "(const " << body_type
+                    << "& body, response& out) override {\n";
                 out << "//         // Access request fields\n";
-                out << "//         auto input = req.text;\n";
+                out << "//         auto input = body.text;\n";
                 out << "//\n";
                 out << "//         // Create response using arena allocator\n";
                 out << "//         " << response_type << " resp(&katana::http::arena());\n";
@@ -1337,9 +1307,10 @@ std::string generate_handler_interfaces(const document& doc) {
                 out << "//         // Process and set response fields\n";
                 out << "//         // resp.result = ...your logic here...\n";
                 out << "//\n";
-                out << "//         // Serialize and return\n";
-                out << "//         return response::json(serialize_" << response_type
+                out << "//         // Serialize into the provided response\n";
+                out << "//         respond::into(out).json(serialize_" << response_type
                     << "(resp));\n";
+                out << "//         return {};\n";
                 out << "//     }\n";
                 out << "//\n";
                 break;
@@ -1349,38 +1320,43 @@ std::string generate_handler_interfaces(const document& doc) {
     }
 
     out << "//     // Example 2: Error handling\n";
-    out << "//     response handle_request(const some_request& req) override {\n";
+    out << "//     katana::result<void> handle_request(const some_request& req, response& out) override {\n";
     out << "//         if (req.value < 0) {\n";
-    out << "//             return response::bad_request(\"value must be positive\");\n";
+    out << "//             out.assign_error(katana::problem_details::bad_request(\"value must be positive\"));\n";
+    out << "//             return {};\n";
     out << "//         }\n";
     out << "//         // ... normal processing ...\n";
-    out << "//         return response::json(serialize_some_response(resp));\n";
+    out << "//         respond::into(out).json(serialize_some_response(resp));\n";
+    out << "//         return {};\n";
     out << "//     }\n";
     out << "//\n";
     out << "//     // Example 3: Different response status codes\n";
-    out << "//     response create_item(const create_request& req) override {\n";
+    out << "//     katana::result<void> create_item(const create_request& req, response& out) override {\n";
     out << "//         auto item = db.create(req, &katana::http::arena());\n";
     out << "//         if (!item) {\n";
-    out << "//             return response::internal_error(\"failed to create item\");\n";
+    out << "//             out.assign_error(katana::problem_details::internal_server_error(\"failed to create item\"));\n";
+    out << "//             return {};\n";
     out << "//         }\n";
-    out << "//         return response::created(serialize_item(*item));\n";
+    out << "//         respond::into(out).created_json(serialize_item(*item));\n";
+    out << "//         return {};\n";
     out << "//     }\n";
     out << "//\n";
     out << "//     // Example 4: Enum handling\n";
-    out << "//     response transform_text(const text_transform_request& req) override {\n";
+    out << "//     katana::result<void> transform_text(const text_transform_request& req, response& out) override {\n";
     out << "//         std::string result;\n";
     out << "//         switch (req.operation) {\n";
-    out << "//             case text_transform_operation::upper:\n";
+    out << "//             case text_transform_request_operation_enum::upper:\n";
     out << "//                 result = to_upper(req.text);\n";
     out << "//                 break;\n";
-    out << "//             case text_transform_operation::lower:\n";
+    out << "//             case text_transform_request_operation_enum::lower:\n";
     out << "//                 result = to_lower(req.text);\n";
     out << "//                 break;\n";
     out << "//             // ... other cases ...\n";
     out << "//         }\n";
     out << "//         text_transform_response resp(&katana::http::arena());\n";
     out << "//         resp.result = result;\n";
-    out << "//         return response::json(serialize_text_transform_response(resp));\n";
+    out << "//         respond::into(out).json(serialize_text_transform_response(resp));\n";
+    out << "//         return {};\n";
     out << "//     }\n";
     out << "// };\n";
     out << "//\n";
@@ -1389,11 +1365,11 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "//   - respond::into(out).json(...)\n";
     out << "//   - respond::into(out).created_json(...)\n";
     out << "//   - respond::into(out).no_content()\n";
-    out << "//   - out = response::bad_request(message)\n";
-    out << "//   - out = response::unauthorized(message)\n";
-    out << "//   - out = response::forbidden(message)\n";
-    out << "//   - response::not_found(message)\n";
-    out << "//   - response::internal_error(message)\n";
+    out << "//   - out.assign_error(katana::problem_details::bad_request(message))\n";
+    out << "//   - out.assign_error(katana::problem_details::unauthorized(message))\n";
+    out << "//   - out.assign_error(katana::problem_details::forbidden(message))\n";
+    out << "//   - out.assign_error(katana::problem_details::not_found(message))\n";
+    out << "//   - out.assign_error(katana::problem_details::internal_server_error(message))\n";
     out << "//\n";
     out << "// Context access functions (available in handler methods):\n";
     out << "//   - katana::http::req()    - Get current request\n";

@@ -15,6 +15,9 @@ std::string escape_cpp_string(std::string_view sv);
 std::string schema_identifier(const document& doc, const katana::openapi::schema* s);
 std::string to_snake_case(std::string_view id);
 std::string sanitize_identifier(std::string_view name);
+std::string property_member_identifier(std::string_view name);
+std::string metadata_constant_identifier(std::string_view name);
+bool is_optional_property(const katana::openapi::property& prop);
 std::string method_enum_literal(katana::http::method m);
 void ensure_inline_schema_names(document& doc, std::string_view naming_style);
 

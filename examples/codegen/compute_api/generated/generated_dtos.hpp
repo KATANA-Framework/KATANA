@@ -21,9 +21,9 @@ using katana::arena_string;
 using katana::arena_vector;
 using katana::monotonic_arena;
 
-#include <cctype>
 #include <optional>
 #include <string_view>
+#include <cctype>
 
 #include <variant>
 
@@ -40,3 +40,4 @@ using compute_sum_request = arena_vector<double, 8>;
 using schema = double;
 
 using compute_sum_response = double;
+
