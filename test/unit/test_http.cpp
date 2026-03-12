@@ -3,6 +3,9 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <cstring>
+
 using namespace katana;
 using namespace katana::http;
 using katana::monotonic_arena;
@@ -155,6 +158,135 @@ TEST(HttpParser, ParseIncrementalBody) {
     EXPECT_EQ(*result3, parser::state::complete);
 
     EXPECT_EQ(p.get_request().body, "helloworld");
+}
+
+TEST(HttpParser, ParsePipelinedPostRequestsWithBodiesFromSingleBuffer) {
+    monotonic_arena arena;
+    parser p(&arena);
+
+    constexpr std::string_view kBody = "[1,2,3,4,5,6,7,8]";
+    std::string batch;
+    for (int i = 0; i < 20; ++i) {
+        batch += "POST /compute/sum HTTP/1.1\r\n";
+        batch += "Host: 127.0.0.1\r\n";
+        batch += "Content-Type: application/json\r\n";
+        batch += "Accept: application/json\r\n";
+        batch += "Content-Length: 17\r\n";
+        batch += "\r\n";
+        batch += kBody;
+    }
+
+    auto result = p.parse(as_bytes(batch));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+
+    for (int i = 0; i < 20; ++i) {
+        const auto& req = p.get_request();
+        EXPECT_EQ(req.http_method, method::post);
+        EXPECT_EQ(req.uri, "/compute/sum");
+        EXPECT_EQ(req.body, kBody);
+
+        if (i == 19) {
+            EXPECT_EQ(p.buffered_bytes(), 0U);
+            break;
+        }
+
+        arena.reset();
+        p.prepare_for_next_request(&arena);
+        result = p.parse_available();
+        ASSERT_TRUE(result.has_value());
+        EXPECT_EQ(*result, parser::state::complete);
+    }
+}
+
+TEST(HttpParser, ParsePipelinedPostRequestsWithBodiesIncrementallyViaWritableCommit) {
+    monotonic_arena arena;
+    parser p(&arena);
+
+    constexpr std::string_view kBody = "[1,2,3,4,5,6,7,8]";
+    std::string batch;
+    for (int i = 0; i < 20; ++i) {
+        batch += "POST /compute/sum HTTP/1.1\r\n";
+        batch += "Host: 127.0.0.1\r\n";
+        batch += "Content-Type: application/json\r\n";
+        batch += "Accept: application/json\r\n";
+        batch += "Content-Length: 17\r\n";
+        batch += "\r\n";
+        batch += kBody;
+    }
+
+    size_t offset = 0;
+    int completed = 0;
+    std::array<size_t, 8> chunk_pattern{7, 19, 31, 5, 64, 11, 23, 41};
+    size_t chunk_index = 0;
+
+    auto expect_current_request = [&]() {
+        const auto& req = p.get_request();
+        EXPECT_EQ(req.http_method, method::post);
+        EXPECT_EQ(req.uri, "/compute/sum");
+        EXPECT_EQ(req.body, kBody);
+    };
+
+    auto advance_completed_requests = [&]() {
+        while (completed < 20 && p.is_complete()) {
+            expect_current_request();
+            ++completed;
+            if (completed == 20) {
+                EXPECT_EQ(offset, batch.size());
+                EXPECT_EQ(p.buffered_bytes(), 0U);
+                return;
+            }
+
+            arena.reset();
+            p.prepare_for_next_request(&arena);
+            auto next = p.parse_available();
+            ASSERT_TRUE(next.has_value());
+            if (*next != parser::state::complete) {
+                return;
+            }
+        }
+    };
+
+    auto initial = p.parse_available();
+    ASSERT_TRUE(initial.has_value());
+    EXPECT_EQ(*initial, parser::state::request_line);
+
+    while (offset < batch.size()) {
+        size_t chunk = std::min(chunk_pattern[chunk_index % chunk_pattern.size()],
+                                batch.size() - offset);
+        ++chunk_index;
+
+        auto writable = p.writable_input_span(chunk);
+        ASSERT_TRUE(writable.has_value());
+        std::memcpy(writable->data(), batch.data() + offset, chunk);
+        offset += chunk;
+
+        auto result = p.commit_input(chunk);
+        ASSERT_TRUE(result.has_value());
+        advance_completed_requests();
+    }
+
+    if (completed < 20) {
+        advance_completed_requests();
+    }
+    EXPECT_EQ(completed, 20);
+}
+
+TEST(MonotonicArena, ResetReusesExistingSpillBlocks) {
+    monotonic_arena arena(64);
+
+    size_t baseline_capacity = 0;
+    for (int i = 0; i < 64; ++i) {
+        arena.reset();
+        ASSERT_NE(arena.allocate(1024, 1), nullptr);
+        ASSERT_NE(arena.allocate(80, 1), nullptr);
+
+        if (i == 0) {
+            baseline_capacity = arena.total_capacity();
+        } else {
+            EXPECT_EQ(arena.total_capacity(), baseline_capacity);
+        }
+    }
 }
 
 TEST(HttpParser, InvalidRequestLineNoSpace) {

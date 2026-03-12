@@ -153,7 +153,7 @@ public:
 
     // --- Compute ---
 
-    response compute_sum(const SumRequest& req) override {
+    result<void> compute_sum(const SumRequest& req, response& out) override {
         double sum = 0.0;
         for (double v : req.values)
             sum += v;
@@ -162,10 +162,11 @@ public:
         SumResponse resp(&arena);
         resp.result = sum;
         resp.count = static_cast<int64_t>(req.values.size());
-        return response::json(serialize_SumResponse(resp));
+        out = response::json(serialize_SumResponse(resp));
+        return {};
     }
 
-    response compute_stats(const StatsRequest& req) override {
+    result<void> compute_stats(const StatsRequest& req, response& out) override {
         const auto& vals = req.values;
         double sum = 0.0, mn = vals[0], mx = vals[0];
         for (double v : vals) {
@@ -191,12 +192,13 @@ public:
             resp.median = (n % 2 == 0) ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0 : sorted[n / 2];
         }
 
-        return response::json(serialize_StatsResponse(resp));
+        out = response::json(serialize_StatsResponse(resp));
+        return {};
     }
 
     // --- User registration (validation path) ---
 
-    response register_user(const RegisterRequest& req) override {
+    result<void> register_user(const RegisterRequest& req, response& out) override {
         // Validation already performed by generated code.
         auto& arena = handler_context::arena();
         UserResponse resp(&arena);
@@ -208,14 +210,16 @@ public:
             arena_string<>(req.email.data(), req.email.size(), arena_allocator<char>(&arena));
         resp.role = req.role;
         resp.created_at = arena_string<>("2025-01-01T00:00:00Z", arena_allocator<char>(&arena));
-        return response::json(serialize_UserResponse(resp));
+        out = response::json(serialize_UserResponse(resp));
+        return {};
     }
 
     // --- CRUD ---
 
-    response list_items([[maybe_unused]] std::optional<int64_t> limit,
-                        [[maybe_unused]] std::optional<int64_t> offset,
-                        [[maybe_unused]] std::optional<std::string_view> category) override {
+    result<void> list_items([[maybe_unused]] std::optional<int64_t> limit,
+                            [[maybe_unused]] std::optional<int64_t> offset,
+                            [[maybe_unused]] std::optional<std::string_view> category,
+                            response& out) override {
         int lim = static_cast<int>(limit.value_or(20));
         int off = static_cast<int>(offset.value_or(0));
 
@@ -230,49 +234,63 @@ public:
         for (const auto& si : items)
             list.items.push_back(to_dto(si, arena));
 
-        return response::json(serialize_ItemList(list));
+        out = response::json(serialize_ItemList(list));
+        return {};
     }
 
-    response create_item([[maybe_unused]] std::string_view X_Request_Id,
-                         [[maybe_unused]] std::optional<std::string_view> session,
-                         const CreateItemRequest& body) override {
+    result<void> create_item([[maybe_unused]] std::string_view X_Request_Id,
+                             [[maybe_unused]] std::optional<std::string_view> session,
+                             const CreateItemRequest& body,
+                             response& out) override {
         int64_t id = store_.create(body);
         auto item_opt = store_.get(id);
-        if (!item_opt)
-            return response::error(problem_details::internal_server_error());
+        if (!item_opt) {
+            out = response::error(problem_details::internal_server_error());
+            return {};
+        }
 
         auto& arena = handler_context::arena();
         Item dto = to_dto(*item_opt, arena);
-        return response::json(serialize_Item(dto));
+        out = response::json(serialize_Item(dto));
+        return {};
     }
 
-    response get_item(int64_t id) override {
+    result<void> get_item(int64_t id, response& out) override {
         auto item_opt = store_.get(id);
-        if (!item_opt)
-            return response::error(problem_details::not_found("Item not found"));
+        if (!item_opt) {
+            out = response::error(problem_details::not_found("Item not found"));
+            return {};
+        }
 
         auto& arena = handler_context::arena();
-        return response::json(serialize_Item(to_dto(*item_opt, arena)));
+        out = response::json(serialize_Item(to_dto(*item_opt, arena)));
+        return {};
     }
 
-    response update_item(int64_t id, const UpdateItemRequest& body) override {
-        if (!store_.update(id, body))
-            return response::error(problem_details::not_found("Item not found"));
+    result<void> update_item(int64_t id, const UpdateItemRequest& body, response& out) override {
+        if (!store_.update(id, body)) {
+            out = response::error(problem_details::not_found("Item not found"));
+            return {};
+        }
 
         auto item_opt = store_.get(id);
         auto& arena = handler_context::arena();
-        return response::json(serialize_Item(to_dto(*item_opt, arena)));
+        out = response::json(serialize_Item(to_dto(*item_opt, arena)));
+        return {};
     }
 
-    response delete_item(int64_t id) override {
-        if (!store_.remove(id))
-            return response::error(problem_details::not_found("Item not found"));
-        return response::ok();
+    result<void> delete_item(int64_t id, response& out) override {
+        if (!store_.remove(id)) {
+            out = response::error(problem_details::not_found("Item not found"));
+            return {};
+        }
+        out = response::ok();
+        return {};
     }
 
     // --- Echo (minimal overhead path) ---
 
-    response echo(const EchoRequest& req) override {
+    result<void> echo(const EchoRequest& req, response& out) override {
         std::string msg(req.message.data(), req.message.size());
 
         int repeat_count = static_cast<int>(req.repeat);
@@ -292,16 +310,18 @@ public:
         EchoResponse resp(&arena);
         resp.message = arena_string<>(msg, arena_allocator<char>(&arena));
         resp.length = static_cast<int64_t>(msg.size());
-        return response::json(serialize_EchoResponse(resp));
+        out = response::json(serialize_EchoResponse(resp));
+        return {};
     }
 
     // --- Health ---
 
-    response health_check() override {
+    result<void> health_check(response& out) override {
         auto now = std::chrono::steady_clock::now();
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time_).count();
         std::string json = R"({"status":"ok","uptime_ms":)" + std::to_string(ms) + "}";
-        return response::json(json);
+        out = response::json(json);
+        return {};
     }
 
 private:

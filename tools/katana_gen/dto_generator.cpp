@@ -26,7 +26,9 @@ int alignment_rank(const std::string& cpp_type) {
     return 8;
 }
 
-// Extracts the inner type T from "arena_vector<T>".
+constexpr size_t DEFAULT_INLINE_ARENA_ARRAY_CAPACITY = 8;
+
+// Extracts the inner type T from "arena_vector<T>" or "arena_vector<T, N>".
 // Returns empty string if the type is not an arena_vector.
 std::string extract_arena_vector_inner_type(const std::string& cpp_type) {
     const std::string prefix = "arena_vector<";
@@ -46,11 +48,52 @@ std::string extract_arena_vector_inner_type(const std::string& cpp_type) {
         if (depth > 0)
             ++end;
     }
-    return cpp_type.substr(start, end - start);
+    const auto payload = cpp_type.substr(start, end - start);
+
+    int nested_depth = 0;
+    for (size_t i = 0; i < payload.size(); ++i) {
+        if (payload[i] == '<') {
+            ++nested_depth;
+        } else if (payload[i] == '>') {
+            --nested_depth;
+        } else if (payload[i] == ',' && nested_depth == 0) {
+            return payload.substr(0, i);
+        }
+    }
+
+    return payload;
 }
 
-std::string
-cpp_type_from_schema(const document& doc, const katana::openapi::schema* s, bool use_pmr) {
+bool supports_inline_arena_array(const katana::openapi::schema* s) {
+    if (!s || s->kind != katana::openapi::schema_kind::array || !s->items) {
+        return false;
+    }
+
+    using katana::openapi::schema_kind;
+    switch (s->items->kind) {
+    case schema_kind::number:
+    case schema_kind::integer:
+    case schema_kind::boolean:
+        return true;
+    default:
+        return false;
+    }
+}
+
+size_t inline_arena_array_capacity(const katana::openapi::schema* s) {
+    if (!supports_inline_arena_array(s)) {
+        return 0;
+    }
+    if (s->max_items) {
+        return std::min(static_cast<size_t>(*s->max_items), DEFAULT_INLINE_ARENA_ARRAY_CAPACITY);
+    }
+    return DEFAULT_INLINE_ARENA_ARRAY_CAPACITY;
+}
+
+std::string cpp_type_from_schema(const document& doc,
+                                 const katana::openapi::schema* s,
+                                 bool use_pmr,
+                                 bool inline_top_level_small_array = false) {
     if (!s) {
         return "std::monostate";
     }
@@ -83,8 +126,15 @@ cpp_type_from_schema(const document& doc, const katana::openapi::schema* s, bool
         return wrap("bool");
     case schema_kind::array:
         if (s->items) {
-            return wrap((use_pmr ? "arena_vector<" : "std::vector<") +
-                        cpp_type_from_schema(doc, s->items, use_pmr) + ">");
+            const auto item_type = cpp_type_from_schema(doc, s->items, use_pmr);
+            if (use_pmr && inline_top_level_small_array) {
+                const auto inline_capacity = inline_arena_array_capacity(s);
+                if (inline_capacity > 0) {
+                    return wrap("arena_vector<" + item_type + ", " +
+                                std::to_string(inline_capacity) + ">");
+                }
+            }
+            return wrap((use_pmr ? "arena_vector<" : "std::vector<") + item_type + ">");
         }
         return wrap(use_pmr ? "arena_vector<std::string>" : "std::vector<std::string>");
     case schema_kind::object:
@@ -108,7 +158,7 @@ void generate_dto_for_schema(std::ostream& out,
     auto struct_name = schema_identifier(doc, &s);
 
     if (s.properties.empty()) {
-        auto alias = cpp_type_from_schema(doc, &s, use_pmr);
+        auto alias = cpp_type_from_schema(doc, &s, use_pmr, true);
         // Avoid circular aliases like "using schema_10 = schema_10;"
         if (alias == struct_name) {
             // SKIP: Don't generate empty structs for circular aliases

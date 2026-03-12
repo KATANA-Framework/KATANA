@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -68,6 +69,13 @@ result<tcp_socket> tcp_listener::accept() {
     if (fd < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
+
+    int nodelay = 1;
+    (void)::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+#ifdef TCP_QUICKACK
+    int quickack = 1;
+    (void)::setsockopt(fd, IPPROTO_TCP, TCP_QUICKACK, &quickack, sizeof(quickack));
+#endif
 
     return tcp_socket(fd);
 }

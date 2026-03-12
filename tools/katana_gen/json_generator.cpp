@@ -47,6 +47,34 @@ constexpr uint64_t fnv1a_hash(std::string_view str) noexcept {
     return hash;
 }
 
+constexpr size_t DEFAULT_INLINE_ARENA_ARRAY_CAPACITY = 8;
+
+bool supports_inline_arena_array(const katana::openapi::schema* s) {
+    if (!s || s->kind != katana::openapi::schema_kind::array || !s->items) {
+        return false;
+    }
+
+    using katana::openapi::schema_kind;
+    switch (s->items->kind) {
+    case schema_kind::number:
+    case schema_kind::integer:
+    case schema_kind::boolean:
+        return true;
+    default:
+        return false;
+    }
+}
+
+size_t inline_arena_array_capacity(const katana::openapi::schema* s) {
+    if (!supports_inline_arena_array(s)) {
+        return 0;
+    }
+    if (s->max_items) {
+        return std::min(static_cast<size_t>(*s->max_items), DEFAULT_INLINE_ARENA_ARRAY_CAPACITY);
+    }
+    return DEFAULT_INLINE_ARENA_ARRAY_CAPACITY;
+}
+
 // Generate the field parsing body for a single property (reusable across strategies)
 void generate_field_parse_body(std::ostream& out,
                                const document& doc,
@@ -154,7 +182,8 @@ void generate_field_parse_body(std::ostream& out,
                     auto nested_array_name = schema_identifier(doc, item);
                     if (!nested_array_name.empty()) {
                         out << indent << "            if (auto nested = parse_" << nested_array_name
-                            << "(cur, arena)) { obj." << prop.name << ".push_back(*nested); }\n";
+                            << "(cur, arena)) { obj." << prop.name
+                            << ".push_back(std::move(*nested)); }\n";
                         out << indent << "            else { cur.skip_value(); }\n";
                     } else {
                         out << indent << "            cur.skip_value();\n";
@@ -177,7 +206,7 @@ void generate_field_parse_body(std::ostream& out,
             if (!nested_obj_name.empty()) {
                 out << indent << "    if (auto nested = parse_" << nested_obj_name
                     << "(cur, arena)) {\n";
-                out << indent << "        obj." << prop.name << " = *nested;\n";
+                out << indent << "        obj." << prop.name << " = std::move(*nested);\n";
                 out << indent << "    } else { cur.skip_value(); }\n";
             } else {
                 out << indent << "    cur.skip_value();\n";
@@ -226,6 +255,83 @@ size_t compute_reserve_estimate(const document& /*doc*/, const katana::openapi::
         estimated += prop.name.length() + 4 + type_est; // key + quotes + colon + comma + value
     }
     return estimated;
+}
+
+size_t compute_value_estimate(const document& doc,
+                              const katana::openapi::schema* s,
+                              int depth = 0) {
+    using katana::openapi::schema_kind;
+    if (!s) {
+        return 32;
+    }
+    if (depth > 2) {
+        return 64;
+    }
+
+    switch (s->kind) {
+    case schema_kind::boolean:
+        return 5;
+    case schema_kind::integer:
+        return 20;
+    case schema_kind::number:
+        return 25;
+    case schema_kind::string:
+        return 32;
+    case schema_kind::array:
+        return 2 + compute_value_estimate(doc, s->items, depth + 1) * 4;
+    case schema_kind::object:
+        return compute_reserve_estimate(doc, *s);
+    case schema_kind::null_type:
+        return 4;
+    default:
+        return 32;
+    }
+}
+
+void emit_runtime_reserve_adjustment(std::ostream& out,
+                                     const document& doc,
+                                     const katana::openapi::property& prop,
+                                     std::string_view object_expr,
+                                     std::string_view reserve_var) {
+    using katana::openapi::schema_kind;
+    if (!prop.type) {
+        return;
+    }
+
+    const std::string field_expr =
+        std::string(object_expr) + "." + std::string(prop.name.data(), prop.name.size());
+    const bool is_optional = prop.type->nullable;
+
+    auto emit_optional = [&](const std::string& add_expr) {
+        if (is_optional) {
+            out << "    if (" << field_expr << ") " << reserve_var << " += " << add_expr << ";\n";
+        } else {
+            out << "    " << reserve_var << " += " << add_expr << ";\n";
+        }
+    };
+
+    switch (prop.type->kind) {
+    case schema_kind::string:
+        if (!prop.type->enum_values.empty()) {
+            break;
+        }
+        emit_optional(is_optional ? field_expr + "->size()" : field_expr + ".size()");
+        break;
+    case schema_kind::array: {
+        const size_t item_estimate = compute_value_estimate(doc, prop.type->items, 1);
+        emit_optional((is_optional ? field_expr + "->size()" : field_expr + ".size()") + " * " +
+                      std::to_string(item_estimate));
+        break;
+    }
+    case schema_kind::object:
+        if (!is_optional) {
+            out << "    " << reserve_var << " += " << compute_reserve_estimate(doc, *prop.type)
+                << ";\n";
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -302,16 +408,24 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
                 return;
             }
             out << "    if (!cur.try_array_start()) return std::nullopt;\n";
-            if (use_pmr) {
-                // For PMR allocators, construct with arena allocator for the item type
-                // Use brace initialization to avoid most vexing parse
-                auto item_type_name = schema_identifier(doc, s.items);
-                out << "    " << struct_name << " result{arena_allocator<" << item_type_name
-                    << ">(arena)};\n";
-            } else {
-                out << "    " << struct_name << " result;\n";
-            }
-            out << "    while (!cur.eof()) {\n";
+        if (use_pmr) {
+            // For PMR allocators, construct with arena allocator for the item type
+            // Use brace initialization to avoid most vexing parse
+            auto item_type_name = schema_identifier(doc, s.items);
+            out << "    " << struct_name << " result{arena_allocator<" << item_type_name
+                << ">(arena)};\n";
+        } else {
+            out << "    " << struct_name << " result;\n";
+        }
+        if (!(use_pmr && inline_arena_array_capacity(&s) > 0)) {
+            out << "    size_t reserve_hint = 0;\n";
+            out << "    for (const char* p = cur.ptr; p < cur.end; ++p) {\n";
+            out << "        if (*p == ',') ++reserve_hint;\n";
+            out << "    }\n";
+            out << "    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;\n";
+            out << "    result.reserve(reserve_hint);\n";
+        }
+        out << "    while (!cur.eof()) {\n";
             out << "        cur.skip_ws();\n";
             out << "        if (cur.try_array_end()) break;\n";
 
@@ -354,7 +468,7 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
             default:
                 // For complex types (objects, nested arrays), pass cursor directly
                 out << "        if (auto parsed = parse_" << schema_identifier(doc, s.items)
-                    << "(cur, arena)) result.push_back(*parsed);\n"
+                    << "(cur, arena)) result.push_back(std::move(*parsed));\n"
                     << "        else cur.skip_value();\n";
                 break;
             }
@@ -499,12 +613,85 @@ void generate_json_parser_for_schema(std::ostream& out,
     // Generate cursor-based overload first (primary implementation)
     generate_json_parser_for_schema_cursor(out, doc, s, use_pmr);
 
-    // Generate string_view overload as thin wrapper
-    out << "[[nodiscard]] inline std::optional<" << struct_name << "> parse_" << struct_name
-        << "(std::string_view json, monotonic_arena* arena) {\n";
-    out << "    katana::serde::json_cursor cur{json.data(), json.data() + json.size()};\n";
-    out << "    return parse_" << struct_name << "(cur, arena);\n";
-    out << "}\n\n";
+    if (s.kind == katana::openapi::schema_kind::array) {
+        out << "[[nodiscard]] inline std::optional<" << struct_name << "> parse_" << struct_name
+            << "(std::string_view json, monotonic_arena* arena) {\n";
+        out << "    katana::serde::json_cursor cur{json.data(), json.data() + json.size()};\n";
+        out << "    if (!cur.try_array_start()) return std::nullopt;\n";
+        if (use_pmr) {
+            auto item_type_name = schema_identifier(doc, s.items);
+            out << "    " << struct_name << " result{arena_allocator<" << item_type_name
+                << ">(arena)};\n";
+        } else {
+            out << "    " << struct_name << " result;\n";
+        }
+        if (!(use_pmr && inline_arena_array_capacity(&s) > 0)) {
+            out << "    size_t reserve_hint = 0;\n";
+            out << "    for (char ch : json) {\n";
+            out << "        if (ch == ',') ++reserve_hint;\n";
+            out << "    }\n";
+            out << "    if (!json.empty() && json != \"[]\") ++reserve_hint;\n";
+            out << "    result.reserve(reserve_hint);\n";
+        }
+        out << "    while (!cur.eof()) {\n";
+        out << "        cur.skip_ws();\n";
+        out << "        if (cur.try_array_end()) break;\n";
+
+        auto item_kind = s.items ? s.items->kind : katana::openapi::schema_kind::object;
+        switch (item_kind) {
+        case katana::openapi::schema_kind::number:
+            out << "        if (auto v = katana::serde::parse_double(cur)) {\n";
+            out << "            result.push_back(*v);\n";
+            out << "        } else { cur.skip_value(); }\n";
+            break;
+        case katana::openapi::schema_kind::integer:
+            out << "        if (auto v = katana::serde::parse_int64(cur)) {\n";
+            out << "            result.push_back(*v);\n";
+            out << "        } else { cur.skip_value(); }\n";
+            break;
+        case katana::openapi::schema_kind::boolean:
+            out << "        if (auto v = katana::serde::parse_bool(cur)) {\n";
+            out << "            result.push_back(*v);\n";
+            out << "        } else { cur.skip_value(); }\n";
+            break;
+        case katana::openapi::schema_kind::string:
+            if (s.items && !s.items->enum_values.empty()) {
+                auto enum_item_name = schema_identifier(doc, s.items);
+                out << "        if (auto v = cur.string()) {\n";
+                out << "            auto enum_val = " << enum_item_name
+                    << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
+                out << "            if (enum_val) result.push_back(*enum_val);\n";
+                out << "        } else { cur.skip_value(); }\n";
+            } else {
+                out << "        if (auto v = cur.string()) {\n";
+                if (use_pmr) {
+                    out << "            result.emplace_back(v->begin(), v->end(), "
+                           "arena_allocator<char>(arena));\n";
+                } else {
+                    out << "            result.emplace_back(v->begin(), v->end());\n";
+                }
+                out << "        } else { cur.skip_value(); }\n";
+            }
+            break;
+        default:
+            out << "        if (auto parsed = parse_" << schema_identifier(doc, s.items)
+                << "(cur, arena)) result.push_back(std::move(*parsed));\n"
+                << "        else cur.skip_value();\n";
+            break;
+        }
+
+        out << "        cur.try_comma();\n";
+        out << "    }\n";
+        out << "    return result;\n";
+        out << "}\n\n";
+    } else {
+        // Generate string_view overload as thin wrapper
+        out << "[[nodiscard]] inline std::optional<" << struct_name << "> parse_" << struct_name
+            << "(std::string_view json, monotonic_arena* arena) {\n";
+        out << "    katana::serde::json_cursor cur{json.data(), json.data() + json.size()};\n";
+        out << "    return parse_" << struct_name << "(cur, arena);\n";
+        out << "}\n\n";
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -892,7 +1079,11 @@ void generate_json_serializer_for_schema(std::ostream& out,
     out << "inline std::string serialize_" << struct_name << "(const " << struct_name
         << "& obj) {\n";
     out << "    std::string json;\n";
-    out << "    json.reserve(" << reserve_est << ");\n";
+    out << "    size_t reserve_estimate = " << reserve_est << ";\n";
+    for (const auto& prop : s.properties) {
+        emit_runtime_reserve_adjustment(out, doc, prop, "obj", "reserve_estimate");
+    }
+    out << "    json.reserve(reserve_estimate);\n";
     out << "    serialize_" << struct_name << "_into(obj, json);\n";
     out << "    return json;\n";
     out << "}\n\n";
@@ -956,11 +1147,13 @@ void generate_json_array_serializer(std::ostream& out,
     out << "    json.push_back(']');\n";
     out << "}\n\n";
 
+    const size_t array_item_estimate = compute_value_estimate(doc, &s, 1);
+
     // thin wrapper for std::vector
     out << "inline std::string serialize_" << struct_name << "_array(const std::vector<"
         << struct_name << ">& arr) {\n";
     out << "    std::string json;\n";
-    out << "    json.reserve(arr.size() * 32 + 2);\n";
+    out << "    json.reserve(arr.size() * " << array_item_estimate << " + 2);\n";
     out << "    serialize_" << struct_name << "_array_into(arr, json);\n";
     out << "    return json;\n";
     out << "}\n\n";
@@ -981,7 +1174,7 @@ void generate_json_array_serializer(std::ostream& out,
         out << "inline std::string serialize_" << struct_name << "_array(const arena_vector<"
             << struct_name << ">& arr) {\n";
         out << "    std::string json;\n";
-        out << "    json.reserve(arr.size() * 32 + 2);\n";
+        out << "    json.reserve(arr.size() * " << array_item_estimate << " + 2);\n";
         out << "    serialize_" << struct_name << "_array_into(arr, json);\n";
         out << "    return json;\n";
         out << "}\n\n";

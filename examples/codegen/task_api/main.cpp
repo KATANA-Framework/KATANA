@@ -302,91 +302,102 @@ class task_handler : public generated::api_handler {
 public:
     explicit task_handler(task_storage& storage) : storage_(storage) {}
 
-    response list_tasks(std::optional<std::string_view> status,
-                        std::optional<int64_t> priority,
-                        std::optional<int64_t> limit,
-                        std::optional<int64_t> offset) override {
+    result<void> list_tasks(std::optional<std::string_view> status,
+                            std::optional<int64_t> priority,
+                            std::optional<int64_t> limit,
+                            std::optional<int64_t> offset,
+                            response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         auto tasks = storage_.list(status, priority, limit.value_or(10), offset.value_or(0));
 
         auto& arena = handler_context::arena();
-        TaskList out(&arena);
+        TaskList list(&arena);
         for (const auto& task : tasks) {
-            out.tasks.push_back(to_dto(task, arena));
+            list.tasks.push_back(to_dto(task, arena));
         }
-        out.total = storage_.count();
-        out.has_more = offset.value_or(0) + static_cast<int64_t>(tasks.size()) < out.total;
-        return response::json(serialize_TaskList(out));
+        list.total = storage_.count();
+        list.has_more = offset.value_or(0) + static_cast<int64_t>(tasks.size()) < list.total;
+        out = response::json(serialize_TaskList(list));
+        return {};
     }
 
-    response create_task(const CreateTaskRequest& body) override {
+    result<void> create_task(const CreateTaskRequest& body, response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         auto task = storage_.create(body);
         auto& arena = handler_context::arena();
-        return response::json(serialize_Task(to_dto(task, arena))).with_status(201);
+        respond::into(out).created_json(serialize_Task(to_dto(task, arena)));
+        return {};
     }
 
-    response get_task(int64_t id) override {
+    result<void> get_task(int64_t id, response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         auto task = storage_.get(id);
         if (!task) {
-            return response::error(problem_details::not_found("Task not found"));
+            out = response::error(problem_details::not_found("Task not found"));
+            return {};
         }
         auto& arena = handler_context::arena();
-        return response::json(serialize_Task(to_dto(*task, arena)));
+        out = response::json(serialize_Task(to_dto(*task, arena)));
+        return {};
     }
 
-    response update_task(int64_t id, const UpdateTaskRequest& body) override {
+    result<void> update_task(int64_t id, const UpdateTaskRequest& body, response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         auto task = storage_.update(id, body);
         if (!task) {
-            return response::error(problem_details::not_found("Task not found"));
+            out = response::error(problem_details::not_found("Task not found"));
+            return {};
         }
         auto& arena = handler_context::arena();
-        return response::json(serialize_Task(to_dto(*task, arena)));
+        out = response::json(serialize_Task(to_dto(*task, arena)));
+        return {};
     }
 
-    response delete_task(int64_t id) override {
+    result<void> delete_task(int64_t id, response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         if (!storage_.remove(id)) {
-            return response::error(problem_details::not_found("Task not found"));
+            out = response::error(problem_details::not_found("Task not found"));
+            return {};
         }
-        return response::ok("").with_status(204);
+        respond::into(out).no_content();
+        return {};
     }
 
-    response batch_create_tasks(const BatchCreateRequest& body) override {
+    result<void> batch_create_tasks(const BatchCreateRequest& body, response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         auto& arena = handler_context::arena();
-        BatchCreateResponse out(&arena);
+        BatchCreateResponse batch(&arena);
 
         for (size_t i = 0; i < body.tasks.size(); ++i) {
             try {
                 auto created = storage_.create(body.tasks[i]);
-                out.created.push_back(to_dto(created, arena));
+                batch.created.push_back(to_dto(created, arena));
             } catch (const std::exception& e) {
                 BatchCreateResponse_Item_t_1 failed(&arena);
                 failed.index = static_cast<int64_t>(i);
                 failed.error = arena_string<>(e.what(), arena_allocator<char>(&arena));
-                out.failed.push_back(std::move(failed));
+                batch.failed.push_back(std::move(failed));
             }
         }
-        return response::json(serialize_BatchCreateResponse(out));
+        out = response::json(serialize_BatchCreateResponse(batch));
+        return {};
     }
 
-    response search_tasks(const SearchRequest& body) override {
+    result<void> search_tasks(const SearchRequest& body, response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         auto tasks = storage_.search(body);
         auto& arena = handler_context::arena();
-        TaskList out(&arena);
-        out.total = static_cast<int64_t>(tasks.size());
-        out.has_more = false;
+        TaskList list(&arena);
+        list.total = static_cast<int64_t>(tasks.size());
+        list.has_more = false;
         for (const auto& task : tasks) {
-            out.tasks.push_back(to_dto(task, arena));
+            list.tasks.push_back(to_dto(task, arena));
         }
-        return response::json(serialize_TaskList(out));
+        out = response::json(serialize_TaskList(list));
+        return {};
     }
 
-    response health_check() override {
+    result<void> health_check(response& out) override {
         request_count_.fetch_add(1, std::memory_order_relaxed);
         auto& arena = handler_context::arena();
         HealthResponse health(&arena);
@@ -394,7 +405,8 @@ public:
         health.timestamp = arena_string<>(fixed_timestamp(), arena_allocator<char>(&arena));
         health.uptime_seconds = storage_.uptime_seconds();
         health.total_requests = request_count_.load(std::memory_order_relaxed);
-        return response::json(serialize_HealthResponse(health));
+        out = response::json(serialize_HealthResponse(health));
+        return {};
     }
 
 private:

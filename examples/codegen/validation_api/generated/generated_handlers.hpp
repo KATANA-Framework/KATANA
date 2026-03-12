@@ -2,15 +2,16 @@
 // Auto-generated handler interfaces from OpenAPI specification
 // 
 // Zero-boilerplate design:
-//   - Clean signatures: response method(params) - no request& or context&
+//   - Clean signatures: result<void> method(params, response& out)
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
 // 
 // Example:
-//   response get_user(int64_t id) override {
+//   katana::result<void> get_user(int64_t id, response& out) override {
 //       auto user = db.find(id, &arena());  // arena() from context
-//       return response::json(serialize_User(user));
+//       out = response::json(serialize_User(user));
+//       return {};
 //   }
 #pragma once
 
@@ -34,7 +35,7 @@ struct api_handler {
 
     // POST /user/register
     // Register user with strict validation
-    virtual response register_user(const RegisterUserRequest& body) = 0;
+    virtual katana::result<void> register_user(const RegisterUserRequest& body, response& out) = 0;
 
 };
 
@@ -98,15 +99,15 @@ struct api_handler {
 // };
 //
 // Available response helpers:
-//   - response::ok(body, content_type = "text/plain")
-//   - response::json(json_string)
-//   - response::created(body, location = "")
-//   - response::no_content()
-//   - response::bad_request(message)
-//   - response::unauthorized(message)
-//   - response::forbidden(message)
-//   - response::not_found(message)
-//   - response::internal_error(message)
+//   - respond::into(out).text(...)
+//   - respond::into(out).json(...)
+//   - respond::into(out).created_json(...)
+//   - respond::into(out).no_content()
+//   - out = response::bad_request(message)
+//   - out = response::unauthorized(message)
+//   - out = response::forbidden(message)
+//   - out = response::not_found(message)
+//   - out = response::internal_error(message)
 //
 // Context access functions (available in handler methods):
 //   - katana::http::req()    - Get current request

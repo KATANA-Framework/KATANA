@@ -270,6 +270,7 @@ std::string generate_router_bindings(const document& doc) {
     out << "using katana::http_utils::find_content_type;\n";
     out << "using katana::http_utils::negotiate_response_type;\n";
     out << "using katana::http_utils::format_validation_error;\n";
+    out << "using katana::http_utils::format_validation_error_into;\n";
     out << "using katana::http_utils::hash_string;\n";
     out << "using katana::http_utils::content_type_info;\n";
     out << "\n";
@@ -393,20 +394,64 @@ std::string generate_router_bindings(const document& doc) {
 
             // Generate dispatch function for ALL routes (both static and dynamic)
             dispatch_functions << "// Dispatch for " << path.path << "\n";
-            dispatch_functions << "inline katana::result<katana::http::response> dispatch_"
-                               << method_name << "(const katana::http::request& req, "
-                               << "katana::http::request_context& ctx, api_handler& handler) {\n";
+            dispatch_functions << "inline katana::result<void> dispatch_" << method_name
+                               << "(const katana::http::request& req, "
+                               << "katana::http::request_context& ctx, api_handler& handler, "
+                               << "katana::http::response& out) {\n";
 
             // Content negotiation
             if (has_response_content) {
-                dispatch_functions
-                    << "    auto response_content_type = negotiate_response_type(req, route_"
-                    << route_idx << "_produces);\n";
-                dispatch_functions << "    if (!response_content_type) {\n";
-                dispatch_functions << "        return katana::http::response::error("
-                                   << "katana::problem_details::not_acceptable("
-                                      "\"unsupported Accept header\"));\n";
-                dispatch_functions << "    }\n";
+                std::optional<std::string> single_produces_type;
+                for (const auto& resp : op.responses) {
+                    for (const auto& media : resp.content) {
+                        const std::string_view media_type_view(media.content_type.data(),
+                                                               media.content_type.size());
+                        if (!single_produces_type) {
+                            single_produces_type = std::string(media_type_view);
+                        } else if (std::string_view(*single_produces_type) != media_type_view) {
+                            single_produces_type.reset();
+                            break;
+                        }
+                    }
+                    if (!single_produces_type && !resp.content.empty()) {
+                        break;
+                    }
+                }
+
+                if (single_produces_type) {
+                    dispatch_functions << "    constexpr std::string_view response_content_type = \""
+                                       << *single_produces_type << "\";\n";
+                    dispatch_functions << "    auto accept_header = req.headers.get("
+                                       << generate_headers_get("Accept") << ");\n";
+                    dispatch_functions
+                        << "    if (accept_header && !accept_header->empty() && *accept_header != "
+                           "\"*/*\" && *accept_header != response_content_type) {\n";
+                    dispatch_functions << "        auto comma = accept_header->find(',');\n";
+                    dispatch_functions << "        auto semicolon = accept_header->find(';');\n";
+                    dispatch_functions
+                        << "        auto token_end = std::min(comma, semicolon);\n";
+                    dispatch_functions
+                        << "        auto simple_accept = accept_header->substr(0, token_end);\n";
+                    dispatch_functions << "        if (simple_accept != response_content_type) {\n";
+                    dispatch_functions << "            out.assign_error("
+                                       << "katana::problem_details::not_acceptable("
+                                          "\"unsupported Accept header\"));\n";
+                    dispatch_functions << "            return {};\n";
+                    dispatch_functions << "        }\n";
+                    dispatch_functions << "    }\n";
+                } else {
+                    dispatch_functions
+                        << "    auto negotiated_content_type = negotiate_response_type(req, route_"
+                        << route_idx << "_produces);\n";
+                    dispatch_functions << "    if (!negotiated_content_type) {\n";
+                    dispatch_functions << "        out.assign_error("
+                                       << "katana::problem_details::not_acceptable("
+                                          "\"unsupported Accept header\"));\n";
+                    dispatch_functions << "        return {};\n";
+                    dispatch_functions << "    }\n";
+                    dispatch_functions
+                        << "    std::string_view response_content_type = *negotiated_content_type;\n";
+                }
             }
 
             // Path params extraction (for dynamic routes)
@@ -420,11 +465,11 @@ std::string generate_router_bindings(const document& doc) {
                                        << param.name << "\");\n";
                     dispatch_functions
                         << "    if (!p_" << param_ident
-                        << ") return "
+                        << ") { out = "
                            "katana::http::response::error(katana::problem_details::bad_request("
                            "\"missing "
                            "path param "
-                        << param.name << "\"));\n";
+                        << param.name << "\")); return {}; }\n";
                     switch (param.type->kind) {
                     case katana::openapi::schema_kind::integer:
                         dispatch_functions << "    int64_t " << param_ident << " = 0;\n";
@@ -436,10 +481,10 @@ std::string generate_router_bindings(const document& doc) {
                         dispatch_functions
                             << "        if (ec != std::errc() || ptr != p_" << param_ident
                             << "->data() + p_" << param_ident
-                            << "->size()) return "
+                            << "->size()) { out = "
                                "katana::http::response::error("
                                "katana::problem_details::bad_request(\"invalid path param "
-                            << param.name << "\"));\n";
+                            << param.name << "\")); return {}; }\n";
                         dispatch_functions << "    }\n";
                         break;
                     case katana::openapi::schema_kind::number:
@@ -452,10 +497,10 @@ std::string generate_router_bindings(const document& doc) {
                         dispatch_functions
                             << "        if (ec != std::errc() || ptr != p_" << param_ident
                             << "->data() + p_" << param_ident
-                            << "->size()) return "
+                            << "->size()) { out = "
                                "katana::http::response::error(katana::problem_details::bad_request("
                                "\"invalid path param "
-                            << param.name << "\"));\n";
+                            << param.name << "\")); return {}; }\n";
                         dispatch_functions << "    }\n";
                         break;
                     case katana::openapi::schema_kind::boolean:
@@ -464,11 +509,11 @@ std::string generate_router_bindings(const document& doc) {
                                            << param_ident << " = true;\n";
                         dispatch_functions << "    else if (*p_" << param_ident
                                            << " == \"false\") " << param_ident << " = false;\n";
-                        dispatch_functions << "    else return "
+                        dispatch_functions << "    else { out = "
                                               "katana::http::response::error(katana::problem_"
                                               "details::bad_request("
                                               "\"invalid path param "
-                                           << param.name << "\"));\n";
+                                           << param.name << "\")); return {}; }\n";
                         break;
                     default:
                         dispatch_functions << "    auto " << param_ident << " = *p_" << param_ident
@@ -480,6 +525,152 @@ std::string generate_router_bindings(const document& doc) {
 
             // Query/header/cookie params (for ALL routes, not just dynamic ones)
             {
+                size_t query_param_count = 0;
+                size_t cookie_param_count = 0;
+                for (const auto& param : op.parameters) {
+                    if (param.in == katana::openapi::param_location::query && param.type) {
+                        ++query_param_count;
+                    } else if (param.in == katana::openapi::param_location::cookie &&
+                               param.type) {
+                        ++cookie_param_count;
+                    }
+                }
+
+                if (query_param_count > 1) {
+                    for (const auto& param : op.parameters) {
+                        if (param.in != katana::openapi::param_location::query || !param.type) {
+                            continue;
+                        }
+                        auto param_ident = sanitize_identifier(param.name);
+                        dispatch_functions << "    std::optional<std::string_view> p_"
+                                           << param_ident << " = std::nullopt;\n";
+                    }
+                    dispatch_functions << "    auto query_view = req.uri;\n";
+                    dispatch_functions << "    auto query_qpos = query_view.find('?');\n";
+                    dispatch_functions
+                        << "    if (query_qpos != std::string_view::npos) {\n";
+                    dispatch_functions
+                        << "        query_view = query_view.substr(query_qpos + 1);\n";
+                    dispatch_functions << "        while (!query_view.empty()) {\n";
+                    dispatch_functions << "            auto amp = query_view.find('&');\n";
+                    dispatch_functions
+                        << "            auto part = query_view.substr(0, amp);\n";
+                    dispatch_functions << "            auto eq = part.find('=');\n";
+                    dispatch_functions
+                        << "            auto name = part.substr(0, eq);\n";
+                    dispatch_functions
+                        << "            auto value = eq == std::string_view::npos ? "
+                           "std::string_view{} : part.substr(eq + 1);\n";
+                    bool first_query_branch = true;
+                    for (const auto& param : op.parameters) {
+                        if (param.in != katana::openapi::param_location::query || !param.type) {
+                            continue;
+                        }
+                        auto param_ident = sanitize_identifier(param.name);
+                        dispatch_functions << "            "
+                                           << (first_query_branch ? "if" : "else if")
+                                           << " (!p_" << param_ident << " && name == \""
+                                           << param.name << "\") {\n";
+                        dispatch_functions << "                p_" << param_ident
+                                           << " = value;\n";
+                        dispatch_functions << "            }\n";
+                        first_query_branch = false;
+                    }
+                    dispatch_functions << "            if (";
+                    bool first_found = true;
+                    for (const auto& param : op.parameters) {
+                        if (param.in != katana::openapi::param_location::query || !param.type) {
+                            continue;
+                        }
+                        auto param_ident = sanitize_identifier(param.name);
+                        if (!first_found) {
+                            dispatch_functions << " && ";
+                        }
+                        dispatch_functions << "p_" << param_ident;
+                        first_found = false;
+                    }
+                    dispatch_functions << ") {\n";
+                    dispatch_functions << "                break;\n";
+                    dispatch_functions << "            }\n";
+                    dispatch_functions
+                        << "            if (amp == std::string_view::npos) {\n";
+                    dispatch_functions << "                break;\n";
+                    dispatch_functions << "            }\n";
+                    dispatch_functions
+                        << "            query_view.remove_prefix(amp + 1);\n";
+                    dispatch_functions << "        }\n";
+                    dispatch_functions << "    }\n";
+                }
+
+                if (cookie_param_count > 1) {
+                    for (const auto& param : op.parameters) {
+                        if (param.in != katana::openapi::param_location::cookie || !param.type) {
+                            continue;
+                        }
+                        auto param_ident = sanitize_identifier(param.name);
+                        dispatch_functions << "    std::optional<std::string_view> p_"
+                                           << param_ident << " = std::nullopt;\n";
+                    }
+                    dispatch_functions
+                        << "    auto cookie_header = req.headers.get("
+                        << generate_headers_get("Cookie") << ");\n";
+                    dispatch_functions << "    if (cookie_header) {\n";
+                    dispatch_functions << "        std::string_view cookie_view = *cookie_header;\n";
+                    dispatch_functions << "        while (!cookie_view.empty()) {\n";
+                    dispatch_functions << "            auto sep = cookie_view.find(';');\n";
+                    dispatch_functions
+                        << "            auto token = cookie_view.substr(0, sep);\n";
+                    dispatch_functions << "            auto eq = token.find('=');\n";
+                    dispatch_functions
+                        << "            if (eq != std::string_view::npos) {\n";
+                    dispatch_functions
+                        << "                auto name = katana::serde::trim_view(token.substr(0, "
+                           "eq));\n";
+                    dispatch_functions
+                        << "                auto value = katana::serde::trim_view(token.substr(eq "
+                           "+ 1));\n";
+                    bool first_cookie_branch = true;
+                    for (const auto& param : op.parameters) {
+                        if (param.in != katana::openapi::param_location::cookie || !param.type) {
+                            continue;
+                        }
+                        auto param_ident = sanitize_identifier(param.name);
+                        dispatch_functions << "                "
+                                           << (first_cookie_branch ? "if" : "else if")
+                                           << " (!p_" << param_ident << " && name == \""
+                                           << param.name << "\") {\n";
+                        dispatch_functions << "                    p_" << param_ident
+                                           << " = value;\n";
+                        dispatch_functions << "                }\n";
+                        first_cookie_branch = false;
+                    }
+                    dispatch_functions << "            }\n";
+                    dispatch_functions << "            if (";
+                    bool first_cookie_found = true;
+                    for (const auto& param : op.parameters) {
+                        if (param.in != katana::openapi::param_location::cookie || !param.type) {
+                            continue;
+                        }
+                        auto param_ident = sanitize_identifier(param.name);
+                        if (!first_cookie_found) {
+                            dispatch_functions << " && ";
+                        }
+                        dispatch_functions << "p_" << param_ident;
+                        first_cookie_found = false;
+                    }
+                    dispatch_functions << ") {\n";
+                    dispatch_functions << "                break;\n";
+                    dispatch_functions << "            }\n";
+                    dispatch_functions
+                        << "            if (sep == std::string_view::npos) {\n";
+                    dispatch_functions << "                break;\n";
+                    dispatch_functions << "            }\n";
+                    dispatch_functions
+                        << "            cookie_view.remove_prefix(sep + 1);\n";
+                    dispatch_functions << "        }\n";
+                    dispatch_functions << "    }\n";
+                }
+
                 for (const auto& param : op.parameters) {
                     if (param.in == katana::openapi::param_location::path || !param.type) {
                         continue;
@@ -488,21 +679,29 @@ std::string generate_router_bindings(const document& doc) {
                     std::string source_expr;
                     auto param_ident = sanitize_identifier(param.name);
                     if (param.in == katana::openapi::param_location::query) {
-                        source_expr = "query_param(req.uri, \"" + std::string(param.name) + "\")";
+                        if (query_param_count <= 1) {
+                            source_expr =
+                                "query_param(req.uri, \"" + std::string(param.name) + "\")";
+                        }
                     } else if (param.in == katana::openapi::param_location::header) {
                         source_expr = "req.headers.get(" + generate_headers_get(param.name) + ")";
                     } else if (param.in == katana::openapi::param_location::cookie) {
-                        source_expr = "cookie_param(req, \"" + std::string(param.name) + "\")";
+                        if (cookie_param_count <= 1) {
+                            source_expr =
+                                "cookie_param(req, \"" + std::string(param.name) + "\")";
+                        }
                     }
 
-                    dispatch_functions << "    auto p_" << param_ident << " = " << source_expr
-                                       << ";\n";
+                    if (!source_expr.empty()) {
+                        dispatch_functions << "    auto p_" << param_ident << " = " << source_expr
+                                           << ";\n";
+                    }
                     if (param.required) {
                         dispatch_functions
                             << "    if (!p_" << param_ident
-                            << ") return katana::http::response::error("
+                            << ") { out = katana::http::response::error("
                                "katana::problem_details::bad_request(\"missing param "
-                            << param.name << "\"));\n";
+                            << param.name << "\")); return {}; }\n";
                     }
 
                     const bool optional_param = !param.required;
@@ -519,11 +718,11 @@ std::string generate_router_bindings(const document& doc) {
                                                << "->size(), tmp);\n";
                             dispatch_functions << "        if (ec != std::errc() || ptr != p_"
                                                << param_ident << "->data() + p_" << param_ident
-                                               << "->size()) return "
+                                               << "->size()) { out = "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
-                                               << param.name << "\"));\n";
+                                               << param.name << "\")); return {}; }\n";
                             dispatch_functions << "        " << param_ident << " = tmp;\n";
                             dispatch_functions << "    }\n";
                         } else {
@@ -535,11 +734,11 @@ std::string generate_router_bindings(const document& doc) {
                                                << param_ident << ");\n";
                             dispatch_functions << "        if (ec != std::errc() || ptr != p_"
                                                << param_ident << "->data() + p_" << param_ident
-                                               << "->size()) return "
+                                               << "->size()) { out = "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
-                                               << param.name << "\"));\n";
+                                               << param.name << "\")); return {}; }\n";
                             dispatch_functions << "    }\n";
                         }
                         break;
@@ -555,11 +754,11 @@ std::string generate_router_bindings(const document& doc) {
                                                << "->size(), tmp);\n";
                             dispatch_functions << "        if (ec != std::errc() || ptr != p_"
                                                << param_ident << "->data() + p_" << param_ident
-                                               << "->size()) return "
+                                               << "->size()) { out = "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
-                                               << param.name << "\"));\n";
+                                               << param.name << "\")); return {}; }\n";
                             dispatch_functions << "        " << param_ident << " = tmp;\n";
                             dispatch_functions << "    }\n";
                         } else {
@@ -571,11 +770,11 @@ std::string generate_router_bindings(const document& doc) {
                                                << param_ident << ");\n";
                             dispatch_functions << "        if (ec != std::errc() || ptr != p_"
                                                << param_ident << "->data() + p_" << param_ident
-                                               << "->size()) return "
+                                               << "->size()) { out = "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
-                                               << param.name << "\"));\n";
+                                               << param.name << "\")); return {}; }\n";
                             dispatch_functions << "    }\n";
                         }
                         break;
@@ -588,30 +787,30 @@ std::string generate_router_bindings(const document& doc) {
                                                << " == \"true\") " << param_ident << " = true;\n";
                             dispatch_functions << "        else if (*p_" << param_ident
                                                << " == \"false\") " << param_ident << " = false;\n";
-                            dispatch_functions << "        else return "
+                            dispatch_functions << "        else { out = "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
-                                               << param.name << "\"));\n";
+                                               << param.name << "\")); return {}; }\n";
                             dispatch_functions << "    }\n";
                         } else {
                             dispatch_functions << "    bool " << param_ident << " = false;\n";
                             dispatch_functions << "    if (!p_" << param_ident << ") {\n";
-                            dispatch_functions << "        return "
+                            dispatch_functions << "        out = "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"missing param "
-                                               << param.name << "\"));\n";
+                                               << param.name << "\")); return {};\n";
                             dispatch_functions << "    }\n";
                             dispatch_functions << "    if (*p_" << param_ident << " == \"true\") "
                                                << param_ident << " = true;\n";
                             dispatch_functions << "    else if (*p_" << param_ident
                                                << " == \"false\") " << param_ident << " = false;\n";
-                            dispatch_functions << "    else return "
+                            dispatch_functions << "    else { out = "
                                                   "katana::http::response::error(katana::problem_"
                                                   "details::bad_request("
                                                   "\"invalid param "
-                                               << param.name << "\"));\n";
+                                               << param.name << "\")); return {}; }\n";
                         }
                         break;
                     default:
@@ -632,57 +831,79 @@ std::string generate_router_bindings(const document& doc) {
 
             // Request body parsing (only if route has body)
             if (has_body) {
-                dispatch_functions
-                    << "    auto content_type_index = find_content_type(req.headers.get("
-                    << generate_headers_get("Content-Type") << "), route_" << route_idx
-                    << "_consumes);\n";
-                dispatch_functions
-                    << "    if (!content_type_index) return katana::http::response::error("
-                    << "katana::problem_details::unsupported_media_type(\"unsupported "
-                       "Content-Type\"));\n";
+                const bool has_single_content_type = op.body && op.body->content.size() == 1;
+                if (has_single_content_type) {
+                    const auto& only_media_type = op.body->content.front().content_type;
+                    dispatch_functions << "    auto content_type = req.headers.get("
+                                       << generate_headers_get("Content-Type") << ");\n";
+                    dispatch_functions << "    if (!content_type || "
+                                       << "content_type->substr(0, " << only_media_type.size()
+                                       << ") != \"" << only_media_type << "\") {\n";
+                    dispatch_functions << "        out.assign_error("
+                                       << "katana::problem_details::unsupported_media_type("
+                                          "\"unsupported Content-Type\")); return {};\n";
+                    dispatch_functions << "    }\n";
+                } else {
+                    dispatch_functions
+                        << "    auto content_type_index = find_content_type(req.headers.get("
+                        << generate_headers_get("Content-Type") << "), route_" << route_idx
+                        << "_consumes);\n";
+                    dispatch_functions
+                        << "    if (!content_type_index) { out.assign_error("
+                        << "katana::problem_details::unsupported_media_type(\"unsupported "
+                           "Content-Type\")); return {}; }\n";
+                }
+
+                const bool has_single_body_schema = !body_is_variant && body_schema_names.size() == 1;
 
                 if (body_is_variant) {
                     dispatch_functions << "    std::optional<" << body_type_expr
                                        << "> parsed_body;\n";
-                } else if (!body_type_expr.empty()) {
+                } else if (!body_type_expr.empty() && !has_single_body_schema) {
                     dispatch_functions << "    std::optional<" << body_type_expr
                                        << "> parsed_body;\n";
                 }
 
-                dispatch_functions << "    switch (*content_type_index) {\n";
-                for (size_t media_idx = 0; media_idx < (op.body ? op.body->content.size() : 0);
-                     ++media_idx) {
-                    const auto& media = op.body->content[media_idx];
-                    auto media_name = schema_identifier(doc, media.type);
-                    dispatch_functions << "    case " << media_idx << ": {\n";
-                    if (!media_name.empty()) {
-                        dispatch_functions << "        auto parsed_body_candidate = parse_"
-                                           << media_name << "(req.body, &ctx.arena);\n";
-                        dispatch_functions
-                            << "        if (!parsed_body_candidate) return "
-                               "katana::http::response::error("
-                            << "katana::problem_details::bad_request(\"invalid request "
-                               "body\"));\n";
-                        if (body_is_variant || body_schema_names.size() > 1) {
-                            dispatch_functions << "        parsed_body = *parsed_body_candidate;\n";
-                        } else {
+                if (has_single_body_schema) {
+                    const std::string schema_name = body_schema_names.front();
+                    dispatch_functions << "    auto parsed_body = parse_" << schema_name
+                                       << "(req.body, &ctx.arena);\n";
+                    dispatch_functions << "    if (!parsed_body) {\n";
+                    dispatch_functions << "        out.assign_error("
+                                       << "katana::problem_details::bad_request(\"invalid request "
+                                          "body\")); return {};\n";
+                    dispatch_functions << "    }\n\n";
+                } else {
+                    dispatch_functions << "    switch (*content_type_index) {\n";
+                    for (size_t media_idx = 0; media_idx < (op.body ? op.body->content.size() : 0);
+                         ++media_idx) {
+                        const auto& media = op.body->content[media_idx];
+                        auto media_name = schema_identifier(doc, media.type);
+                        dispatch_functions << "    case " << media_idx << ": {\n";
+                        if (!media_name.empty()) {
+                            dispatch_functions << "        auto parsed_body_candidate = parse_"
+                                               << media_name << "(req.body, &ctx.arena);\n";
+                            dispatch_functions
+                                << "        if (!parsed_body_candidate) { out.assign_error("
+                                << "katana::problem_details::bad_request(\"invalid request "
+                                   "body\")); return {}; }\n";
                             dispatch_functions
                                 << "        parsed_body = std::move(*parsed_body_candidate);\n";
+                        } else {
+                            dispatch_functions
+                                << "        out.assign_error("
+                                << "katana::problem_details::unsupported_media_type(\"unsupported "
+                                   "Content-Type\")); return {};\n";
                         }
-                    } else {
-                        dispatch_functions
-                            << "        return katana::http::response::error("
-                            << "katana::problem_details::unsupported_media_type(\"unsupported "
-                               "Content-Type\"));\n";
+                        dispatch_functions << "        break;\n";
+                        dispatch_functions << "    }\n";
                     }
-                    dispatch_functions << "        break;\n";
-                    dispatch_functions << "    }\n";
+                    dispatch_functions << "    default:\n";
+                    dispatch_functions << "        out.assign_error("
+                                       << "katana::problem_details::unsupported_media_type("
+                                          "\"unsupported Content-Type\")); return {};\n";
+                    dispatch_functions << "    }\n\n";
                 }
-                dispatch_functions << "    default:\n";
-                dispatch_functions << "        return katana::http::response::error("
-                                   << "katana::problem_details::unsupported_media_type("
-                                      "\"unsupported Content-Type\"));\n";
-                dispatch_functions << "    }\n\n";
 
                 // Validation
                 if (body_is_variant) {
@@ -710,11 +931,11 @@ std::string generate_router_bindings(const document& doc) {
                     dispatch_functions << "        return std::nullopt;\n";
                     dispatch_functions << "    }, *parsed_body);\n";
                     dispatch_functions << "    if (validation_result) {\n";
-                    dispatch_functions << "        return katana::http::response::error(\n";
-                    dispatch_functions << "            "
-                                          "katana::problem_details::bad_request(std::"
-                                          "move(*validation_result))\n";
+                    dispatch_functions << "        out.assign_error(\n";
+                    dispatch_functions
+                        << "            katana::problem_details::bad_request(std::move(*validation_result))\n";
                     dispatch_functions << "        );\n";
+                    dispatch_functions << "        return {};\n";
                     dispatch_functions << "    }\n";
                 } else if (!body_schema_names.empty()) {
                     // Single type validation
@@ -724,7 +945,8 @@ std::string generate_router_bindings(const document& doc) {
                     dispatch_functions << "    if (auto validation_error = validate_" << schema_name
                                        << "(*parsed_body)) {\n";
                     dispatch_functions
-                        << "        return format_validation_error(*validation_error);\n";
+                        << "        format_validation_error_into(out, *validation_error);\n";
+                    dispatch_functions << "        return {};\n";
                     dispatch_functions << "    }\n";
                 }
             }
@@ -735,7 +957,7 @@ std::string generate_router_bindings(const document& doc) {
                 << "    katana::http::handler_context::scope context_scope(req, ctx);\n";
 
             // Handler invocation
-            dispatch_functions << "    auto result = handler." << method_name << "(";
+            dispatch_functions << "    auto handler_result = handler." << method_name << "(";
 
             // Arguments: path param args (for dynamic routes)
             bool first_arg = true;
@@ -767,18 +989,23 @@ std::string generate_router_bindings(const document& doc) {
                 first_arg = false;
                 dispatch_functions << "*parsed_body";
             }
-            dispatch_functions << ");\n";
+            if (!first_arg)
+                dispatch_functions << ", ";
+            dispatch_functions << "out);\n";
 
             // Set Content-Type header if needed
+            dispatch_functions << "    if (!handler_result) {\n";
+            dispatch_functions << "        return std::unexpected(handler_result.error());\n";
+            dispatch_functions << "    }\n";
             if (has_response_content) {
-                dispatch_functions << "    if (response_content_type && !result.headers.get("
+                dispatch_functions << "    if (!out.headers.get("
                                    << generate_headers_get("Content-Type") << ")) {\n";
-                dispatch_functions << "        result.set_header(\"Content-Type\", "
-                                      "*response_content_type);\n";
+                dispatch_functions << "        out.set_header(\"Content-Type\", "
+                                      "response_content_type);\n";
                 dispatch_functions << "    }\n";
             }
 
-            dispatch_functions << "    return result;\n";
+            dispatch_functions << "    return {};\n";
             dispatch_functions << "}\n\n";
 
             // Lambda in make_router now simply calls the dispatch function
@@ -788,10 +1015,10 @@ std::string generate_router_bindings(const document& doc) {
                                << path.path << "\">(),\n";
             make_router_stream
                 << "                   handler_fn([&handler](const katana::http::request& req, "
-                   "katana::http::request_context& ctx) -> katana::result<katana::http::response> "
+                   "katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> "
                    "{\n";
             make_router_stream << "                       return dispatch_" << method_name
-                               << "(req, ctx, handler);\n";
+                               << "(req, ctx, handler, out);\n";
             make_router_stream << "                   })\n";
             make_router_stream << "        },\n";
             ++route_idx;
@@ -815,9 +1042,10 @@ std::string generate_router_bindings(const document& doc) {
     out << "    explicit fast_router(api_handler& handler, const katana::http::router& fallback)\n";
     out << "        : handler_(handler), fallback_router_(fallback) {}\n\n";
 
-    out << "    katana::result<katana::http::response> operator()(\n";
+    out << "    katana::result<void> dispatch_to(\n";
     out << "        const katana::http::request& req,\n";
-    out << "        katana::http::request_context& ctx) const {\n";
+    out << "        katana::http::request_context& ctx,\n";
+    out << "        katana::http::response& out) const {\n";
     out << "        // Strip query string for matching\n";
     out << "        std::string_view path = req.uri;\n";
     out << "        auto query_pos = path.find('?');\n";
@@ -848,8 +1076,8 @@ std::string generate_router_bindings(const document& doc) {
             for (const auto* r : routes_by_path[route.path]) {
                 out << "                    if (req.http_method == katana::http::method::"
                     << r->method << ")\n";
-                out << "                        return dispatch_" << r->method_name
-                    << "(req, ctx, handler_);\n";
+                out << "                        { return dispatch_" << r->method_name
+                    << "(req, ctx, handler_, out); }\n";
             }
             out << "                }\n";
             out << "                break;\n";
@@ -864,7 +1092,18 @@ std::string generate_router_bindings(const document& doc) {
     out << "        // - Dynamic routes (with path parameters)\n";
     out << "        // - Hash collisions\n";
     out << "        // - Method mismatches\n";
-    out << "        return fallback_router_.dispatch(req, ctx);\n";
+    out << "        return fallback_router_.dispatch(req, ctx, out);\n";
+    out << "    }\n\n";
+
+    out << "    katana::result<katana::http::response> operator()(\n";
+    out << "        const katana::http::request& req,\n";
+    out << "        katana::http::request_context& ctx) const {\n";
+    out << "        katana::http::response out;\n";
+    out << "        auto status = dispatch_to(req, ctx, out);\n";
+    out << "        if (!status) {\n";
+    out << "            return std::unexpected(status.error());\n";
+    out << "        }\n";
+    out << "        return out;\n";
     out << "    }\n\n";
 
     out << "private:\n";
@@ -906,15 +1145,16 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "// Auto-generated handler interfaces from OpenAPI specification\n";
     out << "// \n";
     out << "// Zero-boilerplate design:\n";
-    out << "//   - Clean signatures: response method(params) - no request& or context&\n";
+    out << "//   - Clean signatures: result<void> method(params, response& out)\n";
     out << "//   - Automatic validation: schema constraints checked before handler call\n";
     out << "//   - Auto parameter binding: path/query/header/body → typed arguments\n";
     out << "//   - Context access: use katana::http::req(), ctx(), arena() for access\n";
     out << "// \n";
     out << "// Example:\n";
-    out << "//   response get_user(int64_t id) override {\n";
+    out << "//   katana::result<void> get_user(int64_t id, response& out) override {\n";
     out << "//       auto user = db.find(id, &arena());  // arena() from context\n";
-    out << "//       return response::json(serialize_User(user));\n";
+    out << "//       out = response::json(serialize_User(user));\n";
+    out << "//       return {};\n";
     out << "//   }\n";
     out << "#pragma once\n\n";
     out << "#include \"katana/core/http.hpp\"\n";
@@ -988,7 +1228,7 @@ std::string generate_handler_interfaces(const document& doc) {
                 }
             }
 
-            out << "    virtual response " << method_name << "(";
+            out << "    virtual katana::result<void> " << method_name << "(";
 
             // Add path parameters
             bool first_param = true;
@@ -1053,7 +1293,9 @@ std::string generate_handler_interfaces(const document& doc) {
                 }
             }
 
-            out << ") = 0;\n\n";
+            if (!first_param)
+                out << ", ";
+            out << "response& out) = 0;\n\n";
         }
     }
 
@@ -1154,13 +1396,13 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "// };\n";
     out << "//\n";
     out << "// Available response helpers:\n";
-    out << "//   - response::ok(body, content_type = \"text/plain\")\n";
-    out << "//   - response::json(json_string)\n";
-    out << "//   - response::created(body, location = \"\")\n";
-    out << "//   - response::no_content()\n";
-    out << "//   - response::bad_request(message)\n";
-    out << "//   - response::unauthorized(message)\n";
-    out << "//   - response::forbidden(message)\n";
+    out << "//   - respond::into(out).text(...)\n";
+    out << "//   - respond::into(out).json(...)\n";
+    out << "//   - respond::into(out).created_json(...)\n";
+    out << "//   - respond::into(out).no_content()\n";
+    out << "//   - out = response::bad_request(message)\n";
+    out << "//   - out = response::unauthorized(message)\n";
+    out << "//   - out = response::forbidden(message)\n";
     out << "//   - response::not_found(message)\n";
     out << "//   - response::internal_error(message)\n";
     out << "//\n";

@@ -1,30 +1,120 @@
 #include "katana/core/problem.hpp"
 
-#include <sstream>
+#include <charconv>
+
+namespace {
+
+void append_json_escaped(std::string& out, std::string_view value) {
+    for (unsigned char ch : value) {
+        switch (ch) {
+        case '"':
+            out.append("\\\"");
+            break;
+        case '\\':
+            out.append("\\\\");
+            break;
+        case '\b':
+            out.append("\\b");
+            break;
+        case '\f':
+            out.append("\\f");
+            break;
+        case '\n':
+            out.append("\\n");
+            break;
+        case '\r':
+            out.append("\\r");
+            break;
+        case '\t':
+            out.append("\\t");
+            break;
+        default:
+            if (ch < 0x20) {
+                char buf[6] = {'\\', 'u', '0', '0', '0', '0'};
+                constexpr char hex[] = "0123456789abcdef";
+                buf[4] = hex[(ch >> 4) & 0x0F];
+                buf[5] = hex[ch & 0x0F];
+                out.append(buf, sizeof(buf));
+            } else {
+                out.push_back(static_cast<char>(ch));
+            }
+            break;
+        }
+    }
+}
+
+void append_json_string_field(std::string& out,
+                              std::string_view key,
+                              std::string_view value,
+                              bool& first) {
+    if (!first) {
+        out.push_back(',');
+    }
+    first = false;
+    out.push_back('"');
+    out.append(key);
+    out.append("\":\"");
+    append_json_escaped(out, value);
+    out.push_back('"');
+}
+
+void append_json_int_field(std::string& out, std::string_view key, int value, bool& first) {
+    if (!first) {
+        out.push_back(',');
+    }
+    first = false;
+    out.push_back('"');
+    out.append(key);
+    out.append("\":");
+    char buf[16];
+    auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), value);
+    if (ec == std::errc()) {
+        out.append(buf, static_cast<size_t>(ptr - buf));
+    } else {
+        out.push_back('0');
+    }
+}
+
+} // namespace
 
 namespace katana {
 
 std::string problem_details::to_json() const {
-    std::ostringstream oss;
-    oss << "{";
-    oss << "\"type\":\"" << type << "\"";
-    oss << ",\"title\":\"" << title << "\"";
-    oss << ",\"status\":" << status;
+    size_t reserve =
+        48 + type.size() + title.size() + extensions.size() * 24;
+    if (detail) {
+        reserve += detail->size();
+    }
+    if (instance) {
+        reserve += instance->size();
+    }
+    for (const auto& [key, value] : extensions) {
+        reserve += key.size() + value.size();
+    }
+
+    std::string out;
+    out.reserve(reserve);
+    out.push_back('{');
+
+    bool first = true;
+    append_json_string_field(out, "type", type, first);
+    append_json_string_field(out, "title", title, first);
+    append_json_int_field(out, "status", status, first);
 
     if (detail) {
-        oss << ",\"detail\":\"" << *detail << "\"";
+        append_json_string_field(out, "detail", *detail, first);
     }
 
     if (instance) {
-        oss << ",\"instance\":\"" << *instance << "\"";
+        append_json_string_field(out, "instance", *instance, first);
     }
 
     for (const auto& [key, value] : extensions) {
-        oss << ",\"" << key << "\":\"" << value << "\"";
+        append_json_string_field(out, key, value, first);
     }
 
-    oss << "}";
-    return oss.str();
+    out.push_back('}');
+    return out;
 }
 
 problem_details problem_details::bad_request(std::string_view detail) {

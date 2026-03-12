@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document describes KATANA's benchmarking approach, covering microbenchmarks, end-to-end tests, and long-running load tests. The goal is to provide repeatable measurements that accurately reflect real-world performance.
+This document describes KATANA's benchmarking approach, covering microbenchmarks and end-to-end HTTP benchmarks. The goal is to provide repeatable measurements that accurately reflect real-world performance.
 
 ---
 
@@ -38,30 +38,31 @@ This document describes KATANA's benchmarking approach, covering microbenchmarks
 
 **Purpose**: Measure full HTTP request/response cycle under load.
 
-**Location**: `test/load/`
+**Location**: `scripts/run_benchmarks.py`, `benchmark/*`, `test/load/scripts/`
 
 **Examples**:
-- `simple_benchmark`: Basic HTTP server load test
-- `products_api_load_test.sh`: Long-running CRUD workload
+- `hello_world_server` + `wrk` pipeline profile (`stage 9`, canonical)
+- `compute_api` + `wrk` pipeline profile (`stage 10`, canonical)
+- peak `wrk` profiles for `hello_world_server` (`stage 11`) and `compute_api` (`stage 12`)
 
 **Methodology**:
 1. **Server startup**: Launch application on dedicated port
-2. **Client load generation**: Use `wrk` or custom client
-3. **Mixed workload**: Realistic operation distribution (70% GET, 20% POST, etc.)
-4. **Duration**: 5-10 minutes minimum for sustained load tests
-5. **Metrics**: RPS, latency distribution, error rate, connection churn
+2. **Client load generation**: Use `wrk` with maintained Lua scripts from `test/load/scripts/`
+3. **Canonical and peak profiles**: Track both low-latency and max-throughput operating points
+4. **Duration**: 5-10 seconds for routine pipeline runs, longer for dedicated profiling
+5. **Metrics**: RPS, batch latency distribution, transfer rate, error rate, server-side custom percentiles
 
-### 1.3 Long-Running Stability Tests
+### 1.3 Stability and Profiling Runs
 
-**Purpose**: Verify memory stability, arena reuse, no leaks.
+**Purpose**: Verify memory stability, arena reuse, no leaks, and capture deeper perf data when a benchmark regresses.
 
-**Duration**: 30 minutes to 24 hours
+**Duration**: Ad hoc, depending on the investigation.
 
 **Key Metrics**:
 - Memory growth over time (should be flat after warmup)
 - Latency degradation (should remain stable)
-- Connection churn handling (frequent open/close)
 - Error rate (should remain near zero)
+- CPU/request and syscall/request from dedicated profiling passes
 
 ---
 
@@ -174,27 +175,30 @@ docker run --rm katana-bench:latest
 docker run --privileged --cpuset-cpus="0-3" --rm katana-bench:latest
 ```
 
-### 3.3 Long-Running Load Tests
+### 3.3 Unified Benchmark Pipeline
 
-**products_api load test**:
 ```bash
-# Build products_api example
-cmake --preset examples
-cmake --build --preset examples --target products_api
+# Build benchmark layout
+cmake --preset bench
+cmake --build --preset bench
 
-# Run load test (default: 5 minutes, 64 concurrency)
-./test/load/products_api_load_test.sh
+# Run microbenchmarks only
+python3 scripts/run_benchmarks.py --build-dir build/bench
 
-# Custom duration and concurrency
-TEST_DURATION=600 CONCURRENCY=128 ./test/load/products_api_load_test.sh
+# Run micro + end-to-end wrk stages
+python3 scripts/run_benchmarks.py --build-dir build/bench --include-e2e
 
-# Results saved to profiling_results/load_test_TIMESTAMP/
+# WSL example
+python3 scripts/run_benchmarks.py --build-dir build/bench-wsl --no-build --include-e2e
 ```
 
-**Phases**:
-1. **Phase 1**: Fixed concurrency sustained load (configurable duration)
-2. **Phase 2**: Variable concurrency ramp (64 → 128 → 256 connections)
-3. **Phase 3**: Connection churn test (10k requests with Connection: close)
+**Current end-to-end stages**:
+1. **Stage 9**: `hello_world_server` canonical (`w4/t4/c512/depth10`)
+2. **Stage 10**: `compute_api` canonical (`w4/t4/c512/depth10`)
+3. **Stage 11**: `hello_world_server` peak (`w4/t4/c512/depth20`)
+4. **Stage 12**: `compute_api` peak (`w4/t4/c512/depth40`)
+
+The runner emits a single JSON + Markdown report with both microbenchmark and end-to-end sections.
 
 ---
 
@@ -366,11 +370,11 @@ Change:   +8.7% → REGRESSION (investigate)
 
 ### 7.3 Stability Tests
 
-| Test | Script | Duration | Focus |
-|------|--------|----------|-------|
-| Sustained Load | products_api_load_test.sh | 5-60 min | Memory stability, throughput |
-| Connection Churn | products_api_load_test.sh | 10k requests | FD cleanup, arena reuse |
-| Variable Concurrency | products_api_load_test.sh | 3 × 30s | Scalability under different loads |
+| Test | Tooling | Duration | Focus |
+|------|---------|----------|-------|
+| Canonical E2E | `scripts/run_benchmarks.py --include-e2e` | 10s windows | KPI throughput + latency |
+| Peak E2E | `scripts/run_benchmarks.py --include-e2e` | 5s windows | Saturation throughput |
+| Deep profiling | `wrk` + `perf stat/record` | ad hoc | CPU/request, hotspot analysis |
 
 ---
 
@@ -395,10 +399,11 @@ Change:   +8.7% → REGRESSION (investigate)
 | Router Dispatch | 1.05M ops/s | 0.511 μs | 1.152 μs | 5.578 μs |
 | HTTP Parser | 1.35M ops/s | 0.669 μs | 1.188 μs | 1.490 μs |
 
-**End-to-End** (products_api, single reactor thread):
-- Simple GET: 320k RPS, p99 = 0.18 ms
-- Mixed CRUD: 155k RPS, p99 = 0.28 ms
-- Validation stress: 185k RPS, p99 = 0.22 ms
+**End-to-End** (current `wrk` pipeline):
+- `hello_world_server`, canonical pipeline profile
+- `compute_api`, canonical pipeline profile
+- `hello_world_server`, peak pipeline profile
+- `compute_api`, peak pipeline profile
 
 **Stability** (30 min sustained, 128 concurrency):
 - Memory: Stable at 45 MB (no growth after warmup)
@@ -432,7 +437,7 @@ When detecting regressions, include:
 - **Stage 2 Analysis**: `STAGE2_ANALYSIS.md` - Baseline benchmark results
 - **Framework Internals**: `FRAMEWORK_INTERNALS.md` - Performance characteristics
 - **Docker Benchmarking**: `docker/benchmarks/Dockerfile.bench`
-- **Load Testing**: `test/load/products_api_load_test.sh`
+- **Load Testing**: `scripts/run_benchmarks.py --include-e2e`
 
 ---
 

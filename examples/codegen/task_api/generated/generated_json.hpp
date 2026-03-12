@@ -1036,7 +1036,7 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
                 } else { cur.skip_value(); }
             } else if (*key == "assignee") {
                 if (auto nested = parse_User(cur, arena)) {
-                    obj.assignee = *nested;
+                    obj.assignee = std::move(*nested);
                 } else { cur.skip_value(); }
             } else if (*key == "due_date") {
                 if (auto v = cur.string()) {
@@ -1044,7 +1044,7 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
                 } else { cur.skip_value(); }
             } else if (*key == "metadata") {
                 if (auto nested = parse_Task_Metadata_t(cur, arena)) {
-                    obj.metadata = *nested;
+                    obj.metadata = std::move(*nested);
                 } else { cur.skip_value(); }
             } else { cur.skip_value(); }
             break;
@@ -1148,6 +1148,12 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<Task_Tags_t> parse_Task_Tags_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     Task_Tags_t result{arena_allocator<Task_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
@@ -1161,7 +1167,23 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<Task_Tags_t> parse_Task_Tags_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_Task_Tags_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    Task_Tags_t result{arena_allocator<Task_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto v = cur.string()) {
+            result.emplace_back(v->begin(), v->end(), arena_allocator<char>(arena));
+        } else { cur.skip_value(); }
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<Task_Item_t> parse_Task_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -1450,6 +1472,12 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<CreateTaskRequest_Tags_t> parse_CreateTaskRequest_Tags_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     CreateTaskRequest_Tags_t result{arena_allocator<CreateTaskRequest_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
@@ -1463,7 +1491,23 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<CreateTaskRequest_Tags_t> parse_CreateTaskRequest_Tags_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_CreateTaskRequest_Tags_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    CreateTaskRequest_Tags_t result{arena_allocator<CreateTaskRequest_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto v = cur.string()) {
+            result.emplace_back(v->begin(), v->end(), arena_allocator<char>(arena));
+        } else { cur.skip_value(); }
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<CreateTaskRequest_Item_t> parse_CreateTaskRequest_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -1629,6 +1673,12 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<UpdateTaskRequest_Tags_t> parse_UpdateTaskRequest_Tags_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     UpdateTaskRequest_Tags_t result{arena_allocator<UpdateTaskRequest_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
@@ -1642,7 +1692,23 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<UpdateTaskRequest_Tags_t> parse_UpdateTaskRequest_Tags_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_UpdateTaskRequest_Tags_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    UpdateTaskRequest_Tags_t result{arena_allocator<UpdateTaskRequest_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto v = cur.string()) {
+            result.emplace_back(v->begin(), v->end(), arena_allocator<char>(arena));
+        } else { cur.skip_value(); }
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<UpdateTaskRequest_Item_t> parse_UpdateTaskRequest_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -1698,7 +1764,7 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
                 while (!cur.eof()) {
                     cur.skip_ws();
                     if (cur.try_array_end()) break;
-                    if (auto nested = parse_CreateTaskRequest(cur, arena)) { obj.tasks.push_back(*nested); }
+                    if (auto nested = parse_CreateTaskRequest(cur, arena)) { obj.tasks.push_back(std::move(*nested)); }
                     else { cur.skip_value(); }
                     cur.try_comma();
                 }
@@ -1720,10 +1786,16 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<BatchCreateRequest_Tasks_t> parse_BatchCreateRequest_Tasks_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     BatchCreateRequest_Tasks_t result{arena_allocator<CreateTaskRequest>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
-        if (auto parsed = parse_CreateTaskRequest(cur, arena)) result.push_back(*parsed);
+        if (auto parsed = parse_CreateTaskRequest(cur, arena)) result.push_back(std::move(*parsed));
         else cur.skip_value();
         cur.try_comma();
     }
@@ -1732,7 +1804,22 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<BatchCreateRequest_Tasks_t> parse_BatchCreateRequest_Tasks_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_BatchCreateRequest_Tasks_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    BatchCreateRequest_Tasks_t result{arena_allocator<CreateTaskRequest>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto parsed = parse_CreateTaskRequest(cur, arena)) result.push_back(std::move(*parsed));
+        else cur.skip_value();
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<BatchCreateRequest_Item_t> parse_BatchCreateRequest_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -1778,7 +1865,7 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
                 while (!cur.eof()) {
                     cur.skip_ws();
                     if (cur.try_array_end()) break;
-                    if (auto nested = parse_Task(cur, arena)) { obj.created.push_back(*nested); }
+                    if (auto nested = parse_Task(cur, arena)) { obj.created.push_back(std::move(*nested)); }
                     else { cur.skip_value(); }
                     cur.try_comma();
                 }
@@ -1789,7 +1876,7 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
                 while (!cur.eof()) {
                     cur.skip_ws();
                     if (cur.try_array_end()) break;
-                    if (auto nested = parse_BatchCreateResponse_Item_t_1(cur, arena)) { obj.failed.push_back(*nested); }
+                    if (auto nested = parse_BatchCreateResponse_Item_t_1(cur, arena)) { obj.failed.push_back(std::move(*nested)); }
                     else { cur.skip_value(); }
                     cur.try_comma();
                 }
@@ -1812,10 +1899,16 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<BatchCreateResponse_Created_t> parse_BatchCreateResponse_Created_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     BatchCreateResponse_Created_t result{arena_allocator<Task>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
-        if (auto parsed = parse_Task(cur, arena)) result.push_back(*parsed);
+        if (auto parsed = parse_Task(cur, arena)) result.push_back(std::move(*parsed));
         else cur.skip_value();
         cur.try_comma();
     }
@@ -1824,7 +1917,22 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<BatchCreateResponse_Created_t> parse_BatchCreateResponse_Created_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_BatchCreateResponse_Created_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    BatchCreateResponse_Created_t result{arena_allocator<Task>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto parsed = parse_Task(cur, arena)) result.push_back(std::move(*parsed));
+        else cur.skip_value();
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<BatchCreateResponse_Item_t> parse_BatchCreateResponse_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -1854,10 +1962,16 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<BatchCreateResponse_Failed_t> parse_BatchCreateResponse_Failed_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     BatchCreateResponse_Failed_t result{arena_allocator<BatchCreateResponse_Item_t_1>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
-        if (auto parsed = parse_BatchCreateResponse_Item_t_1(cur, arena)) result.push_back(*parsed);
+        if (auto parsed = parse_BatchCreateResponse_Item_t_1(cur, arena)) result.push_back(std::move(*parsed));
         else cur.skip_value();
         cur.try_comma();
     }
@@ -1866,7 +1980,22 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<BatchCreateResponse_Failed_t> parse_BatchCreateResponse_Failed_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_BatchCreateResponse_Failed_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    BatchCreateResponse_Failed_t result{arena_allocator<BatchCreateResponse_Item_t_1>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto parsed = parse_BatchCreateResponse_Item_t_1(cur, arena)) result.push_back(std::move(*parsed));
+        else cur.skip_value();
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<BatchCreateResponse_Item_t_1> parse_BatchCreateResponse_Item_t_1(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -2033,6 +2162,12 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<SearchRequest_Statuses_t> parse_SearchRequest_Statuses_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     SearchRequest_Statuses_t result{arena_allocator<SearchRequest_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
@@ -2047,7 +2182,24 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<SearchRequest_Statuses_t> parse_SearchRequest_Statuses_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_SearchRequest_Statuses_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    SearchRequest_Statuses_t result{arena_allocator<SearchRequest_Item_t>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto v = cur.string()) {
+            auto enum_val = SearchRequest_Item_t_enum_from_string(std::string_view(v->begin(), v->end()));
+            if (enum_val) result.push_back(*enum_val);
+        } else { cur.skip_value(); }
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<SearchRequest_Item_t> parse_SearchRequest_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -2088,6 +2240,12 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<SearchRequest_Tags_t> parse_SearchRequest_Tags_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     SearchRequest_Tags_t result{arena_allocator<SearchRequest_Item_t_1>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
@@ -2101,7 +2259,23 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<SearchRequest_Tags_t> parse_SearchRequest_Tags_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_SearchRequest_Tags_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    SearchRequest_Tags_t result{arena_allocator<SearchRequest_Item_t_1>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto v = cur.string()) {
+            result.emplace_back(v->begin(), v->end(), arena_allocator<char>(arena));
+        } else { cur.skip_value(); }
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<SearchRequest_Item_t_1> parse_SearchRequest_Item_t_1(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -2170,7 +2344,7 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
                 while (!cur.eof()) {
                     cur.skip_ws();
                     if (cur.try_array_end()) break;
-                    if (auto nested = parse_Task(cur, arena)) { obj.tasks.push_back(*nested); }
+                    if (auto nested = parse_Task(cur, arena)) { obj.tasks.push_back(std::move(*nested)); }
                     else { cur.skip_value(); }
                     cur.try_comma();
                 }
@@ -2202,10 +2376,16 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 [[nodiscard]] inline std::optional<TaskList_Tasks_t> parse_TaskList_Tasks_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
     if (!cur.try_array_start()) return std::nullopt;
     TaskList_Tasks_t result{arena_allocator<Task>(arena)};
+    size_t reserve_hint = 0;
+    for (const char* p = cur.ptr; p < cur.end; ++p) {
+        if (*p == ',') ++reserve_hint;
+    }
+    if (cur.ptr < cur.end && *cur.ptr != ']') ++reserve_hint;
+    result.reserve(reserve_hint);
     while (!cur.eof()) {
         cur.skip_ws();
         if (cur.try_array_end()) break;
-        if (auto parsed = parse_Task(cur, arena)) result.push_back(*parsed);
+        if (auto parsed = parse_Task(cur, arena)) result.push_back(std::move(*parsed));
         else cur.skip_value();
         cur.try_comma();
     }
@@ -2214,7 +2394,22 @@ inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr)
 
 [[nodiscard]] inline std::optional<TaskList_Tasks_t> parse_TaskList_Tasks_t(std::string_view json, monotonic_arena* arena) {
     katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    return parse_TaskList_Tasks_t(cur, arena);
+    if (!cur.try_array_start()) return std::nullopt;
+    TaskList_Tasks_t result{arena_allocator<Task>(arena)};
+    size_t reserve_hint = 0;
+    for (char ch : json) {
+        if (ch == ',') ++reserve_hint;
+    }
+    if (!json.empty() && json != "[]") ++reserve_hint;
+    result.reserve(reserve_hint);
+    while (!cur.eof()) {
+        cur.skip_ws();
+        if (cur.try_array_end()) break;
+        if (auto parsed = parse_Task(cur, arena)) result.push_back(std::move(*parsed));
+        else cur.skip_value();
+        cur.try_comma();
+    }
+    return result;
 }
 
 [[nodiscard]] inline std::optional<TaskList_Item_t> parse_TaskList_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
@@ -3001,7 +3196,16 @@ inline void serialize_Task_into(const Task& obj, std::string& json) {
 
 inline std::string serialize_Task(const Task& obj) {
     std::string json;
-    json.reserve(678);
+    size_t reserve_estimate = 678;
+    reserve_estimate += obj.title.size();
+    reserve_estimate += obj.description.size();
+    reserve_estimate += obj.tags.size() * 32;
+    reserve_estimate += 109;
+    if (obj.due_date) reserve_estimate += obj.due_date->size();
+    reserve_estimate += obj.created_at.size();
+    if (obj.updated_at) reserve_estimate += obj.updated_at->size();
+    reserve_estimate += 2;
+    json.reserve(reserve_estimate);
     serialize_Task_into(obj, json);
     return json;
 }
@@ -3185,7 +3389,10 @@ inline void serialize_User_into(const User& obj, std::string& json) {
 
 inline std::string serialize_User(const User& obj) {
     std::string json;
-    json.reserve(109);
+    size_t reserve_estimate = 109;
+    reserve_estimate += obj.email.size();
+    reserve_estimate += obj.name.size();
+    json.reserve(reserve_estimate);
     serialize_User_into(obj, json);
     return json;
 }
@@ -3276,7 +3483,12 @@ inline void serialize_CreateTaskRequest_into(const CreateTaskRequest& obj, std::
 
 inline std::string serialize_CreateTaskRequest(const CreateTaskRequest& obj) {
     std::string json;
-    json.reserve(273);
+    size_t reserve_estimate = 273;
+    reserve_estimate += obj.title.size();
+    reserve_estimate += obj.description.size();
+    reserve_estimate += obj.tags.size() * 32;
+    if (obj.due_date) reserve_estimate += obj.due_date->size();
+    json.reserve(reserve_estimate);
     serialize_CreateTaskRequest_into(obj, json);
     return json;
 }
@@ -3430,7 +3642,12 @@ inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::
 
 inline std::string serialize_UpdateTaskRequest(const UpdateTaskRequest& obj) {
     std::string json;
-    json.reserve(315);
+    size_t reserve_estimate = 315;
+    reserve_estimate += obj.title.size();
+    reserve_estimate += obj.description.size();
+    reserve_estimate += obj.tags.size() * 32;
+    if (obj.due_date) reserve_estimate += obj.due_date->size();
+    json.reserve(reserve_estimate);
     serialize_UpdateTaskRequest_into(obj, json);
     return json;
 }
@@ -3561,7 +3778,9 @@ inline void serialize_BatchCreateRequest_into(const BatchCreateRequest& obj, std
 
 inline std::string serialize_BatchCreateRequest(const BatchCreateRequest& obj) {
     std::string json;
-    json.reserve(75);
+    size_t reserve_estimate = 75;
+    reserve_estimate += obj.tasks.size() * 273;
+    json.reserve(reserve_estimate);
     serialize_BatchCreateRequest_into(obj, json);
     return json;
 }
@@ -3614,7 +3833,10 @@ inline void serialize_BatchCreateResponse_into(const BatchCreateResponse& obj, s
 
 inline std::string serialize_BatchCreateResponse(const BatchCreateResponse& obj) {
     std::string json;
-    json.reserve(151);
+    size_t reserve_estimate = 151;
+    reserve_estimate += obj.created.size() * 678;
+    reserve_estimate += obj.failed.size() * 72;
+    json.reserve(reserve_estimate);
     serialize_BatchCreateResponse_into(obj, json);
     return json;
 }
@@ -3680,7 +3902,9 @@ inline void serialize_BatchCreateResponse_Item_t_1_into(const BatchCreateRespons
 
 inline std::string serialize_BatchCreateResponse_Item_t_1(const BatchCreateResponse_Item_t_1& obj) {
     std::string json;
-    json.reserve(72);
+    size_t reserve_estimate = 72;
+    reserve_estimate += obj.error.size();
+    json.reserve(reserve_estimate);
     serialize_BatchCreateResponse_Item_t_1_into(obj, json);
     return json;
 }
@@ -3761,7 +3985,13 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
 
 inline std::string serialize_SearchRequest(const SearchRequest& obj) {
     std::string json;
-    json.reserve(392);
+    size_t reserve_estimate = 392;
+    reserve_estimate += obj.title_contains.size();
+    reserve_estimate += obj.statuses.size() * 32;
+    reserve_estimate += obj.tags.size() * 32;
+    reserve_estimate += obj.created_after.size();
+    reserve_estimate += obj.created_before.size();
+    json.reserve(reserve_estimate);
     serialize_SearchRequest_into(obj, json);
     return json;
 }
@@ -3921,7 +4151,9 @@ inline void serialize_TaskList_into(const TaskList& obj, std::string& json) {
 
 inline std::string serialize_TaskList(const TaskList& obj) {
     std::string json;
-    json.reserve(121);
+    size_t reserve_estimate = 121;
+    reserve_estimate += obj.tasks.size() * 678;
+    json.reserve(reserve_estimate);
     serialize_TaskList_into(obj, json);
     return json;
 }
@@ -4000,7 +4232,9 @@ inline void serialize_HealthResponse_into(const HealthResponse& obj, std::string
 
 inline std::string serialize_HealthResponse(const HealthResponse& obj) {
     std::string json;
-    json.reserve(165);
+    size_t reserve_estimate = 165;
+    reserve_estimate += obj.timestamp.size();
+    json.reserve(reserve_estimate);
     serialize_HealthResponse_into(obj, json);
     return json;
 }
@@ -4086,7 +4320,12 @@ inline void serialize_ProblemDetails_into(const ProblemDetails& obj, std::string
 
 inline std::string serialize_ProblemDetails(const ProblemDetails& obj) {
     std::string json;
-    json.reserve(199);
+    size_t reserve_estimate = 199;
+    reserve_estimate += obj.type.size();
+    reserve_estimate += obj.title.size();
+    reserve_estimate += obj.detail.size();
+    reserve_estimate += obj.instance.size();
+    json.reserve(reserve_estimate);
     serialize_ProblemDetails_into(obj, json);
     return json;
 }
@@ -6550,7 +6789,7 @@ inline void serialize_Task_array_into(const std::vector<Task>& arr, std::string&
 
 inline std::string serialize_Task_array(const std::vector<Task>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 678 + 2);
     serialize_Task_array_into(arr, json);
     return json;
 }
@@ -6566,7 +6805,7 @@ inline void serialize_Task_array_into(const arena_vector<Task>& arr, std::string
 
 inline std::string serialize_Task_array(const arena_vector<Task>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 678 + 2);
     serialize_Task_array_into(arr, json);
     return json;
 }
@@ -6582,7 +6821,7 @@ inline void serialize_Task_Id_t_array_into(const std::vector<Task_Id_t>& arr, st
 
 inline std::string serialize_Task_Id_t_array(const std::vector<Task_Id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_Task_Id_t_array_into(arr, json);
     return json;
 }
@@ -6598,7 +6837,7 @@ inline void serialize_Task_Id_t_array_into(const arena_vector<Task_Id_t>& arr, s
 
 inline std::string serialize_Task_Id_t_array(const arena_vector<Task_Id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_Task_Id_t_array_into(arr, json);
     return json;
 }
@@ -6710,7 +6949,7 @@ inline void serialize_Task_Priority_t_array_into(const std::vector<Task_Priority
 
 inline std::string serialize_Task_Priority_t_array(const std::vector<Task_Priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_Task_Priority_t_array_into(arr, json);
     return json;
 }
@@ -6726,7 +6965,7 @@ inline void serialize_Task_Priority_t_array_into(const arena_vector<Task_Priorit
 
 inline std::string serialize_Task_Priority_t_array(const arena_vector<Task_Priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_Task_Priority_t_array_into(arr, json);
     return json;
 }
@@ -6742,7 +6981,7 @@ inline void serialize_Task_Tags_t_array_into(const std::vector<Task_Tags_t>& arr
 
 inline std::string serialize_Task_Tags_t_array(const std::vector<Task_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_Task_Tags_t_array_into(arr, json);
     return json;
 }
@@ -6758,7 +6997,7 @@ inline void serialize_Task_Tags_t_array_into(const arena_vector<Task_Tags_t>& ar
 
 inline std::string serialize_Task_Tags_t_array(const arena_vector<Task_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_Task_Tags_t_array_into(arr, json);
     return json;
 }
@@ -6806,7 +7045,7 @@ inline void serialize_Task_Assignee_t_array_into(const std::vector<Task_Assignee
 
 inline std::string serialize_Task_Assignee_t_array(const std::vector<Task_Assignee_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_Task_Assignee_t_array_into(arr, json);
     return json;
 }
@@ -6822,7 +7061,7 @@ inline void serialize_Task_Assignee_t_array_into(const arena_vector<Task_Assigne
 
 inline std::string serialize_Task_Assignee_t_array(const arena_vector<Task_Assignee_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_Task_Assignee_t_array_into(arr, json);
     return json;
 }
@@ -6934,7 +7173,7 @@ inline void serialize_Task_Metadata_t_array_into(const std::vector<Task_Metadata
 
 inline std::string serialize_Task_Metadata_t_array(const std::vector<Task_Metadata_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_Task_Metadata_t_array_into(arr, json);
     return json;
 }
@@ -6950,7 +7189,7 @@ inline void serialize_Task_Metadata_t_array_into(const arena_vector<Task_Metadat
 
 inline std::string serialize_Task_Metadata_t_array(const arena_vector<Task_Metadata_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_Task_Metadata_t_array_into(arr, json);
     return json;
 }
@@ -6966,7 +7205,7 @@ inline void serialize_User_array_into(const std::vector<User>& arr, std::string&
 
 inline std::string serialize_User_array(const std::vector<User>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 109 + 2);
     serialize_User_array_into(arr, json);
     return json;
 }
@@ -6982,7 +7221,7 @@ inline void serialize_User_array_into(const arena_vector<User>& arr, std::string
 
 inline std::string serialize_User_array(const arena_vector<User>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 109 + 2);
     serialize_User_array_into(arr, json);
     return json;
 }
@@ -6998,7 +7237,7 @@ inline void serialize_User_Id_t_array_into(const std::vector<User_Id_t>& arr, st
 
 inline std::string serialize_User_Id_t_array(const std::vector<User_Id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_User_Id_t_array_into(arr, json);
     return json;
 }
@@ -7014,7 +7253,7 @@ inline void serialize_User_Id_t_array_into(const arena_vector<User_Id_t>& arr, s
 
 inline std::string serialize_User_Id_t_array(const arena_vector<User_Id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_User_Id_t_array_into(arr, json);
     return json;
 }
@@ -7094,7 +7333,7 @@ inline void serialize_CreateTaskRequest_array_into(const std::vector<CreateTaskR
 
 inline std::string serialize_CreateTaskRequest_array(const std::vector<CreateTaskRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 273 + 2);
     serialize_CreateTaskRequest_array_into(arr, json);
     return json;
 }
@@ -7110,7 +7349,7 @@ inline void serialize_CreateTaskRequest_array_into(const arena_vector<CreateTask
 
 inline std::string serialize_CreateTaskRequest_array(const arena_vector<CreateTaskRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 273 + 2);
     serialize_CreateTaskRequest_array_into(arr, json);
     return json;
 }
@@ -7190,7 +7429,7 @@ inline void serialize_CreateTaskRequest_Priority_t_array_into(const std::vector<
 
 inline std::string serialize_CreateTaskRequest_Priority_t_array(const std::vector<CreateTaskRequest_Priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_CreateTaskRequest_Priority_t_array_into(arr, json);
     return json;
 }
@@ -7206,7 +7445,7 @@ inline void serialize_CreateTaskRequest_Priority_t_array_into(const arena_vector
 
 inline std::string serialize_CreateTaskRequest_Priority_t_array(const arena_vector<CreateTaskRequest_Priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_CreateTaskRequest_Priority_t_array_into(arr, json);
     return json;
 }
@@ -7222,7 +7461,7 @@ inline void serialize_CreateTaskRequest_Tags_t_array_into(const std::vector<Crea
 
 inline std::string serialize_CreateTaskRequest_Tags_t_array(const std::vector<CreateTaskRequest_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_CreateTaskRequest_Tags_t_array_into(arr, json);
     return json;
 }
@@ -7238,7 +7477,7 @@ inline void serialize_CreateTaskRequest_Tags_t_array_into(const arena_vector<Cre
 
 inline std::string serialize_CreateTaskRequest_Tags_t_array(const arena_vector<CreateTaskRequest_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_CreateTaskRequest_Tags_t_array_into(arr, json);
     return json;
 }
@@ -7286,7 +7525,7 @@ inline void serialize_CreateTaskRequest_Assignee_id_t_array_into(const std::vect
 
 inline std::string serialize_CreateTaskRequest_Assignee_id_t_array(const std::vector<CreateTaskRequest_Assignee_id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_CreateTaskRequest_Assignee_id_t_array_into(arr, json);
     return json;
 }
@@ -7302,7 +7541,7 @@ inline void serialize_CreateTaskRequest_Assignee_id_t_array_into(const arena_vec
 
 inline std::string serialize_CreateTaskRequest_Assignee_id_t_array(const arena_vector<CreateTaskRequest_Assignee_id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_CreateTaskRequest_Assignee_id_t_array_into(arr, json);
     return json;
 }
@@ -7350,7 +7589,7 @@ inline void serialize_UpdateTaskRequest_array_into(const std::vector<UpdateTaskR
 
 inline std::string serialize_UpdateTaskRequest_array(const std::vector<UpdateTaskRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 315 + 2);
     serialize_UpdateTaskRequest_array_into(arr, json);
     return json;
 }
@@ -7366,7 +7605,7 @@ inline void serialize_UpdateTaskRequest_array_into(const arena_vector<UpdateTask
 
 inline std::string serialize_UpdateTaskRequest_array(const arena_vector<UpdateTaskRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 315 + 2);
     serialize_UpdateTaskRequest_array_into(arr, json);
     return json;
 }
@@ -7478,7 +7717,7 @@ inline void serialize_UpdateTaskRequest_Priority_t_array_into(const std::vector<
 
 inline std::string serialize_UpdateTaskRequest_Priority_t_array(const std::vector<UpdateTaskRequest_Priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_UpdateTaskRequest_Priority_t_array_into(arr, json);
     return json;
 }
@@ -7494,7 +7733,7 @@ inline void serialize_UpdateTaskRequest_Priority_t_array_into(const arena_vector
 
 inline std::string serialize_UpdateTaskRequest_Priority_t_array(const arena_vector<UpdateTaskRequest_Priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_UpdateTaskRequest_Priority_t_array_into(arr, json);
     return json;
 }
@@ -7510,7 +7749,7 @@ inline void serialize_UpdateTaskRequest_Tags_t_array_into(const std::vector<Upda
 
 inline std::string serialize_UpdateTaskRequest_Tags_t_array(const std::vector<UpdateTaskRequest_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_UpdateTaskRequest_Tags_t_array_into(arr, json);
     return json;
 }
@@ -7526,7 +7765,7 @@ inline void serialize_UpdateTaskRequest_Tags_t_array_into(const arena_vector<Upd
 
 inline std::string serialize_UpdateTaskRequest_Tags_t_array(const arena_vector<UpdateTaskRequest_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_UpdateTaskRequest_Tags_t_array_into(arr, json);
     return json;
 }
@@ -7574,7 +7813,7 @@ inline void serialize_UpdateTaskRequest_Assignee_id_t_array_into(const std::vect
 
 inline std::string serialize_UpdateTaskRequest_Assignee_id_t_array(const std::vector<UpdateTaskRequest_Assignee_id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_UpdateTaskRequest_Assignee_id_t_array_into(arr, json);
     return json;
 }
@@ -7590,7 +7829,7 @@ inline void serialize_UpdateTaskRequest_Assignee_id_t_array_into(const arena_vec
 
 inline std::string serialize_UpdateTaskRequest_Assignee_id_t_array(const arena_vector<UpdateTaskRequest_Assignee_id_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_UpdateTaskRequest_Assignee_id_t_array_into(arr, json);
     return json;
 }
@@ -7638,7 +7877,7 @@ inline void serialize_BatchCreateRequest_array_into(const std::vector<BatchCreat
 
 inline std::string serialize_BatchCreateRequest_array(const std::vector<BatchCreateRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 75 + 2);
     serialize_BatchCreateRequest_array_into(arr, json);
     return json;
 }
@@ -7654,7 +7893,7 @@ inline void serialize_BatchCreateRequest_array_into(const arena_vector<BatchCrea
 
 inline std::string serialize_BatchCreateRequest_array(const arena_vector<BatchCreateRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 75 + 2);
     serialize_BatchCreateRequest_array_into(arr, json);
     return json;
 }
@@ -7670,7 +7909,7 @@ inline void serialize_BatchCreateRequest_Tasks_t_array_into(const std::vector<Ba
 
 inline std::string serialize_BatchCreateRequest_Tasks_t_array(const std::vector<BatchCreateRequest_Tasks_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 1094 + 2);
     serialize_BatchCreateRequest_Tasks_t_array_into(arr, json);
     return json;
 }
@@ -7686,7 +7925,7 @@ inline void serialize_BatchCreateRequest_Tasks_t_array_into(const arena_vector<B
 
 inline std::string serialize_BatchCreateRequest_Tasks_t_array(const arena_vector<BatchCreateRequest_Tasks_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 1094 + 2);
     serialize_BatchCreateRequest_Tasks_t_array_into(arr, json);
     return json;
 }
@@ -7702,7 +7941,7 @@ inline void serialize_BatchCreateRequest_Item_t_array_into(const std::vector<Bat
 
 inline std::string serialize_BatchCreateRequest_Item_t_array(const std::vector<BatchCreateRequest_Item_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_BatchCreateRequest_Item_t_array_into(arr, json);
     return json;
 }
@@ -7718,7 +7957,7 @@ inline void serialize_BatchCreateRequest_Item_t_array_into(const arena_vector<Ba
 
 inline std::string serialize_BatchCreateRequest_Item_t_array(const arena_vector<BatchCreateRequest_Item_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_BatchCreateRequest_Item_t_array_into(arr, json);
     return json;
 }
@@ -7734,7 +7973,7 @@ inline void serialize_BatchCreateResponse_array_into(const std::vector<BatchCrea
 
 inline std::string serialize_BatchCreateResponse_array(const std::vector<BatchCreateResponse>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 151 + 2);
     serialize_BatchCreateResponse_array_into(arr, json);
     return json;
 }
@@ -7750,7 +7989,7 @@ inline void serialize_BatchCreateResponse_array_into(const arena_vector<BatchCre
 
 inline std::string serialize_BatchCreateResponse_array(const arena_vector<BatchCreateResponse>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 151 + 2);
     serialize_BatchCreateResponse_array_into(arr, json);
     return json;
 }
@@ -7766,7 +8005,7 @@ inline void serialize_BatchCreateResponse_Created_t_array_into(const std::vector
 
 inline std::string serialize_BatchCreateResponse_Created_t_array(const std::vector<BatchCreateResponse_Created_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2714 + 2);
     serialize_BatchCreateResponse_Created_t_array_into(arr, json);
     return json;
 }
@@ -7782,7 +8021,7 @@ inline void serialize_BatchCreateResponse_Created_t_array_into(const arena_vecto
 
 inline std::string serialize_BatchCreateResponse_Created_t_array(const arena_vector<BatchCreateResponse_Created_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2714 + 2);
     serialize_BatchCreateResponse_Created_t_array_into(arr, json);
     return json;
 }
@@ -7798,7 +8037,7 @@ inline void serialize_BatchCreateResponse_Item_t_array_into(const std::vector<Ba
 
 inline std::string serialize_BatchCreateResponse_Item_t_array(const std::vector<BatchCreateResponse_Item_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_BatchCreateResponse_Item_t_array_into(arr, json);
     return json;
 }
@@ -7814,7 +8053,7 @@ inline void serialize_BatchCreateResponse_Item_t_array_into(const arena_vector<B
 
 inline std::string serialize_BatchCreateResponse_Item_t_array(const arena_vector<BatchCreateResponse_Item_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_BatchCreateResponse_Item_t_array_into(arr, json);
     return json;
 }
@@ -7830,7 +8069,7 @@ inline void serialize_BatchCreateResponse_Failed_t_array_into(const std::vector<
 
 inline std::string serialize_BatchCreateResponse_Failed_t_array(const std::vector<BatchCreateResponse_Failed_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 290 + 2);
     serialize_BatchCreateResponse_Failed_t_array_into(arr, json);
     return json;
 }
@@ -7846,7 +8085,7 @@ inline void serialize_BatchCreateResponse_Failed_t_array_into(const arena_vector
 
 inline std::string serialize_BatchCreateResponse_Failed_t_array(const arena_vector<BatchCreateResponse_Failed_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 290 + 2);
     serialize_BatchCreateResponse_Failed_t_array_into(arr, json);
     return json;
 }
@@ -7862,7 +8101,7 @@ inline void serialize_BatchCreateResponse_Item_t_1_array_into(const std::vector<
 
 inline std::string serialize_BatchCreateResponse_Item_t_1_array(const std::vector<BatchCreateResponse_Item_t_1>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 72 + 2);
     serialize_BatchCreateResponse_Item_t_1_array_into(arr, json);
     return json;
 }
@@ -7878,7 +8117,7 @@ inline void serialize_BatchCreateResponse_Item_t_1_array_into(const arena_vector
 
 inline std::string serialize_BatchCreateResponse_Item_t_1_array(const arena_vector<BatchCreateResponse_Item_t_1>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 72 + 2);
     serialize_BatchCreateResponse_Item_t_1_array_into(arr, json);
     return json;
 }
@@ -7894,7 +8133,7 @@ inline void serialize_BatchCreateResponse_Index_t_array_into(const std::vector<B
 
 inline std::string serialize_BatchCreateResponse_Index_t_array(const std::vector<BatchCreateResponse_Index_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_BatchCreateResponse_Index_t_array_into(arr, json);
     return json;
 }
@@ -7910,7 +8149,7 @@ inline void serialize_BatchCreateResponse_Index_t_array_into(const arena_vector<
 
 inline std::string serialize_BatchCreateResponse_Index_t_array(const arena_vector<BatchCreateResponse_Index_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_BatchCreateResponse_Index_t_array_into(arr, json);
     return json;
 }
@@ -7958,7 +8197,7 @@ inline void serialize_SearchRequest_array_into(const std::vector<SearchRequest>&
 
 inline std::string serialize_SearchRequest_array(const std::vector<SearchRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 392 + 2);
     serialize_SearchRequest_array_into(arr, json);
     return json;
 }
@@ -7974,7 +8213,7 @@ inline void serialize_SearchRequest_array_into(const arena_vector<SearchRequest>
 
 inline std::string serialize_SearchRequest_array(const arena_vector<SearchRequest>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 392 + 2);
     serialize_SearchRequest_array_into(arr, json);
     return json;
 }
@@ -8022,7 +8261,7 @@ inline void serialize_SearchRequest_Statuses_t_array_into(const std::vector<Sear
 
 inline std::string serialize_SearchRequest_Statuses_t_array(const std::vector<SearchRequest_Statuses_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_SearchRequest_Statuses_t_array_into(arr, json);
     return json;
 }
@@ -8038,7 +8277,7 @@ inline void serialize_SearchRequest_Statuses_t_array_into(const arena_vector<Sea
 
 inline std::string serialize_SearchRequest_Statuses_t_array(const arena_vector<SearchRequest_Statuses_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_SearchRequest_Statuses_t_array_into(arr, json);
     return json;
 }
@@ -8086,7 +8325,7 @@ inline void serialize_SearchRequest_Min_priority_t_array_into(const std::vector<
 
 inline std::string serialize_SearchRequest_Min_priority_t_array(const std::vector<SearchRequest_Min_priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_SearchRequest_Min_priority_t_array_into(arr, json);
     return json;
 }
@@ -8102,7 +8341,7 @@ inline void serialize_SearchRequest_Min_priority_t_array_into(const arena_vector
 
 inline std::string serialize_SearchRequest_Min_priority_t_array(const arena_vector<SearchRequest_Min_priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_SearchRequest_Min_priority_t_array_into(arr, json);
     return json;
 }
@@ -8118,7 +8357,7 @@ inline void serialize_SearchRequest_Max_priority_t_array_into(const std::vector<
 
 inline std::string serialize_SearchRequest_Max_priority_t_array(const std::vector<SearchRequest_Max_priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_SearchRequest_Max_priority_t_array_into(arr, json);
     return json;
 }
@@ -8134,7 +8373,7 @@ inline void serialize_SearchRequest_Max_priority_t_array_into(const arena_vector
 
 inline std::string serialize_SearchRequest_Max_priority_t_array(const arena_vector<SearchRequest_Max_priority_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_SearchRequest_Max_priority_t_array_into(arr, json);
     return json;
 }
@@ -8150,7 +8389,7 @@ inline void serialize_SearchRequest_Tags_t_array_into(const std::vector<SearchRe
 
 inline std::string serialize_SearchRequest_Tags_t_array(const std::vector<SearchRequest_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_SearchRequest_Tags_t_array_into(arr, json);
     return json;
 }
@@ -8166,7 +8405,7 @@ inline void serialize_SearchRequest_Tags_t_array_into(const arena_vector<SearchR
 
 inline std::string serialize_SearchRequest_Tags_t_array(const arena_vector<SearchRequest_Tags_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 130 + 2);
     serialize_SearchRequest_Tags_t_array_into(arr, json);
     return json;
 }
@@ -8278,7 +8517,7 @@ inline void serialize_SearchRequest_Has_assignee_t_array_into(const std::vector<
 
 inline std::string serialize_SearchRequest_Has_assignee_t_array(const std::vector<SearchRequest_Has_assignee_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 5 + 2);
     serialize_SearchRequest_Has_assignee_t_array_into(arr, json);
     return json;
 }
@@ -8294,7 +8533,7 @@ inline void serialize_SearchRequest_Has_assignee_t_array_into(const arena_vector
 
 inline std::string serialize_SearchRequest_Has_assignee_t_array(const arena_vector<SearchRequest_Has_assignee_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 5 + 2);
     serialize_SearchRequest_Has_assignee_t_array_into(arr, json);
     return json;
 }
@@ -8310,7 +8549,7 @@ inline void serialize_TaskList_array_into(const std::vector<TaskList>& arr, std:
 
 inline std::string serialize_TaskList_array(const std::vector<TaskList>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 121 + 2);
     serialize_TaskList_array_into(arr, json);
     return json;
 }
@@ -8326,7 +8565,7 @@ inline void serialize_TaskList_array_into(const arena_vector<TaskList>& arr, std
 
 inline std::string serialize_TaskList_array(const arena_vector<TaskList>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 121 + 2);
     serialize_TaskList_array_into(arr, json);
     return json;
 }
@@ -8342,7 +8581,7 @@ inline void serialize_TaskList_Tasks_t_array_into(const std::vector<TaskList_Tas
 
 inline std::string serialize_TaskList_Tasks_t_array(const std::vector<TaskList_Tasks_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2714 + 2);
     serialize_TaskList_Tasks_t_array_into(arr, json);
     return json;
 }
@@ -8358,7 +8597,7 @@ inline void serialize_TaskList_Tasks_t_array_into(const arena_vector<TaskList_Ta
 
 inline std::string serialize_TaskList_Tasks_t_array(const arena_vector<TaskList_Tasks_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2714 + 2);
     serialize_TaskList_Tasks_t_array_into(arr, json);
     return json;
 }
@@ -8374,7 +8613,7 @@ inline void serialize_TaskList_Item_t_array_into(const std::vector<TaskList_Item
 
 inline std::string serialize_TaskList_Item_t_array(const std::vector<TaskList_Item_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_TaskList_Item_t_array_into(arr, json);
     return json;
 }
@@ -8390,7 +8629,7 @@ inline void serialize_TaskList_Item_t_array_into(const arena_vector<TaskList_Ite
 
 inline std::string serialize_TaskList_Item_t_array(const arena_vector<TaskList_Item_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_TaskList_Item_t_array_into(arr, json);
     return json;
 }
@@ -8406,7 +8645,7 @@ inline void serialize_TaskList_Total_t_array_into(const std::vector<TaskList_Tot
 
 inline std::string serialize_TaskList_Total_t_array(const std::vector<TaskList_Total_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_TaskList_Total_t_array_into(arr, json);
     return json;
 }
@@ -8422,7 +8661,7 @@ inline void serialize_TaskList_Total_t_array_into(const arena_vector<TaskList_To
 
 inline std::string serialize_TaskList_Total_t_array(const arena_vector<TaskList_Total_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_TaskList_Total_t_array_into(arr, json);
     return json;
 }
@@ -8438,7 +8677,7 @@ inline void serialize_TaskList_Has_more_t_array_into(const std::vector<TaskList_
 
 inline std::string serialize_TaskList_Has_more_t_array(const std::vector<TaskList_Has_more_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 5 + 2);
     serialize_TaskList_Has_more_t_array_into(arr, json);
     return json;
 }
@@ -8454,7 +8693,7 @@ inline void serialize_TaskList_Has_more_t_array_into(const arena_vector<TaskList
 
 inline std::string serialize_TaskList_Has_more_t_array(const arena_vector<TaskList_Has_more_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 5 + 2);
     serialize_TaskList_Has_more_t_array_into(arr, json);
     return json;
 }
@@ -8470,7 +8709,7 @@ inline void serialize_HealthResponse_array_into(const std::vector<HealthResponse
 
 inline std::string serialize_HealthResponse_array(const std::vector<HealthResponse>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 165 + 2);
     serialize_HealthResponse_array_into(arr, json);
     return json;
 }
@@ -8486,7 +8725,7 @@ inline void serialize_HealthResponse_array_into(const arena_vector<HealthRespons
 
 inline std::string serialize_HealthResponse_array(const arena_vector<HealthResponse>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 165 + 2);
     serialize_HealthResponse_array_into(arr, json);
     return json;
 }
@@ -8566,7 +8805,7 @@ inline void serialize_HealthResponse_Uptime_seconds_t_array_into(const std::vect
 
 inline std::string serialize_HealthResponse_Uptime_seconds_t_array(const std::vector<HealthResponse_Uptime_seconds_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_HealthResponse_Uptime_seconds_t_array_into(arr, json);
     return json;
 }
@@ -8582,7 +8821,7 @@ inline void serialize_HealthResponse_Uptime_seconds_t_array_into(const arena_vec
 
 inline std::string serialize_HealthResponse_Uptime_seconds_t_array(const arena_vector<HealthResponse_Uptime_seconds_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_HealthResponse_Uptime_seconds_t_array_into(arr, json);
     return json;
 }
@@ -8598,7 +8837,7 @@ inline void serialize_HealthResponse_Total_requests_t_array_into(const std::vect
 
 inline std::string serialize_HealthResponse_Total_requests_t_array(const std::vector<HealthResponse_Total_requests_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_HealthResponse_Total_requests_t_array_into(arr, json);
     return json;
 }
@@ -8614,7 +8853,7 @@ inline void serialize_HealthResponse_Total_requests_t_array_into(const arena_vec
 
 inline std::string serialize_HealthResponse_Total_requests_t_array(const arena_vector<HealthResponse_Total_requests_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_HealthResponse_Total_requests_t_array_into(arr, json);
     return json;
 }
@@ -8630,7 +8869,7 @@ inline void serialize_ProblemDetails_array_into(const std::vector<ProblemDetails
 
 inline std::string serialize_ProblemDetails_array(const std::vector<ProblemDetails>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 199 + 2);
     serialize_ProblemDetails_array_into(arr, json);
     return json;
 }
@@ -8646,7 +8885,7 @@ inline void serialize_ProblemDetails_array_into(const arena_vector<ProblemDetail
 
 inline std::string serialize_ProblemDetails_array(const arena_vector<ProblemDetails>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 199 + 2);
     serialize_ProblemDetails_array_into(arr, json);
     return json;
 }
@@ -8726,7 +8965,7 @@ inline void serialize_ProblemDetails_Status_t_array_into(const std::vector<Probl
 
 inline std::string serialize_ProblemDetails_Status_t_array(const std::vector<ProblemDetails_Status_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_ProblemDetails_Status_t_array_into(arr, json);
     return json;
 }
@@ -8742,7 +8981,7 @@ inline void serialize_ProblemDetails_Status_t_array_into(const arena_vector<Prob
 
 inline std::string serialize_ProblemDetails_Status_t_array(const arena_vector<ProblemDetails_Status_t>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_ProblemDetails_Status_t_array_into(arr, json);
     return json;
 }
@@ -8854,7 +9093,7 @@ inline void serialize_listTasks_param_priority_array_into(const std::vector<list
 
 inline std::string serialize_listTasks_param_priority_array(const std::vector<listTasks_param_priority>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_listTasks_param_priority_array_into(arr, json);
     return json;
 }
@@ -8870,7 +9109,7 @@ inline void serialize_listTasks_param_priority_array_into(const arena_vector<lis
 
 inline std::string serialize_listTasks_param_priority_array(const arena_vector<listTasks_param_priority>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_listTasks_param_priority_array_into(arr, json);
     return json;
 }
@@ -8886,7 +9125,7 @@ inline void serialize_listTasks_param_limit_array_into(const std::vector<listTas
 
 inline std::string serialize_listTasks_param_limit_array(const std::vector<listTasks_param_limit>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_listTasks_param_limit_array_into(arr, json);
     return json;
 }
@@ -8902,7 +9141,7 @@ inline void serialize_listTasks_param_limit_array_into(const arena_vector<listTa
 
 inline std::string serialize_listTasks_param_limit_array(const arena_vector<listTasks_param_limit>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_listTasks_param_limit_array_into(arr, json);
     return json;
 }
@@ -8918,7 +9157,7 @@ inline void serialize_listTasks_param_offset_array_into(const std::vector<listTa
 
 inline std::string serialize_listTasks_param_offset_array(const std::vector<listTasks_param_offset>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_listTasks_param_offset_array_into(arr, json);
     return json;
 }
@@ -8934,7 +9173,7 @@ inline void serialize_listTasks_param_offset_array_into(const arena_vector<listT
 
 inline std::string serialize_listTasks_param_offset_array(const arena_vector<listTasks_param_offset>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_listTasks_param_offset_array_into(arr, json);
     return json;
 }
@@ -8950,7 +9189,7 @@ inline void serialize_schema_array_into(const std::vector<schema>& arr, std::str
 
 inline std::string serialize_schema_array(const std::vector<schema>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_array_into(arr, json);
     return json;
 }
@@ -8966,7 +9205,7 @@ inline void serialize_schema_array_into(const arena_vector<schema>& arr, std::st
 
 inline std::string serialize_schema_array(const arena_vector<schema>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_array_into(arr, json);
     return json;
 }
@@ -8982,7 +9221,7 @@ inline void serialize_schema_1_array_into(const std::vector<schema_1>& arr, std:
 
 inline std::string serialize_schema_1_array(const std::vector<schema_1>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_1_array_into(arr, json);
     return json;
 }
@@ -8998,7 +9237,7 @@ inline void serialize_schema_1_array_into(const arena_vector<schema_1>& arr, std
 
 inline std::string serialize_schema_1_array(const arena_vector<schema_1>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_1_array_into(arr, json);
     return json;
 }
@@ -9014,7 +9253,7 @@ inline void serialize_schema_2_array_into(const std::vector<schema_2>& arr, std:
 
 inline std::string serialize_schema_2_array(const std::vector<schema_2>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_2_array_into(arr, json);
     return json;
 }
@@ -9030,7 +9269,7 @@ inline void serialize_schema_2_array_into(const arena_vector<schema_2>& arr, std
 
 inline std::string serialize_schema_2_array(const arena_vector<schema_2>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_2_array_into(arr, json);
     return json;
 }
@@ -9046,7 +9285,7 @@ inline void serialize_schema_3_array_into(const std::vector<schema_3>& arr, std:
 
 inline std::string serialize_schema_3_array(const std::vector<schema_3>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_3_array_into(arr, json);
     return json;
 }
@@ -9062,7 +9301,7 @@ inline void serialize_schema_3_array_into(const arena_vector<schema_3>& arr, std
 
 inline std::string serialize_schema_3_array(const arena_vector<schema_3>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_3_array_into(arr, json);
     return json;
 }
@@ -9078,7 +9317,7 @@ inline void serialize_getTask_param_id_array_into(const std::vector<getTask_para
 
 inline std::string serialize_getTask_param_id_array(const std::vector<getTask_param_id>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_getTask_param_id_array_into(arr, json);
     return json;
 }
@@ -9094,7 +9333,7 @@ inline void serialize_getTask_param_id_array_into(const arena_vector<getTask_par
 
 inline std::string serialize_getTask_param_id_array(const arena_vector<getTask_param_id>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_getTask_param_id_array_into(arr, json);
     return json;
 }
@@ -9110,7 +9349,7 @@ inline void serialize_schema_4_array_into(const std::vector<schema_4>& arr, std:
 
 inline std::string serialize_schema_4_array(const std::vector<schema_4>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_4_array_into(arr, json);
     return json;
 }
@@ -9126,7 +9365,7 @@ inline void serialize_schema_4_array_into(const arena_vector<schema_4>& arr, std
 
 inline std::string serialize_schema_4_array(const arena_vector<schema_4>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_4_array_into(arr, json);
     return json;
 }
@@ -9142,7 +9381,7 @@ inline void serialize_schema_5_array_into(const std::vector<schema_5>& arr, std:
 
 inline std::string serialize_schema_5_array(const std::vector<schema_5>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_5_array_into(arr, json);
     return json;
 }
@@ -9158,7 +9397,7 @@ inline void serialize_schema_5_array_into(const arena_vector<schema_5>& arr, std
 
 inline std::string serialize_schema_5_array(const arena_vector<schema_5>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_5_array_into(arr, json);
     return json;
 }
@@ -9174,7 +9413,7 @@ inline void serialize_updateTask_param_id_array_into(const std::vector<updateTas
 
 inline std::string serialize_updateTask_param_id_array(const std::vector<updateTask_param_id>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_updateTask_param_id_array_into(arr, json);
     return json;
 }
@@ -9190,7 +9429,7 @@ inline void serialize_updateTask_param_id_array_into(const arena_vector<updateTa
 
 inline std::string serialize_updateTask_param_id_array(const arena_vector<updateTask_param_id>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_updateTask_param_id_array_into(arr, json);
     return json;
 }
@@ -9206,7 +9445,7 @@ inline void serialize_schema_6_array_into(const std::vector<schema_6>& arr, std:
 
 inline std::string serialize_schema_6_array(const std::vector<schema_6>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_6_array_into(arr, json);
     return json;
 }
@@ -9222,7 +9461,7 @@ inline void serialize_schema_6_array_into(const arena_vector<schema_6>& arr, std
 
 inline std::string serialize_schema_6_array(const arena_vector<schema_6>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_6_array_into(arr, json);
     return json;
 }
@@ -9238,7 +9477,7 @@ inline void serialize_schema_7_array_into(const std::vector<schema_7>& arr, std:
 
 inline std::string serialize_schema_7_array(const std::vector<schema_7>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_7_array_into(arr, json);
     return json;
 }
@@ -9254,7 +9493,7 @@ inline void serialize_schema_7_array_into(const arena_vector<schema_7>& arr, std
 
 inline std::string serialize_schema_7_array(const arena_vector<schema_7>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_7_array_into(arr, json);
     return json;
 }
@@ -9270,7 +9509,7 @@ inline void serialize_schema_8_array_into(const std::vector<schema_8>& arr, std:
 
 inline std::string serialize_schema_8_array(const std::vector<schema_8>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_8_array_into(arr, json);
     return json;
 }
@@ -9286,7 +9525,7 @@ inline void serialize_schema_8_array_into(const arena_vector<schema_8>& arr, std
 
 inline std::string serialize_schema_8_array(const arena_vector<schema_8>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_8_array_into(arr, json);
     return json;
 }
@@ -9302,7 +9541,7 @@ inline void serialize_deleteTask_param_id_array_into(const std::vector<deleteTas
 
 inline std::string serialize_deleteTask_param_id_array(const std::vector<deleteTask_param_id>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_deleteTask_param_id_array_into(arr, json);
     return json;
 }
@@ -9318,7 +9557,7 @@ inline void serialize_deleteTask_param_id_array_into(const arena_vector<deleteTa
 
 inline std::string serialize_deleteTask_param_id_array(const arena_vector<deleteTask_param_id>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_deleteTask_param_id_array_into(arr, json);
     return json;
 }
@@ -9334,7 +9573,7 @@ inline void serialize_schema_9_array_into(const std::vector<schema_9>& arr, std:
 
 inline std::string serialize_schema_9_array(const std::vector<schema_9>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_9_array_into(arr, json);
     return json;
 }
@@ -9350,7 +9589,7 @@ inline void serialize_schema_9_array_into(const arena_vector<schema_9>& arr, std
 
 inline std::string serialize_schema_9_array(const arena_vector<schema_9>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_9_array_into(arr, json);
     return json;
 }
@@ -9366,7 +9605,7 @@ inline void serialize_schema_10_array_into(const std::vector<schema_10>& arr, st
 
 inline std::string serialize_schema_10_array(const std::vector<schema_10>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_10_array_into(arr, json);
     return json;
 }
@@ -9382,7 +9621,7 @@ inline void serialize_schema_10_array_into(const arena_vector<schema_10>& arr, s
 
 inline std::string serialize_schema_10_array(const arena_vector<schema_10>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_10_array_into(arr, json);
     return json;
 }
@@ -9398,7 +9637,7 @@ inline void serialize_schema_11_array_into(const std::vector<schema_11>& arr, st
 
 inline std::string serialize_schema_11_array(const std::vector<schema_11>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_11_array_into(arr, json);
     return json;
 }
@@ -9414,7 +9653,7 @@ inline void serialize_schema_11_array_into(const arena_vector<schema_11>& arr, s
 
 inline std::string serialize_schema_11_array(const arena_vector<schema_11>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_11_array_into(arr, json);
     return json;
 }
@@ -9430,7 +9669,7 @@ inline void serialize_schema_12_array_into(const std::vector<schema_12>& arr, st
 
 inline std::string serialize_schema_12_array(const std::vector<schema_12>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_12_array_into(arr, json);
     return json;
 }
@@ -9446,7 +9685,7 @@ inline void serialize_schema_12_array_into(const arena_vector<schema_12>& arr, s
 
 inline std::string serialize_schema_12_array(const arena_vector<schema_12>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_12_array_into(arr, json);
     return json;
 }
@@ -9462,7 +9701,7 @@ inline void serialize_schema_13_array_into(const std::vector<schema_13>& arr, st
 
 inline std::string serialize_schema_13_array(const std::vector<schema_13>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_13_array_into(arr, json);
     return json;
 }
@@ -9478,7 +9717,7 @@ inline void serialize_schema_13_array_into(const arena_vector<schema_13>& arr, s
 
 inline std::string serialize_schema_13_array(const arena_vector<schema_13>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_13_array_into(arr, json);
     return json;
 }
@@ -9494,7 +9733,7 @@ inline void serialize_schema_14_array_into(const std::vector<schema_14>& arr, st
 
 inline std::string serialize_schema_14_array(const std::vector<schema_14>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_14_array_into(arr, json);
     return json;
 }
@@ -9510,7 +9749,7 @@ inline void serialize_schema_14_array_into(const arena_vector<schema_14>& arr, s
 
 inline std::string serialize_schema_14_array(const arena_vector<schema_14>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 2 + 2);
     serialize_schema_14_array_into(arr, json);
     return json;
 }

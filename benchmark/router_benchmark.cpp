@@ -243,14 +243,15 @@ std::array<route_entry, 64> make_large_route_table(const handler_fn& h) {
 }
 
 int main() {
-    handler_fn ok_handler = [](const request&, request_context&) {
-        return response::ok("ok", "text/plain");
+    handler_fn ok_handler = [](const request&, request_context&, response& out) {
+        out = response::ok("ok", "text/plain");
+        return result<void>{};
     };
 
     std::array<middleware_fn, 1> middleware = {
-        middleware_fn([](const request&, request_context&, next_fn next) {
+        middleware_fn([](const request&, request_context&, response& out, next_fn next) {
             // cheap middleware to ensure chain overhead is measured
-            return next();
+            return next(out);
         }),
     };
 

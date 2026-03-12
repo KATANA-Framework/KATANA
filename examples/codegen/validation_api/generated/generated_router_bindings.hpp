@@ -42,6 +42,7 @@ using katana::http_utils::cookie_param;
 using katana::http_utils::find_content_type;
 using katana::http_utils::negotiate_response_type;
 using katana::http_utils::format_validation_error;
+using katana::http_utils::format_validation_error_into;
 using katana::http_utils::hash_string;
 using katana::http_utils::content_type_info;
 
@@ -53,36 +54,43 @@ constexpr uint64_t HASH_REGISTER_USER = hash_string("/user/register");
 // ============================================================
 
 // Dispatch for /user/register
-inline katana::result<katana::http::response> dispatch_register_user(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler) {
-    auto response_content_type = negotiate_response_type(req, route_0_produces);
-    if (!response_content_type) {
-        return katana::http::response::error(katana::problem_details::not_acceptable("unsupported Accept header"));
+inline katana::result<void> dispatch_register_user(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
+    constexpr std::string_view response_content_type = "application/json";
+    auto accept_header = req.headers.get(katana::http::field::accept);
+    if (accept_header && !accept_header->empty() && *accept_header != "*/*" && *accept_header != response_content_type) {
+        auto comma = accept_header->find(',');
+        auto semicolon = accept_header->find(';');
+        auto token_end = std::min(comma, semicolon);
+        auto simple_accept = accept_header->substr(0, token_end);
+        if (simple_accept != response_content_type) {
+            out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
+            return {};
+        }
     }
-    auto content_type_index = find_content_type(req.headers.get(katana::http::field::content_type), route_0_consumes);
-    if (!content_type_index) return katana::http::response::error(katana::problem_details::unsupported_media_type("unsupported Content-Type"));
-    std::optional<RegisterUserRequest> parsed_body;
-    switch (*content_type_index) {
-    case 0: {
-        auto parsed_body_candidate = parse_RegisterUserRequest(req.body, &ctx.arena);
-        if (!parsed_body_candidate) return katana::http::response::error(katana::problem_details::bad_request("invalid request body"));
-        parsed_body = std::move(*parsed_body_candidate);
-        break;
+    auto content_type = req.headers.get(katana::http::field::content_type);
+    if (!content_type || content_type->substr(0, 16) != "application/json") {
+        out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    default:
-        return katana::http::response::error(katana::problem_details::unsupported_media_type("unsupported Content-Type"));
+    auto parsed_body = parse_RegisterUserRequest(req.body, &ctx.arena);
+    if (!parsed_body) {
+        out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
 
     // Automatic validation (optimized: single allocation)
     if (auto validation_error = validate_RegisterUserRequest(*parsed_body)) {
-        return format_validation_error(*validation_error);
+        format_validation_error_into(out, *validation_error);
+        return {};
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
-    auto result = handler.register_user(*parsed_body);
-    if (response_content_type && !result.headers.get(katana::http::field::content_type)) {
-        result.set_header("Content-Type", *response_content_type);
+    auto handler_result = handler.register_user(*parsed_body, out);
+    if (!handler_result) {
+        return std::unexpected(handler_result.error());
     }
-    return result;
+    if (!out.headers.get(katana::http::field::content_type)) {
+        out.set_header("Content-Type", response_content_type);
+    }
+    return {};
 }
 
 // ============================================================
@@ -96,8 +104,8 @@ inline const katana::http::router& make_router(api_handler& handler) {
     static std::array<route_entry, route_count> route_entries = {
         route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/user/register">(),
-                   handler_fn([&handler](const katana::http::request& req, katana::http::request_context& ctx) -> katana::result<katana::http::response> {
-                       return dispatch_register_user(req, ctx, handler);
+                   handler_fn([&handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
+                       return dispatch_register_user(req, ctx, handler, out);
                    })
         },
     };
@@ -111,9 +119,10 @@ public:
     explicit fast_router(api_handler& handler, const katana::http::router& fallback)
         : handler_(handler), fallback_router_(fallback) {}
 
-    katana::result<katana::http::response> operator()(
+    katana::result<void> dispatch_to(
         const katana::http::request& req,
-        katana::http::request_context& ctx) const {
+        katana::http::request_context& ctx,
+        katana::http::response& out) const {
         // Strip query string for matching
         std::string_view path = req.uri;
         auto query_pos = path.find('?');
@@ -127,7 +136,7 @@ public:
             case HASH_REGISTER_USER:
                 if (path == "/user/register") {
                     if (req.http_method == katana::http::method::post)
-                        return dispatch_register_user(req, ctx, handler_);
+                        { return dispatch_register_user(req, ctx, handler_, out); }
                 }
                 break;
             default:
@@ -138,7 +147,18 @@ public:
         // - Dynamic routes (with path parameters)
         // - Hash collisions
         // - Method mismatches
-        return fallback_router_.dispatch(req, ctx);
+        return fallback_router_.dispatch(req, ctx, out);
+    }
+
+    katana::result<katana::http::response> operator()(
+        const katana::http::request& req,
+        katana::http::request_context& ctx) const {
+        katana::http::response out;
+        auto status = dispatch_to(req, ctx, out);
+        if (!status) {
+            return std::unexpected(status.error());
+        }
+        return out;
     }
 
 private:

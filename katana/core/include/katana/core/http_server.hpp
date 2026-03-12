@@ -3,7 +3,6 @@
 #include "katana/core/arena.hpp"
 #include "katana/core/fd_watch.hpp"
 #include "katana/core/http.hpp"
-#include "katana/core/io_buffer.hpp"
 #include "katana/core/reactor_pool.hpp"
 #include "katana/core/router.hpp"
 #include "katana/core/shutdown.hpp"
@@ -20,6 +19,11 @@
 
 namespace katana {
 namespace http {
+
+namespace detail {
+constexpr size_t HTTP_SERVER_RESPONSE_BUFFER_CAPACITY = 8192;
+constexpr size_t HTTP_SERVER_ARENA_CAPACITY = 8192;
+} // namespace detail
 
 /// High-level HTTP server abstraction
 ///
@@ -98,24 +102,67 @@ public:
     int run();
 
 private:
+    enum class flush_result : uint8_t { complete, blocked, error };
+
     struct connection_state {
         tcp_socket socket;
-        io_buffer read_buffer;
-        io_buffer write_buffer;
+        std::string active_response;
+        std::string active_response_body;
+        std::string queued_response;
+        std::string queued_response_body;
+        std::string response_scratch;
+        size_t write_pos = 0;
         monotonic_arena arena;
         parser http_parser;
         std::unique_ptr<fd_watch> watch;
         bool close_requested = false; // Track if connection should close after response
+        size_t active_response_completed_requests = 0;
+        bool queued_close_requested = false;
+        size_t queued_response_completed_requests = 0;
+        event_type watch_events = event_type::readable;
 
         explicit connection_state(tcp_socket sock)
-            : socket(std::move(sock)), read_buffer(8192), write_buffer(8192), arena(8192),
-              http_parser(&arena) {}
+            : socket(std::move(sock)),
+              arena(detail::HTTP_SERVER_ARENA_CAPACITY),
+              http_parser(&arena) {
+            active_response.reserve(detail::HTTP_SERVER_RESPONSE_BUFFER_CAPACITY);
+            active_response_body.reserve(detail::HTTP_SERVER_RESPONSE_BUFFER_CAPACITY);
+            queued_response.reserve(detail::HTTP_SERVER_RESPONSE_BUFFER_CAPACITY);
+            queued_response_body.reserve(detail::HTTP_SERVER_RESPONSE_BUFFER_CAPACITY);
+            response_scratch.reserve(detail::HTTP_SERVER_RESPONSE_BUFFER_CAPACITY);
+        }
+
+        [[nodiscard]] size_t pending_response_bytes() const noexcept {
+            return active_response.size() + active_response_body.size();
+        }
+
+        [[nodiscard]] bool has_pending_response() const noexcept {
+            return write_pos < pending_response_bytes();
+        }
+
+        [[nodiscard]] size_t queued_response_bytes() const noexcept {
+            return queued_response.size() + queued_response_body.size();
+        }
+
+        [[nodiscard]] bool has_queued_response() const noexcept {
+            return queued_response_bytes() != 0 || queued_response_completed_requests != 0;
+        }
+
+        result<void> set_watch_events(event_type events) {
+            if (!watch || watch_events == events) {
+                return {};
+            }
+            auto res = watch->modify(events);
+            if (res) {
+                watch_events = events;
+            }
+            return res;
+        }
     };
 
+    flush_result flush_active_response(connection_state& state);
+    void prepare_active_response(connection_state& state, response& resp);
     void handle_connection(connection_state& state, reactor& r);
-    void accept_connection(reactor& r,
-                           tcp_listener& listener,
-                           std::vector<std::unique_ptr<connection_state>>& connections);
 
     const router& router_;
     std::string host_ = "0.0.0.0";

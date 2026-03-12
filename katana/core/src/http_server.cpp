@@ -1,10 +1,17 @@
 #include "katana/core/http_server.hpp"
+#include "katana/core/detail/syscall_metrics.hpp"
 #include "katana/core/problem.hpp"
 
 #include <atomic>
 #include <cerrno>
+#include <cctype>
+#include <cstring>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sstream>
 #include <sys/socket.h>
 
 // Debug logging disabled for performance
@@ -16,6 +23,9 @@ namespace katana {
 namespace http {
 
 namespace {
+constexpr size_t SMALL_CONTIGUOUS_RESPONSE_BODY_THRESHOLD = 256;
+constexpr size_t PIPELINE_RESPONSE_BATCH_LIMIT = 64 * 1024;
+
 struct conn_close_counters {
     std::atomic<uint64_t> read_error{0};
     std::atomic<uint64_t> read_eof{0};
@@ -34,6 +44,60 @@ bool conn_debug_enabled() {
     return enabled;
 }
 
+bool parser_debug_enabled() {
+    static bool enabled = std::getenv("KATANA_HTTP_PARSER_DEBUG") != nullptr;
+    return enabled;
+}
+
+const char* parser_state_name(parser::state state) noexcept {
+    switch (state) {
+    case parser::state::request_line:
+        return "request_line";
+    case parser::state::headers:
+        return "headers";
+    case parser::state::body:
+        return "body";
+    case parser::state::chunk_size:
+        return "chunk_size";
+    case parser::state::chunk_data:
+        return "chunk_data";
+    case parser::state::chunk_trailer:
+        return "chunk_trailer";
+    case parser::state::complete:
+        return "complete";
+    }
+    return "unknown";
+}
+
+std::string escape_preview(std::string_view bytes) {
+    std::ostringstream out;
+    out << std::hex << std::setfill('0');
+    for (unsigned char ch : bytes) {
+        switch (ch) {
+        case '\r':
+            out << "\\r";
+            break;
+        case '\n':
+            out << "\\n";
+            break;
+        case '\t':
+            out << "\\t";
+            break;
+        case '\\':
+            out << "\\\\";
+            break;
+        default:
+            if (std::isprint(ch)) {
+                out << static_cast<char>(ch);
+            } else {
+                out << "\\x" << std::setw(2) << static_cast<unsigned int>(ch);
+            }
+            break;
+        }
+    }
+    return out.str();
+}
+
 void maybe_log_close(const char* reason, uint64_t count) {
     if (!conn_debug_enabled()) {
         return;
@@ -42,78 +106,283 @@ void maybe_log_close(const char* reason, uint64_t count) {
         std::cerr << "[conn_debug] close " << reason << " count=" << count << "\n";
     }
 }
+
+bool getenv_bool(const char* name, bool fallback) {
+    const char* value = std::getenv(name);
+    if (!value || !*value) {
+        return fallback;
+    }
+
+    return std::strcmp(value, "1") == 0 || std::strcmp(value, "true") == 0 ||
+           std::strcmp(value, "TRUE") == 0 || std::strcmp(value, "yes") == 0 ||
+           std::strcmp(value, "YES") == 0;
+}
+
+void configure_client_socket(int fd) {
+    if (fd < 0) {
+        return;
+    }
+
+    int nodelay = getenv_bool("KATANA_TCP_NODELAY", true) ? 1 : 0;
+    (void)::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+
+#ifdef TCP_QUICKACK
+    int quickack = getenv_bool("KATANA_TCP_QUICKACK", false) ? 1 : 0;
+    if (quickack != 0) {
+        (void)::setsockopt(fd, IPPROTO_TCP, TCP_QUICKACK, &quickack, sizeof(quickack));
+    }
+#endif
+}
+
+void prepare_response_storage(std::string& head, std::string& body, response& resp) {
+    head.clear();
+    body.clear();
+
+    if (resp.chunked || resp.body.size() <= SMALL_CONTIGUOUS_RESPONSE_BODY_THRESHOLD) {
+        resp.serialize_into(head);
+        return;
+    }
+
+    resp.serialize_head_into(head);
+    body = std::move(resp.body);
+}
+
 } // namespace
+
+server::flush_result server::flush_active_response(connection_state& state) {
+    const size_t head_size = state.active_response.size();
+    const size_t body_size = state.active_response_body.size();
+    const size_t total_size = head_size + body_size;
+
+    while (state.write_pos < total_size) {
+        result<size_t> write_result = size_t{0};
+        if (body_size == 0) {
+            auto remaining = std::string_view(state.active_response).substr(state.write_pos);
+            write_result = state.socket.write(as_bytes(remaining));
+        } else {
+            iovec iov[2];
+            size_t iov_count = 0;
+            if (state.write_pos < head_size) {
+                iov[iov_count].iov_base = state.active_response.data() + state.write_pos;
+                iov[iov_count].iov_len = head_size - state.write_pos;
+                ++iov_count;
+                iov[iov_count].iov_base = state.active_response_body.data();
+                iov[iov_count].iov_len = body_size;
+                ++iov_count;
+            } else {
+                const size_t body_offset = state.write_pos - head_size;
+                iov[iov_count].iov_base = state.active_response_body.data() + body_offset;
+                iov[iov_count].iov_len = body_size - body_offset;
+                ++iov_count;
+            }
+            write_result = state.socket.writev(iov, iov_count);
+        }
+
+        if (!write_result) {
+            auto err_val = write_result.error().value();
+            auto count = ++close_counters().write_error;
+            if (conn_debug_enabled() && (count <= 20 || count % 1000 == 0)) {
+                std::cerr << "[conn_debug] close write_error count=" << count
+                          << " errno=" << err_val << "\n";
+            }
+            return flush_result::error;
+        }
+
+        if (*write_result == 0) {
+            return flush_result::blocked;
+        }
+
+        state.write_pos += *write_result;
+    }
+
+    state.active_response.clear();
+    state.active_response_body.clear();
+    state.write_pos = 0;
+    return flush_result::complete;
+}
+
+void server::prepare_active_response(connection_state& state, response& resp) {
+    prepare_response_storage(state.active_response, state.active_response_body, resp);
+}
 
 void server::handle_connection(connection_state& state, [[maybe_unused]] reactor& r) {
     // DEBUG: Track iterations
     [[maybe_unused]] static thread_local int iter_count = 0;
     ++iter_count;
-    DEBUG_LOG("[DEBUG] handle_connection iter=%d write_buf_empty=%d read_buf_empty=%d\n",
+    DEBUG_LOG("[DEBUG] handle_connection iter=%d response_pending=%d read_buf_empty=%d\n",
               iter_count,
-              state.write_buffer.empty() ? 1 : 0,
-              state.read_buffer.empty() ? 1 : 0);
+              state.has_pending_response() ? 1 : 0,
+              state.http_parser.buffered_bytes() == 0 ? 1 : 0);
 
-    if (!state.write_buffer.empty()) {
-        while (!state.write_buffer.empty()) {
-            auto data = state.write_buffer.readable_span();
-            auto write_result = state.socket.write(data);
+    auto arm_writable = [&]() {
+        if (state.watch) {
+            state.set_watch_events(event_type::writable);
+        }
+    };
 
-            if (!write_result) {
-                if (write_result.error().value() == EAGAIN ||
-                    write_result.error().value() == EWOULDBLOCK) {
-                    state.watch->modify(event_type::writable);
-                    return;
+    auto note_completed_requests = [&](size_t& completed_requests) {
+        for (size_t i = 0; i < completed_requests; ++i) {
+            ::katana::detail::syscall_metrics_registry::instance().note_completed_request();
+        }
+        completed_requests = 0;
+    };
+
+    auto reset_for_next_request = [&]() {
+        state.arena.reset();
+        state.http_parser.prepare_for_next_request(&state.arena);
+    };
+
+    auto clear_queued_response = [&]() {
+        state.queued_response.clear();
+        state.queued_response_body.clear();
+        state.queued_close_requested = false;
+        state.queued_response_completed_requests = 0;
+    };
+
+    auto promote_queued_response = [&]() {
+        if (conn_debug_enabled()) {
+            std::cerr << "[conn_debug] promote queued head=" << state.queued_response.size()
+                      << " body=" << state.queued_response_body.size()
+                      << " close=" << state.queued_close_requested
+                      << " completed=" << state.queued_response_completed_requests << "\n";
+        }
+        state.active_response = std::move(state.queued_response);
+        state.active_response_body = std::move(state.queued_response_body);
+        state.write_pos = 0;
+        state.close_requested = state.queued_close_requested;
+        state.active_response_completed_requests = state.queued_response_completed_requests;
+        clear_queued_response();
+    };
+
+    auto queue_prepared_response = [&](bool close_requested, size_t completed_requests) {
+        if (conn_debug_enabled()) {
+            std::cerr << "[conn_debug] queue prepared scratch=" << state.response_scratch.size()
+                      << " close=" << close_requested
+                      << " completed=" << completed_requests << "\n";
+        }
+        state.queued_response = std::move(state.response_scratch);
+        state.queued_response_body.clear();
+        state.queued_close_requested = close_requested;
+        state.queued_response_completed_requests = completed_requests;
+        state.response_scratch.clear();
+    };
+
+    auto queue_response = [&](response& resp, bool close_requested, size_t completed_requests) {
+        prepare_response_storage(state.queued_response, state.queued_response_body, resp);
+        if (conn_debug_enabled()) {
+            std::cerr << "[conn_debug] queue response head=" << state.queued_response.size()
+                      << " body=" << state.queued_response_body.size()
+                      << " close=" << close_requested
+                      << " completed=" << completed_requests << "\n";
+        }
+        state.queued_close_requested = close_requested;
+        state.queued_response_completed_requests = completed_requests;
+    };
+
+    auto flush_ready_responses = [&]() -> bool {
+        while (state.has_pending_response()) {
+            auto flush_state = flush_active_response(state);
+            if (flush_state == flush_result::blocked) {
+                if (conn_debug_enabled()) {
+                    std::cerr << "[conn_debug] flush blocked write_pos=" << state.write_pos
+                              << " pending=" << state.pending_response_bytes()
+                              << " queued=" << state.queued_response_bytes() << "\n";
                 }
+                arm_writable();
+                return false;
+            }
+            if (flush_state == flush_result::error) {
                 state.watch.reset();
+                return false;
+            }
+
+            if (conn_debug_enabled()) {
+                std::cerr << "[conn_debug] flush complete completed="
+                          << state.active_response_completed_requests
+                          << " close=" << state.close_requested
+                          << " queued=" << state.queued_response_bytes() << "\n";
+            }
+
+            note_completed_requests(state.active_response_completed_requests);
+            if (state.close_requested) {
+                auto count = ++close_counters().close_header;
+                maybe_log_close("close_header", count);
+                state.watch.reset();
+                return false;
+            }
+
+            state.close_requested = false;
+            if (state.has_queued_response()) {
+                promote_queued_response();
+            }
+        }
+        return true;
+    };
+
+    auto close_with_parse_error = [&]() -> void {
+        if (parser_debug_enabled()) {
+            std::cerr << "[parser_debug] state="
+                      << parser_state_name(state.http_parser.current_state())
+                      << " parse_pos=" << state.http_parser.parse_pos()
+                      << " buffer_size=" << state.http_parser.buffer_size()
+                      << " buffered=" << state.http_parser.buffered_bytes()
+                      << " preview=\""
+                      << escape_preview(state.http_parser.unparsed_view(128))
+                      << "\"\n";
+        }
+        response resp{&state.arena};
+        resp.assign_error(problem_details::bad_request("Invalid HTTP request"));
+        resp.headers.set_known_borrowed(http::field::connection, "close");
+        auto count = ++close_counters().parse_error;
+        maybe_log_close("parse_error", count);
+
+        if (state.has_pending_response() || state.has_queued_response()) {
+            queue_response(resp, true, 0);
+            if (!flush_ready_responses()) {
                 return;
             }
-
-            if (write_result.value() == 0) {
-                break;
-            }
-
-            state.write_buffer.consume(write_result.value());
-        }
-
-        if (!state.write_buffer.empty()) {
-            state.watch->modify(event_type::writable);
-            return;
-        }
-
-        // Check if connection should be closed after completing write
-        if (state.close_requested) {
-            auto count = ++close_counters().close_header;
-            maybe_log_close("close_header", count);
             state.watch.reset();
             return;
         }
 
-        state.close_requested = false; // Reset for next request
-        state.arena.reset();
-        state.http_parser.reset(&state.arena);
-        state.write_buffer.clear();
-        if (state.read_buffer.empty()) {
-            state.watch->modify(event_type::readable);
+        prepare_active_response(state, resp);
+        state.write_pos = 0;
+        state.close_requested = true;
+        state.active_response_completed_requests = 0;
+        (void)flush_ready_responses();
+    };
+
+    if (state.has_pending_response()) {
+        if (!flush_ready_responses()) {
+            return;
+        }
+        if (state.http_parser.buffered_bytes() == 0) {
+            state.set_watch_events(event_type::readable);
             return;
         }
     }
 
     while (true) {
-        if (state.read_buffer.empty()) {
-            auto buf = state.read_buffer.writable_span(4096);
-            auto read_result = state.socket.read(buf);
+        auto parse_result = state.http_parser.parse_available();
+        if (!parse_result) {
+            close_with_parse_error();
+            return;
+        }
 
+        if (!state.http_parser.is_complete()) {
+            auto writable = state.http_parser.writable_input_span(4096);
+            if (!writable) {
+                state.watch.reset();
+                return;
+            }
+
+            auto read_result = state.socket.read(*writable);
             if (!read_result) {
                 if (read_result.error().value() == EAGAIN ||
                     read_result.error().value() == EWOULDBLOCK) {
-                    DEBUG_LOG("[DEBUG] Read EAGAIN, breaking from loop\n");
-                    if (state.watch) {
-                        state.watch->modify(event_type::readable);
-                    }
+                    state.set_watch_events(event_type::readable);
                     return;
                 }
-                DEBUG_LOG("[DEBUG] Read error=%d, closing connection\n",
-                          read_result.error().value());
                 if (read_result.error().value() == static_cast<int>(error_code::ok)) {
                     auto count = ++close_counters().read_eof;
                     maybe_log_close("read_eof", count);
@@ -124,66 +393,24 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                 state.watch.reset();
                 return;
             }
-
             if (read_result->empty()) {
-                DEBUG_LOG("[DEBUG] Read would block, returning to event loop\n");
-                if (state.watch) {
-                    state.watch->modify(event_type::readable);
-                }
+                state.set_watch_events(event_type::readable);
                 return;
             }
 
-            DEBUG_LOG("[DEBUG] Read %zu bytes\n", read_result->size());
-            state.read_buffer.commit(read_result->size());
-        }
-
-        auto readable = state.read_buffer.readable_span();
-        auto parse_result = state.http_parser.parse(readable);
-
-        if (!parse_result) {
-            auto resp = response::error(problem_details::bad_request("Invalid HTTP request"));
-            resp.serialize_into(state.write_buffer);
-            auto count = ++close_counters().parse_error;
-            maybe_log_close("parse_error", count);
-            state.watch.reset();
-            return;
-        }
-
-        if (!state.http_parser.is_complete()) {
-            auto buf = state.read_buffer.writable_span(4096);
-            auto read_result = state.socket.read(buf);
-            if (!read_result) {
-                if (read_result.error().value() == EAGAIN ||
-                    read_result.error().value() == EWOULDBLOCK) {
-                    if (state.watch) {
-                        state.watch->modify(event_type::readable);
-                    }
-                    return;
-                }
-                auto count = ++close_counters().read_error;
-                maybe_log_close("read_error", count);
-                state.watch.reset();
+            parse_result = state.http_parser.commit_input(read_result->size());
+            if (!parse_result) {
+                close_with_parse_error();
                 return;
             }
-            if (read_result->empty()) {
-                if (state.watch) {
-                    state.watch->modify(event_type::readable);
-                }
-                return;
-            }
-            state.read_buffer.commit(read_result->size());
+
             continue;
         }
 
-        size_t parsed_bytes = state.http_parser.bytes_parsed();
-        state.read_buffer.consume(parsed_bytes);
-
-        DEBUG_LOG("[DEBUG] Request parsed, read_buf_size_after_consume=%zu\n",
-                  state.read_buffer.readable_span().size());
-
         const auto& req = state.http_parser.get_request();
         request_context ctx{state.arena};
-        auto resp = dispatch_or_problem(router_, req, ctx);
+        response resp{&state.arena};
+        dispatch_or_problem(router_, req, ctx, resp);
 
         if (on_request_callback_) {
             on_request_callback_(req, resp);
@@ -194,108 +421,93 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             connection_header && (*connection_header == "close" || *connection_header == "Close");
 
         if (!resp.headers.get("Connection")) {
-            resp.set_header("Connection", close_connection ? "close" : "keep-alive");
+            resp.headers.set_known_borrowed(http::field::connection,
+                                            close_connection ? "close" : "keep-alive");
         }
 
-        state.close_requested = close_connection; // Remember for deferred write completion
+        const bool can_batch_small_response =
+            !close_connection && !resp.chunked &&
+            resp.body.size() <= SMALL_CONTIGUOUS_RESPONSE_BODY_THRESHOLD;
 
-        resp.serialize_into(state.write_buffer);
+        if (conn_debug_enabled()) {
+            std::cerr << "[conn_debug] response uri=" << req.uri << " body=" << resp.body.size()
+                      << " can_batch_small=" << can_batch_small_response
+                      << " active_pending=" << state.pending_response_bytes()
+                      << " queued=" << state.queued_response_bytes() << "\n";
+        }
 
-        [[maybe_unused]] size_t total_sent = 0;
-        while (!state.write_buffer.empty()) {
-            auto data = state.write_buffer.readable_span();
-            auto write_result = state.socket.write(data);
+        if (can_batch_small_response) {
+            state.response_scratch.clear();
+            resp.serialize_into(state.response_scratch);
 
-            if (!write_result) {
-                if (write_result.error().value() == EAGAIN ||
-                    write_result.error().value() == EWOULDBLOCK) {
-                    DEBUG_LOG("[DEBUG] Write EAGAIN, total_sent=%zu, remaining=%zu\n",
-                              total_sent,
-                              state.write_buffer.readable_span().size());
-                    state.watch->modify(event_type::writable);
+            if (state.pending_response_bytes() + state.response_scratch.size() <=
+                PIPELINE_RESPONSE_BATCH_LIMIT &&
+                !state.has_queued_response()) {
+                state.active_response.append(state.response_scratch);
+                ++state.active_response_completed_requests;
+                reset_for_next_request();
+
+                if (state.http_parser.buffered_bytes() != 0) {
+                    continue;
+                }
+            } else {
+                if (state.has_pending_response()) {
+                    queue_prepared_response(false, 1);
+                    reset_for_next_request();
+                    if (!flush_ready_responses()) {
+                        return;
+                    }
+                    if (state.http_parser.buffered_bytes() != 0) {
+                        continue;
+                    }
+                    state.set_watch_events(event_type::readable);
                     return;
                 }
-                DEBUG_LOG("[DEBUG] Write error=%d, total_sent=%zu\n",
-                          write_result.error().value(),
-                          total_sent);
-                auto err_val = write_result.error().value();
-                auto count = ++close_counters().write_error;
-                if (conn_debug_enabled() && (count <= 20 || count % 1000 == 0)) {
-                    std::cerr << "[conn_debug] close write_error count=" << count
-                              << " errno=" << err_val << "\n";
+
+                state.active_response = std::move(state.response_scratch);
+                state.active_response_body.clear();
+                state.write_pos = 0;
+                state.close_requested = false;
+                state.active_response_completed_requests = 1;
+                reset_for_next_request();
+            }
+        } else {
+            if (state.has_pending_response()) {
+                queue_response(resp, close_connection, 1);
+                reset_for_next_request();
+                if (!flush_ready_responses()) {
+                    return;
                 }
-                state.watch.reset();
+                if (state.http_parser.buffered_bytes() != 0) {
+                    continue;
+                }
+                state.set_watch_events(event_type::readable);
                 return;
             }
 
-            if (write_result.value() == 0) {
-                DEBUG_LOG("[DEBUG] Write returned 0, total_sent=%zu\n", total_sent);
-                break;
-            }
-
-            total_sent += write_result.value();
-            state.write_buffer.consume(write_result.value());
+            state.close_requested = close_connection;
+            prepare_active_response(state, resp);
+            state.write_pos = 0;
+            state.active_response_completed_requests = 1;
+            reset_for_next_request();
         }
 
-        if (!state.write_buffer.empty()) {
-            DEBUG_LOG("[DEBUG] Write incomplete, total_sent=%zu, remaining=%zu\n",
-                      total_sent,
-                      state.write_buffer.readable_span().size());
-            state.watch->modify(event_type::writable);
+        if (!flush_ready_responses()) {
+            DEBUG_LOG("[DEBUG] Write blocked/error with remaining=%zu\n",
+                      state.pending_response_bytes() - state.write_pos);
             return;
         }
 
-        DEBUG_LOG("[DEBUG] Write complete, total_sent=%zu bytes\n", total_sent);
-
-        if (close_connection) {
-            DEBUG_LOG("[DEBUG] Close connection requested, exiting\n");
-            auto count = ++close_counters().close_header;
-            maybe_log_close("close_header", count);
-            state.watch.reset();
-            return;
-        }
+        DEBUG_LOG("[DEBUG] Write complete\n");
 
         DEBUG_LOG("[DEBUG] Response sent, continuing keep-alive loop\n");
 
-        state.close_requested = false; // Reset for next keep-alive request
-        state.arena.reset();
-        state.http_parser.reset(&state.arena);
-        if (state.read_buffer.empty()) {
-            DEBUG_LOG("[DEBUG] Read buffer empty, switching to readable and returning\n");
-            if (state.watch) {
-                state.watch->modify(event_type::readable);
-            } else {
-                if (conn_debug_enabled()) {
-                    std::cerr << "[CRITICAL] state.watch is NULL after response send!\n";
-                }
-            }
+        if (state.http_parser.buffered_bytes() == 0) {
+            state.set_watch_events(event_type::readable);
             return;
-        } else {
-            DEBUG_LOG("[DEBUG] Read buffer has %zu bytes, continuing loop\n",
-                      state.read_buffer.readable_span().size());
         }
     }
     DEBUG_LOG("[DEBUG] Exiting handle_connection (while loop ended)\n");
-}
-
-void server::accept_connection(reactor& r,
-                               tcp_listener& listener,
-                               std::vector<std::unique_ptr<connection_state>>& connections) {
-    auto accept_result = listener.accept();
-    if (!accept_result) {
-        return;
-    }
-
-    auto state = std::make_unique<connection_state>(std::move(*accept_result));
-    int32_t fd = state->socket.native_handle();
-
-    auto* state_ptr = state.get();
-    state->watch =
-        std::make_unique<fd_watch>(r, fd, event_type::readable, [this, state_ptr, &r](event_type) {
-            handle_connection(*state_ptr, r);
-        });
-
-    connections.push_back(std::move(state));
 }
 
 int server::run() {
@@ -303,6 +515,7 @@ int server::run() {
     config.reactor_count = static_cast<uint32_t>(worker_count_);
     config.enable_adaptive_balancing = true;
     reactor_pool pool(config);
+    ::katana::detail::scoped_syscall_metrics_reporter syscall_metrics_reporter;
 
     std::vector<std::shared_ptr<fd_watch>> accept_watches;
 
@@ -316,11 +529,13 @@ int server::run() {
                 return;
             }
 
+            configure_client_socket(fd);
+
             auto state = std::make_shared<connection_state>(tcp_socket(fd));
             auto state_ptr = state.get();
 
             state->watch = std::make_unique<fd_watch>(
-                r, fd, event_type::readable, [this, state, state_ptr, &r](event_type) {
+                r, fd, state->watch_events, [this, state, state_ptr, &r](event_type) {
                     handle_connection(*state_ptr, r);
                 });
         }

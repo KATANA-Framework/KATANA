@@ -6,13 +6,13 @@ This script runs all benchmarks in stages, collects results, and generates
 structured output for documentation and CI integration.
 
 Usage:
-    ./scripts/run_benchmarks.py                    # Run stages 1-4
+    ./scripts/run_benchmarks.py                    # Run microbenchmark stages 1-4,6-8
     ./scripts/run_benchmarks.py --stage 1          # Run only stage 1
     ./scripts/run_benchmarks.py --stage 1 2        # Run stages 1 and 2
     ./scripts/run_benchmarks.py --repeats 10       # 10 runs per stage
     ./scripts/run_benchmarks.py --aggregation best # Use best result for each benchmark
     ./scripts/run_benchmarks.py --stage-repeat 1=20 # Override repeats for stage 1
-    ./scripts/run_benchmarks.py --include-e2e      # Include stage 5 (keep-alive e2e)
+    ./scripts/run_benchmarks.py --include-e2e      # Include wrk-based E2E stages 9-12
     ./scripts/run_benchmarks.py --perf-stat        # Collect perf stat counters
     ./scripts/run_benchmarks.py --output results   # Save results to results/
     ./scripts/run_benchmarks.py --update-docs      # Update BENCHMARK_RESULTS.md
@@ -23,7 +23,11 @@ Stages:
     2. Codegen Quality: JSON parsing, escaping, object parsing
     3. Serialization: JSON string/array/object serialization
     4. Router: HTTP routing dispatch performance
-    5. E2E: compute_api keep-alive scenario with latency percentiles
+    5. Legacy E2E: compute_api keep-alive scenario with latency percentiles
+    6. Generated API Dispatch Benchmarks
+    7. Generated API Mixed Workload Benchmarks
+    8. Generated API Framework Path Benchmarks
+    9-12. wrk-based E2E operating points (canonical + peak, hello + compute_api)
 """
 
 from __future__ import annotations
@@ -48,9 +52,47 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Paths relative to repository root
 REPO_ROOT = Path(__file__).resolve().parent.parent
-BUILD_DIR = REPO_ROOT / "build" / "bench"
-BENCHMARK_DIR = BUILD_DIR / "benchmark"
 RESULTS_MD_PATH = REPO_ROOT / "BENCHMARK_RESULTS.md"
+
+
+def _is_wsl() -> bool:
+    release = platform.release().lower()
+    version = platform.version().lower()
+    return "microsoft" in release or "microsoft" in version
+
+
+def _discover_default_build_dir() -> Path:
+    env_override = os.environ.get("KATANA_BENCH_BUILD_DIR")
+    if env_override:
+        return Path(env_override).expanduser().resolve()
+
+    build_root = REPO_ROOT / "build"
+    prioritized: List[Path] = []
+    if _is_wsl():
+        prioritized.extend([build_root / "bench-wsl", build_root / "bench"])
+    else:
+        prioritized.extend([build_root / "bench", build_root / "bench-wsl"])
+
+    for candidate in prioritized:
+        if (candidate / "CMakeCache.txt").exists():
+            return candidate
+
+    discovered: List[Path] = []
+    if build_root.exists():
+        discovered.extend(
+            path for path in build_root.iterdir() if path.is_dir() and (path / "CMakeCache.txt").exists()
+        )
+    discovered.extend(
+        path for path in REPO_ROOT.iterdir() if path.is_dir() and path.name.startswith("build") and (path / "CMakeCache.txt").exists()
+    )
+    if discovered:
+        return sorted({path.resolve() for path in discovered}, key=lambda path: str(path))[0]
+
+    return build_root / ("bench-wsl" if _is_wsl() else "bench")
+
+
+BUILD_DIR = _discover_default_build_dir()
+BENCHMARK_DIR = BUILD_DIR / "benchmark"
 
 
 @dataclass
@@ -63,6 +105,7 @@ class BenchmarkResult:
     throughput_unit: str = "ops/sec"
     bytes_per_sec: Optional[float] = None
     operations: Optional[float] = None
+    avg_latency_us: Optional[float] = None
     latency_p50_us: Optional[float] = None
     latency_p95_us: Optional[float] = None
     latency_p99_us: Optional[float] = None
@@ -88,6 +131,7 @@ class StageResult:
 
     stage_id: int
     stage_name: str
+    description: Optional[str] = None
     benchmarks: List[BenchmarkResult] = field(default_factory=list)
     duration_ms: int = 0
     success: bool = True
@@ -99,6 +143,7 @@ class StageResult:
     perf_stat: Dict[str, float] = field(default_factory=dict)
     perf_derived: Dict[str, float] = field(default_factory=dict)
     perf_error: Optional[str] = None
+    config: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -121,6 +166,10 @@ DEFAULT_REPEATS = 10
 DEFAULT_STAGE_REPEATS = {
     1: 15,  # Core runtime includes highly concurrent / contention-sensitive tests.
     5: 5,   # E2E scenario is heavier, lower default is enough for trend tracking.
+    9: 5,   # wrk-based network load tests are heavier than in-process microbenches.
+    10: 5,
+    11: 5,
+    12: 5,
 }
 
 
@@ -147,9 +196,108 @@ STAGES = {
         "description": "HTTP routing dispatch performance",
     },
     5: {
-        "name": "E2E HTTP Keep-Alive Benchmark",
+        "name": "Legacy E2E HTTP Keep-Alive Benchmark",
         "kind": "e2e_keepalive",
-        "description": "Full lifecycle: accept -> parse -> route -> handler -> JSON serialize -> write",
+        "description": "Legacy Python keep-alive scenario for compute_api; kept for compatibility only",
+    },
+    6: {
+        "name": "Generated API Dispatch Benchmarks",
+        "binary": "generated_api_benchmark",
+        "description": "Generated router bindings, param extraction, parse and serialize on ready request objects",
+    },
+    7: {
+        "name": "Generated API Mixed Workload Benchmarks",
+        "binary": "benchmark_api_codegen_benchmark",
+        "description": "Generated stack mixed valid/error workload on benchmark_api spec",
+    },
+    8: {
+        "name": "Generated API Framework Path Benchmarks",
+        "binary": "benchmark_api_framework_benchmark",
+        "description": "Generated stack valid/error workload on benchmark_api spec with minimal handlers",
+    },
+    9: {
+        "name": "HTTP Load Benchmark (hello_world_server canonical pipeline via wrk)",
+        "kind": "wrk_http",
+        "description": "Canonical low-latency pipelined GET profile for hello_world_server",
+        "profile": "canonical",
+        "benchmark_name": "wrk hello_world GET / depth10",
+        "server_target": "hello_world_server",
+        "server_candidates": [
+            "hello_world_server",
+            "examples/hello_world_server",
+        ],
+        "server_env": {"HELLO_PORT": "{port}", "KATANA_WORKERS": "{bench_workers}"},
+        "bench_workers": 4,
+        "port": 18080,
+        "wrk_threads": 4,
+        "wrk_connections": 512,
+        "wrk_duration_sec": 10,
+        "wrk_env": {"KATANA_PIPELINE_DEPTH": "10"},
+        "wrk_script": "test/load/scripts/hello_pipeline.lua",
+        "wrk_url": "http://127.0.0.1:{port}/",
+    },
+    10: {
+        "name": "HTTP Load Benchmark (compute_api canonical pipeline via wrk)",
+        "kind": "wrk_http",
+        "description": "Canonical low-latency pipelined POST profile for compute_api",
+        "profile": "canonical",
+        "benchmark_name": "wrk compute_api POST /compute/sum depth10",
+        "server_target": "compute_api",
+        "server_candidates": [
+            "examples/codegen/compute_api/compute_api",
+            "examples/examples/codegen/compute_api/compute_api",
+        ],
+        "server_env": {"PORT": "{port}", "COMPUTE_PORT": "{port}", "KATANA_WORKERS": "{bench_workers}"},
+        "bench_workers": 4,
+        "port": 18081,
+        "wrk_threads": 4,
+        "wrk_connections": 512,
+        "wrk_duration_sec": 10,
+        "wrk_env": {"KATANA_PIPELINE_DEPTH": "10"},
+        "wrk_script": "test/load/scripts/compute_sum_pipeline.lua",
+        "wrk_url": "http://127.0.0.1:{port}/",
+    },
+    11: {
+        "name": "HTTP Load Benchmark (hello_world_server peak pipeline via wrk)",
+        "kind": "wrk_http",
+        "description": "Peak-throughput pipelined GET profile for hello_world_server",
+        "profile": "peak",
+        "benchmark_name": "wrk hello_world GET / depth20",
+        "server_target": "hello_world_server",
+        "server_candidates": [
+            "hello_world_server",
+            "examples/hello_world_server",
+        ],
+        "server_env": {"HELLO_PORT": "{port}", "KATANA_WORKERS": "{bench_workers}"},
+        "bench_workers": 4,
+        "port": 18080,
+        "wrk_threads": 4,
+        "wrk_connections": 512,
+        "wrk_duration_sec": 5,
+        "wrk_env": {"KATANA_PIPELINE_DEPTH": "20"},
+        "wrk_script": "test/load/scripts/hello_pipeline.lua",
+        "wrk_url": "http://127.0.0.1:{port}/",
+    },
+    12: {
+        "name": "HTTP Load Benchmark (compute_api peak pipeline via wrk)",
+        "kind": "wrk_http",
+        "description": "Peak-throughput pipelined POST profile for compute_api",
+        "profile": "peak",
+        "benchmark_name": "wrk compute_api POST /compute/sum depth40",
+        "server_target": "compute_api",
+        "server_candidates": [
+            "examples/codegen/compute_api/compute_api",
+            "examples/examples/codegen/compute_api/compute_api",
+        ],
+        "server_env": {"PORT": "{port}", "COMPUTE_PORT": "{port}", "KATANA_WORKERS": "{bench_workers}"},
+        "bench_workers": 4,
+        "port": 18081,
+        "wrk_threads": 4,
+        "wrk_connections": 512,
+        "wrk_duration_sec": 5,
+        "wrk_env": {"KATANA_PIPELINE_DEPTH": "40"},
+        "wrk_script": "test/load/scripts/compute_sum_pipeline.lua",
+        "wrk_url": "http://127.0.0.1:{port}/",
     },
 }
 
@@ -235,6 +383,38 @@ def _physical_cores_linux() -> Optional[int]:
     return len(physical)
 
 
+def default_bench_workers() -> int:
+    env_override = os.environ.get("KATANA_BENCH_WORKERS")
+    if env_override:
+        with contextlib.suppress(ValueError):
+            parsed = int(env_override)
+            if parsed > 0:
+                return parsed
+
+    logical = max(1, os.cpu_count() or 1)
+    if logical <= 6:
+        return min(logical, 4)
+    return min(logical, 8)
+
+
+def _parse_data_rate_to_bytes(raw: str) -> Optional[float]:
+    match = re.match(r"^\s*([\d.]+)\s*([KMG]?B)\s*$", raw)
+    if not match:
+        return None
+    value = float(match.group(1))
+    unit = match.group(2)
+    scale = {
+        "B": 1.0,
+        "KB": 1024.0,
+        "MB": 1024.0 * 1024.0,
+        "GB": 1024.0 * 1024.0 * 1024.0,
+    }
+    factor = scale.get(unit)
+    if factor is None:
+        return None
+    return value * factor
+
+
 def collect_environment_metadata() -> Dict[str, Any]:
     env: Dict[str, Any] = {}
     uname = platform.uname()
@@ -244,6 +424,8 @@ def collect_environment_metadata() -> Dict[str, Any]:
     env["machine"] = uname.machine
     env["hostname"] = uname.node
     env["python"] = platform.python_version()
+    env["build_dir"] = str(BUILD_DIR)
+    env["benchmark_dir"] = str(BENCHMARK_DIR)
 
     env["logical_cores"] = os.cpu_count()
     phys = _physical_cores_linux()
@@ -307,6 +489,10 @@ def collect_environment_metadata() -> Dict[str, Any]:
         if lines:
             env["lscpu_brief"] = lines
 
+    wrk_binary = shutil.which(os.environ.get("KATANA_WRK_BIN", "wrk"))
+    if wrk_binary:
+        env["wrk_binary"] = wrk_binary
+
     return env
 
 
@@ -328,6 +514,7 @@ def summarize_quality(report: BenchmarkReport, cv_warn_pct: float) -> Dict[str, 
         "throughput",
         "bytes_per_sec",
         "latency_ns",
+        "avg_latency_us",
         "latency_p50_us",
         "latency_p95_us",
         "latency_p99_us",
@@ -361,7 +548,7 @@ def summarize_quality(report: BenchmarkReport, cv_warn_pct: float) -> Dict[str, 
     noisy.sort(key=lambda x: x["cv_pct"], reverse=True)
     severe.sort(key=lambda x: x["cv_pct"], reverse=True)
 
-    has_e2e = any(s.stage_id == 5 and s.success for s in report.stages)
+    has_e2e = any((s.config.get("kind") in {"wrk_http", "e2e_keepalive"}) and s.success for s in report.stages)
     return {
         "cv_warn_pct": cv_warn_pct,
         "noisy_metrics_count": len(noisy),
@@ -374,9 +561,25 @@ def summarize_quality(report: BenchmarkReport, cv_warn_pct: float) -> Dict[str, 
 def ensure_build() -> bool:
     """Ensure benchmark binaries are built."""
     if not BUILD_DIR.exists():
-        print("Build directory not found. Running cmake configure...")
+        print(f"Build directory not found at {BUILD_DIR}. Running cmake configure...")
+        configure_cmd: List[str]
+        if BUILD_DIR == REPO_ROOT / "build" / "bench":
+            configure_cmd = ["cmake", "--preset", "bench"]
+        else:
+            configure_cmd = [
+                "cmake",
+                "-S",
+                str(REPO_ROOT),
+                "-B",
+                str(BUILD_DIR),
+                "-G",
+                "Ninja",
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DENABLE_BENCHMARKS=ON",
+                "-DENABLE_EXAMPLES=ON",
+            ]
         result = subprocess.run(
-            ["cmake", "--preset", "bench"],
+            configure_cmd,
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -510,6 +713,51 @@ def parse_router_output(output: str) -> List[BenchmarkResult]:
     return results
 
 
+def parse_benchmark_api_codegen_output(output: str) -> List[BenchmarkResult]:
+    """Parse output from benchmark_api_codegen_benchmark."""
+    results = []
+
+    header_pattern = re.compile(
+        r"^\s+(.+?)\s+([\d.]+)\s+(ns|us)\s+([\d.]+)\s+ops/sec\s*$",
+        re.MULTILINE,
+    )
+    metrics_pattern = re.compile(
+        r"p50:\s+([\d.]+)\s+us\s+\|\s+p95:\s+([\d.]+)\s+us\s+\|\s+p99:\s+([\d.]+)\s+us\s+\|\s+p999:\s+([\d.]+)\s+us\s+\|\s+errors:\s+[\d.]+%\s+\((\d+)/(\d+)\)"
+    )
+
+    lines = output.splitlines()
+    i = 0
+    while i < len(lines):
+        header_match = header_pattern.match(lines[i])
+        if not header_match:
+            i += 1
+            continue
+
+        name = header_match.group(1).strip()
+        latency = float(header_match.group(2))
+        unit = header_match.group(3)
+        throughput = float(header_match.group(4))
+        latency_ns = latency * 1000.0 if unit == "us" else latency
+
+        result = BenchmarkResult(name=name, latency_ns=latency_ns, throughput=throughput)
+
+        if i + 1 < len(lines):
+            metrics_match = metrics_pattern.search(lines[i + 1])
+            if metrics_match:
+                result.latency_p50_us = float(metrics_match.group(1))
+                result.latency_p95_us = float(metrics_match.group(2))
+                result.latency_p99_us = float(metrics_match.group(3))
+                result.latency_p999_us = float(metrics_match.group(4))
+                result.errors = int(metrics_match.group(5))
+                result.operations = float(metrics_match.group(6))
+                i += 1
+
+        results.append(result)
+        i += 1
+
+    return results
+
+
 def parse_performance_output(output: str) -> List[BenchmarkResult]:
     """Parse output from performance_benchmark."""
     results = []
@@ -609,6 +857,12 @@ def parse_stage_output(binary_name: str, output: str) -> List[BenchmarkResult]:
         return parse_serialize_output(output)
     if binary_name == "router_benchmark":
         return parse_router_output(output)
+    if binary_name == "generated_api_benchmark":
+        return parse_router_output(output)
+    if binary_name == "benchmark_api_codegen_benchmark":
+        return parse_benchmark_api_codegen_output(output)
+    if binary_name == "benchmark_api_framework_benchmark":
+        return parse_benchmark_api_codegen_output(output)
     return []
 
 
@@ -671,6 +925,7 @@ def _benchmark_to_dict(b: BenchmarkResult) -> Dict[str, Any]:
         "throughput_unit": b.throughput_unit,
         "bytes_per_sec": b.bytes_per_sec,
         "operations": b.operations,
+        "avg_latency_us": b.avg_latency_us,
         "latency_p50_us": b.latency_p50_us,
         "latency_p95_us": b.latency_p95_us,
         "latency_p99_us": b.latency_p99_us,
@@ -731,6 +986,65 @@ def choose_representative_result(
     return candidates[0]
 
 
+def aggregate_benchmark_result(
+    candidates: List[BenchmarkResult], aggregation_mode: str = "median"
+) -> BenchmarkResult:
+    """Aggregate each metric independently for a more stable summary result."""
+    if not candidates:
+        raise ValueError("aggregate_benchmark_result requires at least one candidate")
+
+    mode = aggregation_mode.lower()
+    if mode == "best":
+        return choose_representative_result(candidates, aggregation_mode=aggregation_mode)
+
+    stats = build_benchmark_stats(candidates)
+    base = candidates[0]
+    out = BenchmarkResult(
+        name=base.name,
+        throughput_unit=base.throughput_unit,
+        thread_producers=base.thread_producers,
+        thread_consumers=base.thread_consumers,
+        thread_hw=base.thread_hw,
+    )
+
+    metric_map = [
+        ("throughput", "throughput"),
+        ("bytes_per_sec", "bytes_per_sec"),
+        ("operations", "operations"),
+        ("latency_ns", "latency_ns"),
+        ("avg_latency_us", "avg_latency_us"),
+        ("latency_p50_us", "latency_p50_us"),
+        ("latency_p95_us", "latency_p95_us"),
+        ("latency_p99_us", "latency_p99_us"),
+        ("latency_p999_us", "latency_p999_us"),
+        ("latency_max_us", "latency_max_us"),
+        ("tail_p95_ns", "tail_p95_ns"),
+        ("tail_p99_ns", "tail_p99_ns"),
+        ("producer_retries", "producer_retries"),
+        ("consumer_retries", "consumer_retries"),
+        ("retries_per_op_push", "retries_per_op_push"),
+        ("retries_per_op_pop", "retries_per_op_pop"),
+        ("retries_per_op_total", "retries_per_op_total"),
+        ("thread_oversubscription", "thread_oversubscription"),
+        ("errors", "errors"),
+    ]
+
+    stat_key = "mean" if mode == "mean" else "p50"
+    for attr, metric_name in metric_map:
+        metric_stats = stats.get(metric_name)
+        if not metric_stats:
+            continue
+        value = metric_stats.get(stat_key)
+        if value is None:
+            continue
+        if attr == "errors":
+            setattr(out, attr, int(round(value)))
+        else:
+            setattr(out, attr, float(value))
+
+    return out
+
+
 def build_benchmark_stats(candidates: List[BenchmarkResult]) -> Dict[str, Dict[str, float]]:
     stats: Dict[str, Dict[str, float]] = {}
 
@@ -749,6 +1063,10 @@ def build_benchmark_stats(candidates: List[BenchmarkResult]) -> Dict[str, Dict[s
     latency_ns_values = [float(c.latency_ns) for c in candidates if c.latency_ns is not None]
     if latency_ns_values:
         stats["latency_ns"] = _metric_stats(latency_ns_values)
+
+    avg_latency_us_values = [float(c.avg_latency_us) for c in candidates if c.avg_latency_us is not None]
+    if avg_latency_us_values:
+        stats["avg_latency_us"] = _metric_stats(avg_latency_us_values)
 
     p50_values = [float(c.latency_p50_us) for c in candidates if c.latency_p50_us is not None]
     if p50_values:
@@ -844,17 +1162,36 @@ def merge_repeated_results(
 
     for name in order:
         candidates = by_name[name]
-        merged.append(choose_representative_result(candidates, aggregation_mode=aggregation_mode))
         stats_by_name[name] = build_benchmark_stats(candidates)
+        merged.append(aggregate_benchmark_result(candidates, aggregation_mode=aggregation_mode))
         if include_runs:
             runs_by_name[name] = [_benchmark_to_dict(c) for c in candidates]
 
     return merged, stats_by_name, runs_by_name
 
 
+def _resolve_binary_candidates(candidates: List[str]) -> List[Path]:
+    resolved: List[Path] = []
+    seen: set[str] = set()
+    for raw in candidates:
+        candidate = Path(raw)
+        probe_list = []
+        if candidate.is_absolute():
+            probe_list.append(candidate)
+        else:
+            probe_list.extend([BUILD_DIR / candidate, REPO_ROOT / candidate])
+        for probe in probe_list:
+            key = str(probe)
+            if key in seen:
+                continue
+            seen.add(key)
+            resolved.append(probe)
+    return resolved
+
+
 def _find_binary(candidates: List[Path]) -> Optional[Path]:
     for candidate in candidates:
-        if candidate.exists():
+        if candidate.exists() and candidate.is_file():
             return candidate
     return None
 
@@ -903,6 +1240,90 @@ def _is_network_restricted_error(message: Optional[str]) -> bool:
         or "permission denied" in lowered
         or "address already in use" in lowered
         or "failed to start listeners" in lowered
+    )
+
+
+def _parse_wrk_time_to_us(raw: str) -> Optional[float]:
+    match = re.match(r"^\s*([\d.]+)\s*(us|ms|s)\s*$", raw)
+    if not match:
+        return None
+    value = float(match.group(1))
+    unit = match.group(2)
+    if unit == "us":
+        return value
+    if unit == "ms":
+        return value * 1000.0
+    if unit == "s":
+        return value * 1_000_000.0
+    return None
+
+
+def _parse_wrk_output(output: str, benchmark_name: str) -> Optional[BenchmarkResult]:
+    throughput = None
+    operations = None
+    bytes_per_sec = None
+    avg_latency_us = None
+    latency_p50_us = None
+    latency_p95_us = None
+    latency_p99_us = None
+    latency_p999_us = None
+    latency_max_us = None
+    errors = 0
+
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Requests/sec:"):
+            match = re.search(r"Requests/sec:\s*([\d.]+)", stripped)
+            if match:
+                throughput = float(match.group(1))
+        elif stripped.startswith("Transfer/sec:"):
+            match = re.search(r"Transfer/sec:\s*([\d.]+\s*[KMG]?B)", stripped)
+            if match:
+                bytes_per_sec = _parse_data_rate_to_bytes(match.group(1))
+        elif stripped.startswith("Latency"):
+            match = re.search(r"Latency\s+([\d.]+\s*(?:us|ms|s))", stripped)
+            if match:
+                avg_latency_us = _parse_wrk_time_to_us(match.group(1))
+        elif "requests in" in stripped:
+            match = re.search(r"([\d.]+)\s+requests in", stripped)
+            if match:
+                operations = float(match.group(1))
+        elif stripped.startswith("Socket errors:"):
+            match = re.search(
+                r"connect\s+(\d+),\s*read\s+(\d+),\s*write\s+(\d+),\s*timeout\s+(\d+)",
+                stripped,
+            )
+            if match:
+                errors = sum(int(match.group(i)) for i in range(1, 5))
+        elif stripped.startswith("KATANA_LATENCY_P50_US:"):
+            latency_p50_us = float(stripped.split(":", 1)[1].strip())
+        elif stripped.startswith("KATANA_LATENCY_P95_US:"):
+            latency_p95_us = float(stripped.split(":", 1)[1].strip())
+        elif stripped.startswith("KATANA_LATENCY_P99_US:"):
+            latency_p99_us = float(stripped.split(":", 1)[1].strip())
+        elif stripped.startswith("KATANA_LATENCY_P999_US:"):
+            latency_p999_us = float(stripped.split(":", 1)[1].strip())
+        elif stripped.startswith("KATANA_LATENCY_MAX_US:"):
+            latency_max_us = float(stripped.split(":", 1)[1].strip())
+        elif stripped.startswith("KATANA_ERRORS:"):
+            errors = int(float(stripped.split(":", 1)[1].strip()))
+
+    if throughput is None:
+        return None
+
+    return BenchmarkResult(
+        name=benchmark_name,
+        throughput=throughput,
+        throughput_unit="req/sec",
+        operations=operations,
+        avg_latency_us=avg_latency_us,
+        bytes_per_sec=bytes_per_sec,
+        latency_p50_us=latency_p50_us,
+        latency_p95_us=latency_p95_us,
+        latency_p99_us=latency_p99_us,
+        latency_p999_us=latency_p999_us,
+        latency_max_us=latency_max_us,
+        errors=errors,
     )
 
 
@@ -1034,7 +1455,12 @@ def run_e2e_keepalive_once(
     host = "127.0.0.1"
     payload = b"[1,2,3,4,5,6,7,8]"
     req_bytes = _build_compute_request(host, port, payload)
-    env = {**os.environ, "PORT": str(port), "COMPUTE_PORT": str(port)}
+    env = {
+        **os.environ,
+        "PORT": str(port),
+        "COMPUTE_PORT": str(port),
+        "KATANA_WORKERS": os.environ.get("KATANA_BENCH_WORKERS", "8"),
+    }
 
     server_proc: Optional[subprocess.Popen[str]] = None
     try:
@@ -1123,7 +1549,14 @@ def run_e2e_keepalive_stage(
     result = StageResult(
         stage_id=stage_id,
         stage_name=stage_name,
+        description=STAGES[stage_id]["description"],
         aggregation_mode=aggregation_mode,
+        config={
+            "kind": "e2e_keepalive",
+            "connections": e2e_connections,
+            "requests_per_connection": e2e_requests_per_connection,
+            "port": e2e_port,
+        },
     )
 
     print(
@@ -1151,6 +1584,175 @@ def run_e2e_keepalive_stage(
         if all(_is_network_restricted_error(err) for err in run_errors):
             result.success = True
             result.error_message = "skipped: environment blocks listener startup"
+            print(f"  Skipped: {result.error_message}")
+            return result
+        result.success = False
+        result.error_message = "; ".join(run_errors)
+        print(f"  Error: {result.error_message}")
+        return result
+
+    result.run_count = len(run_results)
+    merged, stats_by_name, runs_by_name = merge_repeated_results(
+        run_results,
+        aggregation_mode=aggregation_mode,
+        include_runs=include_runs,
+    )
+    result.benchmarks = merged
+    result.benchmark_stats = stats_by_name
+    result.benchmark_runs = runs_by_name
+    print(f"  Completed in {result.duration_ms}ms with {len(result.benchmarks)} benchmarks")
+    return result
+
+
+def run_wrk_http_once(stage: Dict[str, Any]) -> Tuple[BenchmarkResult, Optional[str]]:
+    wrk_binary = shutil.which(os.environ.get("KATANA_WRK_BIN", "wrk"))
+    if not wrk_binary:
+        return (
+            BenchmarkResult(
+                name=stage["benchmark_name"],
+                throughput=0.0,
+                throughput_unit="req/sec",
+                errors=0,
+            ),
+            "wrk not found in PATH",
+        )
+
+    server_candidates = _resolve_binary_candidates(stage["server_candidates"])
+    server_binary = _find_binary(server_candidates)
+    if server_binary is None:
+        return (
+            BenchmarkResult(
+                name=stage["benchmark_name"],
+                throughput=0.0,
+                throughput_unit="req/sec",
+                errors=0,
+            ),
+            f"{stage['server_target']} binary not found",
+        )
+
+    port = int(stage["port"])
+    env = dict(os.environ)
+    bench_workers = int(stage.get("bench_workers", default_bench_workers()))
+    for key, value in stage.get("server_env", {}).items():
+        env[key] = value.format(port=port, bench_workers=bench_workers)
+
+    server_proc: Optional[subprocess.Popen[str]] = None
+    try:
+        server_proc = _start_server_process(server_binary, env=env)
+        if not _wait_for_port("127.0.0.1", port, timeout_s=10.0):
+            details = ""
+            if server_proc.poll() is not None and server_proc.stderr is not None:
+                with contextlib.suppress(Exception):
+                    details = server_proc.stderr.read().strip()
+            suffix = f": {details}" if details else ""
+            return (
+                BenchmarkResult(
+                    name=stage["benchmark_name"],
+                    throughput=0.0,
+                    throughput_unit="req/sec",
+                    errors=0,
+                ),
+                f"{stage['server_target']} failed to listen on {port}{suffix}",
+            )
+
+        script_path = REPO_ROOT / stage["wrk_script"]
+        wrk_env = dict(env)
+        for key, value in stage.get("wrk_env", {}).items():
+            wrk_env[key] = value.format(port=port, bench_workers=bench_workers)
+        wrk_cmd = [
+            wrk_binary,
+            "-t",
+            str(stage["wrk_threads"]),
+            "-c",
+            str(stage["wrk_connections"]),
+            "-d",
+            f"{stage['wrk_duration_sec']}s",
+            "--latency",
+            "-s",
+            str(script_path),
+            stage["wrk_url"].format(port=port),
+        ]
+        proc = subprocess.run(
+            wrk_cmd,
+            capture_output=True,
+            text=True,
+            timeout=max(30, int(stage["wrk_duration_sec"]) + 15),
+            env=wrk_env,
+        )
+        if proc.returncode != 0:
+            details = proc.stderr.strip() or proc.stdout.strip()
+            return (
+                BenchmarkResult(
+                    name=stage["benchmark_name"],
+                    throughput=0.0,
+                    throughput_unit="req/sec",
+                    errors=0,
+                ),
+                f"wrk failed: {details}",
+            )
+
+        parsed = _parse_wrk_output(proc.stdout, stage["benchmark_name"])
+        if parsed is None:
+            return (
+                BenchmarkResult(
+                    name=stage["benchmark_name"],
+                    throughput=0.0,
+                    throughput_unit="req/sec",
+                    errors=0,
+                ),
+                "failed to parse wrk output",
+            )
+        return parsed, None
+    finally:
+        _stop_server_process(server_proc)
+
+
+def run_wrk_http_stage(
+    stage_id: int,
+    stage_name: str,
+    stage: Dict[str, Any],
+    repeats: int,
+    aggregation_mode: str,
+    include_runs: bool,
+) -> StageResult:
+    result = StageResult(
+        stage_id=stage_id,
+        stage_name=stage_name,
+        description=stage.get("description"),
+        aggregation_mode=aggregation_mode,
+        config={
+            "kind": "wrk_http",
+            "profile": stage.get("profile"),
+            "server_target": stage.get("server_target"),
+            "port": stage.get("port"),
+            "wrk_threads": stage.get("wrk_threads"),
+            "wrk_connections": stage.get("wrk_connections"),
+            "wrk_duration_sec": stage.get("wrk_duration_sec"),
+            "wrk_script": stage.get("wrk_script"),
+            "wrk_url": stage.get("wrk_url"),
+            "bench_workers": stage.get("bench_workers", default_bench_workers()),
+            "pipeline_depth": stage.get("wrk_env", {}).get("KATANA_PIPELINE_DEPTH"),
+        },
+    )
+
+    print(f"\n[Stage {stage_id}] Running {stage_name} ({aggregation_mode}-of-{repeats})...")
+    run_results: List[List[BenchmarkResult]] = []
+    run_errors: List[str] = []
+    started = time.perf_counter()
+
+    for run_idx in range(repeats):
+        print(f"  Run {run_idx + 1}/{repeats}...")
+        run_result, error = run_wrk_http_once(stage)
+        if error:
+            run_errors.append(f"run {run_idx + 1}: {error}")
+            continue
+        run_results.append([run_result])
+
+    result.duration_ms = int((time.perf_counter() - started) * 1000)
+    if run_errors:
+        if all(_is_network_restricted_error(err) or "wrk not found" in err.lower() for err in run_errors):
+            result.success = True
+            result.error_message = "skipped: load tool or listener unavailable in environment"
             print(f"  Skipped: {result.error_message}")
             return result
         result.success = False
@@ -1328,6 +1930,7 @@ def _extract_metrics(report_json: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
                 "throughput",
                 "bytes_per_sec",
                 "latency_ns",
+                "avg_latency_us",
                 "latency_p50_us",
                 "latency_p95_us",
                 "latency_p99_us",
@@ -1504,6 +2107,15 @@ def run_stage(
             e2e_requests_per_connection=e2e_requests_per_connection,
             e2e_port=e2e_port,
         )
+    if stage.get("kind") == "wrk_http":
+        return run_wrk_http_stage(
+            stage_id=stage_id,
+            stage_name=stage["name"],
+            stage=stage,
+            repeats=repeats,
+            aggregation_mode=aggregation_mode,
+            include_runs=include_runs,
+        )
 
     binary_name = stage["binary"]
     binary_path = BENCHMARK_DIR / binary_name
@@ -1511,8 +2123,14 @@ def run_stage(
     result = StageResult(
         stage_id=stage_id,
         stage_name=stage["name"],
+        description=stage.get("description"),
         run_count=0,
         aggregation_mode=aggregation_mode,
+        config={
+            "kind": "microbenchmark",
+            "binary": binary_name,
+            "binary_path": str(binary_path),
+        },
     )
 
     if not binary_path.exists():
@@ -1657,6 +2275,20 @@ def _repeat_policy_text(report: BenchmarkReport) -> str:
     return f"default {report.repeats} run(s), overrides: {formatted}"
 
 
+def _is_network_stage(stage: StageResult) -> bool:
+    return stage.config.get("kind") in {"wrk_http", "e2e_keepalive"}
+
+
+def _render_stage_config(config: Dict[str, Any]) -> List[str]:
+    rows: List[str] = []
+    for key in sorted(config.keys()):
+        value = config[key]
+        if value is None:
+            continue
+        rows.append(f"| {key} | {value} |")
+    return rows
+
+
 def generate_markdown(report: BenchmarkReport) -> str:
     """Generate BENCHMARK_RESULTS.md content from report."""
     lines = [
@@ -1684,7 +2316,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
         f"- Stability verdict: {stability_verdict}",
         f"- Noisy metrics (CV > {cv_warn:.1f}%): {noisy_count}",
         f"- Severely noisy metrics (CV > {cv_warn * 2.0:.1f}%): {severe_noisy_count}",
-        f"- E2E keep-alive stage included: {'yes' if e2e_included else 'no'}",
+        f"- E2E network stages included: {'yes' if e2e_included else 'no'}",
         "",
         f"> **Note**: Results shown use {_aggregation_title(report.aggregation_mode)} "
         f"aggregation across {_repeat_policy_text(report)}. Concurrent benchmarks are highly "
@@ -1731,6 +2363,43 @@ def generate_markdown(report: BenchmarkReport) -> str:
             lines.append("")
         lines.extend(["---", ""])
 
+    network_stages = [stage for stage in report.stages if stage.success and _is_network_stage(stage) and stage.benchmarks]
+    if network_stages:
+        lines.extend(["## E2E Summary", ""])
+        lines.extend([
+            "> **Note**: For pipeline stages, `wrk` latency metrics reflect one scripted batch/request() call,",
+            "> not isolated single-request service time. Throughput and error-free completion are the primary",
+            "> comparable signals across different pipeline depths.",
+            "",
+        ])
+        lines.extend([
+            "| Stage | Profile | Benchmark | Workers | wrk t/c | Depth | Duration | Throughput | Avg Latency | p50 | p95 | p99 | Data Rate | Errors |",
+            "|-------|---------|-----------|---------|---------|-------|----------|------------|-------------|-----|-----|-----|-----------|--------|",
+        ])
+        for stage in network_stages:
+            bench = stage.benchmarks[0]
+            profile = stage.config.get("profile", stage.config.get("kind", "-"))
+            workers = stage.config.get("bench_workers", "-")
+            wrk_tc = f"{stage.config.get('wrk_threads', '-')}/{stage.config.get('wrk_connections', '-')}"
+            depth = stage.config.get("pipeline_depth", "-")
+            duration = stage.config.get("wrk_duration_sec")
+            duration_s = f"{duration}s" if duration is not None else "-"
+            throughput = (
+                f"{format_throughput(bench.throughput)} {bench.throughput_unit}"
+                if bench.throughput is not None
+                else "-"
+            )
+            avg_latency = f"{bench.avg_latency_us:.3f} us" if bench.avg_latency_us is not None else "-"
+            p50 = f"{bench.latency_p50_us:.3f} us" if bench.latency_p50_us is not None else "-"
+            p95 = f"{bench.latency_p95_us:.3f} us" if bench.latency_p95_us is not None else "-"
+            p99 = f"{bench.latency_p99_us:.3f} us" if bench.latency_p99_us is not None else "-"
+            data_rate = format_data_rate(bench.bytes_per_sec) if bench.bytes_per_sec is not None else "-"
+            lines.append(
+                f"| {stage.stage_id} | {profile} | {bench.name} | {workers} | {wrk_tc} | {depth} | {duration_s} | "
+                f"{throughput} | {avg_latency} | {p50} | {p95} | {p99} | {data_rate} | {bench.errors} |"
+            )
+        lines.extend(["", "---", ""])
+
     for stage in report.stages:
         if not stage.success:
             lines.extend(
@@ -1751,6 +2420,15 @@ def generate_markdown(report: BenchmarkReport) -> str:
             f"_Runs: {stage.run_count} | Aggregation: {stage.aggregation_mode}_",
             "",
         ])
+
+        if stage.description:
+            lines.extend([stage.description, ""])
+
+        config_rows = _render_stage_config(stage.config)
+        if config_rows:
+            lines.extend(["| Config | Value |", "|--------|-------|"])
+            lines.extend(config_rows)
+            lines.append("")
 
         if stage.error_message and not stage.benchmarks:
             lines.extend([f"_Note: {stage.error_message}_", "", "---", ""])
@@ -1774,6 +2452,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
         if has_percentiles:
             latency_cols: List[Tuple[str, str]] = []
             for field_name, label in [
+                ("avg_latency_us", "Latency avg"),
                 ("latency_p50_us", "Latency p50"),
                 ("latency_p95_us", "Latency p95"),
                 ("latency_p99_us", "Latency p99"),
@@ -1888,6 +2567,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
                 latency_metric_name = ""
                 latency_stats: Dict[str, float] = {}
                 for metric_key, label in [
+                    ("avg_latency_us", "avg us"),
                     ("latency_p99_us", "p99 us"),
                     ("latency_p95_us", "p95 us"),
                     ("latency_p999_us", "p999 us"),
@@ -2051,11 +2731,14 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "# Run all benchmarks",
         "./scripts/run_benchmarks.py",
         "",
+        "# Run full micro + wrk-based E2E pipeline",
+        "./scripts/run_benchmarks.py --include-e2e",
+        "",
         "# Recommended repeat policy with explicit quality gate",
         "./scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20 --cv-threshold-pct 15",
         "",
-        "# Include E2E keep-alive scenario",
-        "./scripts/run_benchmarks.py --include-e2e",
+        "# Point the runner at a custom build tree or wrk binary",
+        "KATANA_BENCH_BUILD_DIR=build/bench-wsl KATANA_WRK_BIN=wrk ./scripts/run_benchmarks.py --include-e2e",
         "",
         "# Collect perf counters (requires perf permissions)",
         "./scripts/run_benchmarks.py --perf-stat",
@@ -2064,7 +2747,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "./scripts/run_benchmarks.py --compare benchmarks/baseline.json --fail-on-regression",
         "",
         "# Run specific stages",
-        "./scripts/run_benchmarks.py --stage 1 2",
+        "./scripts/run_benchmarks.py --stage 1 2 9 10",
         "",
         "# Run individual benchmarks",
         "./build/bench/benchmark/codegen_quality_benchmark",
@@ -2094,11 +2777,13 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
             {
                 "stage_id": s.stage_id,
                 "stage_name": s.stage_name,
+                "description": s.description,
                 "duration_ms": s.duration_ms,
                 "success": s.success,
                 "error_message": s.error_message,
                 "run_count": s.run_count,
                 "aggregation_mode": s.aggregation_mode,
+                "config": s.config,
                 "benchmarks": [
                     {
                         "name": b.name,
@@ -2107,6 +2792,7 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
                         "throughput_unit": b.throughput_unit,
                         "bytes_per_sec": b.bytes_per_sec,
                         "operations": b.operations,
+                        "avg_latency_us": b.avg_latency_us,
                         "latency_p50_us": b.latency_p50_us,
                         "latency_p95_us": b.latency_p95_us,
                         "latency_p99_us": b.latency_p99_us,
@@ -2180,6 +2866,8 @@ def print_comparison_summary(summary: Dict[str, Any]) -> None:
 
 
 def main():
+    global BUILD_DIR, BENCHMARK_DIR
+
     parser = argparse.ArgumentParser(
         description="Unified Benchmark Runner for KATANA Framework",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -2190,12 +2878,22 @@ def main():
         "-s",
         type=int,
         nargs="*",
-        help="Run only specific stages (1-5). If not specified, runs stages 1-4.",
+        help="Run only specific stages. If not specified, runs stages 1-4 and 6-8.",
     )
     parser.add_argument(
         "--include-e2e",
         action="store_true",
-        help="Include stage 5 (E2E keep-alive benchmark) when --stage is not set.",
+        help="Include wrk-based E2E stages 9-12 when --stage is not set.",
+    )
+    parser.add_argument(
+        "--include-legacy-e2e",
+        action="store_true",
+        help="Also include legacy stage 5 keep-alive benchmark when --stage is not set.",
+    )
+    parser.add_argument(
+        "--build-dir",
+        type=Path,
+        help="Explicit build directory override (defaults to auto-detected bench or bench-wsl tree).",
     )
     parser.add_argument(
         "--output",
@@ -2336,12 +3034,23 @@ def main():
 
     args = parser.parse_args()
 
+    if args.build_dir:
+        BUILD_DIR = args.build_dir.expanduser().resolve()
+        BENCHMARK_DIR = BUILD_DIR / "benchmark"
+
     if args.list_stages:
         print("Available benchmark stages:")
         for stage_id, stage in STAGES.items():
             print(f"  {stage_id}. {stage['name']}")
             if "binary" in stage:
                 print(f"     Binary: {stage['binary']}")
+            if stage.get("kind") == "wrk_http":
+                depth = stage.get("wrk_env", {}).get("KATANA_PIPELINE_DEPTH", "-")
+                print(
+                    "     "
+                    f"profile={stage.get('profile', '-')}, workers={stage.get('bench_workers', '-')}, "
+                    f"wrk={stage.get('wrk_threads', '-')}/{stage.get('wrk_connections', '-')}, depth={depth}"
+                )
             print(f"     {stage['description']}")
         return 0
 
@@ -2358,8 +3067,10 @@ def main():
     if args.stage:
         stages_to_run = args.stage
     else:
-        stages_to_run = [1, 2, 3, 4]
+        stages_to_run = [1, 2, 3, 4, 6, 7, 8]
         if args.include_e2e:
+            stages_to_run.extend([9, 10, 11, 12])
+        if args.include_legacy_e2e:
             stages_to_run.append(5)
 
     for stage_id in stages_to_run:
@@ -2401,6 +3112,7 @@ def main():
     print(f"\n{'='*60}")
     print("KATANA Benchmark Runner")
     print(f"{'='*60}")
+    print(f"Build dir: {BUILD_DIR}")
     print(f"Stages to run: {stages_to_run}")
     print(f"Default repeats: {base_repeats}")
     print(

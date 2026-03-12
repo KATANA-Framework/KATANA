@@ -93,10 +93,6 @@ private:
         bool has_timeout = false;
         bool registered = false;
 
-        // Cold data - rarely accessed
-        char padding1[64 - sizeof(event_callback) - sizeof(event_type) -
-                      sizeof(fd_wheel_timer::timeout_id) - sizeof(bool) * 2];
-
         timeout_config timeouts;
         Timeout activity_timer;
     };

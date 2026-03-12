@@ -2,15 +2,16 @@
 // Auto-generated handler interfaces from OpenAPI specification
 // 
 // Zero-boilerplate design:
-//   - Clean signatures: response method(params) - no request& or context&
+//   - Clean signatures: result<void> method(params, response& out)
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
 // 
 // Example:
-//   response get_user(int64_t id) override {
+//   katana::result<void> get_user(int64_t id, response& out) override {
 //       auto user = db.find(id, &arena());  // arena() from context
-//       return response::json(serialize_User(user));
+//       out = response::json(serialize_User(user));
+//       return {};
 //   }
 #pragma once
 
@@ -34,35 +35,35 @@ struct api_handler {
 
     // GET /tasks
     // List all tasks with optional filtering
-    virtual response list_tasks(std::optional<std::string_view> status, std::optional<int64_t> priority, std::optional<int64_t> limit, std::optional<int64_t> offset) = 0;
+    virtual katana::result<void> list_tasks(std::optional<std::string_view> status, std::optional<int64_t> priority, std::optional<int64_t> limit, std::optional<int64_t> offset, response& out) = 0;
 
     // POST /tasks
     // Create a new task
-    virtual response create_task(const CreateTaskRequest& body) = 0;
+    virtual katana::result<void> create_task(const CreateTaskRequest& body, response& out) = 0;
 
     // GET /tasks/{id}
     // Get a specific task by ID
-    virtual response get_task(int64_t id) = 0;
+    virtual katana::result<void> get_task(int64_t id, response& out) = 0;
 
     // PUT /tasks/{id}
     // Update a task
-    virtual response update_task(int64_t id, const UpdateTaskRequest& body) = 0;
+    virtual katana::result<void> update_task(int64_t id, const UpdateTaskRequest& body, response& out) = 0;
 
     // DELETE /tasks/{id}
     // Delete a task
-    virtual response delete_task(int64_t id) = 0;
+    virtual katana::result<void> delete_task(int64_t id, response& out) = 0;
 
     // POST /tasks/batch
     // Create multiple tasks in a single request
-    virtual response batch_create_tasks(const BatchCreateRequest& body) = 0;
+    virtual katana::result<void> batch_create_tasks(const BatchCreateRequest& body, response& out) = 0;
 
     // POST /tasks/search
     // Complex task search with multiple criteria
-    virtual response search_tasks(const SearchRequest& body) = 0;
+    virtual katana::result<void> search_tasks(const SearchRequest& body, response& out) = 0;
 
     // GET /health
     // Health check endpoint
-    virtual response health_check() = 0;
+    virtual katana::result<void> health_check(response& out) = 0;
 
 };
 
@@ -112,15 +113,15 @@ struct api_handler {
 // };
 //
 // Available response helpers:
-//   - response::ok(body, content_type = "text/plain")
-//   - response::json(json_string)
-//   - response::created(body, location = "")
-//   - response::no_content()
-//   - response::bad_request(message)
-//   - response::unauthorized(message)
-//   - response::forbidden(message)
-//   - response::not_found(message)
-//   - response::internal_error(message)
+//   - respond::into(out).text(...)
+//   - respond::into(out).json(...)
+//   - respond::into(out).created_json(...)
+//   - respond::into(out).no_content()
+//   - out = response::bad_request(message)
+//   - out = response::unauthorized(message)
+//   - out = response::forbidden(message)
+//   - out = response::not_found(message)
+//   - out = response::internal_error(message)
 //
 // Context access functions (available in handler methods):
 //   - katana::http::req()    - Get current request

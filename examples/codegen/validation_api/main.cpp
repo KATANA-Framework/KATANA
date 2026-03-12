@@ -19,9 +19,10 @@ using namespace katana;
 using namespace katana::http;
 
 struct validation_handler : generated::api_handler {
-    response register_user(const RegisterUserRequest& body) override {
+    result<void> register_user(const RegisterUserRequest& body, response& out) override {
         (void)body; // Validation already performed; no business logic here.
-        return response::json("ok");
+        out = response::json("ok");
+        return {};
     }
 };
 

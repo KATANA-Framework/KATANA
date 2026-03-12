@@ -198,6 +198,30 @@ target_link_libraries(benchmark_api_codegen_benchmark
 
 add_dependencies(benchmark_api_codegen_benchmark benchmark_api_codegen_generate)
 
+add_executable(benchmark_api_framework_benchmark
+    benchmark_api_framework_benchmark.cpp
+    ${GENERATED_BENCHMARK_API_SOURCES}
+)
+
+target_compile_options(benchmark_api_framework_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_include_directories(benchmark_api_framework_benchmark
+    PRIVATE
+        ${GENERATED_BENCHMARK_API_DIR}
+)
+
+target_link_libraries(benchmark_api_framework_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+
+add_dependencies(benchmark_api_framework_benchmark benchmark_api_codegen_generate)
+
 # Commented out - file does not exist
 # add_executable(cycle_profiling cycle_profiling.cpp ${GENERATED_BENCH_SOURCES})
 #

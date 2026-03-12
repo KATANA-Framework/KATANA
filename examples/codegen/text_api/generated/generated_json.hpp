@@ -828,7 +828,9 @@ inline void serialize_text_uppercase_request_into(const text_uppercase_request& 
 
 inline std::string serialize_text_uppercase_request(const text_uppercase_request& obj) {
     std::string json;
-    json.reserve(42);
+    size_t reserve_estimate = 42;
+    reserve_estimate += obj.text.size();
+    json.reserve(reserve_estimate);
     serialize_text_uppercase_request_into(obj, json);
     return json;
 }
@@ -857,7 +859,9 @@ inline void serialize_text_uppercase_response_into(const text_uppercase_response
 
 inline std::string serialize_text_uppercase_response(const text_uppercase_response& obj) {
     std::string json;
-    json.reserve(44);
+    size_t reserve_estimate = 44;
+    reserve_estimate += obj.result.size();
+    json.reserve(reserve_estimate);
     serialize_text_uppercase_response_into(obj, json);
     return json;
 }
@@ -886,7 +890,9 @@ inline void serialize_text_lowercase_request_into(const text_lowercase_request& 
 
 inline std::string serialize_text_lowercase_request(const text_lowercase_request& obj) {
     std::string json;
-    json.reserve(42);
+    size_t reserve_estimate = 42;
+    reserve_estimate += obj.text.size();
+    json.reserve(reserve_estimate);
     serialize_text_lowercase_request_into(obj, json);
     return json;
 }
@@ -915,7 +921,9 @@ inline void serialize_text_lowercase_response_into(const text_lowercase_response
 
 inline std::string serialize_text_lowercase_response(const text_lowercase_response& obj) {
     std::string json;
-    json.reserve(44);
+    size_t reserve_estimate = 44;
+    reserve_estimate += obj.result.size();
+    json.reserve(reserve_estimate);
     serialize_text_lowercase_response_into(obj, json);
     return json;
 }
@@ -944,7 +952,9 @@ inline void serialize_text_reverse_request_into(const text_reverse_request& obj,
 
 inline std::string serialize_text_reverse_request(const text_reverse_request& obj) {
     std::string json;
-    json.reserve(42);
+    size_t reserve_estimate = 42;
+    reserve_estimate += obj.text.size();
+    json.reserve(reserve_estimate);
     serialize_text_reverse_request_into(obj, json);
     return json;
 }
@@ -973,7 +983,9 @@ inline void serialize_text_reverse_response_into(const text_reverse_response& ob
 
 inline std::string serialize_text_reverse_response(const text_reverse_response& obj) {
     std::string json;
-    json.reserve(44);
+    size_t reserve_estimate = 44;
+    reserve_estimate += obj.result.size();
+    json.reserve(reserve_estimate);
     serialize_text_reverse_response_into(obj, json);
     return json;
 }
@@ -1002,7 +1014,9 @@ inline void serialize_text_stats_request_into(const text_stats_request& obj, std
 
 inline std::string serialize_text_stats_request(const text_stats_request& obj) {
     std::string json;
-    json.reserve(42);
+    size_t reserve_estimate = 42;
+    reserve_estimate += obj.text.size();
+    json.reserve(reserve_estimate);
     serialize_text_stats_request_into(obj, json);
     return json;
 }
@@ -1045,7 +1059,8 @@ inline void serialize_text_stats_response_into(const text_stats_response& obj, s
 
 inline std::string serialize_text_stats_response(const text_stats_response& obj) {
     std::string json;
-    json.reserve(89);
+    size_t reserve_estimate = 89;
+    json.reserve(reserve_estimate);
     serialize_text_stats_response_into(obj, json);
     return json;
 }
@@ -1103,7 +1118,9 @@ inline void serialize_text_transform_request_into(const text_transform_request& 
 
 inline std::string serialize_text_transform_request(const text_transform_request& obj) {
     std::string json;
-    json.reserve(100);
+    size_t reserve_estimate = 100;
+    reserve_estimate += obj.text.size();
+    json.reserve(reserve_estimate);
     serialize_text_transform_request_into(obj, json);
     return json;
 }
@@ -1165,7 +1182,10 @@ inline void serialize_text_transform_response_into(const text_transform_response
 
 inline std::string serialize_text_transform_response(const text_transform_response& obj) {
     std::string json;
-    json.reserve(136);
+    size_t reserve_estimate = 136;
+    reserve_estimate += obj.result.size();
+    reserve_estimate += obj.operation_applied.size();
+    json.reserve(reserve_estimate);
     serialize_text_transform_response_into(obj, json);
     return json;
 }
@@ -1825,7 +1845,7 @@ inline void serialize_text_uppercase_request_array_into(const std::vector<text_u
 
 inline std::string serialize_text_uppercase_request_array(const std::vector<text_uppercase_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_uppercase_request_array_into(arr, json);
     return json;
 }
@@ -1841,7 +1861,7 @@ inline void serialize_text_uppercase_request_array_into(const arena_vector<text_
 
 inline std::string serialize_text_uppercase_request_array(const arena_vector<text_uppercase_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_uppercase_request_array_into(arr, json);
     return json;
 }
@@ -1889,7 +1909,7 @@ inline void serialize_text_uppercase_response_array_into(const std::vector<text_
 
 inline std::string serialize_text_uppercase_response_array(const std::vector<text_uppercase_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 44 + 2);
     serialize_text_uppercase_response_array_into(arr, json);
     return json;
 }
@@ -1905,7 +1925,7 @@ inline void serialize_text_uppercase_response_array_into(const arena_vector<text
 
 inline std::string serialize_text_uppercase_response_array(const arena_vector<text_uppercase_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 44 + 2);
     serialize_text_uppercase_response_array_into(arr, json);
     return json;
 }
@@ -1953,7 +1973,7 @@ inline void serialize_text_lowercase_request_array_into(const std::vector<text_l
 
 inline std::string serialize_text_lowercase_request_array(const std::vector<text_lowercase_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_lowercase_request_array_into(arr, json);
     return json;
 }
@@ -1969,7 +1989,7 @@ inline void serialize_text_lowercase_request_array_into(const arena_vector<text_
 
 inline std::string serialize_text_lowercase_request_array(const arena_vector<text_lowercase_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_lowercase_request_array_into(arr, json);
     return json;
 }
@@ -2017,7 +2037,7 @@ inline void serialize_text_lowercase_response_array_into(const std::vector<text_
 
 inline std::string serialize_text_lowercase_response_array(const std::vector<text_lowercase_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 44 + 2);
     serialize_text_lowercase_response_array_into(arr, json);
     return json;
 }
@@ -2033,7 +2053,7 @@ inline void serialize_text_lowercase_response_array_into(const arena_vector<text
 
 inline std::string serialize_text_lowercase_response_array(const arena_vector<text_lowercase_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 44 + 2);
     serialize_text_lowercase_response_array_into(arr, json);
     return json;
 }
@@ -2081,7 +2101,7 @@ inline void serialize_text_reverse_request_array_into(const std::vector<text_rev
 
 inline std::string serialize_text_reverse_request_array(const std::vector<text_reverse_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_reverse_request_array_into(arr, json);
     return json;
 }
@@ -2097,7 +2117,7 @@ inline void serialize_text_reverse_request_array_into(const arena_vector<text_re
 
 inline std::string serialize_text_reverse_request_array(const arena_vector<text_reverse_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_reverse_request_array_into(arr, json);
     return json;
 }
@@ -2145,7 +2165,7 @@ inline void serialize_text_reverse_response_array_into(const std::vector<text_re
 
 inline std::string serialize_text_reverse_response_array(const std::vector<text_reverse_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 44 + 2);
     serialize_text_reverse_response_array_into(arr, json);
     return json;
 }
@@ -2161,7 +2181,7 @@ inline void serialize_text_reverse_response_array_into(const arena_vector<text_r
 
 inline std::string serialize_text_reverse_response_array(const arena_vector<text_reverse_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 44 + 2);
     serialize_text_reverse_response_array_into(arr, json);
     return json;
 }
@@ -2209,7 +2229,7 @@ inline void serialize_text_stats_request_array_into(const std::vector<text_stats
 
 inline std::string serialize_text_stats_request_array(const std::vector<text_stats_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_stats_request_array_into(arr, json);
     return json;
 }
@@ -2225,7 +2245,7 @@ inline void serialize_text_stats_request_array_into(const arena_vector<text_stat
 
 inline std::string serialize_text_stats_request_array(const arena_vector<text_stats_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 42 + 2);
     serialize_text_stats_request_array_into(arr, json);
     return json;
 }
@@ -2273,7 +2293,7 @@ inline void serialize_text_stats_response_array_into(const std::vector<text_stat
 
 inline std::string serialize_text_stats_response_array(const std::vector<text_stats_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 89 + 2);
     serialize_text_stats_response_array_into(arr, json);
     return json;
 }
@@ -2289,7 +2309,7 @@ inline void serialize_text_stats_response_array_into(const arena_vector<text_sta
 
 inline std::string serialize_text_stats_response_array(const arena_vector<text_stats_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 89 + 2);
     serialize_text_stats_response_array_into(arr, json);
     return json;
 }
@@ -2305,7 +2325,7 @@ inline void serialize_text_stats_response_Chars_array_into(const std::vector<tex
 
 inline std::string serialize_text_stats_response_Chars_array(const std::vector<text_stats_response_Chars>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_stats_response_Chars_array_into(arr, json);
     return json;
 }
@@ -2321,7 +2341,7 @@ inline void serialize_text_stats_response_Chars_array_into(const arena_vector<te
 
 inline std::string serialize_text_stats_response_Chars_array(const arena_vector<text_stats_response_Chars>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_stats_response_Chars_array_into(arr, json);
     return json;
 }
@@ -2337,7 +2357,7 @@ inline void serialize_text_stats_response_Words_array_into(const std::vector<tex
 
 inline std::string serialize_text_stats_response_Words_array(const std::vector<text_stats_response_Words>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_stats_response_Words_array_into(arr, json);
     return json;
 }
@@ -2353,7 +2373,7 @@ inline void serialize_text_stats_response_Words_array_into(const arena_vector<te
 
 inline std::string serialize_text_stats_response_Words_array(const arena_vector<text_stats_response_Words>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_stats_response_Words_array_into(arr, json);
     return json;
 }
@@ -2369,7 +2389,7 @@ inline void serialize_text_stats_response_Lines_array_into(const std::vector<tex
 
 inline std::string serialize_text_stats_response_Lines_array(const std::vector<text_stats_response_Lines>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_stats_response_Lines_array_into(arr, json);
     return json;
 }
@@ -2385,7 +2405,7 @@ inline void serialize_text_stats_response_Lines_array_into(const arena_vector<te
 
 inline std::string serialize_text_stats_response_Lines_array(const arena_vector<text_stats_response_Lines>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_stats_response_Lines_array_into(arr, json);
     return json;
 }
@@ -2401,7 +2421,7 @@ inline void serialize_text_transform_request_array_into(const std::vector<text_t
 
 inline std::string serialize_text_transform_request_array(const std::vector<text_transform_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 100 + 2);
     serialize_text_transform_request_array_into(arr, json);
     return json;
 }
@@ -2417,7 +2437,7 @@ inline void serialize_text_transform_request_array_into(const arena_vector<text_
 
 inline std::string serialize_text_transform_request_array(const arena_vector<text_transform_request>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 100 + 2);
     serialize_text_transform_request_array_into(arr, json);
     return json;
 }
@@ -2497,7 +2517,7 @@ inline void serialize_text_transform_request_Trim_array_into(const std::vector<t
 
 inline std::string serialize_text_transform_request_Trim_array(const std::vector<text_transform_request_Trim>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 5 + 2);
     serialize_text_transform_request_Trim_array_into(arr, json);
     return json;
 }
@@ -2513,7 +2533,7 @@ inline void serialize_text_transform_request_Trim_array_into(const arena_vector<
 
 inline std::string serialize_text_transform_request_Trim_array(const arena_vector<text_transform_request_Trim>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 5 + 2);
     serialize_text_transform_request_Trim_array_into(arr, json);
     return json;
 }
@@ -2529,7 +2549,7 @@ inline void serialize_text_transform_response_array_into(const std::vector<text_
 
 inline std::string serialize_text_transform_response_array(const std::vector<text_transform_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 136 + 2);
     serialize_text_transform_response_array_into(arr, json);
     return json;
 }
@@ -2545,7 +2565,7 @@ inline void serialize_text_transform_response_array_into(const arena_vector<text
 
 inline std::string serialize_text_transform_response_array(const arena_vector<text_transform_response>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 136 + 2);
     serialize_text_transform_response_array_into(arr, json);
     return json;
 }
@@ -2561,7 +2581,7 @@ inline void serialize_text_transform_response_Original_length_array_into(const s
 
 inline std::string serialize_text_transform_response_Original_length_array(const std::vector<text_transform_response_Original_length>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_transform_response_Original_length_array_into(arr, json);
     return json;
 }
@@ -2577,7 +2597,7 @@ inline void serialize_text_transform_response_Original_length_array_into(const a
 
 inline std::string serialize_text_transform_response_Original_length_array(const arena_vector<text_transform_response_Original_length>& arr) {
     std::string json;
-    json.reserve(arr.size() * 32 + 2);
+    json.reserve(arr.size() * 20 + 2);
     serialize_text_transform_response_Original_length_array_into(arr, json);
     return json;
 }

@@ -1,10 +1,14 @@
 #include "katana/core/tcp_socket.hpp"
 
+#include <array>
+#include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <netinet/in.h>
+#include <string>
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <thread>
 #include <unistd.h>
 
@@ -218,6 +222,105 @@ TEST_F(TcpSocketTest, WriteLargeData) {
 
     write_thread.join();
     EXPECT_GT(total_read, 0);
+}
+
+TEST_F(TcpSocketTest, WritevHandlesPartialWritesAndPreservesOrdering) {
+    tcp_socket writer(fd1_);
+    tcp_socket reader(fd2_);
+    fd1_ = -1;
+    fd2_ = -1;
+
+    const int sndbuf = 4096;
+    ASSERT_EQ(::setsockopt(writer.native_handle(),
+                           SOL_SOCKET,
+                           SO_SNDBUF,
+                           &sndbuf,
+                           static_cast<socklen_t>(sizeof(sndbuf))),
+              0);
+
+    std::string head(8192, 'H');
+    std::string body(65536, 'B');
+    std::string expected = head + body;
+    std::string received;
+    received.reserve(expected.size());
+
+    size_t offset = 0;
+    bool saw_blocked_write = false;
+
+    auto make_iov = [&](size_t start_offset) {
+        std::array<iovec, 2> iov{};
+        size_t count = 0;
+        if (start_offset < head.size()) {
+            iov[count].iov_base = head.data() + start_offset;
+            iov[count].iov_len = head.size() - start_offset;
+            ++count;
+            iov[count].iov_base = body.data();
+            iov[count].iov_len = body.size();
+            ++count;
+        } else {
+            const size_t body_offset = start_offset - head.size();
+            iov[count].iov_base = body.data() + body_offset;
+            iov[count].iov_len = body.size() - body_offset;
+            ++count;
+        }
+        return std::pair{iov, count};
+    };
+
+    while (offset < expected.size()) {
+        auto [iov, count] = make_iov(offset);
+        auto write_result = writer.writev(iov.data(), count);
+        ASSERT_TRUE(write_result.has_value());
+
+        if (*write_result == 0) {
+            saw_blocked_write = true;
+            break;
+        }
+
+        offset += *write_result;
+    }
+
+    while (offset < expected.size()) {
+        char buffer[16384];
+        while (true) {
+            auto read_result =
+                reader.read(std::span<uint8_t>(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer)));
+            ASSERT_TRUE(read_result.has_value());
+            if (read_result->empty()) {
+                break;
+            }
+            received.append(buffer, buffer + read_result->size());
+        }
+
+        auto [iov, count] = make_iov(offset);
+        auto write_result = writer.writev(iov.data(), count);
+        ASSERT_TRUE(write_result.has_value());
+
+        if (*write_result == 0) {
+            saw_blocked_write = true;
+        } else {
+            offset += *write_result;
+        }
+    }
+
+    auto [iov, count] = make_iov(offset);
+    auto final_write = writer.writev(iov.data(), count);
+    ASSERT_TRUE(final_write.has_value());
+    EXPECT_EQ(*final_write, 0U);
+    EXPECT_TRUE(saw_blocked_write);
+
+    char drain[16384];
+    while (received.size() < expected.size()) {
+        auto read_result =
+            reader.read(std::span<uint8_t>(reinterpret_cast<uint8_t*>(drain), sizeof(drain)));
+        ASSERT_TRUE(read_result.has_value());
+        if (read_result->empty()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+        received.append(drain, drain + read_result->size());
+    }
+
+    EXPECT_EQ(received, expected);
 }
 
 TEST_F(TcpSocketTest, DestructorClosesSocket) {

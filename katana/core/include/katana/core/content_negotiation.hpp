@@ -109,21 +109,24 @@ inline bool validate_accept(const request& req,
 inline middleware_fn
 make_content_negotiation_middleware(std::span<const content_type_info> consumes,
                                     std::span<const content_type_info> produces) {
-    return [consumes,
-            produces](const request& req, request_context& ctx, next_fn next) -> result<response> {
+    return [consumes, produces](const request& req,
+                                request_context& ctx,
+                                response& out,
+                                next_fn next) -> result<void> {
+        (void)ctx;
         // Validate Content-Type (415 Unsupported Media Type)
         if (!validate_content_type(req, consumes)) {
-            auto problem = problem_details::unsupported_media_type();
-            return response::error(problem);
+            respond::into(out).problem(problem_details::unsupported_media_type());
+            return {};
         }
 
         // Validate Accept (406 Not Acceptable)
         if (!validate_accept(req, produces)) {
-            auto problem = problem_details::not_acceptable();
-            return response::error(problem);
+            respond::into(out).problem(problem_details::not_acceptable());
+            return {};
         }
 
-        return next();
+        return next(out);
     };
 }
 

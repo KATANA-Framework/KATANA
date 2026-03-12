@@ -1,4 +1,5 @@
 #include "katana/core/epoll_reactor.hpp"
+#include "katana/core/detail/syscall_metrics.hpp"
 #include "katana/core/scoped_fd.hpp"
 
 #include <algorithm>
@@ -14,6 +15,19 @@
 namespace katana {
 
 namespace {
+
+bool reactor_metrics_enabled() {
+    static bool enabled = [] {
+        const char* value = std::getenv("KATANA_REACTOR_METRICS");
+        if (!value || !*value) {
+            return false;
+        }
+        return std::strcmp(value, "1") == 0 || std::strcmp(value, "true") == 0 ||
+               std::strcmp(value, "TRUE") == 0 || std::strcmp(value, "yes") == 0 ||
+               std::strcmp(value, "YES") == 0;
+    }();
+    return enabled;
+}
 
 constexpr uint32_t to_epoll_events(event_type events) noexcept {
     uint32_t result = 0;
@@ -58,7 +72,8 @@ constexpr event_type from_epoll_events(uint32_t events) noexcept {
 epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
     : epoll_fd_(-1), wakeup_fd_(-1), max_events_(max_events), running_(false),
       graceful_shutdown_(false), pending_tasks_(max_pending_tasks),
-      pending_timers_(max_pending_tasks), exception_handler_([](const exception_context& ctx) {
+      pending_timers_(max_pending_tasks), metrics_enabled_(reactor_metrics_enabled()),
+      exception_handler_([](const exception_context& ctx) {
           std::cerr << "[reactor] Exception in " << ctx.location;
           if (ctx.fd >= 0) {
               std::cerr << " (fd=" << ctx.fd << ")";
@@ -89,6 +104,7 @@ epoll_reactor::epoll_reactor(int32_t max_events, size_t max_pending_tasks)
     epoll_event ev{};
     ev.events = EPOLLIN | EPOLLET;
     ev.data.fd = wakeup_fd.get();
+    detail::syscall_metrics_registry::instance().note_epoll_ctl_add();
     if (epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, wakeup_fd.get(), &ev) < 0) {
         throw std::system_error(errno, std::system_category(), "failed to add wakeup fd to epoll");
     }
@@ -146,6 +162,7 @@ result<void> epoll_reactor::run() {
                                          static_cast<int32_t>(fd));
                     }
                     if (fd_states_[fd].callback) {
+                        detail::syscall_metrics_registry::instance().note_epoll_ctl_del();
                         epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, static_cast<int32_t>(fd), nullptr);
                         close(static_cast<int32_t>(fd));
                         fd_states_[fd] = fd_state{};
@@ -203,6 +220,7 @@ result<void> epoll_reactor::register_fd(int32_t fd, event_type events, event_cal
     ev.events = to_epoll_events(events);
     ev.data.fd = fd;
 
+    detail::syscall_metrics_registry::instance().note_epoll_ctl_add();
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
@@ -247,6 +265,7 @@ result<void> epoll_reactor::register_fd_with_timeout(int32_t fd,
     ev.events = to_epoll_events(events);
     ev.data.fd = fd;
 
+    detail::syscall_metrics_registry::instance().note_epoll_ctl_add();
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
         cancel_fd_timeout(state);
         return std::unexpected(std::error_code(errno, std::system_category()));
@@ -267,6 +286,7 @@ result<void> epoll_reactor::modify_fd(int32_t fd, event_type events) {
     ev.events = to_epoll_events(events);
     ev.data.fd = fd;
 
+    detail::syscall_metrics_registry::instance().note_epoll_ctl_mod();
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev) < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
@@ -288,6 +308,7 @@ result<void> epoll_reactor::unregister_fd(int32_t fd) {
 
     cancel_fd_timeout(fd_states_[static_cast<size_t>(fd)]);
 
+    detail::syscall_metrics_registry::instance().note_epoll_ctl_del();
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0) {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
@@ -307,10 +328,14 @@ void epoll_reactor::refresh_fd_timeout(int32_t fd) {
 
 bool epoll_reactor::schedule(task_fn task) {
     if (!pending_tasks_.try_push(std::move(task))) {
-        metrics_.tasks_rejected.fetch_add(1, std::memory_order_relaxed);
+        if (metrics_enabled_) {
+            metrics_.tasks_rejected.fetch_add(1, std::memory_order_relaxed);
+        }
         return false;
     }
-    metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    if (metrics_enabled_) {
+        metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    }
     uint32_t prev = pending_count_.fetch_add(1, std::memory_order_relaxed);
 
     if (prev == 0) {
@@ -336,10 +361,14 @@ bool epoll_reactor::schedule(task_fn task) {
 bool epoll_reactor::schedule_after(std::chrono::milliseconds delay, task_fn task) {
     auto deadline = std::chrono::steady_clock::now() + delay;
     if (!pending_timers_.try_push(timer_entry{deadline, std::move(task)})) {
-        metrics_.tasks_rejected.fetch_add(1, std::memory_order_relaxed);
+        if (metrics_enabled_) {
+            metrics_.tasks_rejected.fetch_add(1, std::memory_order_relaxed);
+        }
         return false;
     }
-    metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    if (metrics_enabled_) {
+        metrics_.tasks_scheduled.fetch_add(1, std::memory_order_relaxed);
+    }
     timeout_dirty_.store(true, std::memory_order_relaxed);
 
     uint64_t val = 1;
@@ -359,6 +388,7 @@ bool epoll_reactor::schedule_after(std::chrono::milliseconds delay, task_fn task
 
 result<void> epoll_reactor::process_events(int32_t timeout_ms) {
     int32_t nfds = epoll_wait(epoll_fd_, events_buffer_.data(), max_events_, timeout_ms);
+    detail::syscall_metrics_registry::instance().note_epoll_wait(nfds);
 
     if (nfds < 0) {
         if (errno == EINTR) {
@@ -368,6 +398,7 @@ result<void> epoll_reactor::process_events(int32_t timeout_ms) {
     }
 
     constexpr int32_t kChunk = 128;
+    uint64_t processed_events = 0;
     for (int32_t base = 0; base < nfds; base += kChunk) {
         const int32_t end = std::min<int32_t>(base + kChunk, nfds);
 
@@ -415,7 +446,7 @@ result<void> epoll_reactor::process_events(int32_t timeout_ms) {
 
                 try {
                     state.callback(ev); // Hot spot: 3.15% of total CPU time
-                    metrics_.fd_events_processed.fetch_add(1, std::memory_order_relaxed);
+                    ++processed_events;
                 } catch (...) {
                     // Exceptions in callbacks are rare - compiler should optimize this path
                     handle_exception("fd_callback", std::current_exception(), fd);
@@ -424,12 +455,17 @@ result<void> epoll_reactor::process_events(int32_t timeout_ms) {
         }
     }
 
+    if (metrics_enabled_ && processed_events != 0) {
+        metrics_.fd_events_processed.fetch_add(processed_events, std::memory_order_relaxed);
+    }
+
     return {};
 }
 
 void epoll_reactor::process_tasks() {
     uint32_t to_process = pending_count_.exchange(0, std::memory_order_relaxed);
     needs_wakeup_.store(false, std::memory_order_release);
+    uint32_t executed = 0;
 
     for (uint32_t i = 0; i < to_process; ++i) {
         auto task = pending_tasks_.pop();
@@ -437,10 +473,14 @@ void epoll_reactor::process_tasks() {
             break;
         try {
             (*task)();
-            metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
+            ++executed;
         } catch (...) {
             handle_exception("scheduled_task", std::current_exception());
         }
+    }
+
+    if (metrics_enabled_ && executed != 0) {
+        metrics_.tasks_executed.fetch_add(executed, std::memory_order_relaxed);
     }
 }
 
@@ -449,17 +489,22 @@ void epoll_reactor::process_timers(std::chrono::steady_clock::time_point now) {
         timers_.push(std::move(*timer));
     }
 
+    uint32_t fired = 0;
     while (!timers_.empty() && timers_.top().deadline <= now) {
         auto task = std::move(timers_.top().task);
         timers_.pop();
 
         try {
             task();
-            metrics_.tasks_executed.fetch_add(1, std::memory_order_relaxed);
-            metrics_.timers_fired.fetch_add(1, std::memory_order_relaxed);
+            ++fired;
         } catch (...) {
             handle_exception("delayed_task", std::current_exception());
         }
+    }
+
+    if (metrics_enabled_ && fired != 0) {
+        metrics_.tasks_executed.fetch_add(fired, std::memory_order_relaxed);
+        metrics_.timers_fired.fetch_add(fired, std::memory_order_relaxed);
     }
 }
 
@@ -563,7 +608,9 @@ void epoll_reactor::handle_fd_timeout(int32_t fd) {
             .count();
 
     if (elapsed_ns >= entry_state.timeout_interval.count()) {
-        metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
+        if (metrics_enabled_) {
+            metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
+        }
 
         auto cb = std::move(entry_state.callback);
         entry_state.has_timeout = false;
@@ -621,6 +668,7 @@ void epoll_reactor::close_fd_immediate(int32_t fd) {
         return;
     }
 
+    detail::syscall_metrics_registry::instance().note_epoll_ctl_del();
     (void)epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
     (void)close(fd);
 
@@ -642,6 +690,7 @@ void epoll_reactor::flush_deferred_closes() {
             continue;
         }
 
+        detail::syscall_metrics_registry::instance().note_epoll_ctl_del();
         if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0 && errno != ENOENT &&
             errno != EBADF) {
             handle_exception("deferred_epoll_ctl_del",
@@ -727,7 +776,9 @@ epoll_reactor::time_until_graceful_deadline(std::chrono::steady_clock::time_poin
 void epoll_reactor::handle_exception(std::string_view location,
                                      std::exception_ptr ex,
                                      int32_t fd) noexcept {
-    metrics_.exceptions_caught.fetch_add(1, std::memory_order_relaxed);
+    if (metrics_enabled_) {
+        metrics_.exceptions_caught.fetch_add(1, std::memory_order_relaxed);
+    }
 
     if (exception_handler_) {
         try {
