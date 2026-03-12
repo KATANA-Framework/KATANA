@@ -700,3 +700,18 @@
   - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA && pre-commit run --all-files'`
   - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl && ctest --output-on-failure -j4'`
   - итог: `unit_tests`, `integration_tests` и весь локальный pre-commit pipeline зелёные
+
+## 2026-03-12 Follow-up CI fix after 54efd67
+- Следующий прогон `Full CI` на `54efd67` показал, что:
+  - `lint` уже зелёный
+  - `Code Coverage` уже зелёный
+  - продолжают падать `Backend Matrix (epoll)`, `fuzzing` и clang sanitizer jobs
+- Корень оказался общий и compile-time:
+  - `katana/core/src/problem.cpp`
+  - clang `-Wsign-conversion` ругался на `for (unsigned char ch : value)` в `append_json_escaped()`
+  - локально это не всплыло раньше, потому что основной WSL build не использовал тот же warning profile, что GitHub clang matrix
+- Фикс:
+  - range-for переведён на `char raw_ch` + явный `static_cast<unsigned char>(raw_ch)` внутри тела
+- Валидация:
+  - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA && clang++-18 -std=c++23 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic -Ikatana/core/include -c katana/core/src/problem.cpp -o /tmp/problem.o'`
+  - `wsl bash -lc 'cd /mnt/c/Users/Ya/OneDrive/Desktop/KATANA && pre-commit run --files katana/core/src/problem.cpp'`

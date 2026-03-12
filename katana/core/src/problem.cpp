@@ -5,7 +5,8 @@
 namespace {
 
 void append_json_escaped(std::string& out, std::string_view value) {
-    for (unsigned char ch : value) {
+    for (char raw_ch : value) {
+        const auto ch = static_cast<unsigned char>(raw_ch);
         switch (ch) {
         case '"':
             out.append("\\\"");
