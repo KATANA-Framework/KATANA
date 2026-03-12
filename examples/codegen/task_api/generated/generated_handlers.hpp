@@ -1,12 +1,12 @@
 // layer: flat
 // Auto-generated handler interfaces from OpenAPI specification
-// 
+//
 // Zero-boilerplate design:
 //   - Clean signatures: result<void> method(params, response& out)
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
-// 
+//
 // Example:
 //   katana::result<void> get_user(int64_t id, response& out) override {
 //       auto user = db.find(id, &arena());  // arena() from context
@@ -15,16 +15,16 @@
 //   }
 #pragma once
 
+#include "generated_dtos.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/router.hpp"
-#include "generated_dtos.hpp"
-#include <string_view>
 #include <optional>
+#include <string_view>
 #include <variant>
 
 using katana::http::request;
-using katana::http::response;
 using katana::http::request_context;
+using katana::http::response;
 
 namespace generated {
 
@@ -35,7 +35,11 @@ struct api_handler {
 
     // GET /tasks
     // List all tasks with optional filtering
-    virtual katana::result<void> list_tasks(std::optional<std::string_view> status, std::optional<int64_t> priority, std::optional<int64_t> limit, std::optional<int64_t> offset, response& out) = 0;
+    virtual katana::result<void> list_tasks(std::optional<std::string_view> status,
+                                            std::optional<int64_t> priority,
+                                            std::optional<int64_t> limit,
+                                            std::optional<int64_t> offset,
+                                            response& out) = 0;
 
     // POST /tasks
     // Create a new task
@@ -47,7 +51,8 @@ struct api_handler {
 
     // PUT /tasks/{id}
     // Update a task
-    virtual katana::result<void> update_task(int64_t id, const UpdateTaskRequest& body, response& out) = 0;
+    virtual katana::result<void>
+    update_task(int64_t id, const UpdateTaskRequest& body, response& out) = 0;
 
     // DELETE /tasks/{id}
     // Delete a task
@@ -55,7 +60,8 @@ struct api_handler {
 
     // POST /tasks/batch
     // Create multiple tasks in a single request
-    virtual katana::result<void> batch_create_tasks(const BatchCreateRequest& body, response& out) = 0;
+    virtual katana::result<void> batch_create_tasks(const BatchCreateRequest& body,
+                                                    response& out) = 0;
 
     // POST /tasks/search
     // Complex task search with multiple criteria
@@ -64,7 +70,6 @@ struct api_handler {
     // GET /health
     // Health check endpoint
     virtual katana::result<void> health_check(response& out) = 0;
-
 };
 
 // ============================================================================
@@ -91,15 +96,16 @@ struct api_handler {
 //     katana::result<void> create_item(const create_request& req, response& out) override {
 //         auto item = db.create(req, &katana::http::arena());
 //         if (!item) {
-//             out.assign_error(katana::problem_details::internal_server_error("failed to create item"));
-//             return {};
+//             out.assign_error(katana::problem_details::internal_server_error("failed to create
+//             item")); return {};
 //         }
 //         respond::into(out).created_json(serialize_item(*item));
 //         return {};
 //     }
 //
 //     // Example 4: Enum handling
-//     katana::result<void> transform_text(const text_transform_request& req, response& out) override {
+//     katana::result<void> transform_text(const text_transform_request& req, response& out)
+//     override {
 //         std::string result;
 //         switch (req.operation) {
 //             case text_transform_request_operation_enum::upper:

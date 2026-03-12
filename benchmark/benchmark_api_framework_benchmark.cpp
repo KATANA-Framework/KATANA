@@ -137,8 +137,8 @@ public:
         Item item(&arena);
         item.id = id;
         if (body.name) {
-            item.name = arena_string<>(
-                body.name->data(), body.name->size(), arena_allocator<char>(&arena));
+            item.name =
+                arena_string<>(body.name->data(), body.name->size(), arena_allocator<char>(&arena));
         } else {
             item.name = arena_string<>("Updated Item", arena_allocator<char>(&arena));
         }

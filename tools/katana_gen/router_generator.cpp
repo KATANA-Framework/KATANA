@@ -857,8 +857,8 @@ std::string generate_router_bindings(const document& doc) {
             dispatch_functions << "    }\n";
             if (has_response_content) {
                 dispatch_functions << "    if (out.status != 204 && !out.body.empty() && "
-                                   << "!out.headers.get("
-                                   << generate_headers_get("Content-Type") << ")) {\n";
+                                   << "!out.headers.get(" << generate_headers_get("Content-Type")
+                                   << ")) {\n";
                 dispatch_functions << "        out.set_header(\"Content-Type\", "
                                       "response_content_type);\n";
                 dispatch_functions << "    }\n";
@@ -873,7 +873,8 @@ std::string generate_router_bindings(const document& doc) {
             make_router_stream << "                   katana::http::path_pattern::from_literal<\""
                                << path.path << "\">(),\n";
             make_router_stream
-                << "                   katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, "
+                << "                   katana::http::handler_fn([handler_ptr = &handler](const "
+                   "katana::http::request& req, "
                    "katana::http::request_context& ctx, katana::http::response& out) -> "
                    "katana::result<void> "
                    "{\n";
@@ -901,7 +902,8 @@ std::string generate_router_bindings(const document& doc) {
     make_router_stream << "    [[nodiscard]] operator katana::http::router&() noexcept { return "
                           "*router_; }\n\n";
     make_router_stream << "private:\n";
-    make_router_stream << "    std::array<katana::http::route_entry, route_count> route_entries_;\n";
+    make_router_stream
+        << "    std::array<katana::http::route_entry, route_count> route_entries_;\n";
     make_router_stream << "    std::optional<katana::http::router> router_;\n";
     make_router_stream << "};\n\n";
     make_router_stream << "inline generated_router make_router(api_handler& handler) {\n";
@@ -993,7 +995,8 @@ std::string generate_router_bindings(const document& doc) {
     out << "class generated_fast_router {\n";
     out << "public:\n";
     out << "    explicit generated_fast_router(api_handler& handler)\n";
-    out << "        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) {}\n\n";
+    out << "        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) "
+           "{}\n\n";
     out << "    generated_fast_router(const generated_fast_router&) = delete;\n";
     out << "    generated_fast_router& operator=(const generated_fast_router&) = delete;\n";
     out << "    generated_fast_router(generated_fast_router&&) = delete;\n";
@@ -1010,7 +1013,7 @@ std::string generate_router_bindings(const document& doc) {
     out << "        return fast_router_(req, ctx);\n";
     out << "    }\n\n";
     out << "    [[nodiscard]] const generated_router& bundle() const noexcept { return "
-          "router_bundle_; }\n\n";
+           "router_bundle_; }\n\n";
     out << "private:\n";
     out << "    generated_router router_bundle_;\n";
     out << "    fast_router fast_router_;\n";
@@ -1066,14 +1069,16 @@ std::string generate_router_bindings(const document& doc) {
     out << "        server_.on_stop(std::move(callback));\n";
     out << "        return *this;\n";
     out << "    }\n";
-    out << "    generated_server& on_request(std::function<void(const request&, const response&)> callback) {\n";
+    out << "    generated_server& on_request(std::function<void(const request&, const response&)> "
+           "callback) {\n";
     out << "        server_.on_request(std::move(callback));\n";
     out << "        return *this;\n";
     out << "    }\n";
     out << "    [[nodiscard]] Handler& handler() noexcept { return handler_; }\n";
     out << "    [[nodiscard]] const Handler& handler() const noexcept { return handler_; }\n";
     out << "    [[nodiscard]] katana::http::server& server() noexcept { return server_; }\n";
-    out << "    [[nodiscard]] const katana::http::server& server() const noexcept { return server_; }\n";
+    out << "    [[nodiscard]] const katana::http::server& server() const noexcept { return "
+           "server_; }\n";
     out << "    int run() { return server_.run(); }\n\n";
     out << "private:\n";
     out << "    Handler handler_;\n";
@@ -1320,9 +1325,11 @@ std::string generate_handler_interfaces(const document& doc) {
     }
 
     out << "//     // Example 2: Error handling\n";
-    out << "//     katana::result<void> handle_request(const some_request& req, response& out) override {\n";
+    out << "//     katana::result<void> handle_request(const some_request& req, response& out) "
+           "override {\n";
     out << "//         if (req.value < 0) {\n";
-    out << "//             out.assign_error(katana::problem_details::bad_request(\"value must be positive\"));\n";
+    out << "//             out.assign_error(katana::problem_details::bad_request(\"value must be "
+           "positive\"));\n";
     out << "//             return {};\n";
     out << "//         }\n";
     out << "//         // ... normal processing ...\n";
@@ -1331,10 +1338,13 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "//     }\n";
     out << "//\n";
     out << "//     // Example 3: Different response status codes\n";
-    out << "//     katana::result<void> create_item(const create_request& req, response& out) override {\n";
+    out << "//     katana::result<void> create_item(const create_request& req, response& out) "
+           "override {\n";
     out << "//         auto item = db.create(req, &katana::http::arena());\n";
     out << "//         if (!item) {\n";
-    out << "//             out.assign_error(katana::problem_details::internal_server_error(\"failed to create item\"));\n";
+    out << "//             "
+           "out.assign_error(katana::problem_details::internal_server_error(\"failed to create "
+           "item\"));\n";
     out << "//             return {};\n";
     out << "//         }\n";
     out << "//         respond::into(out).created_json(serialize_item(*item));\n";
@@ -1342,7 +1352,8 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "//     }\n";
     out << "//\n";
     out << "//     // Example 4: Enum handling\n";
-    out << "//     katana::result<void> transform_text(const text_transform_request& req, response& out) override {\n";
+    out << "//     katana::result<void> transform_text(const text_transform_request& req, "
+           "response& out) override {\n";
     out << "//         std::string result;\n";
     out << "//         switch (req.operation) {\n";
     out << "//             case text_transform_request_operation_enum::upper:\n";

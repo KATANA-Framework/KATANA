@@ -508,8 +508,7 @@ components:
     EXPECT_NE(dtos.find("^[A-Z]+\\\\\\\\.[0-9]+$"), std::string::npos);
 
     auto validators = read_generated_file("generated_validators.hpp");
-    EXPECT_NE(validators.find("std::regex re_{\"^[A-Z]+\\\\\\\\.[0-9]+$\"}"),
-              std::string::npos);
+    EXPECT_NE(validators.find("std::regex re_{\"^[A-Z]+\\\\\\\\.[0-9]+$\"}"), std::string::npos);
 }
 
 TEST_F(CodegenIntegrationTest, ValidatorsDoNotExitEarlyForOptionalUniqueItemsArrays) {
@@ -591,7 +590,8 @@ paths:
     EXPECT_NE(bindings.find("class generated_router"), std::string::npos);
     EXPECT_NE(bindings.find("handler_ptr = &handler"), std::string::npos);
     EXPECT_NE(bindings.find("negotiate_response_type(req, route_0_produces)"), std::string::npos);
-    EXPECT_NE(bindings.find("find_content_type(req.headers.get(katana::http::field::content_type), route_0_consumes)"),
+    EXPECT_NE(bindings.find("find_content_type(req.headers.get(katana::http::field::content_type), "
+                            "route_0_consumes)"),
               std::string::npos);
     EXPECT_NE(bindings.find("out.status != 204 && !out.body.empty()"), std::string::npos);
     EXPECT_NE(bindings.find("class generated_server"), std::string::npos);
