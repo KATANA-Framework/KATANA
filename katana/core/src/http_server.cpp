@@ -72,7 +72,8 @@ const char* parser_state_name(parser::state state) noexcept {
 std::string escape_preview(std::string_view bytes) {
     std::ostringstream out;
     out << std::hex << std::setfill('0');
-    for (unsigned char ch : bytes) {
+    for (char raw_ch : bytes) {
+        const auto ch = static_cast<unsigned char>(raw_ch);
         switch (ch) {
         case '\r':
             out << "\\r";
