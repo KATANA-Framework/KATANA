@@ -1,0 +1,18 @@
+# Codecov should evaluate coverage only for maintained runtime/generator code that
+# is part of the C/C++ coverage report. Documentation, benchmarks, tests, helper
+# scripts, examples, and generated example outputs are not represented in lcov.
+ignore:
+  - "README.md"
+  - "comparisons/**"
+  - "examples/**"
+  - "scripts/**"
+  - "test/**"
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+    patch:
+      default:
+        target: auto
