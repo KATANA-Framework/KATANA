@@ -39,3 +39,11 @@ debug_test.cpp
 # Build and test logs
 *.log
 ci-logs/
+
+# Framework comparison suite artifacts
+comparisons/http_frameworks/actix_web/target/
+comparisons/http_frameworks/axum/target/
+comparisons/http_frameworks/ntex/target/
+comparisons/http_frameworks/drogon/build/
+comparisons/http_frameworks/fastapi/.venv/
+benchmark_results/framework_comparison/

@@ -1,0 +1,33 @@
+{
+  "targets": [
+    {
+      "name": "katana",
+      "scenario_urls": {
+        "hello-canonical": "http://192.168.0.104:18080/",
+        "hello-peak": "http://192.168.0.104:18080/",
+        "compute-canonical": "http://192.168.0.104:18081/",
+        "compute-peak": "http://192.168.0.104:18081/"
+      }
+    },
+    {
+      "name": "actix-web",
+      "base_url": "http://192.168.0.104:19080/"
+    },
+    {
+      "name": "axum",
+      "base_url": "http://192.168.0.104:19081/"
+    },
+    {
+      "name": "drogon",
+      "base_url": "http://192.168.0.104:19082/"
+    },
+    {
+      "name": "ntex",
+      "base_url": "http://192.168.0.104:19084/"
+    },
+    {
+      "name": "fastapi",
+      "base_url": "http://192.168.0.104:19083/"
+    }
+  ]
+}

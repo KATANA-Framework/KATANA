@@ -409,7 +409,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         const auto& req = state.http_parser.get_request();
         request_context ctx{state.arena};
         response resp{&state.arena};
-        dispatch_or_problem(router_, req, ctx, resp);
+        dispatch_request(req, ctx, resp);
 
         if (on_request_callback_) {
             on_request_callback_(req, resp);

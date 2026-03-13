@@ -25,7 +25,13 @@ struct compute_handler : generated::api_handler {
         // Tight loop over arena-backed vector to stress CPU/serialization only.
         for (double v : nums)
             acc += v;
-        out.assign_json(serialize_schema(acc));
+        out.reset();
+        out.status = 200;
+        out.reason.assign(canonical_reason_phrase(200));
+        out.body.clear();
+        out.body.reserve(32);
+        serialize_schema_into(acc, out.body);
+        out.set_header(http::field::content_type, "application/json");
         return {};
     }
 };
@@ -52,7 +58,7 @@ static uint16_t worker_count() {
 
 int main() {
     compute_handler handler;
-    const auto& api_router = generated::make_router(handler);
+    const auto& api_router = generated::make_fast_router(handler);
 
     const uint16_t port = read_port("PORT", read_port("COMPUTE_PORT", 8080));
     const uint16_t workers = worker_count();

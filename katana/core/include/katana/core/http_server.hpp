@@ -15,6 +15,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace katana {
@@ -43,7 +44,25 @@ constexpr size_t HTTP_SERVER_ARENA_CAPACITY = 8192;
 class server {
 public:
     /// Construct server with a router
-    explicit server(const router& rt) : router_(rt) {}
+    explicit server(const router& rt)
+        : router_(&rt),
+          dispatch_callback_([&rt](const request& req, request_context& ctx, response& out) {
+              return rt.dispatch(req, ctx, out);
+          }) {}
+
+    /// Construct server with a dispatcher that exposes dispatch_to(req, ctx, out)
+    template <typename Dispatcher>
+        requires requires(const Dispatcher& dispatcher,
+                          const request& req,
+                          request_context& ctx,
+                          response& out) {
+            { dispatcher.dispatch_to(req, ctx, out) } -> std::same_as<result<void>>;
+        }
+    explicit server(const Dispatcher& dispatcher)
+        : dispatch_callback_(
+              [&dispatcher](const request& req, request_context& ctx, response& out) {
+                  return dispatcher.dispatch_to(req, ctx, out);
+              }) {}
 
     /// Set bind address and port
     server& bind(const std::string& host, uint16_t port) {
@@ -104,6 +123,18 @@ public:
 private:
     enum class flush_result : uint8_t { complete, blocked, error };
 
+    void dispatch_request(const request& req, request_context& ctx, response& out) const {
+        if (router_) {
+            dispatch_or_problem(*router_, req, ctx, out);
+            return;
+        }
+
+        auto dispatch_result = dispatch_callback_(req, ctx, out);
+        if (!dispatch_result) {
+            map_route_error(dispatch_result.error(), out);
+        }
+    }
+
     struct connection_state {
         tcp_socket socket;
         std::string active_response;
@@ -163,7 +194,9 @@ private:
     void prepare_active_response(connection_state& state, response& resp);
     void handle_connection(connection_state& state, reactor& r);
 
-    const router& router_;
+    const router* router_ = nullptr;
+    inplace_function<result<void>(const request&, request_context&, response&), 64>
+        dispatch_callback_;
     std::string host_ = "0.0.0.0";
     uint16_t port_ = 8080;
     size_t worker_count_ = 1;
