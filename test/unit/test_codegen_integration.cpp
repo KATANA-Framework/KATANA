@@ -589,10 +589,23 @@ paths:
     auto bindings = read_generated_file("generated_router_bindings.hpp");
     EXPECT_NE(bindings.find("class generated_router"), std::string::npos);
     EXPECT_NE(bindings.find("handler_ptr = &handler"), std::string::npos);
-    EXPECT_NE(bindings.find("negotiate_response_type(req, route_0_produces)"), std::string::npos);
-    EXPECT_NE(bindings.find("find_content_type(req.headers.get(katana::http::field::content_type), "
-                            "route_0_consumes)"),
-              std::string::npos);
+    const bool uses_generic_accept_negotiation =
+        bindings.find("negotiate_response_type(req, route_0_produces)") != std::string::npos;
+    const bool uses_single_json_accept_fast_path =
+        bindings.find("constexpr std::string_view kJsonContentType = \"application/json\"") !=
+            std::string::npos &&
+        bindings.find("auto accept = req.headers.get(katana::http::field::accept);") !=
+            std::string::npos;
+    EXPECT_TRUE(uses_generic_accept_negotiation || uses_single_json_accept_fast_path);
+
+    const bool uses_generic_content_type_negotiation =
+        bindings.find("find_content_type(req.headers.get(katana::http::field::content_type), "
+                      "route_0_consumes)") != std::string::npos;
+    const bool uses_single_json_content_type_fast_path =
+        bindings.find("katana::http_utils::detail::media_type_token(*content_type)") !=
+            std::string::npos &&
+        bindings.find("katana::http_utils::detail::ascii_iequals(") != std::string::npos;
+    EXPECT_TRUE(uses_generic_content_type_negotiation || uses_single_json_content_type_fast_path);
     EXPECT_NE(bindings.find("out.status != 204 && !out.body.empty()"), std::string::npos);
     EXPECT_NE(bindings.find("class generated_server"), std::string::npos);
     EXPECT_EQ(bindings.find("static Handler handler_instance"), std::string::npos);
