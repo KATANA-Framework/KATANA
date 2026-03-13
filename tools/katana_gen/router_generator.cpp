@@ -365,6 +365,17 @@ std::string generate_router_bindings(const document& doc) {
                     break;
                 }
             }
+            std::vector<std::string> response_content_types;
+            for (const auto& resp : op.responses) {
+                for (const auto& media : resp.content) {
+                    std::string media_type(media.content_type.data(), media.content_type.size());
+                    if (std::find(response_content_types.begin(),
+                                  response_content_types.end(),
+                                  media_type) == response_content_types.end()) {
+                        response_content_types.push_back(std::move(media_type));
+                    }
+                }
+            }
             std::vector<std::string> body_schema_names;
             if (op.body && !op.body->content.empty()) {
                 for (const auto& media : op.body->content) {
@@ -378,6 +389,12 @@ std::string generate_router_bindings(const document& doc) {
             }
             bool has_body = op.body && !op.body->content.empty();
             bool body_is_variant = body_schema_names.size() > 1;
+            const bool is_single_json_request =
+                has_body && op.body->content.size() == 1 &&
+                op.body->content.front().content_type == "application/json";
+            const bool is_single_json_response =
+                response_content_types.size() == 1 &&
+                response_content_types.front() == "application/json";
             std::string body_type_expr;
             if (has_body) {
                 if (body_is_variant) {
@@ -405,17 +422,32 @@ std::string generate_router_bindings(const document& doc) {
 
             // Content negotiation
             if (has_response_content) {
-                dispatch_functions
-                    << "    auto negotiated_content_type = negotiate_response_type(req, route_"
-                    << route_idx << "_produces);\n";
-                dispatch_functions << "    if (!negotiated_content_type) {\n";
-                dispatch_functions << "        out.assign_error("
-                                   << "katana::problem_details::not_acceptable("
-                                      "\"unsupported Accept header\"));\n";
-                dispatch_functions << "        return {};\n";
-                dispatch_functions << "    }\n";
-                dispatch_functions
-                    << "    std::string_view response_content_type = *negotiated_content_type;\n";
+                if (is_single_json_response) {
+                    dispatch_functions << "    constexpr std::string_view kJsonContentType = "
+                                          "\"application/json\";\n";
+                    dispatch_functions << "    auto accept = req.headers.get("
+                                       << generate_headers_get("Accept") << ");\n";
+                    dispatch_functions
+                        << "    if (accept && !accept->empty() && *accept != \"*/*\" && "
+                           "*accept != kJsonContentType) {\n";
+                    dispatch_functions << "        out.assign_error("
+                                       << "katana::problem_details::not_acceptable("
+                                          "\"unsupported Accept header\"));\n";
+                    dispatch_functions << "        return {};\n";
+                    dispatch_functions << "    }\n";
+                } else {
+                    dispatch_functions
+                        << "    auto negotiated_content_type = negotiate_response_type(req, route_"
+                        << route_idx << "_produces);\n";
+                    dispatch_functions << "    if (!negotiated_content_type) {\n";
+                    dispatch_functions << "        out.assign_error("
+                                       << "katana::problem_details::not_acceptable("
+                                          "\"unsupported Accept header\"));\n";
+                    dispatch_functions << "        return {};\n";
+                    dispatch_functions << "    }\n";
+                    dispatch_functions << "    std::string_view response_content_type = "
+                                          "*negotiated_content_type;\n";
+                }
             }
 
             // Path params extraction (for dynamic routes)
@@ -700,14 +732,30 @@ std::string generate_router_bindings(const document& doc) {
 
             // Request body parsing (only if route has body)
             if (has_body) {
-                dispatch_functions
-                    << "    auto content_type_index = find_content_type(req.headers.get("
-                    << generate_headers_get("Content-Type") << "), route_" << route_idx
-                    << "_consumes);\n";
-                dispatch_functions
-                    << "    if (!content_type_index) { out.assign_error("
-                    << "katana::problem_details::unsupported_media_type(\"unsupported "
-                       "Content-Type\")); return {}; }\n";
+                if (is_single_json_request) {
+                    dispatch_functions << "    auto content_type = req.headers.get("
+                                       << generate_headers_get("Content-Type") << ");\n";
+                    dispatch_functions << "    if (!content_type || "
+                                          "!katana::http_utils::detail::ascii_iequals(\n";
+                    dispatch_functions << "                             "
+                                          "katana::http_utils::detail::media_type_token(*content_"
+                                          "type),\n";
+                    dispatch_functions << "                             kJsonContentType)) {\n";
+                    dispatch_functions
+                        << "        out.assign_error("
+                        << "katana::problem_details::unsupported_media_type(\"unsupported "
+                           "Content-Type\")); return {};\n";
+                    dispatch_functions << "    }\n";
+                } else {
+                    dispatch_functions
+                        << "    auto content_type_index = find_content_type(req.headers.get("
+                        << generate_headers_get("Content-Type") << "), route_" << route_idx
+                        << "_consumes);\n";
+                    dispatch_functions
+                        << "    if (!content_type_index) { out.assign_error("
+                        << "katana::problem_details::unsupported_media_type(\"unsupported "
+                           "Content-Type\")); return {}; }\n";
+                }
 
                 const bool has_single_body_schema =
                     !body_is_variant && body_schema_names.size() == 1;
@@ -859,8 +907,13 @@ std::string generate_router_bindings(const document& doc) {
                 dispatch_functions << "    if (out.status != 204 && !out.body.empty() && "
                                    << "!out.headers.get(" << generate_headers_get("Content-Type")
                                    << ")) {\n";
-                dispatch_functions << "        out.set_header(\"Content-Type\", "
-                                      "response_content_type);\n";
+                if (is_single_json_response) {
+                    dispatch_functions << "        out.set_header(\"Content-Type\", "
+                                          "kJsonContentType);\n";
+                } else {
+                    dispatch_functions << "        out.set_header(\"Content-Type\", "
+                                          "response_content_type);\n";
+                }
                 dispatch_functions << "    }\n";
             }
 
@@ -1032,7 +1085,7 @@ std::string generate_router_bindings(const document& doc) {
     out << "    explicit generated_server(Args&&... args)\n";
     out << "        : handler_(std::forward<Args>(args)...),\n";
     out << "          router_bundle_(handler_),\n";
-    out << "          server_(router_bundle_.router()) {}\n\n";
+    out << "          server_(router_bundle_) {}\n\n";
     out << "    generated_server(const generated_server&) = delete;\n";
     out << "    generated_server& operator=(const generated_server&) = delete;\n";
     out << "    generated_server(generated_server&&) = delete;\n";
@@ -1082,7 +1135,7 @@ std::string generate_router_bindings(const document& doc) {
     out << "    int run() { return server_.run(); }\n\n";
     out << "private:\n";
     out << "    Handler handler_;\n";
-    out << "    generated_router router_bundle_;\n";
+    out << "    generated_fast_router router_bundle_;\n";
     out << "    katana::http::server server_;\n";
     out << "};\n\n";
     out << "template<typename Handler, typename... Args>\n";

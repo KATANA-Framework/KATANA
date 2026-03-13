@@ -65,15 +65,16 @@ inline katana::result<void> dispatch_compute_sum(const katana::http::request& re
                                                  katana::http::request_context& ctx,
                                                  api_handler& handler,
                                                  katana::http::response& out) {
-    auto negotiated_content_type = negotiate_response_type(req, route_0_produces);
-    if (!negotiated_content_type) {
+    constexpr std::string_view kJsonContentType = "application/json";
+    auto accept = req.headers.get(katana::http::field::accept);
+    if (accept && !accept->empty() && *accept != "*/*" && *accept != kJsonContentType) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
         return {};
     }
-    std::string_view response_content_type = *negotiated_content_type;
-    auto content_type_index =
-        find_content_type(req.headers.get(katana::http::field::content_type), route_0_consumes);
-    if (!content_type_index) {
+    auto content_type = req.headers.get(katana::http::field::content_type);
+    if (!content_type ||
+        !katana::http_utils::detail::ascii_iequals(
+            katana::http_utils::detail::media_type_token(*content_type), kJsonContentType)) {
         out.assign_error(
             katana::problem_details::unsupported_media_type("unsupported Content-Type"));
         return {};
@@ -97,7 +98,7 @@ inline katana::result<void> dispatch_compute_sum(const katana::http::request& re
     }
     if (out.status != 204 && !out.body.empty() &&
         !out.headers.get(katana::http::field::content_type)) {
-        out.set_header("Content-Type", response_content_type);
+        out.set_header("Content-Type", kJsonContentType);
     }
     return {};
 }
@@ -234,8 +235,8 @@ template <typename Handler> class generated_server {
 public:
     template <typename... Args>
     explicit generated_server(Args&&... args)
-        : handler_(std::forward<Args>(args)...), router_bundle_(handler_),
-          server_(router_bundle_.router()) {}
+        : handler_(std::forward<Args>(args)...), router_bundle_(handler_), server_(router_bundle_) {
+    }
 
     generated_server(const generated_server&) = delete;
     generated_server& operator=(const generated_server&) = delete;
@@ -286,7 +287,7 @@ public:
 
 private:
     Handler handler_;
-    generated_router router_bundle_;
+    generated_fast_router router_bundle_;
     katana::http::server server_;
 };
 
