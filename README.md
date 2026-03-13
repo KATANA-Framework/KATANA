@@ -249,10 +249,29 @@ if (result) {
 * Дополнительно: гайды в `CONTRIBUTING.md` и `docs/TESTING.md`.
 * Для тестирования без реактора добавлены харнесы: `test/support/http_handler_harness.hpp` (оборачивает handler над Request/Response) и `test/support/virtual_event_loop.hpp` (фейковый event loop с виртуальным временем).
 
-### 📈 Качество бенчмарков
+### 📈 Сравнение HTTP-фреймворков
+
+Сравнивали KATANA с:
+
+- `actix-web`
+- `axum`
+- `ntex`
+- `Drogon`
+- `FastAPI`
+
+Стенд сравнения:
+
+- Ubuntu 24.04 VM
+- один сервер за раз, без параллельных запусков
+- те же `wrk` Lua-сценарии, что и у KATANA stage 9-12
+- `median of 3`
+- `workers=4` для всех серверов
+
+Подробная методика и команды лежат в [comparisons/http_frameworks/README.md](comparisons/http_frameworks/README.md).
+
+![HTTP framework comparison](comparisons/table.jpg)
 
 <!-- BENCH_SUMMARY_START -->
-* Нет данных о бенчмарках.
 <!-- BENCH_SUMMARY_END -->
 
 ---

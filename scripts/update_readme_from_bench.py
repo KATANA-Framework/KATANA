@@ -100,9 +100,6 @@ def build_bench_lines(generated: Optional[str], results: Dict[str, Dict[str, Tup
             parts.append(f"всего {fmt_value(total[0])} {total[1]}")
         lines.append(f"* Устойчивость: {', '.join(parts)}.")
 
-    if not lines:
-        lines.append("* Нет данных о бенчмарках.")
-
     return lines
 
 
