@@ -162,6 +162,41 @@ TEST(HttpParser, ParseIncrementalBody) {
     EXPECT_EQ(p.get_request().body, "helloworld");
 }
 
+TEST(HttpParser, AcceptsUtf8BodyWhenHeadersAndBodyShareBuffer) {
+    monotonic_arena arena;
+    parser p(&arena);
+
+    constexpr std::string_view kUtf8Body("\xD0\xBF\xD1\x80\xD0\xB8", 6);
+    std::string request = "POST /utf8 HTTP/1.1\r\n"
+                          "Host: example.com\r\n"
+                          "Content-Length: 6\r\n"
+                          "\r\n";
+    request.append(kUtf8Body.data(), kUtf8Body.size());
+
+    auto result = p.parse(as_bytes(request));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+    EXPECT_EQ(p.get_request().body, kUtf8Body);
+}
+
+TEST(HttpParser, AcceptsNulBodyWhenHeadersAndBodyShareBuffer) {
+    monotonic_arena arena;
+    parser p(&arena);
+
+    const std::string body("abc\0def", 7);
+    std::string request = "POST /binary HTTP/1.1\r\n"
+                          "Host: example.com\r\n"
+                          "Content-Length: 7\r\n"
+                          "\r\n";
+    request.append(body);
+
+    auto result = p.parse(as_bytes(request));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, parser::state::complete);
+    EXPECT_EQ(p.get_request().body.size(), body.size());
+    EXPECT_EQ(std::string(p.get_request().body), body);
+}
+
 TEST(HttpParser, ParsePipelinedPostRequestsWithBodiesFromSingleBuffer) {
     monotonic_arena arena;
     parser p(&arena);
@@ -291,6 +326,14 @@ TEST(HttpUtils, FindContentTypeRejectsInvalidPrefixMatches) {
 
     auto match = find_content_type(std::string_view("application/jsonx"), allowed);
     EXPECT_FALSE(match.has_value());
+}
+
+TEST(HttpHeaders, CiCharEqualMatchesOnlyAsciiLettersCaseInsensitively) {
+    EXPECT_TRUE(ci_char_equal('A', 'a'));
+    EXPECT_TRUE(ci_char_equal('Z', 'z'));
+    EXPECT_TRUE(ci_char_equal('m', 'M'));
+    EXPECT_FALSE(ci_char_equal('^', '~'));
+    EXPECT_FALSE(ci_char_equal('@', '`'));
 }
 
 TEST(MonotonicArena, ResetReusesExistingSpillBlocks) {

@@ -415,11 +415,11 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             on_request_callback_(req, resp);
         }
 
-        auto connection_header = req.headers.get("Connection");
+        auto connection_header = req.headers.get(http::field::connection);
         bool close_connection =
             connection_header && (*connection_header == "close" || *connection_header == "Close");
 
-        if (!resp.headers.get("Connection")) {
+        if (!resp.headers.contains(http::field::connection)) {
             resp.headers.set_known_borrowed(http::field::connection,
                                             close_connection ? "close" : "keep-alive");
         }

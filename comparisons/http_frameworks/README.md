@@ -1,8 +1,10 @@
 # HTTP Framework Comparison Suite
 
 This directory contains small benchmark targets for the maintained KATANA E2E
-scenarios:
+scenarios plus a keep-alive control pass:
 
+- `GET /` using `test/load/scripts/hello_pipeline.lua` with depth `1`
+- `POST /compute/sum` using `test/load/scripts/compute_sum_pipeline.lua` with depth `1`
 - `GET /` using `test/load/scripts/hello_pipeline.lua`
 - `POST /compute/sum` using `test/load/scripts/compute_sum_pipeline.lua`
 
@@ -26,7 +28,8 @@ Every server was benchmarked only on the two maintained HTTP paths:
 - `POST /compute/sum` returning the sum of a JSON number array
 
 This keeps the comparison focused on the same user-visible scenarios that
-KATANA already tracks in its own benchmark stages.
+KATANA already tracks in its own benchmark stages while separating ordinary
+keep-alive traffic from pipelined stress traffic.
 
 ## How It Was Compared
 
@@ -36,11 +39,15 @@ KATANA:
 - same Lua scripts:
   - `test/load/scripts/hello_pipeline.lua`
   - `test/load/scripts/compute_sum_pipeline.lua`
+- two traffic modes:
+  - keep-alive control: `KATANA_PIPELINE_DEPTH=1`
+  - pipeline stress: `KATANA_PIPELINE_DEPTH=10/20/40`
 - same wrk shape:
   - canonical: `t=4`, `c=512`, `10s`
   - peak: `t=4`, `c=512`, `5s`
 - same worker count for every server: `4`
 - same aggregation policy: `median of 3`
+- one unreported warmup run before each measured target/scenario pair
 - sequential execution only:
   - only one server was running during a measurement
   - no parallel framework runs
@@ -48,6 +55,13 @@ KATANA:
 The runner for this suite is [run_framework_benchmarks.py](C:/Users/Ya/OneDrive/Desktop/KATANA/scripts/run_framework_benchmarks.py),
 which reuses the same wrk parsing approach as
 [run_benchmarks.py](C:/Users/Ya/OneDrive/Desktop/KATANA/scripts/run_benchmarks.py).
+
+Interpretation matters:
+
+- keep-alive depth `1` is the closest thing here to a normal HTTP/1.1 API pass
+- depth `>1` is an HTTP/1.1 pipelining stress test
+- large framework deltas under pipelining do not automatically transfer to
+  ordinary production traffic
 
 ## Where It Was Compared
 
@@ -172,13 +186,16 @@ python3 scripts/run_framework_benchmarks.py \
   --targets-file comparisons/http_frameworks/targets.example.json \
   --repeats 5 \
   --aggregation median \
+  --warmup-runs 1 \
   --output benchmark_results/framework_comparison
 ```
 
 The runner reuses the same wrk Lua scripts and the same wrk-output parsing logic
 as `scripts/run_benchmarks.py`.
 
-For a 1:1 comparison with KATANA stages 9-12, use `BENCH_WORKERS=4`.
+For a 1:1 comparison with KATANA stages 9-12, use `BENCH_WORKERS=4` and focus
+on the pipeline scenarios. For a sanity-check framework comparison, review the
+keep-alive scenarios first and treat the pipelined numbers separately.
 
 ## Notes About KATANA in the Same Matrix
 

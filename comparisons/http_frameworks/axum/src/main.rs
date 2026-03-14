@@ -4,6 +4,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use hyper::server::conn::http1;
+use hyper_util::{rt::TokioIo, service::TowerToHyperService};
 use std::env;
 use std::net::{Ipv4Addr, SocketAddr};
 
@@ -72,8 +74,23 @@ fn main() {
 
         println!("axum comparison server listening on :{port} with {workers} workers");
 
-        axum::serve(listener, app)
-            .await
-            .expect("axum server crashed");
+        loop {
+            let (socket, _peer_addr) = listener.accept().await.expect("failed to accept connection");
+            socket
+                .set_nodelay(true)
+                .expect("failed to enable TCP_NODELAY");
+
+            let service = TowerToHyperService::new(app.clone());
+            tokio::spawn(async move {
+                let io = TokioIo::new(socket);
+                let mut builder = http1::Builder::new();
+                builder.keep_alive(true);
+                builder.pipeline_flush(true);
+
+                if let Err(error) = builder.serve_connection(io, service).await {
+                    eprintln!("axum connection error: {error}");
+                }
+            });
+        }
     });
 }

@@ -3,8 +3,10 @@
     {
       "name": "katana",
       "scenario_urls": {
+        "hello-keepalive": "http://192.168.0.104:18080/",
         "hello-canonical": "http://192.168.0.104:18080/",
         "hello-peak": "http://192.168.0.104:18080/",
+        "compute-keepalive": "http://192.168.0.104:18081/",
         "compute-canonical": "http://192.168.0.104:18081/",
         "compute-peak": "http://192.168.0.104:18081/"
       }
