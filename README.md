@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 13.03 22:04 — ci: scope codecov to covered source (e6335a2)
+* 14.03 10:07 — Improve HTTP fast paths and benchmark coverage (ee86526)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
