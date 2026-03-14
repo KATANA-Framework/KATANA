@@ -81,18 +81,6 @@ bool contains_invalid_uri_char(std::string_view uri) noexcept {
     return false;
 }
 
-const char* find_header_terminator(const char* data, size_t size) noexcept {
-    if (size < 4) {
-        return nullptr;
-    }
-    for (size_t i = 0; i + 3 < size; ++i) {
-        if (data[i] == '\r' && data[i + 1] == '\n' && data[i + 2] == '\r' && data[i + 3] == '\n') {
-            return data + i;
-        }
-    }
-    return nullptr;
-}
-
 void set_content_type(headers_map& headers, std::string_view content_type) noexcept {
     if (content_type == CONTENT_TYPE_TEXT) {
         headers.set_known_borrowed(http::field::content_type, CONTENT_TYPE_TEXT);
@@ -211,7 +199,7 @@ void response::serialize_into(std::string& out) const {
     // Calculate Content-Length if not already set
     char content_length_buf[32];
     std::string_view content_length_value;
-    bool has_content_length = headers.get("Content-Length").has_value();
+    const bool has_content_length = headers.contains(field::content_length);
 
     if (!has_content_length) {
         auto [ptr, ec] = std::to_chars(
@@ -275,7 +263,7 @@ void response::serialize_head_into(std::string& out) const {
 
     char content_length_buf[32];
     std::string_view content_length_value;
-    bool has_content_length = headers.get("Content-Length").has_value();
+    const bool has_content_length = headers.contains(field::content_length);
 
     if (!has_content_length) {
         auto [ptr, ec] = std::to_chars(
@@ -334,7 +322,7 @@ void response::serialize_into(io_buffer& out) const {
     // Calculate Content-Length if not already set
     char content_length_buf[32];
     std::string_view content_length_value;
-    bool has_content_length = headers.get("Content-Length").has_value();
+    const bool has_content_length = headers.contains(field::content_length);
 
     if (!has_content_length) {
         auto [ptr, ec] = std::to_chars(
@@ -625,11 +613,24 @@ result<parser::state> parser::parse_available() {
     }
 
     if (state_ == state::request_line || state_ == state::headers) [[likely]] {
+        if (header_end_pos_ == 0) {
+            const size_t scan_start = crlf_scan_pos_ > 3 ? crlf_scan_pos_ - 3 : 0;
+            for (size_t i = scan_start; i + 3 < buffer_size_; ++i) {
+                if (buffer_[i] == '\r' && buffer_[i + 1] == '\n' && buffer_[i + 2] == '\r' &&
+                    buffer_[i + 3] == '\n') {
+                    header_end_pos_ = i + 4;
+                    break;
+                }
+            }
+            crlf_scan_pos_ = buffer_size_;
+        }
+
+        const size_t validation_limit = header_end_pos_ != 0 ? header_end_pos_ : buffer_size_;
         size_t validation_start = validated_bytes_;
         if (validation_start > 0) {
             --validation_start;
         }
-        for (size_t i = validation_start; i < buffer_size_; ++i) {
+        for (size_t i = validation_start; i < validation_limit; ++i) {
             uint8_t byte = static_cast<uint8_t>(buffer_[i]);
             if (byte == 0 || byte >= 0x80) [[unlikely]] {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
@@ -638,15 +639,13 @@ result<parser::state> parser::parse_available() {
                 return std::unexpected(make_error_code(error_code::invalid_fd));
             }
         }
-        validated_bytes_ = buffer_size_;
+        validated_bytes_ = validation_limit;
     }
 
     if (state_ != state::body && state_ != state::chunk_data) {
-        if (buffer_size_ > MAX_HEADER_SIZE) {
-            const char* header_end = find_header_terminator(buffer_, buffer_size_);
-            if (!header_end || static_cast<size_t>(header_end - buffer_) + 4 > MAX_HEADER_SIZE) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
+        if ((header_end_pos_ == 0 && buffer_size_ > MAX_HEADER_SIZE) ||
+            (header_end_pos_ != 0 && header_end_pos_ > MAX_HEADER_SIZE)) {
+            return std::unexpected(make_error_code(error_code::invalid_fd));
         }
 
     } else if (buffer_size_ > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
@@ -1034,6 +1033,7 @@ void parser::compact_buffer() {
         buffer_size_ = 0;
         parse_pos_ = 0;
         validated_bytes_ = 0;
+        header_end_pos_ = 0;
         crlf_scan_pos_ = 0;
         crlf_pairs_ = 0;
     } else if (parse_pos_ > COMPACT_THRESHOLD / 2) {
@@ -1044,6 +1044,7 @@ void parser::compact_buffer() {
         buffer_size_ -= consumed;
         parse_pos_ = 0;
         validated_bytes_ = (validated_bytes_ > consumed) ? (validated_bytes_ - consumed) : 0;
+        header_end_pos_ = (header_end_pos_ > consumed) ? (header_end_pos_ - consumed) : 0;
         crlf_scan_pos_ = (crlf_scan_pos_ > consumed) ? (crlf_scan_pos_ - consumed) : 0;
         crlf_pairs_ = 0;
         for (size_t i = 0; i + 1 < crlf_scan_pos_; ++i) {
@@ -1138,6 +1139,7 @@ void parser::reset_message_state(monotonic_arena* arena) noexcept {
     last_header_name_ = nullptr;
     last_header_name_len_ = 0;
     validated_bytes_ = 0;
+    header_end_pos_ = 0;
     crlf_scan_pos_ = 0;
     crlf_pairs_ = 0;
     is_chunked_ = false;
@@ -1151,10 +1153,12 @@ void parser::reset(monotonic_arena* arena) noexcept {
 
 void parser::prepare_for_next_request(monotonic_arena* arena) noexcept {
     size_t remaining = buffered_bytes();
-    if (remaining > 0 && parse_pos_ > 0) {
+    if (remaining == 0) {
+        buffer_size_ = 0;
+    } else if (parse_pos_ > 0) {
         std::memmove(buffer_, buffer_ + parse_pos_, remaining);
+        buffer_size_ = remaining;
     }
-    buffer_size_ = remaining;
     reset_message_state(arena);
 }
 

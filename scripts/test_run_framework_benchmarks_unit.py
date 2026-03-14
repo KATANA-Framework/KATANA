@@ -25,14 +25,24 @@ class TargetParsingTests(unittest.TestCase):
             name="katana",
             base_url=None,
             scenario_urls={
+                "hello-keepalive": "http://192.168.0.104:18080/",
                 "hello-canonical": "http://192.168.0.104:18080/",
+                "compute-keepalive": "http://192.168.0.104:18081/",
                 "compute-canonical": "http://192.168.0.104:18081/",
             },
         )
 
         self.assertEqual(
+            framework_bench.resolve_target_url(target, "hello-keepalive"),
+            "http://192.168.0.104:18080/",
+        )
+        self.assertEqual(
             framework_bench.resolve_target_url(target, "hello-canonical"),
             "http://192.168.0.104:18080/",
+        )
+        self.assertEqual(
+            framework_bench.resolve_target_url(target, "compute-keepalive"),
+            "http://192.168.0.104:18081/",
         )
         self.assertEqual(
             framework_bench.resolve_target_url(target, "compute-canonical"),
@@ -46,7 +56,9 @@ class TargetParsingTests(unittest.TestCase):
                 {
                     "name": "katana",
                     "scenario_urls": {
+                        "hello-keepalive": "http://192.168.0.104:18080/",
                         "hello-canonical": "http://192.168.0.104:18080/",
+                        "compute-keepalive": "http://192.168.0.104:18081/",
                         "compute-canonical": "http://192.168.0.104:18081/",
                     },
                 },
@@ -63,6 +75,10 @@ class TargetParsingTests(unittest.TestCase):
         self.assertEqual(
             targets[1].scenario_urls["compute-canonical"],
             "http://192.168.0.104:18081/",
+        )
+        self.assertEqual(
+            targets[1].scenario_urls["hello-keepalive"],
+            "http://192.168.0.104:18080/",
         )
 
 

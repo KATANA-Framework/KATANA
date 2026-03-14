@@ -1,16 +1,16 @@
 # KATANA Benchmark Results
 
-> Last updated: 2026-03-12 16:58:29
-> Commit: e7006e3
+> Last updated: 2026-03-14 06:46:36
+> Commit: e6335a2
 
 ## Summary
 
 - Stability verdict: contains noisy metrics, inspect before trusting small deltas
-- Noisy metrics (CV > 20.0%): 51
-- Severely noisy metrics (CV > 40.0%): 26
+- Noisy metrics (CV > 20.0%): 64
+- Severely noisy metrics (CV > 40.0%): 34
 - E2E network stages included: yes
 
-> **Note**: Results shown use median-of-N aggregation across 10 run(s) per stage. Concurrent benchmarks are highly sensitive to system load and thread scheduling.
+> **Note**: Results shown use median-of-N aggregation across 5 run(s) per stage. Concurrent benchmarks are highly sensitive to system load and thread scheduling.
 
 ---
 
@@ -18,19 +18,19 @@
 
 | Key | Value |
 |-----|-------|
-| affinity_cpus | 12 |
-| benchmark_dir | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark |
-| build_dir | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl |
+| affinity_cpus | 6 |
+| benchmark_dir | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark |
+| build_dir | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs |
 | cmake | CMAKE_BUILD_TYPE=Release; CMAKE_CXX_COMPILER=/usr/bin/c++; CMAKE_CXX_FLAGS=; CMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG |
 | cpu_model | AMD Ryzen 5 5600 6-Core Processor |
-| hostname | DESKTOP-2LALARK |
-| logical_cores | 12 |
-| lscpu_brief | Architecture:                         x86_64; CPU(s):                               12; Model name:                           AMD Ryzen 5 5600 6-Core Processor; Thread(s) per core:                   2; Core(s) per socket:                   6; Socket(s):                            1; NUMA node0 CPU(s):                    0-11 |
+| hostname | visage |
+| logical_cores | 6 |
+| lscpu_brief | Architecture:                            x86_64; CPU(s):                                  6; Model name:                              AMD Ryzen 5 5600 6-Core Processor; Thread(s) per core:                      1; Core(s) per socket:                      6; Socket(s):                               1; NUMA node0 CPU(s):                       0-5 |
 | machine | x86_64 |
 | physical_cores | 6 |
 | platform | Linux |
-| platform_release | 6.6.87.2-microsoft-standard-WSL2 |
-| platform_version | #1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 |
+| platform_release | 6.8.0-101-generic |
+| platform_version | #101-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb  9 10:15:05 UTC 2026 |
 | python | 3.12.3 |
 | wrk_binary | /usr/bin/wrk |
 
@@ -39,21 +39,21 @@
 ## Quality Gates
 
 - CV warning threshold: 20.00%
-- Noisy metrics: 51
-- Severely noisy metrics: 26
+- Noisy metrics: 64
+- Severely noisy metrics: 34
 
 | Top Noisy Metric | CV |
 |------------------|----|
-| stage12.wrk compute_api POST /compute/sum depth40.latency_p999_us | 300.00% |
-| stage11.wrk hello_world GET / depth20.latency_max_us | 237.50% |
-| stage9.wrk hello_world GET / depth10.latency_p95_us | 152.06% |
-| stage9.wrk hello_world GET / depth10.latency_p99_us | 151.60% |
-| stage10.wrk compute_api POST /compute/sum depth10.latency_p95_us | 150.49% |
-| stage10.wrk compute_api POST /compute/sum depth10.latency_p99_us | 150.06% |
-| stage9.wrk hello_world GET / depth10.avg_latency_us | 147.54% |
-| stage10.wrk compute_api POST /compute/sum depth10.latency_p999_us | 145.57% |
-| stage9.wrk hello_world GET / depth10.latency_p999_us | 144.90% |
-| stage10.wrk compute_api POST /compute/sum depth10.avg_latency_us | 141.41% |
+| stage12.wrk compute_api POST /compute/sum depth40.latency_p999_us | 200.00% |
+| stage1.Ring Buffer Queue (Max Contention 16x16).latency_p999_us | 196.17% |
+| stage1.Ring Buffer Queue (Concurrent 4x4).retries_per_op_total | 181.02% |
+| stage1.Ring Buffer Queue (High Contention 8x8).latency_p999_us | 166.54% |
+| stage1.Ring Buffer Queue (Max Contention 16x16).throughput | 159.52% |
+| stage1.Ring Buffer Queue (Extreme Contention 12x12).retries_per_op_total | 154.58% |
+| stage1.Ring Buffer Queue (Extreme Contention 12x12).latency_p999_us | 137.69% |
+| stage12.wrk compute_api POST /compute/sum depth40.latency_p99_us | 122.80% |
+| stage1.Ring Buffer Queue (High Contention 8x8).throughput | 112.93% |
+| stage1.Ring Buffer Queue (Extreme Contention 12x12).throughput | 87.48% |
 
 ---
 
@@ -65,489 +65,490 @@
 
 | Stage | Profile | Benchmark | Workers | wrk t/c | Depth | Duration | Throughput | Avg Latency | p50 | p95 | p99 | Data Rate | Errors |
 |-------|---------|-----------|---------|---------|-------|----------|------------|-------------|-----|-----|-----|-----------|--------|
-| 9 | canonical | wrk hello_world GET / depth10 | 4 | 4/512 | 10 | 10s | 2.1M req/sec | 1625.000 us | 1350.500 us | 3601.500 us | 5207.500 us | 211.8M bytes/sec | 0 |
-| 10 | canonical | wrk compute_api POST /compute/sum depth10 | 4 | 4/512 | 10 | 10s | 1.1M req/sec | 2780.000 us | 2582.000 us | 5294.000 us | 7943.500 us | 108.1M bytes/sec | 0 |
-| 11 | peak | wrk hello_world GET / depth20 | 4 | 4/512 | 20 | 5s | 2.6M req/sec | 2270.000 us | 2029.000 us | 5002.000 us | 7329.500 us | 269.5M bytes/sec | 0 |
-| 12 | peak | wrk compute_api POST /compute/sum depth40 | 4 | 4/512 | 40 | 5s | 1.2M req/sec | 8770.000 us | 8799.500 us | 16985.500 us | 0.000 us | 118.0M bytes/sec | 0 |
+| 9 | canonical | wrk hello_world GET / depth10 | 4 | 4/512 | 10 | 10s | 1.7M req/sec | 2800.000 us | 1839.000 us | 8388.000 us | 14888.000 us | 170.0M bytes/sec | 0 |
+| 10 | canonical | wrk compute_api POST /compute/sum depth10 | 4 | 4/512 | 10 | 10s | 1.1M req/sec | 3430.000 us | 2661.000 us | 8877.000 us | 13201.000 us | 109.3M bytes/sec | 0 |
+| 11 | peak | wrk hello_world GET / depth20 | 4 | 4/512 | 20 | 5s | 2.5M req/sec | 2850.000 us | 2153.000 us | 7468.000 us | 11558.000 us | 256.1M bytes/sec | 0 |
+| 12 | peak | wrk compute_api POST /compute/sum depth40 | 4 | 4/512 | 40 | 5s | 1.5M req/sec | 7350.000 us | 6953.000 us | 15916.000 us | 0.000 us | 145.8M bytes/sec | 0 |
+| 5 | e2e_keepalive | HTTP E2E Keep-Alive (16 conn x 200 req) | - | -/- | - | - | 2.0K req/sec | - | 4871.079 us | 23527.530 us | 36622.630 us | - | 0 |
 
 ---
 
 ## Core Runtime Benchmarks
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Ring buffer, circular buffer, SIMD operations, arena allocation
 
 | Config | Value |
 |--------|-------|
 | binary | performance_benchmark |
-| binary_path | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark/performance_benchmark |
+| binary_path | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark/performance_benchmark |
 | kind | microbenchmark |
 
 | Benchmark | Throughput | Latency p50 | Latency p99 | Latency p999 | Retries/op | Errors |
 |-----------|------------|-------------|-------------|--------------|------------|--------|
-| Ring Buffer Queue (Single Thread) | 217.2M ops/sec | 0.004 us | 0.009 us | 0.036 us | - | 0 |
-| Ring Buffer Queue (Concurrent 2x2) | 32.7M ops/sec | 0.055 us | 0.208 us | 0.506 us | 0.098 | 0 |
-| Ring Buffer Queue (Concurrent 4x4) | 18.0M ops/sec | 0.198 us | 0.593 us | 2.955 us | 0.258 | 0 |
-| Ring Buffer Queue (Core Saturation 6x6) | 14.8M ops/sec | 0.266 us | 1.642 us | 26.223 us | 1.430 | 0 |
-| Ring Buffer Queue (High Contention 8x8) | 10.2M ops/sec | 0.242 us | 2.019 us | 130.119 us | 7.690 | 0 |
-| Ring Buffer Queue (Extreme Contention 12x12) | 7.4M ops/sec | 0.248 us | 3.064 us | 311.144 us | 18.163 | 0 |
-| Ring Buffer Queue (Max Contention 16x16) | 6.1M ops/sec | 0.258 us | 4.573 us | 434.990 us | 27.722 | 0 |
-| Ring Buffer Queue (Oversubscribed 14x14) | 6.9M ops/sec | 0.251 us | 3.849 us | 358.959 us | 23.288 | 0 |
-| Circular Buffer | 196.9M ops/sec | 0.004 us | 0.011 us | 0.033 us | - | 0 |
-| SIMD CRLF Search (1.5KB buffer) | 53.9M ops/sec | 0.016 us | 0.047 us | 0.116 us | - | 0 |
-| SIMD CRLF Search (16KB buffer) | 4.9M ops/sec | 0.185 us | 0.411 us | 0.931 us | - | 0 |
-| SIMD CRLF Search (32KB buffer) | 2.4M ops/sec | 0.371 us | 0.787 us | 1.570 us | - | 0 |
-| SIMD CRLF Search (64KB buffer) | 1.3M ops/sec | 0.727 us | 1.544 us | 3.562 us | - | 0 |
-| SIMD CRLF Search (128KB buffer) | 614.9K ops/sec | 1.442 us | 3.433 us | 6.582 us | - | 0 |
-| HTTP Parser (Complete Request) | 1.8M ops/sec | 0.502 us | 1.172 us | 1.781 us | - | 0 |
-| HTTP Parser (Fragmented Request) | 2.1M ops/sec | 0.431 us | 1.080 us | 1.892 us | - | 0 |
-| Arena Allocations (64B objects) | 15.0M ops/sec | - | - | - | - | 0 |
-| Memory Allocations (String Queue) | 23.7M ops/sec | - | - | - | - | 0 |
+| Ring Buffer Queue (Single Thread) | 178.9M ops/sec | 0.004 us | 0.009 us | 0.303 us | - | 0 |
+| Ring Buffer Queue (Concurrent 2x2) | 30.2M ops/sec | 0.052 us | 0.240 us | 2.789 us | 0.195 | 0 |
+| Ring Buffer Queue (Concurrent 4x4) | 14.8M ops/sec | 0.131 us | 0.383 us | 1.059 us | 2.610 | 0 |
+| Ring Buffer Queue (Core Saturation 3x3) | 19.4M ops/sec | 0.135 us | 0.393 us | 1.676 us | 0.150 | 0 |
+| Ring Buffer Queue (High Contention 8x8) | 1.1M ops/sec | 0.154 us | 0.556 us | 2.891 us | 198.051 | 0 |
+| Ring Buffer Queue (Extreme Contention 12x12) | 5.3M ops/sec | 0.132 us | 0.478 us | 0.875 us | 28.311 | 0 |
+| Ring Buffer Queue (Max Contention 16x16) | 957.7K ops/sec | 0.137 us | 0.487 us | 1.453 us | 217.441 | 0 |
+| Ring Buffer Queue (Oversubscribed 8x8) | 3.0M ops/sec | 0.178 us | 0.604 us | 1.344 us | 68.875 | 0 |
+| Circular Buffer | 148.2M ops/sec | 0.005 us | 0.071 us | 0.115 us | - | 0 |
+| SIMD CRLF Search (1.5KB buffer) | 45.0M ops/sec | 0.017 us | 0.268 us | 0.419 us | - | 0 |
+| SIMD CRLF Search (16KB buffer) | 3.7M ops/sec | 0.196 us | 2.580 us | 4.143 us | - | 0 |
+| SIMD CRLF Search (32KB buffer) | 1.8M ops/sec | 0.393 us | 5.146 us | 7.130 us | - | 0 |
+| SIMD CRLF Search (64KB buffer) | 783.5K ops/sec | 0.907 us | 10.488 us | 16.500 us | - | 0 |
+| SIMD CRLF Search (128KB buffer) | 415.8K ops/sec | 1.780 us | 20.684 us | 28.599 us | - | 0 |
+| HTTP Parser (Complete Request) | 1.3M ops/sec | 0.581 us | 4.034 us | 5.808 us | - | 0 |
+| HTTP Parser (Fragmented Request) | 1.4M ops/sec | 0.541 us | 3.773 us | 5.625 us | - | 0 |
+| Arena Allocations (64B objects) | 11.9M ops/sec | - | - | - | - | 0 |
+| Memory Allocations (String Queue) | 21.4M ops/sec | - | - | - | - | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| Ring Buffer Queue (Single Thread) | 214.7M | 9.4M | 4.37% | 5.8M | 190.1M | 217.2M | 223.1M | 223.5M |
-| Ring Buffer Queue (Concurrent 2x2) | 32.7M | 786.7K | 2.41% | 487.6K | 31.3M | 32.7M | 33.8M | 34.0M |
-| Ring Buffer Queue (Concurrent 4x4) | 18.0M | 227.3K | 1.26% | 140.9K | 17.7M | 18.0M | 18.3M | 18.4M |
-| Ring Buffer Queue (Core Saturation 6x6) | 14.7M | 496.0K | 3.37% | 307.4K | 13.9M | 14.8M | 15.3M | 15.4M |
-| Ring Buffer Queue (High Contention 8x8) | 10.0M | 1.1M | 10.85% | 671.0K | 8.4M | 10.2M | 11.5M | 12.2M |
-| Ring Buffer Queue (Extreme Contention 12x12) | 7.5M | 1.3M | 17.18% | 793.9K | 5.2M | 7.4M | 9.4M | 10.4M |
-| Ring Buffer Queue (Max Contention 16x16) | 6.2M | 421.1K | 6.80% | 261.0K | 5.6M | 6.1M | 6.9M | 6.9M |
-| Ring Buffer Queue (Oversubscribed 14x14) | 6.9M | 340.3K | 4.97% | 210.9K | 6.3M | 6.9M | 7.4M | 7.5M |
-| Circular Buffer | 199.1M | 7.4M | 3.72% | 4.6M | 189.4M | 196.9M | 210.7M | 210.7M |
-| SIMD CRLF Search (1.5KB buffer) | 52.7M | 3.7M | 7.05% | 2.3M | 44.7M | 53.9M | 56.3M | 56.8M |
-| SIMD CRLF Search (16KB buffer) | 4.9M | 170.0K | 3.50% | 105.4K | 4.5M | 4.9M | 5.1M | 5.1M |
-| SIMD CRLF Search (32KB buffer) | 2.4M | 73.8K | 3.03% | 45.8K | 2.3M | 2.4M | 2.5M | 2.6M |
-| SIMD CRLF Search (64KB buffer) | 1.2M | 31.7K | 2.54% | 19.6K | 1.2M | 1.3M | 1.3M | 1.3M |
-| SIMD CRLF Search (128KB buffer) | 616.1K | 16.8K | 2.73% | 10.4K | 592.9K | 614.9K | 641.0K | 649.5K |
-| HTTP Parser (Complete Request) | 1.8M | 37.9K | 2.14% | 23.5K | 1.7M | 1.8M | 1.8M | 1.8M |
-| HTTP Parser (Fragmented Request) | 2.0M | 44.1K | 2.15% | 27.3K | 2.0M | 2.1M | 2.1M | 2.1M |
-| Arena Allocations (64B objects) | 15.2M | 598.0K | 3.94% | 370.6K | 14.4M | 15.0M | 16.0M | 16.0M |
-| Memory Allocations (String Queue) | 23.2M | 1.1M | 4.84% | 696.4K | 21.3M | 23.7M | 24.4M | 24.5M |
+| Ring Buffer Queue (Single Thread) | 187.4M | 19.1M | 10.20% | 16.8M | 171.5M | 178.9M | 216.7M | 224.7M |
+| Ring Buffer Queue (Concurrent 2x2) | 29.3M | 2.4M | 8.24% | 2.1M | 26.1M | 30.2M | 32.2M | 32.7M |
+| Ring Buffer Queue (Concurrent 4x4) | 14.1M | 6.9M | 48.80% | 6.0M | 1.9M | 14.8M | 21.7M | 23.2M |
+| Ring Buffer Queue (Core Saturation 3x3) | 19.8M | 1.2M | 5.99% | 1.0M | 18.8M | 19.4M | 21.6M | 22.0M |
+| Ring Buffer Queue (High Contention 8x8) | 6.6M | 7.4M | 112.93% | 6.5M | 1.1M | 1.1M | 17.9M | 19.9M |
+| Ring Buffer Queue (Extreme Contention 12x12) | 8.5M | 7.5M | 87.48% | 6.5M | 412.0K | 5.3M | 17.9M | 18.2M |
+| Ring Buffer Queue (Max Contention 16x16) | 4.4M | 6.9M | 159.52% | 6.1M | 329.1K | 957.7K | 14.9M | 18.2M |
+| Ring Buffer Queue (Oversubscribed 8x8) | 7.3M | 6.3M | 86.13% | 5.5M | 1.9M | 3.0M | 15.9M | 16.6M |
+| Circular Buffer | 155.6M | 18.3M | 11.74% | 16.0M | 138.3M | 148.2M | 183.4M | 189.9M |
+| SIMD CRLF Search (1.5KB buffer) | 46.2M | 6.1M | 13.16% | 5.3M | 40.8M | 45.0M | 55.3M | 57.9M |
+| SIMD CRLF Search (16KB buffer) | 3.8M | 669.7K | 17.69% | 587.0K | 3.0M | 3.7M | 4.8M | 5.0M |
+| SIMD CRLF Search (32KB buffer) | 1.8M | 192.0K | 10.59% | 168.3K | 1.5M | 1.8M | 2.1M | 2.1M |
+| SIMD CRLF Search (64KB buffer) | 822.3K | 87.8K | 10.67% | 76.9K | 750.2K | 783.5K | 957.1K | 993.3K |
+| SIMD CRLF Search (128KB buffer) | 435.5K | 56.4K | 12.95% | 49.4K | 391.1K | 415.8K | 520.9K | 546.8K |
+| HTTP Parser (Complete Request) | 1.3M | 156.6K | 11.80% | 137.3K | 1.2M | 1.3M | 1.6M | 1.6M |
+| HTTP Parser (Fragmented Request) | 1.4M | 185.4K | 12.88% | 162.5K | 1.3M | 1.4M | 1.7M | 1.8M |
+| Arena Allocations (64B objects) | 12.7M | 1.8M | 14.20% | 1.6M | 11.1M | 11.9M | 15.4M | 16.0M |
+| Memory Allocations (String Queue) | 21.5M | 3.0M | 13.83% | 2.6M | 18.3M | 21.4M | 25.8M | 26.9M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| Ring Buffer Queue (Single Thread) | p99 us | 0.009 | 0.001 | 7.17% | 0.000 | 0.009 | 0.009 | 0.009 |
-| Ring Buffer Queue (Concurrent 2x2) | p99 us | 0.202 | 0.013 | 6.34% | 0.008 | 0.208 | 0.216 | 0.219 |
-| Ring Buffer Queue (Concurrent 4x4) | p99 us | 0.596 | 0.017 | 2.81% | 0.010 | 0.593 | 0.623 | 0.626 |
-| Ring Buffer Queue (Core Saturation 6x6) | p99 us | 1.610 | 0.190 | 11.78% | 0.118 | 1.642 | 1.886 | 1.983 |
-| Ring Buffer Queue (High Contention 8x8) | p99 us | 1.932 | 0.312 | 16.17% | 0.194 | 2.019 | 2.279 | 2.317 |
-| Ring Buffer Queue (Extreme Contention 12x12) | p99 us | 3.000 | 0.425 | 14.17% | 0.264 | 3.064 | 3.562 | 3.623 |
-| Ring Buffer Queue (Max Contention 16x16) | p99 us | 8.534 | 7.009 | 82.13% | 4.344 | 4.573 | 21.753 | 25.226 |
-| Ring Buffer Queue (Oversubscribed 14x14) | p99 us | 6.272 | 3.852 | 61.42% | 2.387 | 3.849 | 13.364 | 13.749 |
-| Circular Buffer | p99 us | 0.012 | 0.003 | 22.63% | 0.002 | 0.011 | 0.017 | 0.019 |
-| SIMD CRLF Search (1.5KB buffer) | p99 us | 0.052 | 0.010 | 19.78% | 0.006 | 0.047 | 0.069 | 0.070 |
-| SIMD CRLF Search (16KB buffer) | p99 us | 0.460 | 0.116 | 25.30% | 0.072 | 0.411 | 0.640 | 0.655 |
-| SIMD CRLF Search (32KB buffer) | p99 us | 0.937 | 0.269 | 28.73% | 0.167 | 0.787 | 1.380 | 1.403 |
-| SIMD CRLF Search (64KB buffer) | p99 us | 1.669 | 0.295 | 17.66% | 0.183 | 1.544 | 2.192 | 2.254 |
-| SIMD CRLF Search (128KB buffer) | p99 us | 3.522 | 0.491 | 13.93% | 0.304 | 3.433 | 4.332 | 4.753 |
-| HTTP Parser (Complete Request) | p99 us | 1.228 | 0.136 | 11.09% | 0.084 | 1.172 | 1.435 | 1.449 |
-| HTTP Parser (Fragmented Request) | p99 us | 1.075 | 0.036 | 3.33% | 0.022 | 1.080 | 1.116 | 1.118 |
+| Ring Buffer Queue (Single Thread) | p99 us | 0.009 | 0.001 | 7.65% | 0.001 | 0.009 | 0.010 | 0.010 |
+| Ring Buffer Queue (Concurrent 2x2) | p99 us | 0.238 | 0.036 | 14.90% | 0.031 | 0.240 | 0.284 | 0.290 |
+| Ring Buffer Queue (Concurrent 4x4) | p99 us | 0.389 | 0.098 | 25.33% | 0.086 | 0.383 | 0.495 | 0.503 |
+| Ring Buffer Queue (Core Saturation 3x3) | p99 us | 0.394 | 0.016 | 4.07% | 0.014 | 0.393 | 0.412 | 0.413 |
+| Ring Buffer Queue (High Contention 8x8) | p99 us | 0.530 | 0.116 | 21.83% | 0.102 | 0.556 | 0.680 | 0.703 |
+| Ring Buffer Queue (Extreme Contention 12x12) | p99 us | 0.460 | 0.101 | 22.06% | 0.089 | 0.478 | 0.560 | 0.569 |
+| Ring Buffer Queue (Max Contention 16x16) | p99 us | 0.522 | 0.083 | 15.84% | 0.072 | 0.487 | 0.645 | 0.672 |
+| Ring Buffer Queue (Oversubscribed 8x8) | p99 us | 0.564 | 0.086 | 15.27% | 0.076 | 0.604 | 0.650 | 0.660 |
+| Circular Buffer | p99 us | 0.060 | 0.026 | 43.52% | 0.023 | 0.071 | 0.077 | 0.078 |
+| SIMD CRLF Search (1.5KB buffer) | p99 us | 0.226 | 0.096 | 42.39% | 0.084 | 0.268 | 0.291 | 0.291 |
+| SIMD CRLF Search (16KB buffer) | p99 us | 2.208 | 0.920 | 41.66% | 0.806 | 2.580 | 2.837 | 2.890 |
+| SIMD CRLF Search (32KB buffer) | p99 us | 4.494 | 1.673 | 37.23% | 1.466 | 5.146 | 5.801 | 5.950 |
+| SIMD CRLF Search (64KB buffer) | p99 us | 9.380 | 3.564 | 37.99% | 3.124 | 10.488 | 11.915 | 11.996 |
+| SIMD CRLF Search (128KB buffer) | p99 us | 17.648 | 6.990 | 39.61% | 6.127 | 20.684 | 22.060 | 22.130 |
+| HTTP Parser (Complete Request) | p99 us | 3.422 | 1.142 | 33.37% | 1.001 | 4.034 | 4.117 | 4.118 |
+| HTTP Parser (Fragmented Request) | p99 us | 3.242 | 1.220 | 37.64% | 1.070 | 3.773 | 3.960 | 3.972 |
 
 ### Contention Stability (Retries/op)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|
-| Ring Buffer Queue (Concurrent 2x2) | 0.097 | 0.026 | 27.00% | 0.016 | 0.098 | 0.133 | 0.134 |
-| Ring Buffer Queue (Concurrent 4x4) | 0.244 | 0.087 | 35.49% | 0.054 | 0.258 | 0.358 | 0.379 |
-| Ring Buffer Queue (Core Saturation 6x6) | 1.369 | 0.415 | 30.32% | 0.257 | 1.430 | 1.895 | 2.024 |
-| Ring Buffer Queue (High Contention 8x8) | 7.884 | 2.465 | 31.27% | 1.528 | 7.690 | 11.236 | 11.873 |
-| Ring Buffer Queue (Extreme Contention 12x12) | 18.652 | 5.414 | 29.03% | 3.356 | 18.163 | 27.680 | 30.201 |
-| Ring Buffer Queue (Max Contention 16x16) | 27.371 | 3.493 | 12.76% | 2.165 | 27.722 | 32.363 | 32.563 |
-| Ring Buffer Queue (Oversubscribed 14x14) | 23.264 | 1.927 | 8.28% | 1.194 | 23.288 | 26.398 | 27.465 |
+| Ring Buffer Queue (Concurrent 2x2) | 0.170 | 0.053 | 30.98% | 0.046 | 0.195 | 0.209 | 0.210 |
+| Ring Buffer Queue (Concurrent 4x4) | 21.595 | 39.092 | 181.02% | 34.266 | 2.610 | 80.775 | 99.699 |
+| Ring Buffer Queue (Core Saturation 3x3) | 0.177 | 0.055 | 31.28% | 0.048 | 0.150 | 0.249 | 0.253 |
+| Ring Buffer Queue (High Contention 8x8) | 124.290 | 97.703 | 78.61% | 85.641 | 198.051 | 209.650 | 211.483 |
+| Ring Buffer Queue (Extreme Contention 12x12) | 129.189 | 199.702 | 154.58% | 175.047 | 28.311 | 436.968 | 522.679 |
+| Ring Buffer Queue (Max Contention 16x16) | 309.084 | 250.559 | 81.06% | 219.625 | 217.441 | 636.952 | 661.408 |
+| Ring Buffer Queue (Oversubscribed 8x8) | 57.130 | 45.468 | 79.59% | 39.854 | 68.875 | 105.419 | 105.979 |
 
 ---
 
 ## Codegen Quality Benchmarks
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 JSON parsing, string escaping, key dispatch
 
 | Config | Value |
 |--------|-------|
 | binary | codegen_quality_benchmark |
-| binary_path | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark/codegen_quality_benchmark |
+| binary_path | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark/codegen_quality_benchmark |
 | kind | microbenchmark |
 
 | Benchmark | Latency | Throughput | Tail p95 | Tail p99 | Data Rate |
 |-----------|---------|------------|----------|----------|-----------|
-| parse_int64 (simple) | 7.4 ns | 135.8M ops/sec | - | - | - |
-| parse_int64 (negative) | 8.6 ns | 116.8M ops/sec | - | - | - |
-| parse_double | 16.1 ns | 61.8M ops/sec | - | - | - |
-| parse_bool (strict validation) | 2.0 ns | 486.2M ops/sec | - | - | - |
-| parse_bool (mixed true/false/quoted) | 5.2 ns | 191.8M ops/sec | - | - | - |
-| parse_int64 profile (best case) | 10.8 ns | 92.9M ops/sec | 38.0 ns | 95.5 ns | 256.3M bytes/sec |
-| parse_int64 profile (typical mixed) | 13.2 ns | 75.6M ops/sec | 47.5 ns | 96.0 ns | 379.1M bytes/sec |
-| parse_int64 profile (hard edge) | 16.4 ns | 61.2M ops/sec | 67.0 ns | 96.0 ns | 624.4M bytes/sec |
-| parse_bool profile (best case) | 4.8 ns | 207.0M ops/sec | 29.0 ns | 66.5 ns | 1.03B bytes/sec |
-| parse_bool profile (typical mixed) | 10.7 ns | 93.5M ops/sec | 57.0 ns | 91.5 ns | 755.5M bytes/sec |
-| parse_bool profile (hard edge) | 13.7 ns | 73.3M ops/sec | 58.0 ns | 124.0 ns | 1.58B bytes/sec |
-| validate_user profile (best case) | 8.8 ns | 113.6M ops/sec | 38.0 ns | 67.0 ns | 3.48B bytes/sec |
-| validate_user profile (typical mixed) | 10.3 ns | 97.1M ops/sec | 38.5 ns | 67.0 ns | 3.03B bytes/sec |
-| validate_user profile (hard edge) | 11.3 ns | 88.4M ops/sec | 39.0 ns | 67.0 ns | 2.86B bytes/sec |
-| needs_json_escaping (clean, 58 chars) | 9.5 ns | 105.6M ops/sec | - | - | - |
-| needs_json_escaping (dirty, 25 chars) | 1.1 ns | 897.7M ops/sec | - | - | - |
-| escape_json_string (no-alloc path) | 17.6 ns | 56.6M ops/sec | - | - | - |
-| escape_json_string_into (append) | 6.0 ns | 167.8M ops/sec | - | - | - |
-| skip_value (nested obj with strings) | 35.5 ns | 28.2M ops/sec | - | - | - |
-| 3-field object parse (linear) | 50.6 ns | 19.8M ops/sec | - | - | - |
-| 8-field object parse (length-switch) | 185.9 ns | 5.4M ops/sec | - | - | - |
-| arena alloc+reset cycle (4KB) | 58.5 ns | 17.1M ops/sec | - | - | - |
+| parse_int64 (simple) | 9.7 ns | 103.0M ops/sec | - | - | - |
+| parse_int64 (negative) | 8.9 ns | 111.9M ops/sec | - | - | - |
+| parse_double | 20.6 ns | 48.7M ops/sec | - | - | - |
+| parse_bool (strict validation) | 2.7 ns | 366.8M ops/sec | - | - | - |
+| parse_bool (mixed true/false/quoted) | 7.6 ns | 131.2M ops/sec | - | - | - |
+| parse_int64 profile (best case) | 13.9 ns | 72.2M ops/sec | 50.0 ns | 140.0 ns | 199.2M bytes/sec |
+| parse_int64 profile (typical mixed) | 16.8 ns | 59.4M ops/sec | 60.0 ns | 131.0 ns | 297.9M bytes/sec |
+| parse_int64 profile (hard edge) | 21.7 ns | 46.0M ops/sec | 81.0 ns | 140.0 ns | 469.5M bytes/sec |
+| parse_bool profile (best case) | 6.9 ns | 144.8M ops/sec | 40.0 ns | 90.0 ns | 722.7M bytes/sec |
+| parse_bool profile (typical mixed) | 16.2 ns | 61.6M ops/sec | 80.0 ns | 131.0 ns | 498.2M bytes/sec |
+| parse_bool profile (hard edge) | 20.6 ns | 48.7M ops/sec | 80.0 ns | 170.0 ns | 1.05B bytes/sec |
+| validate_user profile (best case) | 11.3 ns | 88.5M ops/sec | 50.0 ns | 90.0 ns | 2.71B bytes/sec |
+| validate_user profile (typical mixed) | 13.0 ns | 76.7M ops/sec | 50.0 ns | 80.0 ns | 2.40B bytes/sec |
+| validate_user profile (hard edge) | 14.3 ns | 70.1M ops/sec | 60.0 ns | 90.0 ns | 2.27B bytes/sec |
+| needs_json_escaping (clean, 58 chars) | 11.4 ns | 87.4M ops/sec | - | - | - |
+| needs_json_escaping (dirty, 25 chars) | 1.5 ns | 669.8M ops/sec | - | - | - |
+| escape_json_string (no-alloc path) | 22.3 ns | 44.8M ops/sec | - | - | - |
+| escape_json_string_into (append) | 9.2 ns | 109.1M ops/sec | - | - | - |
+| skip_value (nested obj with strings) | 39.7 ns | 25.2M ops/sec | - | - | - |
+| 3-field object parse (linear) | 73.4 ns | 13.6M ops/sec | - | - | - |
+| 8-field object parse (length-switch) | 248.9 ns | 4.0M ops/sec | - | - | - |
+| arena alloc+reset cycle (4KB) | 86.9 ns | 11.5M ops/sec | - | - | - |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| parse_int64 (simple) | 134.2M | 3.0M | 2.24% | 1.9M | 127.6M | 135.8M | 136.9M | 136.9M |
-| parse_int64 (negative) | 117.0M | 2.0M | 1.72% | 1.2M | 112.0M | 116.8M | 119.5M | 119.6M |
-| parse_double | 61.9M | 947.4K | 1.53% | 587.2K | 60.5M | 61.8M | 63.4M | 63.8M |
-| parse_bool (strict validation) | 481.8M | 18.9M | 3.92% | 11.7M | 433.4M | 486.2M | 497.6M | 498.0M |
-| parse_bool (mixed true/false/quoted) | 192.6M | 7.1M | 3.69% | 4.4M | 179.0M | 191.8M | 202.8M | 205.3M |
-| parse_int64 profile (best case) | 92.5M | 2.8M | 3.03% | 1.7M | 88.4M | 92.9M | 96.1M | 96.2M |
-| parse_int64 profile (typical mixed) | 75.1M | 2.1M | 2.78% | 1.3M | 71.0M | 75.6M | 77.8M | 78.1M |
-| parse_int64 profile (hard edge) | 61.0M | 1.5M | 2.49% | 941.4K | 57.5M | 61.2M | 62.7M | 62.9M |
-| parse_bool profile (best case) | 206.3M | 4.9M | 2.37% | 3.0M | 197.4M | 207.0M | 212.3M | 212.7M |
-| parse_bool profile (typical mixed) | 93.3M | 3.7M | 3.92% | 2.3M | 86.3M | 93.5M | 97.8M | 98.6M |
-| parse_bool profile (hard edge) | 73.4M | 2.2M | 3.00% | 1.4M | 70.5M | 73.3M | 76.7M | 77.3M |
-| validate_user profile (best case) | 113.9M | 3.8M | 3.36% | 2.4M | 108.8M | 113.6M | 120.3M | 122.4M |
-| validate_user profile (typical mixed) | 97.5M | 2.2M | 2.27% | 1.4M | 94.8M | 97.1M | 101.0M | 102.3M |
-| validate_user profile (hard edge) | 88.5M | 2.7M | 3.02% | 1.7M | 83.8M | 88.4M | 91.8M | 92.4M |
-| needs_json_escaping (clean, 58 chars) | 105.7M | 2.0M | 1.91% | 1.2M | 101.9M | 105.6M | 108.3M | 109.0M |
-| needs_json_escaping (dirty, 25 chars) | 892.6M | 19.4M | 2.17% | 12.0M | 838.3M | 897.7M | 908.3M | 910.5M |
-| escape_json_string (no-alloc path) | 56.8M | 1.2M | 2.17% | 764.3K | 54.2M | 56.6M | 58.2M | 58.2M |
-| escape_json_string_into (append) | 166.5M | 5.4M | 3.25% | 3.4M | 154.9M | 167.8M | 172.1M | 172.5M |
-| skip_value (nested obj with strings) | 27.2M | 2.3M | 8.62% | 1.5M | 20.7M | 28.2M | 28.8M | 28.8M |
-| 3-field object parse (linear) | 19.5M | 875.6K | 4.49% | 542.7K | 18.1M | 19.8M | 20.5M | 20.6M |
-| 8-field object parse (length-switch) | 5.4M | 72.3K | 1.35% | 44.8K | 5.2M | 5.4M | 5.4M | 5.5M |
-| arena alloc+reset cycle (4KB) | 16.9M | 658.1K | 3.89% | 407.9K | 15.8M | 17.1M | 17.8M | 18.0M |
+| parse_int64 (simple) | 107.0M | 10.6M | 9.93% | 9.3M | 97.9M | 103.0M | 123.1M | 127.8M |
+| parse_int64 (negative) | 117.7M | 13.8M | 11.71% | 12.1M | 107.1M | 111.9M | 138.7M | 145.0M |
+| parse_double | 51.3M | 7.1M | 13.83% | 6.2M | 45.6M | 48.7M | 62.1M | 65.3M |
+| parse_bool (strict validation) | 389.9M | 46.7M | 11.98% | 41.0M | 352.7M | 366.8M | 461.7M | 481.1M |
+| parse_bool (mixed true/false/quoted) | 134.9M | 25.6M | 18.95% | 22.4M | 96.8M | 131.2M | 169.4M | 176.5M |
+| parse_int64 profile (best case) | 74.0M | 13.1M | 17.70% | 11.5M | 59.5M | 72.2M | 93.3M | 98.5M |
+| parse_int64 profile (typical mixed) | 60.3M | 11.6M | 19.26% | 10.2M | 44.0M | 59.4M | 76.3M | 80.3M |
+| parse_int64 profile (hard edge) | 47.5M | 9.3M | 19.63% | 8.2M | 37.2M | 46.0M | 61.2M | 64.5M |
+| parse_bool profile (best case) | 147.4M | 28.0M | 18.99% | 24.5M | 121.8M | 144.8M | 189.0M | 199.3M |
+| parse_bool profile (typical mixed) | 64.9M | 9.3M | 14.36% | 8.2M | 58.3M | 61.6M | 79.1M | 83.3M |
+| parse_bool profile (hard edge) | 52.2M | 7.1M | 13.59% | 6.2M | 48.1M | 48.7M | 63.0M | 66.4M |
+| validate_user profile (best case) | 92.1M | 13.3M | 14.45% | 11.7M | 79.7M | 88.5M | 112.1M | 117.9M |
+| validate_user profile (typical mixed) | 82.1M | 10.5M | 12.74% | 9.2M | 74.3M | 76.7M | 98.2M | 102.5M |
+| validate_user profile (hard edge) | 73.3M | 12.9M | 17.58% | 11.3M | 58.0M | 70.1M | 92.1M | 96.9M |
+| needs_json_escaping (clean, 58 chars) | 85.0M | 19.4M | 22.77% | 17.0M | 53.2M | 87.4M | 108.9M | 113.6M |
+| needs_json_escaping (dirty, 25 chars) | 702.1M | 84.6M | 12.05% | 74.2M | 634.4M | 669.8M | 831.8M | 866.4M |
+| escape_json_string (no-alloc path) | 48.1M | 5.9M | 12.32% | 5.2M | 44.8M | 44.8M | 57.1M | 59.9M |
+| escape_json_string_into (append) | 116.4M | 13.8M | 11.82% | 12.1M | 107.4M | 109.1M | 137.7M | 143.6M |
+| skip_value (nested obj with strings) | 26.6M | 3.5M | 13.14% | 3.1M | 23.8M | 25.2M | 31.9M | 33.4M |
+| 3-field object parse (linear) | 14.4M | 1.6M | 11.16% | 1.4M | 13.3M | 13.6M | 16.8M | 17.6M |
+| 8-field object parse (length-switch) | 4.3M | 541.5K | 12.63% | 474.6K | 3.9M | 4.0M | 5.1M | 5.4M |
+| arena alloc+reset cycle (4KB) | 12.0M | 1.6M | 13.01% | 1.4M | 10.8M | 11.5M | 14.3M | 15.0M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| parse_int64 (simple) | ns | 7.460 | 0.174 | 2.34% | 0.108 | 7.400 | 7.755 | 7.800 |
-| parse_int64 (negative) | ns | 8.570 | 0.135 | 1.57% | 0.083 | 8.600 | 8.765 | 8.900 |
-| parse_double | ns | 16.150 | 0.246 | 1.52% | 0.152 | 16.150 | 16.500 | 16.500 |
-| parse_bool (strict validation) | ns | 2.080 | 0.098 | 4.71% | 0.061 | 2.050 | 2.255 | 2.300 |
-| parse_bool (mixed true/false/quoted) | ns | 5.190 | 0.192 | 3.70% | 0.119 | 5.200 | 5.465 | 5.600 |
-| parse_int64 profile (best case) | tail p99 ns | 94.800 | 4.812 | 5.08% | 2.983 | 95.500 | 100.950 | 105.000 |
-| parse_int64 profile (typical mixed) | tail p99 ns | 99.600 | 4.409 | 4.43% | 2.733 | 96.000 | 105.000 | 105.000 |
-| parse_int64 profile (hard edge) | tail p99 ns | 97.800 | 3.600 | 3.68% | 2.231 | 96.000 | 105.000 | 105.000 |
-| parse_bool profile (best case) | tail p99 ns | 63.000 | 4.712 | 7.48% | 2.920 | 66.500 | 67.000 | 67.000 |
-| parse_bool profile (typical mixed) | tail p99 ns | 92.900 | 7.395 | 7.96% | 4.584 | 91.500 | 105.000 | 105.000 |
-| parse_bool profile (hard edge) | tail p99 ns | 124.000 | 6.971 | 5.62% | 4.321 | 124.000 | 133.000 | 133.000 |
-| validate_user profile (best case) | tail p99 ns | 64.200 | 4.069 | 6.34% | 2.522 | 67.000 | 67.000 | 67.000 |
-| validate_user profile (typical mixed) | tail p99 ns | 65.200 | 5.400 | 8.28% | 3.347 | 67.000 | 71.950 | 76.000 |
-| validate_user profile (hard edge) | tail p99 ns | 68.900 | 3.807 | 5.52% | 2.359 | 67.000 | 76.550 | 77.000 |
-| needs_json_escaping (clean, 58 chars) | ns | 9.460 | 0.180 | 1.90% | 0.112 | 9.500 | 9.755 | 9.800 |
-| needs_json_escaping (dirty, 25 chars) | ns | 1.110 | 0.030 | 2.70% | 0.019 | 1.100 | 1.155 | 1.200 |
-| escape_json_string (no-alloc path) | ns | 17.620 | 0.394 | 2.24% | 0.244 | 17.650 | 18.230 | 18.500 |
-| escape_json_string_into (append) | ns | 6.020 | 0.218 | 3.62% | 0.135 | 5.950 | 6.365 | 6.500 |
-| skip_value (nested obj with strings) | ns | 37.090 | 3.919 | 10.57% | 2.429 | 35.450 | 44.025 | 48.300 |
-| 3-field object parse (linear) | ns | 51.390 | 2.339 | 4.55% | 1.449 | 50.600 | 54.740 | 55.100 |
-| 8-field object parse (length-switch) | ns | 186.550 | 2.543 | 1.36% | 1.576 | 185.950 | 190.475 | 191.600 |
-| arena alloc+reset cycle (4KB) | ns | 59.220 | 2.324 | 3.92% | 1.440 | 58.500 | 62.635 | 63.400 |
+| parse_int64 (simple) | ns | 9.420 | 0.835 | 8.87% | 0.732 | 9.700 | 10.120 | 10.200 |
+| parse_int64 (negative) | ns | 8.580 | 0.857 | 9.98% | 0.751 | 8.900 | 9.240 | 9.300 |
+| parse_double | ns | 19.800 | 2.319 | 11.71% | 2.033 | 20.600 | 21.720 | 21.900 |
+| parse_bool (strict validation) | ns | 2.580 | 0.248 | 9.62% | 0.218 | 2.700 | 2.780 | 2.800 |
+| parse_bool (mixed true/false/quoted) | ns | 7.700 | 1.493 | 19.39% | 1.308 | 7.600 | 9.800 | 10.300 |
+| parse_int64 profile (best case) | tail p99 ns | 130.400 | 21.266 | 16.31% | 18.640 | 140.000 | 149.000 | 151.000 |
+| parse_int64 profile (typical mixed) | tail p99 ns | 132.600 | 25.881 | 19.52% | 22.686 | 131.000 | 164.800 | 171.000 |
+| parse_int64 profile (hard edge) | tail p99 ns | 132.000 | 23.152 | 17.54% | 20.293 | 140.000 | 156.000 | 160.000 |
+| parse_bool profile (best case) | tail p99 ns | 86.000 | 19.596 | 22.79% | 17.177 | 90.000 | 106.000 | 110.000 |
+| parse_bool profile (typical mixed) | tail p99 ns | 126.600 | 20.713 | 16.36% | 18.156 | 131.000 | 148.200 | 150.000 |
+| parse_bool profile (hard edge) | tail p99 ns | 156.400 | 22.966 | 14.68% | 20.131 | 170.000 | 170.000 | 170.000 |
+| validate_user profile (best case) | tail p99 ns | 84.000 | 12.000 | 14.29% | 10.518 | 90.000 | 90.000 | 90.000 |
+| validate_user profile (typical mixed) | tail p99 ns | 80.000 | 10.954 | 13.69% | 9.602 | 80.000 | 90.000 | 90.000 |
+| validate_user profile (hard edge) | tail p99 ns | 88.200 | 9.847 | 11.16% | 8.631 | 90.000 | 98.200 | 100.000 |
+| needs_json_escaping (clean, 58 chars) | ns | 12.480 | 3.364 | 26.96% | 2.949 | 11.400 | 17.500 | 18.800 |
+| needs_json_escaping (dirty, 25 chars) | ns | 1.440 | 0.136 | 9.42% | 0.119 | 1.500 | 1.580 | 1.600 |
+| escape_json_string (no-alloc path) | ns | 21.060 | 2.192 | 10.41% | 1.922 | 22.300 | 22.300 | 22.300 |
+| escape_json_string_into (append) | ns | 8.700 | 0.867 | 9.97% | 0.760 | 9.200 | 9.280 | 9.300 |
+| skip_value (nested obj with strings) | ns | 38.220 | 4.285 | 11.21% | 3.756 | 39.700 | 41.800 | 42.000 |
+| 3-field object parse (linear) | ns | 70.320 | 6.770 | 9.63% | 5.934 | 73.400 | 74.860 | 75.100 |
+| 8-field object parse (length-switch) | ns | 236.520 | 25.317 | 10.70% | 22.192 | 248.900 | 253.260 | 253.700 |
+| arena alloc+reset cycle (4KB) | ns | 84.880 | 9.437 | 11.12% | 8.272 | 86.900 | 92.540 | 92.900 |
 
 ### Data Throughput Stability (bytes/sec)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| parse_int64 profile (best case) | 255.4M bytes/sec | 7.7M bytes/sec | 3.03% | 4.8M bytes/sec | 243.8M bytes/sec | 256.3M bytes/sec | 265.2M bytes/sec | 265.6M bytes/sec |
-| parse_int64 profile (typical mixed) | 376.8M bytes/sec | 10.5M bytes/sec | 2.78% | 6.5M bytes/sec | 356.2M bytes/sec | 379.1M bytes/sec | 390.5M bytes/sec | 392.0M bytes/sec |
-| parse_int64 profile (hard edge) | 621.8M bytes/sec | 15.5M bytes/sec | 2.49% | 9.6M bytes/sec | 586.5M bytes/sec | 624.4M bytes/sec | 639.8M bytes/sec | 641.1M bytes/sec |
-| parse_bool profile (best case) | 1.03B bytes/sec | 24.4M bytes/sec | 2.37% | 15.2M bytes/sec | 985.6M bytes/sec | 1.03B bytes/sec | 1.06B bytes/sec | 1.06B bytes/sec |
-| parse_bool profile (typical mixed) | 754.5M bytes/sec | 29.6M bytes/sec | 3.92% | 18.4M bytes/sec | 697.9M bytes/sec | 755.5M bytes/sec | 790.7M bytes/sec | 797.4M bytes/sec |
-| parse_bool profile (hard edge) | 1.58B bytes/sec | 47.4M bytes/sec | 3.00% | 29.4M bytes/sec | 1.51B bytes/sec | 1.58B bytes/sec | 1.65B bytes/sec | 1.66B bytes/sec |
-| validate_user profile (best case) | 3.49B bytes/sec | 117.4M bytes/sec | 3.36% | 72.8M bytes/sec | 3.34B bytes/sec | 3.48B bytes/sec | 3.69B bytes/sec | 3.75B bytes/sec |
-| validate_user profile (typical mixed) | 3.04B bytes/sec | 69.1M bytes/sec | 2.27% | 42.8M bytes/sec | 2.96B bytes/sec | 3.03B bytes/sec | 3.15B bytes/sec | 3.19B bytes/sec |
-| validate_user profile (hard edge) | 2.86B bytes/sec | 86.6M bytes/sec | 3.02% | 53.7M bytes/sec | 2.71B bytes/sec | 2.86B bytes/sec | 2.97B bytes/sec | 2.99B bytes/sec |
+| parse_int64 profile (best case) | 204.3M bytes/sec | 36.1M bytes/sec | 17.69% | 31.7M bytes/sec | 164.3M bytes/sec | 199.2M bytes/sec | 257.4M bytes/sec | 271.8M bytes/sec |
+| parse_int64 profile (typical mixed) | 302.3M bytes/sec | 58.2M bytes/sec | 19.26% | 51.1M bytes/sec | 220.9M bytes/sec | 297.9M bytes/sec | 382.7M bytes/sec | 402.8M bytes/sec |
+| parse_int64 profile (hard edge) | 484.1M bytes/sec | 95.1M bytes/sec | 19.63% | 83.3M bytes/sec | 379.4M bytes/sec | 469.5M bytes/sec | 624.5M bytes/sec | 658.0M bytes/sec |
+| parse_bool profile (best case) | 736.1M bytes/sec | 139.8M bytes/sec | 18.99% | 122.5M bytes/sec | 608.2M bytes/sec | 722.7M bytes/sec | 943.5M bytes/sec | 995.1M bytes/sec |
+| parse_bool profile (typical mixed) | 524.6M bytes/sec | 75.3M bytes/sec | 14.36% | 66.0M bytes/sec | 471.5M bytes/sec | 498.2M bytes/sec | 639.2M bytes/sec | 673.3M bytes/sec |
+| parse_bool profile (hard edge) | 1.12B bytes/sec | 152.5M bytes/sec | 13.59% | 133.7M bytes/sec | 1.03B bytes/sec | 1.05B bytes/sec | 1.35B bytes/sec | 1.43B bytes/sec |
+| validate_user profile (best case) | 2.83B bytes/sec | 408.2M bytes/sec | 14.45% | 357.8M bytes/sec | 2.45B bytes/sec | 2.71B bytes/sec | 3.44B bytes/sec | 3.62B bytes/sec |
+| validate_user profile (typical mixed) | 2.56B bytes/sec | 326.3M bytes/sec | 12.74% | 286.0M bytes/sec | 2.32B bytes/sec | 2.40B bytes/sec | 3.06B bytes/sec | 3.20B bytes/sec |
+| validate_user profile (hard edge) | 2.37B bytes/sec | 416.8M bytes/sec | 17.58% | 365.4M bytes/sec | 1.88B bytes/sec | 2.27B bytes/sec | 2.98B bytes/sec | 3.14B bytes/sec |
 
 ---
 
 ## Serialization Benchmarks
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 JSON serialization, string escaping, array construction
 
 | Config | Value |
 |--------|-------|
 | binary | serialize_benchmark |
-| binary_path | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark/serialize_benchmark |
+| binary_path | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark/serialize_benchmark |
 | kind | microbenchmark |
 
 | Benchmark | Latency | Throughput | Data Rate |
 |-----------|---------|------------|-----------|
-| escape_json_string (clean, return) | 16.9 ns | 59.0M ops/sec | - |
-| escape_json_string_into (clean, append) | 7.5 ns | 134.0M ops/sec | - |
-| escape_json_string (dirty, return) | 77.6 ns | 12.9M ops/sec | - |
-| escape_json_string_into (dirty, append) | 55.1 ns | 18.1M ops/sec | - |
-| escape profile (best case) | 13.8 ns | 72.3M ops/sec | 1.14B bytes/sec |
-| escape profile (typical mixed) | 332.7 ns | 3.0M ops/sec | 246.8M bytes/sec |
-| escape profile (hard edge) | 4085.0 ns | 244.6K ops/sec | 218.3M bytes/sec |
-| serialize object profile (best case) | 75.9 ns | 13.2M ops/sec | 373.3M bytes/sec |
-| serialize object profile (typical mixed) | 478.9 ns | 2.1M ops/sec | 250.6M bytes/sec |
-| serialize object profile (hard edge) | 5220.0 ns | 191.7K ops/sec | 225.3M bytes/sec |
-| needs_json_escaping (16 byte clean) | 2.8 ns | 363.0M ops/sec | - |
-| needs_json_escaping (64 byte clean) | 3.1 ns | 325.7M ops/sec | - |
-| needs_json_escaping (256 byte clean) | 5.8 ns | 170.8M ops/sec | - |
-| needs_json_escaping (64 byte, escape at end) | 2.4 ns | 419.3M ops/sec | - |
-| needs_json_escaping (64 byte, escape at start) | 1.8 ns | 556.2M ops/sec | - |
-| serialize 5-field obj (embedded commas) | 75.0 ns | 13.3M ops/sec | - |
-| serialize array 100 ints (to_chars flat buffer) | 266.7 ns | 3.7M ops/sec | - |
-| serialize array 100 ints (to_chars into string) | 1550.0 ns | 646.2K ops/sec | - |
-| serialize array 100 ints (lookup table into string) | 137.9 ns | 7.3M ops/sec | - |
-| serialize array 1000 ints (optimized) | 1975.0 ns | 506.1K ops/sec | - |
-| serialize array 10000 ints (optimized) | 40610.0 ns | 24.6K ops/sec | - |
-| serialize nested obj (5 levels deep) | 21.8 ns | 46.0M ops/sec | - |
-| serialize 20-field obj | 349.0 ns | 2.9M ops/sec | - |
-| serialize 100 nested objects | 4330.0 ns | 230.9K ops/sec | - |
-| escape_json_string (10KB clean) | 352.2 ns | 2.8M ops/sec | - |
-| escape_json_string (10KB heavy escaping) | 15910.0 ns | 62.9K ops/sec | - |
-| escape_json_string (escape at SIMD boundary) | 600.0 ns | 1.7M ops/sec | - |
-| needs_json_escaping (1KB clean) | 24.6 ns | 40.6M ops/sec | - |
-| needs_json_escaping (1KB, escape at end) | 24.2 ns | 41.2M ops/sec | - |
-| escape hot (same string repeated) | 11.9 ns | 84.5M ops/sec | - |
-| escape cold (different strings) | 22.2 ns | 45.0M ops/sec | - |
+| escape_json_string (clean, return) | 22.7 ns | 44.0M ops/sec | - |
+| escape_json_string_into (clean, append) | 9.9 ns | 101.1M ops/sec | - |
+| escape_json_string (dirty, return) | 105.8 ns | 9.5M ops/sec | - |
+| escape_json_string_into (dirty, append) | 73.3 ns | 13.6M ops/sec | - |
+| escape profile (best case) | 18.1 ns | 55.4M ops/sec | 870.2M bytes/sec |
+| escape profile (typical mixed) | 472.2 ns | 2.1M ops/sec | 173.9M bytes/sec |
+| escape profile (hard edge) | 5840.0 ns | 171.2K ops/sec | 152.8M bytes/sec |
+| serialize object profile (best case) | 97.5 ns | 10.3M ops/sec | 290.5M bytes/sec |
+| serialize object profile (typical mixed) | 692.5 ns | 1.4M ops/sec | 173.3M bytes/sec |
+| serialize object profile (hard edge) | 7670.0 ns | 130.4K ops/sec | 153.3M bytes/sec |
+| needs_json_escaping (16 byte clean) | 4.3 ns | 234.3M ops/sec | - |
+| needs_json_escaping (64 byte clean) | 4.7 ns | 214.8M ops/sec | - |
+| needs_json_escaping (256 byte clean) | 8.5 ns | 117.6M ops/sec | - |
+| needs_json_escaping (64 byte, escape at end) | 3.1 ns | 325.3M ops/sec | - |
+| needs_json_escaping (64 byte, escape at start) | 2.8 ns | 360.8M ops/sec | - |
+| serialize 5-field obj (embedded commas) | 101.5 ns | 9.8M ops/sec | - |
+| serialize array 100 ints (to_chars flat buffer) | 374.6 ns | 2.7M ops/sec | - |
+| serialize array 100 ints (to_chars into string) | 758.8 ns | 1.3M ops/sec | - |
+| serialize array 100 ints (lookup table into string) | 201.3 ns | 5.0M ops/sec | - |
+| serialize array 1000 ints (optimized) | 2390.0 ns | 419.1K ops/sec | - |
+| serialize array 10000 ints (optimized) | 54150.0 ns | 18.5K ops/sec | - |
+| serialize nested obj (5 levels deep) | 28.5 ns | 35.0M ops/sec | - |
+| serialize 20-field obj | 545.3 ns | 1.8M ops/sec | - |
+| serialize 100 nested objects | 5790.0 ns | 172.6K ops/sec | - |
+| escape_json_string (10KB clean) | 329.6 ns | 3.0M ops/sec | - |
+| escape_json_string (10KB heavy escaping) | 20130.0 ns | 49.7K ops/sec | - |
+| escape_json_string (escape at SIMD boundary) | 599.7 ns | 1.7M ops/sec | - |
+| needs_json_escaping (1KB clean) | 24.7 ns | 40.4M ops/sec | - |
+| needs_json_escaping (1KB, escape at end) | 23.5 ns | 42.6M ops/sec | - |
+| escape hot (same string repeated) | 14.6 ns | 68.4M ops/sec | - |
+| escape cold (different strings) | 27.8 ns | 36.0M ops/sec | - |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| escape_json_string (clean, return) | 58.0M | 2.5M | 4.37% | 1.6M | 51.3M | 59.0M | 59.9M | 60.1M |
-| escape_json_string_into (clean, append) | 131.4M | 10.8M | 8.23% | 6.7M | 99.9M | 134.0M | 139.2M | 139.4M |
-| escape_json_string (dirty, return) | 12.9M | 406.8K | 3.15% | 252.1K | 12.2M | 12.9M | 13.6M | 13.6M |
-| escape_json_string_into (dirty, append) | 18.2M | 269.2K | 1.48% | 166.8K | 17.8M | 18.1M | 18.6M | 18.6M |
-| escape profile (best case) | 71.9M | 1.8M | 2.49% | 1.1M | 66.8M | 72.3M | 73.4M | 73.7M |
-| escape profile (typical mixed) | 3.0M | 29.3K | 0.98% | 18.2K | 3.0M | 3.0M | 3.0M | 3.1M |
-| escape profile (hard edge) | 243.8K | 6.6K | 2.73% | 4.1K | 230.9K | 244.6K | 251.1K | 251.2K |
-| serialize object profile (best case) | 12.9M | 655.6K | 5.10% | 406.4K | 11.5M | 13.2M | 13.5M | 13.5M |
-| serialize object profile (typical mixed) | 2.1M | 34.0K | 1.64% | 21.1K | 2.0M | 2.1M | 2.1M | 2.1M |
-| serialize object profile (hard edge) | 188.8K | 7.1K | 3.75% | 4.4K | 168.7K | 191.7K | 193.5K | 194.0K |
-| needs_json_escaping (16 byte clean) | 359.5M | 12.6M | 3.49% | 7.8M | 337.8M | 363.0M | 373.3M | 375.6M |
-| needs_json_escaping (64 byte clean) | 328.3M | 9.2M | 2.82% | 5.7M | 311.5M | 325.7M | 341.0M | 342.1M |
-| needs_json_escaping (256 byte clean) | 170.2M | 2.7M | 1.58% | 1.7M | 166.0M | 170.8M | 173.5M | 173.6M |
-| needs_json_escaping (64 byte, escape at end) | 419.2M | 6.9M | 1.65% | 4.3M | 406.5M | 419.3M | 428.6M | 429.5M |
-| needs_json_escaping (64 byte, escape at start) | 554.4M | 9.2M | 1.66% | 5.7M | 528.5M | 556.2M | 563.2M | 564.7M |
-| serialize 5-field obj (embedded commas) | 13.3M | 236.3K | 1.78% | 146.5K | 12.9M | 13.3M | 13.6M | 13.6M |
-| serialize array 100 ints (to_chars flat buffer) | 3.8M | 84.2K | 2.24% | 52.2K | 3.6M | 3.7M | 3.9M | 3.9M |
-| serialize array 100 ints (to_chars into string) | 648.4K | 11.8K | 1.83% | 7.3K | 623.8K | 646.2K | 665.0K | 665.5K |
-| serialize array 100 ints (lookup table into string) | 7.3M | 276.2K | 3.79% | 171.2K | 6.8M | 7.3M | 7.6M | 7.7M |
-| serialize array 1000 ints (optimized) | 497.5K | 18.8K | 3.78% | 11.7K | 459.1K | 506.1K | 516.7K | 519.3K |
-| serialize array 10000 ints (optimized) | 24.4K | 511 | 2.09% | 317 | 23.2K | 24.6K | 24.9K | 24.9K |
-| serialize nested obj (5 levels deep) | 45.9M | 528.9K | 1.15% | 327.8K | 45.0M | 46.0M | 46.7M | 46.8M |
-| serialize 20-field obj | 2.9M | 46.2K | 1.61% | 28.6K | 2.8M | 2.9M | 2.9M | 3.0M |
-| serialize 100 nested objects | 230.5K | 2.8K | 1.21% | 1.7K | 226.3K | 230.9K | 234.2K | 235.0K |
-| escape_json_string (10KB clean) | 2.8M | 58.6K | 2.08% | 36.3K | 2.7M | 2.8M | 2.9M | 2.9M |
-| escape_json_string (10KB heavy escaping) | 62.9K | 1.2K | 1.94% | 755 | 61.3K | 62.9K | 64.6K | 64.8K |
-| escape_json_string (escape at SIMD boundary) | 1.6M | 49.8K | 3.02% | 30.9K | 1.6M | 1.7M | 1.7M | 1.7M |
-| needs_json_escaping (1KB clean) | 40.6M | 562.8K | 1.39% | 348.8K | 39.6M | 40.6M | 41.4M | 41.4M |
-| needs_json_escaping (1KB, escape at end) | 41.1M | 963.3K | 2.35% | 597.1K | 39.6M | 41.2M | 42.3M | 42.4M |
-| escape hot (same string repeated) | 84.8M | 1.5M | 1.76% | 923.1K | 82.3M | 84.5M | 87.1M | 87.3M |
-| escape cold (different strings) | 44.8M | 1.2M | 2.69% | 747.6K | 42.4M | 45.0M | 46.2M | 46.3M |
+| escape_json_string (clean, return) | 44.6M | 1.4M | 3.19% | 1.2M | 42.9M | 44.0M | 46.6M | 46.9M |
+| escape_json_string_into (clean, append) | 101.0M | 3.2M | 3.21% | 2.8M | 96.2M | 101.1M | 104.8M | 105.0M |
+| escape_json_string (dirty, return) | 9.5M | 331.4K | 3.48% | 290.5K | 9.0M | 9.5M | 10.0M | 10.0M |
+| escape_json_string_into (dirty, append) | 13.4M | 443.3K | 3.30% | 388.5K | 12.7M | 13.6M | 13.9M | 13.9M |
+| escape profile (best case) | 55.6M | 1.2M | 2.12% | 1.0M | 54.0M | 55.4M | 57.1M | 57.2M |
+| escape profile (typical mixed) | 2.1M | 49.1K | 2.35% | 43.0K | 2.0M | 2.1M | 2.1M | 2.1M |
+| escape profile (hard edge) | 178.2K | 19.9K | 11.18% | 17.5K | 161.8K | 171.2K | 208.3K | 217.3K |
+| serialize object profile (best case) | 10.9M | 1.3M | 12.34% | 1.2M | 10.0M | 10.3M | 13.0M | 13.6M |
+| serialize object profile (typical mixed) | 1.5M | 246.8K | 16.54% | 216.3K | 1.2M | 1.4M | 1.8M | 1.9M |
+| serialize object profile (hard edge) | 138.1K | 16.7K | 12.06% | 14.6K | 127.3K | 130.4K | 163.4K | 171.3K |
+| needs_json_escaping (16 byte clean) | 235.0M | 8.2M | 3.48% | 7.2M | 224.7M | 234.3M | 245.5M | 246.5M |
+| needs_json_escaping (64 byte clean) | 213.9M | 8.4M | 3.92% | 7.3M | 202.1M | 214.8M | 224.3M | 225.3M |
+| needs_json_escaping (256 byte clean) | 118.0M | 4.5M | 3.82% | 3.9M | 112.9M | 117.6M | 124.5M | 126.1M |
+| needs_json_escaping (64 byte, escape at end) | 330.0M | 9.7M | 2.95% | 8.5M | 320.5M | 325.3M | 342.6M | 343.2M |
+| needs_json_escaping (64 byte, escape at start) | 351.4M | 14.8M | 4.21% | 13.0M | 332.1M | 360.8M | 365.0M | 365.3M |
+| serialize 5-field obj (embedded commas) | 9.9M | 194.7K | 1.96% | 170.7K | 9.6M | 9.8M | 10.2M | 10.2M |
+| serialize array 100 ints (to_chars flat buffer) | 2.8M | 220.2K | 7.83% | 193.0K | 2.6M | 2.7M | 3.1M | 3.2M |
+| serialize array 100 ints (to_chars into string) | 1.3M | 43.6K | 3.36% | 38.2K | 1.2M | 1.3M | 1.3M | 1.3M |
+| serialize array 100 ints (lookup table into string) | 5.0M | 185.2K | 3.68% | 162.4K | 4.8M | 5.0M | 5.3M | 5.3M |
+| serialize array 1000 ints (optimized) | 429.1K | 26.3K | 6.12% | 23.0K | 397.4K | 419.1K | 465.4K | 469.7K |
+| serialize array 10000 ints (optimized) | 18.2K | 753 | 4.14% | 660 | 17.1K | 18.5K | 19.0K | 19.1K |
+| serialize nested obj (5 levels deep) | 34.6M | 1.4M | 4.08% | 1.2M | 32.5M | 35.0M | 36.4M | 36.7M |
+| serialize 20-field obj | 1.9M | 134.4K | 7.13% | 117.8K | 1.7M | 1.8M | 2.1M | 2.1M |
+| serialize 100 nested objects | 168.6K | 9.4K | 5.59% | 8.3K | 154.8K | 172.6K | 178.8K | 179.6K |
+| escape_json_string (10KB clean) | 2.8M | 371.9K | 13.10% | 326.0K | 2.1M | 3.0M | 3.1M | 3.1M |
+| escape_json_string (10KB heavy escaping) | 48.9K | 1.5K | 3.07% | 1.3K | 46.3K | 49.7K | 50.2K | 50.2K |
+| escape_json_string (escape at SIMD boundary) | 1.7M | 125.6K | 7.60% | 110.1K | 1.4M | 1.7M | 1.8M | 1.8M |
+| needs_json_escaping (1KB clean) | 39.4M | 1.9M | 4.88% | 1.7M | 36.7M | 40.4M | 41.4M | 41.5M |
+| needs_json_escaping (1KB, escape at end) | 41.5M | 1.9M | 4.61% | 1.7M | 38.5M | 42.6M | 43.2M | 43.3M |
+| escape hot (same string repeated) | 69.0M | 2.0M | 2.86% | 1.7M | 66.3M | 68.4M | 71.5M | 71.8M |
+| escape cold (different strings) | 35.8M | 1.0M | 2.88% | 903.5K | 34.2M | 36.0M | 36.9M | 36.9M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| escape_json_string (clean, return) | ns | 17.280 | 0.832 | 4.81% | 0.515 | 16.950 | 18.780 | 19.500 |
-| escape_json_string_into (clean, append) | ns | 7.670 | 0.787 | 10.27% | 0.488 | 7.500 | 8.920 | 10.000 |
-| escape_json_string (dirty, return) | ns | 77.570 | 2.443 | 3.15% | 1.514 | 77.600 | 81.210 | 82.200 |
-| escape_json_string_into (dirty, append) | ns | 54.950 | 0.809 | 1.47% | 0.501 | 55.100 | 56.030 | 56.300 |
-| escape profile (best case) | ns | 13.910 | 0.378 | 2.72% | 0.234 | 13.800 | 14.550 | 15.000 |
-| escape profile (typical mixed) | ns | 333.130 | 3.266 | 0.98% | 2.024 | 332.700 | 337.585 | 337.900 |
-| escape profile (hard edge) | ns | 4104.000 | 113.860 | 2.77% | 70.571 | 4085.000 | 4303.000 | 4330.000 |
-| serialize object profile (best case) | ns | 77.960 | 4.168 | 5.35% | 2.583 | 75.900 | 85.310 | 87.200 |
-| serialize object profile (typical mixed) | ns | 481.750 | 8.034 | 1.67% | 4.979 | 478.900 | 496.530 | 499.500 |
-| serialize object profile (hard edge) | ns | 5305.000 | 217.405 | 4.10% | 134.749 | 5220.000 | 5682.500 | 5930.000 |
-| needs_json_escaping (16 byte clean) | ns | 2.780 | 0.098 | 3.52% | 0.061 | 2.750 | 2.955 | 3.000 |
-| needs_json_escaping (64 byte clean) | ns | 3.050 | 0.092 | 3.02% | 0.057 | 3.100 | 3.155 | 3.200 |
-| needs_json_escaping (256 byte clean) | ns | 5.880 | 0.087 | 1.48% | 0.054 | 5.850 | 6.000 | 6.000 |
-| needs_json_escaping (64 byte, escape at end) | ns | 2.380 | 0.060 | 2.52% | 0.037 | 2.400 | 2.455 | 2.500 |
-| needs_json_escaping (64 byte, escape at start) | ns | 1.810 | 0.030 | 1.66% | 0.019 | 1.800 | 1.855 | 1.900 |
-| serialize 5-field obj (embedded commas) | ns | 75.200 | 1.339 | 1.78% | 0.830 | 75.000 | 77.285 | 77.600 |
-| serialize array 100 ints (to_chars flat buffer) | ns | 265.780 | 5.943 | 2.24% | 3.683 | 266.700 | 273.875 | 276.800 |
-| serialize array 100 ints (to_chars into string) | ns | 1543.000 | 28.302 | 1.83% | 17.542 | 1550.000 | 1582.000 | 1600.000 |
-| serialize array 100 ints (lookup table into string) | ns | 137.570 | 5.306 | 3.86% | 3.289 | 137.950 | 146.430 | 147.600 |
-| serialize array 1000 ints (optimized) | ns | 2013.000 | 77.981 | 3.87% | 48.333 | 1975.000 | 2148.500 | 2180.000 |
-| serialize array 10000 ints (optimized) | ns | 40955.000 | 878.991 | 2.15% | 544.804 | 40610.000 | 42502.500 | 43020.000 |
-| serialize nested obj (5 levels deep) | ns | 21.780 | 0.264 | 1.21% | 0.164 | 21.750 | 22.200 | 22.200 |
-| serialize 20-field obj | ns | 348.560 | 5.587 | 1.60% | 3.463 | 349.050 | 356.540 | 359.600 |
-| serialize 100 nested objects | ns | 4340.000 | 52.536 | 1.21% | 32.562 | 4330.000 | 4415.500 | 4420.000 |
-| escape_json_string (10KB clean) | ns | 354.950 | 7.556 | 2.13% | 4.683 | 352.200 | 369.235 | 370.000 |
-| escape_json_string (10KB heavy escaping) | ns | 15895.000 | 306.309 | 1.93% | 189.852 | 15910.000 | 16269.500 | 16310.000 |
-| escape_json_string (escape at SIMD boundary) | ns | 607.500 | 18.672 | 3.07% | 11.573 | 600.050 | 636.215 | 643.100 |
-| needs_json_escaping (1KB clean) | ns | 24.660 | 0.356 | 1.44% | 0.220 | 24.650 | 25.255 | 25.300 |
-| needs_json_escaping (1KB, escape at end) | ns | 24.360 | 0.578 | 2.37% | 0.358 | 24.250 | 25.255 | 25.300 |
-| escape hot (same string repeated) | ns | 11.790 | 0.197 | 1.67% | 0.122 | 11.850 | 12.055 | 12.100 |
-| escape cold (different strings) | ns | 22.360 | 0.620 | 2.77% | 0.384 | 22.250 | 23.330 | 23.600 |
+| escape_json_string (clean, return) | ns | 22.440 | 0.709 | 3.16% | 0.621 | 22.700 | 23.220 | 23.300 |
+| escape_json_string_into (clean, append) | ns | 9.900 | 0.329 | 3.32% | 0.288 | 9.900 | 10.340 | 10.400 |
+| escape_json_string (dirty, return) | ns | 105.060 | 3.622 | 3.45% | 3.175 | 105.800 | 109.700 | 110.600 |
+| escape_json_string_into (dirty, append) | ns | 74.440 | 2.521 | 3.39% | 2.210 | 73.300 | 78.200 | 78.900 |
+| escape profile (best case) | ns | 18.020 | 0.371 | 2.06% | 0.325 | 18.100 | 18.460 | 18.500 |
+| escape profile (typical mixed) | ns | 478.020 | 11.600 | 2.43% | 10.168 | 472.200 | 495.580 | 501.200 |
+| escape profile (hard edge) | ns | 5674.000 | 553.014 | 9.75% | 484.738 | 5840.000 | 6134.000 | 6180.000 |
+| serialize object profile (best case) | ns | 92.760 | 9.726 | 10.48% | 8.525 | 97.500 | 99.440 | 99.700 |
+| serialize object profile (typical mixed) | ns | 687.220 | 104.939 | 15.27% | 91.983 | 692.500 | 818.000 | 844.900 |
+| serialize object profile (hard edge) | ns | 7332.000 | 750.664 | 10.24% | 657.986 | 7670.000 | 7824.000 | 7860.000 |
+| needs_json_escaping (16 byte clean) | ns | 4.260 | 0.136 | 3.18% | 0.119 | 4.300 | 4.400 | 4.400 |
+| needs_json_escaping (64 byte clean) | ns | 4.660 | 0.185 | 3.98% | 0.163 | 4.700 | 4.880 | 4.900 |
+| needs_json_escaping (256 byte clean) | ns | 8.480 | 0.337 | 3.97% | 0.295 | 8.500 | 8.860 | 8.900 |
+| needs_json_escaping (64 byte, escape at end) | ns | 3.020 | 0.098 | 3.24% | 0.086 | 3.100 | 3.100 | 3.100 |
+| needs_json_escaping (64 byte, escape at start) | ns | 2.840 | 0.136 | 4.78% | 0.119 | 2.800 | 3.000 | 3.000 |
+| serialize 5-field obj (embedded commas) | ns | 100.880 | 1.998 | 1.98% | 1.752 | 101.500 | 103.320 | 103.700 |
+| serialize array 100 ints (to_chars flat buffer) | ns | 357.640 | 27.000 | 7.55% | 23.666 | 374.600 | 384.380 | 386.500 |
+| serialize array 100 ints (to_chars into string) | ns | 771.800 | 26.717 | 3.46% | 23.419 | 758.800 | 811.980 | 819.700 |
+| serialize array 100 ints (lookup table into string) | ns | 198.780 | 7.176 | 3.61% | 6.290 | 201.300 | 206.200 | 206.500 |
+| serialize array 1000 ints (optimized) | ns | 2340.000 | 140.855 | 6.02% | 123.464 | 2390.000 | 2502.000 | 2520.000 |
+| serialize array 10000 ints (optimized) | ns | 55116.000 | 2317.029 | 4.20% | 2030.966 | 54150.000 | 58294.000 | 58620.000 |
+| serialize nested obj (5 levels deep) | ns | 28.940 | 1.181 | 4.08% | 1.035 | 28.500 | 30.560 | 30.800 |
+| serialize 20-field obj | ns | 532.980 | 37.537 | 7.04% | 32.903 | 545.300 | 578.080 | 583.600 |
+| serialize 100 nested objects | ns | 5948.000 | 339.435 | 5.71% | 297.528 | 5790.000 | 6414.000 | 6460.000 |
+| escape_json_string (10KB clean) | ns | 359.620 | 57.485 | 15.98% | 50.387 | 329.600 | 448.140 | 473.200 |
+| escape_json_string (10KB heavy escaping) | ns | 20472.000 | 645.582 | 3.15% | 565.877 | 20130.000 | 21444.000 | 21620.000 |
+| escape_json_string (escape at SIMD boundary) | ns | 608.360 | 50.169 | 8.25% | 43.975 | 599.700 | 683.720 | 703.000 |
+| needs_json_escaping (1KB clean) | ns | 25.460 | 1.244 | 4.88% | 1.090 | 24.700 | 27.100 | 27.200 |
+| needs_json_escaping (1KB, escape at end) | ns | 24.160 | 1.146 | 4.75% | 1.005 | 23.500 | 25.800 | 26.000 |
+| escape hot (same string repeated) | ns | 14.500 | 0.415 | 2.86% | 0.364 | 14.600 | 15.020 | 15.100 |
+| escape cold (different strings) | ns | 28.020 | 0.823 | 2.94% | 0.722 | 27.800 | 29.160 | 29.300 |
 
 ### Data Throughput Stability (bytes/sec)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| escape profile (best case) | 1.13B bytes/sec | 28.1M bytes/sec | 2.49% | 17.4M bytes/sec | 1.05B bytes/sec | 1.14B bytes/sec | 1.15B bytes/sec | 1.16B bytes/sec |
-| escape profile (typical mixed) | 246.6M bytes/sec | 2.4M bytes/sec | 0.98% | 1.5M bytes/sec | 243.1M bytes/sec | 246.8M bytes/sec | 249.8M bytes/sec | 250.7M bytes/sec |
-| escape profile (hard edge) | 217.6M bytes/sec | 5.9M bytes/sec | 2.73% | 3.7M bytes/sec | 206.0M bytes/sec | 218.3M bytes/sec | 224.1M bytes/sec | 224.2M bytes/sec |
-| serialize object profile (best case) | 364.3M bytes/sec | 18.6M bytes/sec | 5.10% | 11.5M bytes/sec | 324.8M bytes/sec | 373.3M bytes/sec | 381.5M bytes/sec | 383.3M bytes/sec |
-| serialize object profile (typical mixed) | 249.2M bytes/sec | 4.1M bytes/sec | 1.64% | 2.5M bytes/sec | 240.3M bytes/sec | 250.6M bytes/sec | 253.4M bytes/sec | 254.1M bytes/sec |
-| serialize object profile (hard edge) | 221.9M bytes/sec | 8.3M bytes/sec | 3.75% | 5.2M bytes/sec | 198.3M bytes/sec | 225.3M bytes/sec | 227.4M bytes/sec | 228.0M bytes/sec |
+| escape profile (best case) | 873.1M bytes/sec | 18.5M bytes/sec | 2.12% | 16.2M bytes/sec | 847.8M bytes/sec | 870.2M bytes/sec | 896.9M bytes/sec | 899.2M bytes/sec |
+| escape profile (typical mixed) | 171.9M bytes/sec | 4.0M bytes/sec | 2.35% | 3.5M bytes/sec | 163.9M bytes/sec | 173.9M bytes/sec | 174.1M bytes/sec | 174.1M bytes/sec |
+| escape profile (hard edge) | 159.0M bytes/sec | 17.8M bytes/sec | 11.18% | 15.6M bytes/sec | 144.4M bytes/sec | 152.8M bytes/sec | 185.9M bytes/sec | 193.9M bytes/sec |
+| serialize object profile (best case) | 309.4M bytes/sec | 38.2M bytes/sec | 12.34% | 33.5M bytes/sec | 284.1M bytes/sec | 290.5M bytes/sec | 367.9M bytes/sec | 385.1M bytes/sec |
+| serialize object profile (typical mixed) | 179.1M bytes/sec | 29.6M bytes/sec | 16.54% | 26.0M bytes/sec | 142.0M bytes/sec | 173.3M bytes/sec | 221.9M bytes/sec | 232.7M bytes/sec |
+| serialize object profile (hard edge) | 162.3M bytes/sec | 19.6M bytes/sec | 12.06% | 17.2M bytes/sec | 149.6M bytes/sec | 153.3M bytes/sec | 192.0M bytes/sec | 201.4M bytes/sec |
 
 ---
 
 ## Router Benchmarks
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 HTTP routing dispatch performance
 
 | Config | Value |
 |--------|-------|
 | binary | router_benchmark |
-| binary_path | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark/router_benchmark |
+| binary_path | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark/router_benchmark |
 | kind | microbenchmark |
 
 | Benchmark | Throughput | Latency p50 | Latency p99 | Latency p999 | Errors |
 |-----------|------------|-------------|-------------|--------------|--------|
-| Router dispatch (hits) | 3.1M ops/sec | 0.293 us | 0.689 us | 1.822 us | 0 |
-| Router dispatch (not found) | 3.3M ops/sec | 0.277 us | 0.621 us | 1.470 us | 0 |
-| Router dispatch (405) | 1.9M ops/sec | 0.475 us | 1.191 us | 2.216 us | 0 |
-| Large router (hits) | 2.5M ops/sec | 0.365 us | 0.829 us | 1.860 us | 0 |
-| Large router (not found) | 2.5M ops/sec | 0.355 us | 0.857 us | 1.954 us | 0 |
-| Large router (405) | 1.4M ops/sec | 0.611 us | 1.728 us | 3.718 us | 0 |
-| Large router (edge cases) | 1.9M ops/sec | 0.475 us | 1.289 us | 2.379 us | 0 |
+| Router dispatch (hits) | 1.5M ops/sec | 0.482 us | 5.650 us | 8.087 us | 0 |
+| Router dispatch (not found) | 1.8M ops/sec | 0.400 us | 5.523 us | 8.720 us | 0 |
+| Router dispatch (405) | 1.2M ops/sec | 0.598 us | 6.635 us | 10.277 us | 0 |
+| Large router (hits) | 1.1M ops/sec | 0.642 us | 6.274 us | 9.251 us | 0 |
+| Large router (not found) | 1.2M ops/sec | 0.605 us | 6.135 us | 8.930 us | 0 |
+| Large router (405) | 952.7K ops/sec | 0.750 us | 6.782 us | 9.660 us | 0 |
+| Large router (edge cases) | 791.5K ops/sec | 0.904 us | 7.209 us | 10.459 us | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| Router dispatch (hits) | 3.1M | 84.7K | 2.76% | 52.5K | 2.9M | 3.1M | 3.2M | 3.2M |
-| Router dispatch (not found) | 3.2M | 132.9K | 4.12% | 82.4K | 3.0M | 3.3M | 3.4M | 3.4M |
-| Router dispatch (405) | 1.9M | 67.2K | 3.61% | 41.7K | 1.7M | 1.9M | 1.9M | 1.9M |
-| Large router (hits) | 2.5M | 165.0K | 6.71% | 102.3K | 2.0M | 2.5M | 2.6M | 2.6M |
-| Large router (not found) | 2.5M | 120.3K | 4.84% | 74.6K | 2.3M | 2.5M | 2.6M | 2.6M |
-| Large router (405) | 1.4M | 72.7K | 5.15% | 45.0K | 1.3M | 1.4M | 1.5M | 1.5M |
-| Large router (edge cases) | 1.8M | 123.8K | 6.77% | 76.8K | 1.5M | 1.9M | 1.9M | 2.0M |
+| Router dispatch (hits) | 1.5M | 111.2K | 7.61% | 97.5K | 1.3M | 1.5M | 1.6M | 1.6M |
+| Router dispatch (not found) | 1.7M | 196.7K | 11.55% | 172.4K | 1.3M | 1.8M | 1.8M | 1.8M |
+| Router dispatch (405) | 1.1M | 131.1K | 11.94% | 114.9K | 848.1K | 1.2M | 1.2M | 1.2M |
+| Large router (hits) | 1.1M | 116.1K | 10.64% | 101.8K | 864.0K | 1.1M | 1.2M | 1.2M |
+| Large router (not found) | 1.2M | 65.8K | 5.57% | 57.7K | 1.1M | 1.2M | 1.2M | 1.3M |
+| Large router (405) | 952.4K | 24.9K | 2.62% | 21.9K | 914.3K | 952.7K | 984.3K | 989.0K |
+| Large router (edge cases) | 807.5K | 23.0K | 2.85% | 20.2K | 787.0K | 791.5K | 836.5K | 837.1K |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| Router dispatch (hits) | p99 us | 0.786 | 0.212 | 26.96% | 0.131 | 0.689 | 1.186 | 1.303 |
-| Router dispatch (not found) | p99 us | 0.772 | 0.266 | 34.43% | 0.165 | 0.621 | 1.254 | 1.328 |
-| Router dispatch (405) | p99 us | 1.264 | 0.165 | 13.06% | 0.102 | 1.191 | 1.579 | 1.609 |
-| Large router (hits) | p99 us | 0.964 | 0.271 | 28.11% | 0.168 | 0.829 | 1.438 | 1.602 |
-| Large router (not found) | p99 us | 0.933 | 0.217 | 23.29% | 0.135 | 0.857 | 1.326 | 1.456 |
-| Large router (405) | p99 us | 1.726 | 0.309 | 17.91% | 0.192 | 1.728 | 2.236 | 2.415 |
-| Large router (edge cases) | p99 us | 1.265 | 0.226 | 17.84% | 0.140 | 1.289 | 1.592 | 1.756 |
+| Router dispatch (hits) | p99 us | 5.761 | 0.536 | 9.31% | 0.470 | 5.650 | 6.505 | 6.607 |
+| Router dispatch (not found) | p99 us | 5.506 | 0.524 | 9.52% | 0.459 | 5.523 | 6.243 | 6.384 |
+| Router dispatch (405) | p99 us | 6.859 | 0.511 | 7.44% | 0.448 | 6.635 | 7.637 | 7.857 |
+| Large router (hits) | p99 us | 6.506 | 0.747 | 11.48% | 0.655 | 6.274 | 7.640 | 7.974 |
+| Large router (not found) | p99 us | 6.223 | 0.433 | 6.97% | 0.380 | 6.135 | 6.856 | 6.976 |
+| Large router (405) | p99 us | 6.736 | 0.190 | 2.83% | 0.167 | 6.782 | 6.966 | 6.990 |
+| Large router (edge cases) | p99 us | 7.148 | 0.191 | 2.68% | 0.168 | 7.209 | 7.354 | 7.366 |
 
 ---
 
 ## Generated API Dispatch Benchmarks
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Generated router bindings, param extraction, parse and serialize on ready request objects
 
 | Config | Value |
 |--------|-------|
 | binary | generated_api_benchmark |
-| binary_path | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark/generated_api_benchmark |
+| binary_path | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark/generated_api_benchmark |
 | kind | microbenchmark |
 
 | Benchmark | Throughput | Latency p50 | Latency p99 | Latency p999 | Errors |
 |-----------|------------|-------------|-------------|--------------|--------|
-| Generated API dispatch+parse | 3.4M ops/sec | 0.153 us | 0.560 us | 0.848 us | 0 |
+| Generated API dispatch+parse | 2.1M ops/sec | 0.230 us | 0.692 us | 1.753 us | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| Generated API dispatch+parse | 3.3M | 194.0K | 5.84% | 120.3K | 2.9M | 3.4M | 3.5M | 3.5M |
+| Generated API dispatch+parse | 2.0M | 113.0K | 5.63% | 99.0K | 1.8M | 2.1M | 2.1M | 2.1M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| Generated API dispatch+parse | p99 us | 0.549 | 0.060 | 11.00% | 0.037 | 0.560 | 0.619 | 0.623 |
+| Generated API dispatch+parse | p99 us | 0.699 | 0.015 | 2.09% | 0.013 | 0.692 | 0.719 | 0.721 |
 
 ---
 
 ## Generated API Mixed Workload Benchmarks
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Generated stack mixed valid/error workload on benchmark_api spec
 
 | Config | Value |
 |--------|-------|
 | binary | benchmark_api_codegen_benchmark |
-| binary_path | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark/benchmark_api_codegen_benchmark |
+| binary_path | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark/benchmark_api_codegen_benchmark |
 | kind | microbenchmark |
 
 | Benchmark | Throughput | Latency p50 | Latency p95 | Latency p99 | Latency p999 | Errors |
 |-----------|------------|-------------|-------------|-------------|--------------|--------|
-| benchmark_api_codegen_valid_mix | 715.5K ops/sec | 0.736 us | 4.750 us | 8.387 us | 20.919 us | 0 |
-| benchmark_api_codegen_error_mix | 1.6M ops/sec | 0.478 us | 0.765 us | 1.037 us | 2.405 us | 120000 |
+| benchmark_api_codegen_valid_mix | 507.5K ops/sec | 0.851 us | 5.090 us | 9.738 us | 159.380 us | 0 |
+| benchmark_api_codegen_error_mix | 1.1M ops/sec | 0.551 us | 0.972 us | 1.403 us | 24.757 us | 120000 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| benchmark_api_codegen_valid_mix | 710.3K | 20.3K | 2.86% | 12.6K | 680.1K | 715.5K | 734.0K | 734.3K |
-| benchmark_api_codegen_error_mix | 1.6M | 94.1K | 6.05% | 58.3K | 1.3M | 1.6M | 1.6M | 1.6M |
+| benchmark_api_codegen_valid_mix | 507.6K | 14.6K | 2.88% | 12.8K | 483.2K | 507.5K | 523.3K | 523.7K |
+| benchmark_api_codegen_error_mix | 1.1M | 25.3K | 2.36% | 22.2K | 1.0M | 1.1M | 1.1M | 1.1M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| benchmark_api_codegen_valid_mix | p99 us | 8.368 | 0.425 | 5.07% | 0.263 | 8.387 | 8.958 | 9.014 |
-| benchmark_api_codegen_error_mix | p99 us | 1.047 | 0.073 | 6.93% | 0.045 | 1.037 | 1.168 | 1.223 |
+| benchmark_api_codegen_valid_mix | p99 us | 9.864 | 0.445 | 4.51% | 0.390 | 9.738 | 10.526 | 10.660 |
+| benchmark_api_codegen_error_mix | p99 us | 1.399 | 0.045 | 3.25% | 0.040 | 1.403 | 1.449 | 1.453 |
 
 ---
 
 ## Generated API Framework Path Benchmarks
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Generated stack valid/error workload on benchmark_api spec with minimal handlers
 
 | Config | Value |
 |--------|-------|
 | binary | benchmark_api_framework_benchmark |
-| binary_path | /mnt/c/Users/Ya/OneDrive/Desktop/KATANA/build/bench-wsl/benchmark/benchmark_api_framework_benchmark |
+| binary_path | /mnt/bench/katana-bench-20260314/KATANA/build/deep-bench-5runs/benchmark/benchmark_api_framework_benchmark |
 | kind | microbenchmark |
 
 | Benchmark | Throughput | Latency p50 | Latency p95 | Latency p99 | Latency p999 | Errors |
 |-----------|------------|-------------|-------------|-------------|--------------|--------|
-| benchmark_api_framework_valid_mix | 1.4M ops/sec | 0.512 us | 0.994 us | 1.692 us | 3.737 us | 0 |
-| benchmark_api_framework_error_mix | 1.6M ops/sec | 0.497 us | 0.807 us | 1.051 us | 3.255 us | 120000 |
+| benchmark_api_framework_valid_mix | 955.8K ops/sec | 0.641 us | 1.193 us | 2.204 us | 34.775 us | 0 |
+| benchmark_api_framework_error_mix | 1.1M ops/sec | 0.541 us | 0.982 us | 1.413 us | 23.284 us | 120000 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| benchmark_api_framework_valid_mix | 1.4M | 45.4K | 3.36% | 28.2K | 1.2M | 1.4M | 1.4M | 1.4M |
-| benchmark_api_framework_error_mix | 1.6M | 35.0K | 2.24% | 21.7K | 1.5M | 1.6M | 1.6M | 1.6M |
+| benchmark_api_framework_valid_mix | 955.1K | 33.0K | 3.45% | 28.9K | 905.4K | 955.8K | 998.7K | 1.0M |
+| benchmark_api_framework_error_mix | 1.1M | 35.6K | 3.21% | 31.2K | 1.1M | 1.1M | 1.2M | 1.2M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| benchmark_api_framework_valid_mix | p99 us | 1.703 | 0.080 | 4.72% | 0.050 | 1.692 | 1.829 | 1.855 |
-| benchmark_api_framework_error_mix | p99 us | 1.067 | 0.040 | 3.76% | 0.025 | 1.051 | 1.135 | 1.156 |
+| benchmark_api_framework_valid_mix | p99 us | 2.178 | 0.075 | 3.46% | 0.066 | 2.204 | 2.260 | 2.264 |
+| benchmark_api_framework_error_mix | p99 us | 1.375 | 0.069 | 5.02% | 0.061 | 1.413 | 1.432 | 1.432 |
 
 ---
 
 ## HTTP Load Benchmark (hello_world_server canonical pipeline via wrk)
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Canonical low-latency pipelined GET profile for hello_world_server
 
@@ -567,31 +568,31 @@ Canonical low-latency pipelined GET profile for hello_world_server
 
 | Benchmark | Throughput | Data Rate | Latency avg | Latency p50 | Latency p95 | Latency p99 | Latency p999 | Latency max | Errors |
 |-----------|------------|-----------|-------------|-------------|-------------|-------------|--------------|-------------|--------|
-| wrk hello_world GET / depth10 | 2.1M req/sec | 211.8M bytes/sec | 1625.000 us | 1350.500 us | 3601.500 us | 5207.500 us | 31570.000 us | 60661.500 us | 0 |
+| wrk hello_world GET / depth10 | 1.7M req/sec | 170.0M bytes/sec | 2800.000 us | 1839.000 us | 8388.000 us | 14888.000 us | 26586.000 us | 43158.000 us | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk hello_world GET / depth10 | 2.0M | 204.6K | 10.38% | 126.8K | 1.5M | 2.1M | 2.1M | 2.1M |
+| wrk hello_world GET / depth10 | 1.7M | 33.9K | 2.04% | 29.7K | 1.6M | 1.7M | 1.7M | 1.7M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| wrk hello_world GET / depth10 | avg us | 36164.000 | 53357.689 | 147.54% | 33071.438 | 1625.000 | 126329.000 | 134330.000 |
+| wrk hello_world GET / depth10 | avg us | 2798.000 | 63.372 | 2.26% | 55.548 | 2800.000 | 2884.000 | 2900.000 |
 
 ### Data Throughput Stability (bytes/sec)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk hello_world GET / depth10 | 201.1M bytes/sec | 20.9M bytes/sec | 10.38% | 12.9M bytes/sec | 150.0M bytes/sec | 211.8M bytes/sec | 217.4M bytes/sec | 218.7M bytes/sec |
+| wrk hello_world GET / depth10 | 169.7M bytes/sec | 3.5M bytes/sec | 2.04% | 3.0M bytes/sec | 163.7M bytes/sec | 170.0M bytes/sec | 173.3M bytes/sec | 173.4M bytes/sec |
 
 ---
 
 ## HTTP Load Benchmark (compute_api canonical pipeline via wrk)
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Canonical low-latency pipelined POST profile for compute_api
 
@@ -611,31 +612,31 @@ Canonical low-latency pipelined POST profile for compute_api
 
 | Benchmark | Throughput | Data Rate | Latency avg | Latency p50 | Latency p95 | Latency p99 | Latency p999 | Latency max | Errors |
 |-----------|------------|-----------|-------------|-------------|-------------|-------------|--------------|-------------|--------|
-| wrk compute_api POST /compute/sum depth10 | 1.1M req/sec | 108.1M bytes/sec | 2780.000 us | 2582.000 us | 5294.000 us | 7943.500 us | 27579.000 us | 74687.500 us | 0 |
+| wrk compute_api POST /compute/sum depth10 | 1.1M req/sec | 109.3M bytes/sec | 3430.000 us | 2661.000 us | 8877.000 us | 13201.000 us | 19497.000 us | 37322.000 us | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk compute_api POST /compute/sum depth10 | 1.1M | 75.0K | 6.88% | 46.5K | 971.9K | 1.1M | 1.2M | 1.2M |
+| wrk compute_api POST /compute/sum depth10 | 1.1M | 6.5K | 0.57% | 5.7K | 1.1M | 1.1M | 1.1M | 1.1M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| wrk compute_api POST /compute/sum depth10 | avg us | 34129.000 | 48261.581 | 141.41% | 29912.838 | 2780.000 | 114875.500 | 116230.000 |
+| wrk compute_api POST /compute/sum depth10 | avg us | 3426.000 | 22.450 | 0.66% | 19.678 | 3430.000 | 3450.000 | 3450.000 |
 
 ### Data Throughput Stability (bytes/sec)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk compute_api POST /compute/sum depth10 | 104.6M bytes/sec | 7.2M bytes/sec | 6.88% | 4.5M bytes/sec | 93.3M bytes/sec | 108.1M bytes/sec | 111.2M bytes/sec | 111.5M bytes/sec |
+| wrk compute_api POST /compute/sum depth10 | 109.0M bytes/sec | 626.1K bytes/sec | 0.57% | 548.8K bytes/sec | 107.8M bytes/sec | 109.3M bytes/sec | 109.5M bytes/sec | 109.5M bytes/sec |
 
 ---
 
 ## HTTP Load Benchmark (hello_world_server peak pipeline via wrk)
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Peak-throughput pipelined GET profile for hello_world_server
 
@@ -655,31 +656,31 @@ Peak-throughput pipelined GET profile for hello_world_server
 
 | Benchmark | Throughput | Data Rate | Latency avg | Latency p50 | Latency p95 | Latency p99 | Latency p999 | Latency max | Errors |
 |-----------|------------|-----------|-------------|-------------|-------------|-------------|--------------|-------------|--------|
-| wrk hello_world GET / depth20 | 2.6M req/sec | 269.5M bytes/sec | 2270.000 us | 2029.000 us | 5002.000 us | 7329.500 us | 0.000 us | 42750.500 us | 0 |
+| wrk hello_world GET / depth20 | 2.5M req/sec | 256.1M bytes/sec | 2850.000 us | 2153.000 us | 7468.000 us | 11558.000 us | 19518.000 us | 35415.000 us | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk hello_world GET / depth20 | 2.6M | 180.4K | 6.94% | 111.8K | 2.1M | 2.6M | 2.7M | 2.7M |
+| wrk hello_world GET / depth20 | 2.5M | 11.5K | 0.46% | 10.0K | 2.5M | 2.5M | 2.5M | 2.5M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| wrk hello_world GET / depth20 | avg us | 2779.000 | 1524.805 | 54.87% | 945.084 | 2270.000 | 5122.500 | 7350.000 |
+| wrk hello_world GET / depth20 | avg us | 2834.000 | 36.661 | 1.29% | 32.134 | 2850.000 | 2870.000 | 2870.000 |
 
 ### Data Throughput Stability (bytes/sec)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk hello_world GET / depth20 | 265.3M bytes/sec | 18.4M bytes/sec | 6.94% | 11.4M bytes/sec | 211.5M bytes/sec | 269.5M bytes/sec | 277.6M bytes/sec | 278.0M bytes/sec |
+| wrk hello_world GET / depth20 | 256.1M bytes/sec | 1.2M bytes/sec | 0.46% | 1.0M bytes/sec | 254.3M bytes/sec | 256.1M bytes/sec | 257.4M bytes/sec | 257.5M bytes/sec |
 
 ---
 
 ## HTTP Load Benchmark (compute_api peak pipeline via wrk)
 
-_Runs: 10 | Aggregation: median_
+_Runs: 5 | Aggregation: median_
 
 Peak-throughput pipelined POST profile for compute_api
 
@@ -699,51 +700,64 @@ Peak-throughput pipelined POST profile for compute_api
 
 | Benchmark | Throughput | Data Rate | Latency avg | Latency p50 | Latency p95 | Latency p99 | Latency p999 | Latency max | Errors |
 |-----------|------------|-----------|-------------|-------------|-------------|-------------|--------------|-------------|--------|
-| wrk compute_api POST /compute/sum depth40 | 1.2M req/sec | 118.0M bytes/sec | 8770.000 us | 8799.500 us | 16985.500 us | 0.000 us | 0.000 us | 60388.000 us | 0 |
+| wrk compute_api POST /compute/sum depth40 | 1.5M req/sec | 145.8M bytes/sec | 7350.000 us | 6953.000 us | 15916.000 us | 0.000 us | 0.000 us | 63416.000 us | 0 |
 
 ### Throughput Stability (Across Repeated Runs)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk compute_api POST /compute/sum depth40 | 1.1M | 142.8K | 12.41% | 88.5K | 926.5K | 1.2M | 1.3M | 1.3M |
+| wrk compute_api POST /compute/sum depth40 | 1.5M | 24.9K | 1.62% | 21.8K | 1.5M | 1.5M | 1.6M | 1.6M |
 
 ### Latency Stability (Across Repeated Runs)
 
 | Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
 |-----------|--------|------|--------|----|--------|-----|-----|-----|
-| wrk compute_api POST /compute/sum depth40 | avg us | 65155.000 | 86436.608 | 132.66% | 53573.965 | 8770.000 | 204726.500 | 208070.000 |
+| wrk compute_api POST /compute/sum depth40 | avg us | 7380.000 | 103.923 | 1.41% | 91.093 | 7350.000 | 7534.000 | 7570.000 |
 
 ### Data Throughput Stability (bytes/sec)
 
 | Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
 |-----------|------|--------|----|--------|-----|-----|-----|-----|
-| wrk compute_api POST /compute/sum depth40 | 110.4M bytes/sec | 13.7M bytes/sec | 12.41% | 8.5M bytes/sec | 89.0M bytes/sec | 118.0M bytes/sec | 121.6M bytes/sec | 121.9M bytes/sec |
+| wrk compute_api POST /compute/sum depth40 | 147.4M bytes/sec | 2.4M bytes/sec | 1.62% | 2.1M bytes/sec | 145.2M bytes/sec | 145.8M bytes/sec | 150.7M bytes/sec | 151.0M bytes/sec |
+
+---
+
+## Legacy E2E HTTP Keep-Alive Benchmark
+
+_Runs: 5 | Aggregation: median_
+
+Legacy Python keep-alive scenario for compute_api; kept for compatibility only
+
+| Config | Value |
+|--------|-------|
+| connections | 16 |
+| kind | e2e_keepalive |
+| port | 18082 |
+| requests_per_connection | 200 |
+
+| Benchmark | Throughput | Latency p50 | Latency p95 | Latency p99 | Latency p999 | Latency max | Errors |
+|-----------|------------|-------------|-------------|-------------|--------------|-------------|--------|
+| HTTP E2E Keep-Alive (16 conn x 200 req) | 2.0K req/sec | 4871.079 us | 23527.530 us | 36622.630 us | 52307.692 us | 64039.791 us | 0 |
+
+### Throughput Stability (Across Repeated Runs)
+
+| Benchmark | Mean | Stddev | CV | 95% CI | Min | p50 | p95 | Max |
+|-----------|------|--------|----|--------|-----|-----|-----|-----|
+| HTTP E2E Keep-Alive (16 conn x 200 req) | 2.1K | 69 | 3.34% | 60 | 2.0K | 2.0K | 2.2K | 2.2K |
+
+### Latency Stability (Across Repeated Runs)
+
+| Benchmark | Metric | Mean | Stddev | CV | 95% CI | p50 | p95 | Max |
+|-----------|--------|------|--------|----|--------|-----|-----|-----|
+| HTTP E2E Keep-Alive (16 conn x 200 req) | p99 us | 35938.992 | 1418.393 | 3.95% | 1243.276 | 36622.630 | 37257.448 | 37360.040 |
 
 ---
 
 ## Baseline Comparison
 
-- Compared metrics: 60
-- Hard regressions: 0
-- Noisy regressions (ignored by CV gate): 6
-- Improvements: 26
-- Policy-skipped metrics: 14
-- Thresholds: delta=5.00% | CV gate=10.00%
+Baseline not loaded or incompatible format.
 
-- Policy: wrk_http compares throughput/errors only and requires repeated runs on both current and baseline.
-
-| Policy-Skipped Metric | Reason | Current Samples | Baseline Samples |
-|-----------------------|--------|-----------------|------------------|
-| stage10.wrk_compute_api_post_computesum_depth10.avg_latency_us | wrk_informational_only | 10 | 5 |
-| stage10.wrk_compute_api_post_computesum_depth10.bytes_per_sec | wrk_informational_only | 10 | 5 |
-| stage10.wrk_compute_api_post_computesum_depth10.latency_max_us | wrk_informational_only | 10 | 5 |
-| stage10.wrk_compute_api_post_computesum_depth10.latency_p50_us | wrk_informational_only | 10 | 5 |
-| stage10.wrk_compute_api_post_computesum_depth10.latency_p95_us | wrk_informational_only | 10 | 5 |
-| stage10.wrk_compute_api_post_computesum_depth10.latency_p999_us | wrk_informational_only | 10 | 5 |
-| stage10.wrk_compute_api_post_computesum_depth10.latency_p99_us | wrk_informational_only | 10 | 5 |
-| stage12.wrk_compute_api_post_computesum_depth40.avg_latency_us | wrk_informational_only | 10 | 5 |
-| stage12.wrk_compute_api_post_computesum_depth40.bytes_per_sec | wrk_informational_only | 10 | 5 |
-| stage12.wrk_compute_api_post_computesum_depth40.latency_max_us | wrk_informational_only | 10 | 5 |
+---
 
 ## Running Benchmarks
 

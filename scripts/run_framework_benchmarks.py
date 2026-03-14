@@ -36,6 +36,26 @@ import run_benchmarks as katana_bench
 
 
 SCENARIOS: Dict[str, Dict[str, Any]] = {
+    "hello-keepalive": {
+        "name": "Hello World Keep-Alive",
+        "benchmark_name": "wrk hello_world GET / depth1",
+        "wrk_script": "test/load/scripts/hello_pipeline.lua",
+        "wrk_threads": 4,
+        "wrk_connections": 512,
+        "wrk_duration_sec": 10,
+        "pipeline_depth": "1",
+        "mode": "keepalive",
+    },
+    "compute-keepalive": {
+        "name": "Compute API Keep-Alive",
+        "benchmark_name": "wrk compute_api POST /compute/sum depth1",
+        "wrk_script": "test/load/scripts/compute_sum_pipeline.lua",
+        "wrk_threads": 4,
+        "wrk_connections": 512,
+        "wrk_duration_sec": 10,
+        "pipeline_depth": "1",
+        "mode": "keepalive",
+    },
     "hello-canonical": {
         "name": "Hello World Canonical Pipeline",
         "benchmark_name": "wrk hello_world GET / depth10",
@@ -44,6 +64,7 @@ SCENARIOS: Dict[str, Dict[str, Any]] = {
         "wrk_connections": 512,
         "wrk_duration_sec": 10,
         "pipeline_depth": "10",
+        "mode": "pipeline",
     },
     "compute-canonical": {
         "name": "Compute API Canonical Pipeline",
@@ -53,6 +74,7 @@ SCENARIOS: Dict[str, Dict[str, Any]] = {
         "wrk_connections": 512,
         "wrk_duration_sec": 10,
         "pipeline_depth": "10",
+        "mode": "pipeline",
     },
     "hello-peak": {
         "name": "Hello World Peak Pipeline",
@@ -62,6 +84,7 @@ SCENARIOS: Dict[str, Dict[str, Any]] = {
         "wrk_connections": 512,
         "wrk_duration_sec": 5,
         "pipeline_depth": "20",
+        "mode": "pipeline",
     },
     "compute-peak": {
         "name": "Compute API Peak Pipeline",
@@ -71,6 +94,7 @@ SCENARIOS: Dict[str, Dict[str, Any]] = {
         "wrk_connections": 512,
         "wrk_duration_sec": 5,
         "pipeline_depth": "40",
+        "mode": "pipeline",
     },
 }
 
@@ -253,6 +277,7 @@ def run_target_scenario(
     repeats: int,
     aggregation_mode: str,
     include_runs: bool,
+    warmup_runs: int,
 ) -> Dict[str, Any]:
     started = time.perf_counter()
     run_results: List[List[katana_bench.BenchmarkResult]] = []
@@ -272,6 +297,7 @@ def run_target_scenario(
                 "wrk_duration_sec": scenario["wrk_duration_sec"],
                 "wrk_script": scenario["wrk_script"],
                 "pipeline_depth": scenario["pipeline_depth"],
+                "mode": scenario["mode"],
             },
             "run_count": 0,
             "duration_ms": 0,
@@ -283,19 +309,32 @@ def run_target_scenario(
         }
 
     print(f"\n[{target.name}] {scenario_id} ({aggregation_mode}-of-{repeats}, url={url})")
-    for run_idx in range(repeats):
-        print(f"  Run {run_idx + 1}/{repeats}...")
-        benchmark, error = run_wrk_once(
+    for warmup_idx in range(warmup_runs):
+        print(f"  Warmup {warmup_idx + 1}/{warmup_runs}...")
+        _benchmark, error = run_wrk_once(
             wrk_binary=wrk_binary,
             target=target,
             scenario_id=scenario_id,
             scenario=scenario,
         )
         if error:
-            run_errors.append(f"run {run_idx + 1}: {error}")
-            continue
-        assert benchmark is not None
-        run_results.append([benchmark])
+            run_errors.append(f"warmup {warmup_idx + 1}: {error}")
+            break
+
+    if not run_errors:
+        for run_idx in range(repeats):
+            print(f"  Run {run_idx + 1}/{repeats}...")
+            benchmark, error = run_wrk_once(
+                wrk_binary=wrk_binary,
+                target=target,
+                scenario_id=scenario_id,
+                scenario=scenario,
+            )
+            if error:
+                run_errors.append(f"run {run_idx + 1}: {error}")
+                continue
+            assert benchmark is not None
+            run_results.append([benchmark])
 
     duration_ms = int((time.perf_counter() - started) * 1000)
     report_entry: Dict[str, Any] = {
@@ -309,6 +348,7 @@ def run_target_scenario(
             "wrk_duration_sec": scenario["wrk_duration_sec"],
             "wrk_script": scenario["wrk_script"],
             "pipeline_depth": scenario["pipeline_depth"],
+            "mode": scenario["mode"],
         },
         "run_count": len(run_results),
         "duration_ms": duration_ms,
@@ -346,10 +386,15 @@ def generate_markdown(report: Dict[str, Any]) -> str:
         f"> Generated at: {report['generated_at']}",
         f"> Repeats: {report['repeats']}",
         f"> Aggregation: {report['aggregation_mode']}",
+        f"> Warmup runs: {report['warmup_runs']}",
         f"> wrk binary: {report['wrk_binary']}",
         "",
         "This report reuses the same wrk Lua scripts and wrk-output parser as",
         "`scripts/run_benchmarks.py`.",
+        "",
+        "Keep-alive scenarios use the shared Lua scripts with `KATANA_PIPELINE_DEPTH=1`.",
+        "Pipeline scenarios intentionally batch multiple HTTP/1.1 requests per write and",
+        "should be read as a pipelining stress test, not a generic API ranking.",
         "",
     ]
 
@@ -374,8 +419,8 @@ def generate_markdown(report: Dict[str, Any]) -> str:
             [
                 f"## {scenario_name}",
                 "",
-                "| Target | URL | Throughput | Avg us | P50 us | P95 us | P99 us | Errors |",
-                "|--------|-----|------------|--------|--------|--------|--------|--------|",
+                "| Target | URL | Mode | Depth | Throughput | Avg us | P50 us | P95 us | P99 us | Errors |",
+                "|--------|-----|------|-------|------------|--------|--------|--------|--------|--------|",
             ]
         )
         rows = [
@@ -391,6 +436,8 @@ def generate_markdown(report: Dict[str, Any]) -> str:
             bench = item["benchmark"]
             lines.append(
                 f"| {item['target']} | {item['url']} | "
+                f"{item['config'].get('mode', '-')} | "
+                f"{item['config'].get('pipeline_depth', '-')} | "
                 f"{bench.get('throughput', 0.0):.2f} req/sec | "
                 f"{(bench.get('avg_latency_us') or 0.0):.3f} | "
                 f"{(bench.get('latency_p50_us') or 0.0):.3f} | "
@@ -399,7 +446,7 @@ def generate_markdown(report: Dict[str, Any]) -> str:
                 f"{bench.get('errors', 0)} |"
             )
         if not rows:
-            lines.append("| - | - | - | - | - | - | - | - |")
+            lines.append("| - | - | - | - | - | - | - | - | - | - |")
         lines.append("")
 
         failed = [
@@ -454,6 +501,12 @@ def main() -> int:
         help="Include raw per-run values in the JSON output.",
     )
     parser.add_argument(
+        "--warmup-runs",
+        type=int,
+        default=1,
+        help="Unreported warmup runs before each target/scenario pair (default: 1).",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=REPO_ROOT / "benchmark_results" / "framework_comparison",
@@ -468,6 +521,9 @@ def main() -> int:
 
     if args.repeats < 1:
         print("Error: --repeats must be >= 1")
+        return 1
+    if args.warmup_runs < 0:
+        print("Error: --warmup-runs must be >= 0")
         return 1
 
     wrk_binary = shutil.which(os.environ.get("KATANA_WRK_BIN", "wrk"))
@@ -500,6 +556,7 @@ def main() -> int:
                     repeats=args.repeats,
                     aggregation_mode=args.aggregation,
                     include_runs=args.include_runs,
+                    warmup_runs=args.warmup_runs,
                 )
             )
 
@@ -507,6 +564,7 @@ def main() -> int:
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "repeats": args.repeats,
         "aggregation_mode": args.aggregation,
+        "warmup_runs": args.warmup_runs,
         "wrk_binary": wrk_binary,
         "total_duration_ms": int((time.perf_counter() - started) * 1000),
         "scenario_order": scenario_order,

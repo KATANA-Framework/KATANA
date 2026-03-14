@@ -29,8 +29,13 @@
 namespace katana::http {
 
 inline bool ci_char_equal(char a, char b) noexcept {
-    return std::tolower(static_cast<unsigned char>(a)) ==
-           std::tolower(static_cast<unsigned char>(b));
+    if (a == b) {
+        return true;
+    }
+
+    const unsigned char ua = static_cast<unsigned char>(a);
+    const unsigned char ub = static_cast<unsigned char>(b);
+    return (ua ^ ub) == 0x20 && ((ua | 0x20) >= 'a') && ((ua | 0x20) <= 'z');
 }
 
 inline bool ci_equal_short(std::string_view a, std::string_view b) noexcept {
