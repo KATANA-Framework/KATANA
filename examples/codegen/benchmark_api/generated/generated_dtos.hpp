@@ -21,9 +21,9 @@ using katana::arena_string;
 using katana::arena_vector;
 using katana::monotonic_arena;
 
-#include <cctype>
 #include <optional>
 #include <string_view>
+#include <cctype>
 
 #include <variant>
 
@@ -32,64 +32,57 @@ using katana::monotonic_arena;
 // ============================================================
 
 /// Enum with 3 possible values
-enum class UserRole_enum { user, moderator, admin };
+enum class UserRole_enum {
+    user,
+    moderator,
+    admin
+};
 
 inline std::string_view to_string(UserRole_enum e) {
     switch (e) {
-    case UserRole_enum::user:
-        return "user";
-    case UserRole_enum::moderator:
-        return "moderator";
-    case UserRole_enum::admin:
-        return "admin";
+    case UserRole_enum::user: return "user";
+    case UserRole_enum::moderator: return "moderator";
+    case UserRole_enum::admin: return "admin";
     }
     return "";
 }
 
 inline std::optional<UserRole_enum> UserRole_enum_from_string(std::string_view s) {
-    if (s == "user")
-        return UserRole_enum::user;
-    if (s == "moderator")
-        return UserRole_enum::moderator;
-    if (s == "admin")
-        return UserRole_enum::admin;
+    if (s == "user") return UserRole_enum::user;
+    if (s == "moderator") return UserRole_enum::moderator;
+    if (s == "admin") return UserRole_enum::admin;
     return std::nullopt;
 }
 
 /// Enum with 6 possible values
-enum class ItemCategory_enum { electronics, books, clothing, food, tools, other };
+enum class ItemCategory_enum {
+    electronics,
+    books,
+    clothing,
+    food,
+    tools,
+    other
+};
 
 inline std::string_view to_string(ItemCategory_enum e) {
     switch (e) {
-    case ItemCategory_enum::electronics:
-        return "electronics";
-    case ItemCategory_enum::books:
-        return "books";
-    case ItemCategory_enum::clothing:
-        return "clothing";
-    case ItemCategory_enum::food:
-        return "food";
-    case ItemCategory_enum::tools:
-        return "tools";
-    case ItemCategory_enum::other:
-        return "other";
+    case ItemCategory_enum::electronics: return "electronics";
+    case ItemCategory_enum::books: return "books";
+    case ItemCategory_enum::clothing: return "clothing";
+    case ItemCategory_enum::food: return "food";
+    case ItemCategory_enum::tools: return "tools";
+    case ItemCategory_enum::other: return "other";
     }
     return "";
 }
 
 inline std::optional<ItemCategory_enum> ItemCategory_enum_from_string(std::string_view s) {
-    if (s == "electronics")
-        return ItemCategory_enum::electronics;
-    if (s == "books")
-        return ItemCategory_enum::books;
-    if (s == "clothing")
-        return ItemCategory_enum::clothing;
-    if (s == "food")
-        return ItemCategory_enum::food;
-    if (s == "tools")
-        return ItemCategory_enum::tools;
-    if (s == "other")
-        return ItemCategory_enum::other;
+    if (s == "electronics") return ItemCategory_enum::electronics;
+    if (s == "books") return ItemCategory_enum::books;
+    if (s == "clothing") return ItemCategory_enum::clothing;
+    if (s == "food") return ItemCategory_enum::food;
+    if (s == "tools") return ItemCategory_enum::tools;
+    if (s == "other") return ItemCategory_enum::other;
     return std::nullopt;
 }
 
@@ -106,11 +99,11 @@ struct SumRequest {
         static constexpr size_t VALUES_MAX_ITEMS = 10000;
     };
 
-    static_assert(metadata::VALUES_MIN_ITEMS <= metadata::VALUES_MAX_ITEMS,
-                  "values: min_items must be <= max_items");
+    static_assert(metadata::VALUES_MIN_ITEMS <= metadata::VALUES_MAX_ITEMS, "values: min_items must be <= max_items");
 
     explicit SumRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), values(arena_allocator<double>(arena)) {}
+        : arena_(arena),
+          values(arena_allocator<double>(arena)) {}
 
     monotonic_arena* arena_;
     arena_vector<double> values;
@@ -128,7 +121,9 @@ struct SumResponse {
         static constexpr bool COUNT_REQUIRED = true;
     };
 
-    explicit SumResponse(monotonic_arena* arena = nullptr) : arena_(arena) {}
+
+    explicit SumResponse(monotonic_arena* arena = nullptr)
+        : arena_(arena) {}
 
     monotonic_arena* arena_;
     double result;
@@ -149,11 +144,11 @@ struct StatsRequest {
         static constexpr bool INCLUDE_MEDIAN_REQUIRED = false;
     };
 
-    static_assert(metadata::VALUES_MIN_ITEMS <= metadata::VALUES_MAX_ITEMS,
-                  "values: min_items must be <= max_items");
+    static_assert(metadata::VALUES_MIN_ITEMS <= metadata::VALUES_MAX_ITEMS, "values: min_items must be <= max_items");
 
     explicit StatsRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), values(arena_allocator<double>(arena)) {}
+        : arena_(arena),
+          values(arena_allocator<double>(arena)) {}
 
     monotonic_arena* arena_;
     arena_vector<double> values;
@@ -179,7 +174,9 @@ struct StatsResponse {
         static constexpr bool MEDIAN_REQUIRED = false;
     };
 
-    explicit StatsResponse(monotonic_arena* arena = nullptr) : arena_(arena) {}
+
+    explicit StatsResponse(monotonic_arena* arena = nullptr)
+        : arena_(arena) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -229,16 +226,15 @@ struct RegisterRequest {
         static constexpr bool TAGS_UNIQUE_ITEMS = true;
     };
 
-    static_assert(metadata::USERNAME_MIN_LENGTH <= metadata::USERNAME_MAX_LENGTH,
-                  "username: min_length must be <= max_length");
-    static_assert(metadata::PASSWORD_MIN_LENGTH <= metadata::PASSWORD_MAX_LENGTH,
-                  "password: min_length must be <= max_length");
-    static_assert(metadata::AGE_MINIMUM <= metadata::AGE_MAXIMUM,
-                  "age: minimum must be <= maximum");
+    static_assert(metadata::USERNAME_MIN_LENGTH <= metadata::USERNAME_MAX_LENGTH, "username: min_length must be <= max_length");
+    static_assert(metadata::PASSWORD_MIN_LENGTH <= metadata::PASSWORD_MAX_LENGTH, "password: min_length must be <= max_length");
+    static_assert(metadata::AGE_MINIMUM <= metadata::AGE_MAXIMUM, "age: minimum must be <= maximum");
 
     explicit RegisterRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), username(arena_allocator<char>(arena)),
-          email(arena_allocator<char>(arena)), password(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          username(arena_allocator<char>(arena)),
+          email(arena_allocator<char>(arena)),
+          password(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> username;
@@ -279,9 +275,13 @@ struct UserResponse {
         static constexpr bool CREATED_AT_REQUIRED = true;
     };
 
+
     explicit UserResponse(monotonic_arena* arena = nullptr)
-        : arena_(arena), id(arena_allocator<char>(arena)), username(arena_allocator<char>(arena)),
-          email(arena_allocator<char>(arena)), created_at(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          id(arena_allocator<char>(arena)),
+          username(arena_allocator<char>(arena)),
+          email(arena_allocator<char>(arena)),
+          created_at(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> id;
@@ -331,7 +331,9 @@ struct ItemMetadata {
         static constexpr bool SKU_REQUIRED = false;
     };
 
-    explicit ItemMetadata(monotonic_arena* arena = nullptr) : arena_(arena) {}
+
+    explicit ItemMetadata(monotonic_arena* arena = nullptr)
+        : arena_(arena) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -386,10 +388,10 @@ struct UpdateItemRequest {
         static constexpr size_t TAGS_MAX_ITEMS = 20;
     };
 
-    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH,
-                  "name: min_length must be <= max_length");
+    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
 
-    explicit UpdateItemRequest(monotonic_arena* arena = nullptr) : arena_(arena) {}
+    explicit UpdateItemRequest(monotonic_arena* arena = nullptr)
+        : arena_(arena) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -440,11 +442,11 @@ struct EchoRequest {
         static constexpr bool UPPERCASE_REQUIRED = false;
     };
 
-    static_assert(metadata::REPEAT_MINIMUM <= metadata::REPEAT_MAXIMUM,
-                  "repeat: minimum must be <= maximum");
+    static_assert(metadata::REPEAT_MINIMUM <= metadata::REPEAT_MAXIMUM, "repeat: minimum must be <= maximum");
 
     explicit EchoRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), message(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          message(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> message;
@@ -468,8 +470,10 @@ struct EchoResponse {
         static constexpr bool LENGTH_REQUIRED = false;
     };
 
+
     explicit EchoResponse(monotonic_arena* arena = nullptr)
-        : arena_(arena), message(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          message(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> message;
@@ -533,7 +537,9 @@ struct health_check_response {
         static constexpr bool UPTIME_MS_REQUIRED = false;
     };
 
-    explicit health_check_response(monotonic_arena* arena = nullptr) : arena_(arena) {}
+
+    explicit health_check_response(monotonic_arena* arena = nullptr)
+        : arena_(arena) {}
 
     monotonic_arena* arena_;
     /// Optional field
@@ -560,8 +566,10 @@ struct Item {
         static constexpr bool METADATA_REQUIRED = false;
     };
 
+
     explicit Item(monotonic_arena* arena = nullptr)
-        : arena_(arena), name(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          name(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     int64_t id;
@@ -599,13 +607,12 @@ struct CreateItemRequest {
         static constexpr bool METADATA_REQUIRED = false;
     };
 
-    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH,
-                  "name: min_length must be <= max_length");
-    static_assert(metadata::STOCK_MINIMUM <= metadata::STOCK_MAXIMUM,
-                  "stock: minimum must be <= maximum");
+    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
+    static_assert(metadata::STOCK_MINIMUM <= metadata::STOCK_MAXIMUM, "stock: minimum must be <= maximum");
 
     explicit CreateItemRequest(monotonic_arena* arena = nullptr)
-        : arena_(arena), name(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          name(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> name;
@@ -631,8 +638,10 @@ struct ItemList {
         static constexpr bool OFFSET_REQUIRED = false;
     };
 
+
     explicit ItemList(monotonic_arena* arena = nullptr)
-        : arena_(arena), items(arena_allocator<Item>(arena)) {}
+        : arena_(arena),
+          items(arena_allocator<Item>(arena)) {}
 
     monotonic_arena* arena_;
     arena_vector<Item> items;
@@ -644,3 +653,4 @@ struct ItemList {
 };
 
 using ItemList_Items_t = arena_vector<Item>;
+

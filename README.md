@@ -38,7 +38,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
   - Enum → enum class codegen
   - Handler interfaces и router bindings с content negotiation и optional-параметрами
   - Constexpr route tables с compile-time type safety
-  - x-katana-* extensions
+  - x-katana-* extensions (declarative; parsed + comment-only, runtime enforcement — Stage 5)
 - ✅ Unit/integration/fuzz тесты
 
 **В разработке / не реализовано:**
@@ -235,7 +235,7 @@ if (result) {
 - ✅ Format validators (email, uuid, date-time, uri, ipv4, hostname)
 - ✅ Handler interfaces из OpenAPI operations
 - ✅ Constexpr route tables с compile-time metadata для type safety
-- ✅ x-katana-* extensions (cache, alloc, rate-limit)
+- ✅ x-katana-* extensions — declarative annotations: parsed from spec, emitted as comments in generated code (cache, alloc, rate-limit). Runtime enforcement — Stage 5
 
 📖 **Подробная документация:** [docs/OPENAPI.md](docs/OPENAPI.md)
 
@@ -339,13 +339,25 @@ DTO используют `std::pmr::*` и `std::string_view`. Стандартн
 
 ### Расширения OpenAPI (`x-katana-*`)
 
-Не меняют стандарт, добавляют декларативные политики:
+Не меняют стандарт, добавляют **декларативные** аннотации на уровне operation.
+На текущем этапе (Stage 2–3) аннотации:
 
-* аллокация (`arena` / `pmr` / `heap`),
-* выбор сериализатора (`zero-copy` / `dom`),
-* кэш (TTL, stale-while-revalidate, ключи инвалидации),
-* rate limiting и idempotency,
-* требования консистентности и дедлайны.
+* **парсятся** loader'ом из OpenAPI JSON/YAML,
+* **сохраняются** в AST (`operation` struct),
+* **выводятся** в generated код как комментарии (`// @cache:`, `// @alloc:`, `// @rate-limit:`).
+
+**Runtime enforcement** (фактическое применение кэша, rate limit, аллокации) запланировано на Stage 5.
+
+| Extension | Accepted values | Example |
+|---|---|---|
+| `x-katana-cache` | string (`"300s"`, `"5m"`) or `true`/`false` | `x-katana-cache: "5m"` |
+| `x-katana-alloc` | string (`"pool"`, `"arena"`) or number (`4096`) | `x-katana-alloc: "pool"` |
+| `x-katana-rate-limit` | string (`"100/s"`, `"1000/m"`) | `x-katana-rate-limit: "100/s"` |
+
+Расширения, упомянутые в roadmap, но ещё не реализованные:
+`x-katana-idempotency` (Stage 5).
+
+Подробная спецификация: [docs/X_KATANA_EXTENSIONS.md](docs/X_KATANA_EXTENSIONS.md).
 
 ---
 
@@ -639,7 +651,7 @@ Thread pinning (опциональная оптимизация):
 - media type registry и общий механизм `Content-Type`/`Accept` для JSON, CBOR, MessagePack;
 - единый conformance harness для generated router/bindings по OpenAPI fixtures;
 - стабилизация тестового контура: одинаковые сценарии запуска в Linux/WSL, perf smoke, нормальный preset path;
-- ревизия `x-katana-*` extension contract: что реально поддерживается в runtime, что остаётся декларативным.
+- ~~ревизия `x-katana-*` extension contract~~ — **выполнено**: см. [docs/X_KATANA_EXTENSIONS.md](docs/X_KATANA_EXTENSIONS.md).
 
 **Что не входит**
 - SQL runtime, Redis runtime, tracing exporters.
@@ -782,8 +794,7 @@ cd mysvc
 paths:
   /users/{id}:
     get:
-      x-katana-cache:
-        ttl: 10s
+      x-katana-cache: "10s"
       responses:
         200:
           $ref: "#/components/schemas/User"

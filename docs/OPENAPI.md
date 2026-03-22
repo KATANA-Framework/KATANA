@@ -749,6 +749,48 @@ TEST(OpenAPILoader, AcceptsVersionHint) {
 
 ---
 
+## x-katana-\* Extensions
+
+Katana поддерживает vendor extensions с префиксом `x-katana-` на уровне OpenAPI operation.
+Расширения парсятся loader'ом и передаются в AST, но на текущем этапе (Stage 3)
+**не влияют на runtime behaviour** — они декларативны.
+
+### Поддерживаемые расширения
+
+| Extension | Value type | Loader support | Codegen output | Runtime |
+|---|---|---|---|---|
+| `x-katana-cache` | `string` / `boolean` | ✅ parsed | comment `// @cache:` | Stage 5 |
+| `x-katana-alloc` | `string` / `number` | ✅ parsed | comment `// @alloc:` | Stage 5 |
+| `x-katana-rate-limit` | `string` | ✅ parsed | comment `// @rate-limit:` | Stage 5 |
+
+**Object values** (e.g. `x-katana-cache: { ttl: 10s }`) **не поддерживаются** и будут
+молча проигнорированы loader'ом.
+
+### Accepted value formats
+
+- `x-katana-cache`: строка с TTL (`"300s"`, `"5m"`) или boolean (`true`/`false`).
+- `x-katana-alloc`: строка (`"pool"`, `"arena"`, `"heap"`) или число (`4096`).
+- `x-katana-rate-limit`: строка вида `"<count>/<unit>"` (`"100/s"`, `"1000/m"`).
+
+### Codegen behavior
+
+Значения расширений выводятся в generated handler interface как комментарии:
+
+```cpp
+// GET /users/{id}
+// @cache: 5m
+// @alloc: pool
+// @rate-limit: 100/s
+katana::http::task<response> get_user(const get_user_request& req);
+```
+
+Эти комментарии служат документацией и могут быть использованы внешними инструментами.
+Runtime enforcement запланирован на Stage 5.
+
+Полная ревизия: [X_KATANA_EXTENSIONS.md](X_KATANA_EXTENSIONS.md).
+
+---
+
 ## Roadmap
 
 Stage 2 закрыт. Дальнейшее развитие OpenAPI-слоя идёт уже в общих roadmap-этапах репозитория.
@@ -757,7 +799,7 @@ Stage 2 закрыт. Дальнейшее развитие OpenAPI-слоя и�
 
 - [ ] conformance harness для generated endpoints по OpenAPI fixtures
 - [ ] media type registry integration для JSON/CBOR/MessagePack
-- [ ] чёткая спецификация поддерживаемых `x-katana-*` extensions
+- [x] чёткая спецификация поддерживаемых `x-katana-*` extensions (см. [X_KATANA_EXTENSIONS.md](X_KATANA_EXTENSIONS.md))
 - [ ] стабилизация runtime/codegen test path в canonical Linux/WSL CI
 
 ### Дальше, после стабилизации runtime
