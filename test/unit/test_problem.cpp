@@ -180,6 +180,23 @@ TEST(ProblemDetailsTest, MethodNotAllowedWithDetail) {
     EXPECT_EQ(*p.detail, "POST not allowed on this resource");
 }
 
+TEST(ProblemDetailsTest, NotImplemented) {
+    auto p = problem_details::not_implemented();
+
+    EXPECT_EQ(p.status, 501);
+    EXPECT_EQ(p.title, "Not Implemented");
+    EXPECT_FALSE(p.detail.has_value());
+}
+
+TEST(ProblemDetailsTest, NotImplementedWithDetail) {
+    auto p = problem_details::not_implemented("CBOR codec stub");
+
+    EXPECT_EQ(p.status, 501);
+    EXPECT_EQ(p.title, "Not Implemented");
+    ASSERT_TRUE(p.detail.has_value());
+    EXPECT_EQ(*p.detail, "CBOR codec stub");
+}
+
 TEST(ProblemDetailsTest, Conflict) {
     auto p = problem_details::conflict();
 

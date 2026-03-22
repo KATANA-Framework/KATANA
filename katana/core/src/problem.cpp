@@ -177,6 +177,16 @@ problem_details problem_details::not_acceptable(std::string_view detail) {
     return p;
 }
 
+problem_details problem_details::not_implemented(std::string_view detail) {
+    problem_details p;
+    p.status = 501;
+    p.title = "Not Implemented";
+    if (!detail.empty()) {
+        p.detail = std::string(detail);
+    }
+    return p;
+}
+
 problem_details problem_details::unsupported_media_type(std::string_view detail) {
     problem_details p;
     p.status = 415;
