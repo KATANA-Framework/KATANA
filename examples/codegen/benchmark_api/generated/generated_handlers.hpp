@@ -1,12 +1,12 @@
 // layer: flat
 // Auto-generated handler interfaces from OpenAPI specification
-//
+// 
 // Zero-boilerplate design:
 //   - Clean signatures: result<void> method(params, response& out)
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
-//
+// 
 // Example:
 //   katana::result<void> get_user(int64_t id, response& out) override {
 //       auto user = db.find(id, &arena());  // arena() from context
@@ -15,16 +15,16 @@
 //   }
 #pragma once
 
-#include "generated_dtos.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/router.hpp"
-#include <optional>
+#include "generated_dtos.hpp"
 #include <string_view>
+#include <optional>
 #include <variant>
 
 using katana::http::request;
-using katana::http::request_context;
 using katana::http::response;
+using katana::http::request_context;
 
 namespace generated {
 
@@ -47,17 +47,11 @@ struct api_handler {
 
     // GET /items
     // List items with pagination
-    virtual katana::result<void> list_items(std::optional<int64_t> limit,
-                                            std::optional<int64_t> offset,
-                                            std::optional<std::string_view> category,
-                                            response& out) = 0;
+    virtual katana::result<void> list_items(std::optional<int64_t> limit, std::optional<int64_t> offset, std::optional<std::string_view> category, response& out) = 0;
 
     // POST /items
     // Create a new item
-    virtual katana::result<void> create_item(std::string_view X_Request_Id,
-                                             std::optional<std::string_view> session,
-                                             const CreateItemRequest& body,
-                                             response& out) = 0;
+    virtual katana::result<void> create_item(std::string_view X_Request_Id, std::optional<std::string_view> session, const CreateItemRequest& body, response& out) = 0;
 
     // GET /items/{id}
     // Get item by ID
@@ -65,8 +59,7 @@ struct api_handler {
 
     // PUT /items/{id}
     // Update item
-    virtual katana::result<void>
-    update_item(int64_t id, const UpdateItemRequest& body, response& out) = 0;
+    virtual katana::result<void> update_item(int64_t id, const UpdateItemRequest& body, response& out) = 0;
 
     // DELETE /items/{id}
     // Delete item
@@ -79,6 +72,7 @@ struct api_handler {
     // GET /health
     // Health check
     virtual katana::result<void> health_check(response& out) = 0;
+
 };
 
 // ============================================================================
@@ -120,16 +114,15 @@ struct api_handler {
 //     katana::result<void> create_item(const create_request& req, response& out) override {
 //         auto item = db.create(req, &katana::http::arena());
 //         if (!item) {
-//             out.assign_error(katana::problem_details::internal_server_error("failed to create
-//             item")); return {};
+//             out.assign_error(katana::problem_details::internal_server_error("failed to create item"));
+//             return {};
 //         }
 //         respond::into(out).created_json(serialize_item(*item));
 //         return {};
 //     }
 //
 //     // Example 4: Enum handling
-//     katana::result<void> transform_text(const text_transform_request& req, response& out)
-//     override {
+//     katana::result<void> transform_text(const text_transform_request& req, response& out) override {
 //         std::string result;
 //         switch (req.operation) {
 //             case text_transform_request_operation_enum::upper:

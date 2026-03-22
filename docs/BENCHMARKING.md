@@ -29,7 +29,7 @@ The KATANA benchmarking system provides:
 ```bash
 # Build benchmarks
 cmake --preset bench
-cmake --build build/bench -j$(nproc)
+cmake --build --preset bench -j$(nproc)
 
 # Run comprehensive benchmark suite
 ./scripts/run_benchmarks.py \
@@ -40,7 +40,21 @@ cmake --build build/bench -j$(nproc)
   --include-e2e
 ```
 
-The maintained source of truth is `scripts/run_benchmarks.py`. Legacy helper scripts may still exist for ad hoc experiments, but they are not the benchmark contract.
+The maintained source of truth is `scripts/run_benchmarks.py`. Legacy helper scripts (`run_benchmarks.sh`, `benchmark.sh`, `generate_benchmark_report.py`) may still exist for ad hoc experiments, but they are not the benchmark contract.
+
+### Perf Smoke (Quick Local Regression Check)
+
+For a quick (< 3 min) local check against committed baselines:
+
+```bash
+make perf-smoke
+```
+
+This runs Stage 1 (Core Runtime) and Stage 2 (Codegen Quality) microbenchmarks and compares results with `benchmarks/baseline_stage1.json` / `benchmarks/baseline_stage2.json`. Exit code 1 means regression detected (threshold: 5% locally).
+
+The same check runs automatically in CI via `perf-regression.yml` (threshold: 3%) on PRs that touch `katana/core/` or `tools/katana_gen/`.
+
+**CI benchmark runner**: `tools/katana_bench.py` — lightweight stage 1+2 runner with JSON output and baseline comparison. This is the CI contract runner, distinct from the full `scripts/run_benchmarks.py` which covers stages 1–12.
 
 ## Benchmark Categories
 
