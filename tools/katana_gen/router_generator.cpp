@@ -449,6 +449,14 @@ std::string generate_router_bindings(const document& doc) {
                     dispatch_functions << "    }\n";
                     dispatch_functions << "    std::string_view response_content_type = "
                                           "*negotiated_content_type;\n";
+                    dispatch_functions
+                        << "    if (katana::http::infer_media_format(response_content_type) != "
+                           "katana::http::media_format::json) {\n";
+                    dispatch_functions << "        out.assign_error("
+                                       << "katana::problem_details::not_implemented("
+                                          "\"codec for Accept is not implemented\"));\n";
+                    dispatch_functions << "        return {};\n";
+                    dispatch_functions << "    }\n";
                 }
             }
 
