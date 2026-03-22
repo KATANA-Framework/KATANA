@@ -4,7 +4,9 @@ add_executable(unit_tests
     main.cpp
     unit/test_reactor.cpp
     unit/test_reactor_pool.cpp
+    unit/test_content_negotiation.cpp
     unit/test_http.cpp
+    unit/test_media_type_registry.cpp
     unit/test_wheel_timer.cpp
     unit/test_result.cpp
     unit/test_io_buffer.cpp

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "katana/core/http.hpp"
+#include "katana/core/media_type_registry.hpp"
 #include "katana/core/problem.hpp"
 #include "katana/core/serde.hpp"
 #include "katana/core/validation.hpp"
@@ -17,33 +18,22 @@ namespace katana::http_utils {
 
 namespace detail {
 
-[[nodiscard]] inline bool ascii_iequals(std::string_view lhs, std::string_view rhs) noexcept {
-    if (lhs.size() != rhs.size()) {
-        return false;
-    }
-    for (size_t i = 0; i < lhs.size(); ++i) {
-        unsigned char lc = static_cast<unsigned char>(lhs[i]);
-        unsigned char rc = static_cast<unsigned char>(rhs[i]);
-        if (std::tolower(lc) != std::tolower(rc)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-[[nodiscard]] inline std::string_view media_type_token(std::string_view value) noexcept {
-    value = katana::serde::trim_view(value);
-    auto semicolon = value.find(';');
-    if (semicolon != std::string_view::npos) {
-        value = value.substr(0, semicolon);
-    }
-    return katana::serde::trim_view(value);
-}
+using katana::http::detail::ascii_iequals;
+using katana::http::detail::media_type_token;
 
 } // namespace detail
 
 struct content_type_info {
     std::string_view mime_type;
+    katana::http::media_format format;
+
+    constexpr content_type_info(std::string_view mime,
+                                katana::http::media_format fmt =
+                                    katana::http::media_format::unknown) noexcept
+        : mime_type(katana::http::detail::media_type_token(mime)),
+          format(fmt == katana::http::media_format::unknown
+                     ? katana::http::infer_media_format(mime_type)
+                     : fmt) {}
 };
 
 struct named_param_target {
@@ -221,60 +211,43 @@ find_content_type(std::optional<std::string_view> header,
     return std::nullopt;
 }
 
+inline const katana::http::media_type_entry*
+find_content_type(std::optional<std::string_view> header,
+                  const katana::http::media_type_registry& registry) noexcept {
+    if (!header) {
+        return nullptr;
+    }
+    return registry.find(*header);
+}
+
 inline std::optional<std::string_view>
 negotiate_response_type(const katana::http::request& req,
                         std::span<const content_type_info> produces) noexcept {
     if (produces.empty())
         return std::nullopt;
     auto accept = req.headers.get(katana::http::field::accept);
-    // Fast path: no Accept header or */*, return first
-    if (!accept || accept->empty() || *accept == "*/*") {
-        return produces.front().mime_type;
+    auto* negotiated = katana::http::detail::negotiate_accept(
+        accept.value_or(std::string_view{}),
+        produces,
+        [](const content_type_info& info) { return info.mime_type; });
+    if (negotiated == nullptr) {
+        return std::nullopt;
     }
-    // Fast path: exact match with first content type (common case)
-    if (produces.size() == 1 && *accept == produces.front().mime_type) {
-        return produces.front().mime_type;
+    return negotiated->mime_type;
+}
+
+inline std::optional<std::string_view>
+negotiate_response_type(const katana::http::request& req,
+                        const katana::http::media_type_registry& registry) noexcept {
+    if (registry.all().empty()) {
+        return std::nullopt;
     }
-    // Fast path: common exact matches without quality values
-    if (accept->find(',') == std::string_view::npos &&
-        accept->find(';') == std::string_view::npos) {
-        for (auto& ct : produces) {
-            if (ct.mime_type == *accept)
-                return ct.mime_type;
-        }
+    auto accept = req.headers.get(katana::http::field::accept);
+    auto* negotiated = registry.negotiate(accept.value_or(std::string_view{}));
+    if (negotiated == nullptr) {
+        return std::nullopt;
     }
-    // Slow path: full parsing with quality values and wildcards
-    std::string_view remaining = *accept;
-    while (!remaining.empty()) {
-        auto comma = remaining.find(',');
-        auto token = comma == std::string_view::npos ? remaining : remaining.substr(0, comma);
-        if (comma == std::string_view::npos)
-            remaining = {};
-        else
-            remaining = remaining.substr(comma + 1);
-        token = katana::serde::trim_view(token);
-        if (token.empty())
-            continue;
-        auto semicolon = token.find(';');
-        if (semicolon != std::string_view::npos)
-            token = katana::serde::trim_view(token.substr(0, semicolon));
-        if (token == "*/*")
-            return produces.front().mime_type;
-        if (token.size() > 2 && token.substr(token.size() - 2) == "/*") {
-            auto prefix = token.substr(0, token.size() - 1);
-            for (auto& ct : produces) {
-                if (ct.mime_type.starts_with(prefix)) {
-                    return ct.mime_type;
-                }
-            }
-        } else {
-            for (auto& ct : produces) {
-                if (ct.mime_type == token)
-                    return ct.mime_type;
-            }
-        }
-    }
-    return std::nullopt;
+    return negotiated->mime_type;
 }
 
 inline katana::http::response format_validation_error(const katana::validation_error& err) {

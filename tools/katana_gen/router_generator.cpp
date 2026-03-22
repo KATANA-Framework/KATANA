@@ -419,12 +419,14 @@ std::string generate_router_bindings(const document& doc) {
                                << "(const katana::http::request& req, "
                                << "katana::http::request_context& ctx, api_handler& handler, "
                                << "katana::http::response& out) {\n";
+            if (is_single_json_request || is_single_json_response) {
+                dispatch_functions << "    constexpr std::string_view kJsonContentType = "
+                                      "\"application/json\";\n";
+            }
 
             // Content negotiation
             if (has_response_content) {
                 if (is_single_json_response) {
-                    dispatch_functions << "    constexpr std::string_view kJsonContentType = "
-                                          "\"application/json\";\n";
                     dispatch_functions << "    auto accept = req.headers.get("
                                        << generate_headers_get("Accept") << ");\n";
                     dispatch_functions

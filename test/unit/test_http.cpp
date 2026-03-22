@@ -328,6 +328,61 @@ TEST(HttpUtils, FindContentTypeRejectsInvalidPrefixMatches) {
     EXPECT_FALSE(match.has_value());
 }
 
+TEST(HttpUtils, NegotiateResponseTypePrefersHigherQValue) {
+    request req;
+    req.headers.set_known(field::accept, "application/json;q=0.4, application/cbor;q=0.9");
+
+    constexpr std::array<content_type_info, 2> produces = {
+        content_type_info{"application/json"},
+        content_type_info{"application/cbor"},
+    };
+
+    auto negotiated = negotiate_response_type(req, produces);
+    ASSERT_TRUE(negotiated.has_value());
+    EXPECT_EQ(*negotiated, "application/cbor");
+}
+
+TEST(HttpUtils, NegotiateResponseTypePrefersExactMatchOverWildcardOnSameQ) {
+    request req;
+    req.headers.set_known(field::accept, "application/*;q=0.8, application/cbor;q=0.8");
+
+    constexpr std::array<content_type_info, 2> produces = {
+        content_type_info{"application/json"},
+        content_type_info{"application/cbor"},
+    };
+
+    auto negotiated = negotiate_response_type(req, produces);
+    ASSERT_TRUE(negotiated.has_value());
+    EXPECT_EQ(*negotiated, "application/cbor");
+}
+
+TEST(HttpUtils, NegotiateResponseTypeReturnsFirstAvailableForWildcard) {
+    request req;
+    req.headers.set_known(field::accept, "*/*");
+
+    constexpr std::array<content_type_info, 2> produces = {
+        content_type_info{"application/json"},
+        content_type_info{"application/cbor"},
+    };
+
+    auto negotiated = negotiate_response_type(req, produces);
+    ASSERT_TRUE(negotiated.has_value());
+    EXPECT_EQ(*negotiated, "application/json");
+}
+
+TEST(HttpUtils, NegotiateResponseTypeRejectsUnsupportedAccept) {
+    request req;
+    req.headers.set_known(field::accept, "application/xml");
+
+    constexpr std::array<content_type_info, 2> produces = {
+        content_type_info{"application/json"},
+        content_type_info{"application/cbor"},
+    };
+
+    auto negotiated = negotiate_response_type(req, produces);
+    EXPECT_FALSE(negotiated.has_value());
+}
+
 TEST(HttpHeaders, CiCharEqualMatchesOnlyAsciiLettersCaseInsensitively) {
     EXPECT_TRUE(ci_char_equal('A', 'a'));
     EXPECT_TRUE(ci_char_equal('Z', 'z'));
