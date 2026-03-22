@@ -30,6 +30,7 @@ struct problem_details {
     static problem_details not_found(std::string_view detail = "");
     static problem_details method_not_allowed(std::string_view detail = "");
     static problem_details not_acceptable(std::string_view detail = "");
+    static problem_details not_implemented(std::string_view detail = "");
     static problem_details unsupported_media_type(std::string_view detail = "");
     static problem_details conflict(std::string_view detail = "");
     static problem_details unprocessable_entity(std::string_view detail = "");

@@ -757,6 +757,13 @@ std::string generate_router_bindings(const document& doc) {
                         << "    if (!content_type_index) { out.assign_error("
                         << "katana::problem_details::unsupported_media_type(\"unsupported "
                            "Content-Type\")); return {}; }\n";
+                    dispatch_functions << "    const auto& request_content_type = route_"
+                                       << route_idx << "_consumes[*content_type_index];\n";
+                    dispatch_functions
+                        << "    if (request_content_type.format != "
+                           "katana::http::media_format::json) { out.assign_error("
+                        << "katana::problem_details::not_implemented(\"codec for Content-Type "
+                           "is not implemented\")); return {}; }\n";
                 }
 
                 const bool has_single_body_schema =

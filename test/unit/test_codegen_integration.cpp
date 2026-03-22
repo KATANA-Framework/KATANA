@@ -431,6 +431,48 @@ paths:
               std::string::npos);
 }
 
+TEST_F(CodegenIntegrationTest, RouterBindingsStubNonJsonRequestCodecs) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Multi Codec Request API
+  version: 1.0.0
+paths:
+  /jobs:
+    post:
+      operationId: createJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+          application/cbor:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '204':
+          description: accepted
+)";
+
+    create_openapi_spec("request_multicodec.yaml", spec);
+    ASSERT_TRUE(run_codegen("request_multicodec.yaml"));
+
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
+    EXPECT_NE(bindings.find("const auto& request_content_type = route_0_consumes[*content_type_index];"),
+              std::string::npos);
+    EXPECT_NE(bindings.find("request_content_type.format != katana::http::media_format::json"),
+              std::string::npos);
+    EXPECT_NE(bindings.find("problem_details::not_implemented"), std::string::npos);
+    EXPECT_NE(bindings.find("codec for Content-Type is not implemented"), std::string::npos);
+}
+
 TEST_F(CodegenIntegrationTest, InlineNamingFlagProducesFlatNames) {
     const char* spec = R"(
 openapi: 3.0.0
