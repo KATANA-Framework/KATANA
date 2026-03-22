@@ -45,6 +45,40 @@ inline int& failure_count() {
     return failures;
 }
 
+template <typename T> class comparison_operand {
+public:
+    using raw_t = std::remove_reference_t<T>;
+    using storage_t = std::conditional_t<std::is_lvalue_reference_v<T>,
+                                         std::reference_wrapper<raw_t>,
+                                         std::remove_cvref_t<T>>;
+
+    explicit comparison_operand(T&& value) : storage_(make_storage(std::forward<T>(value))) {}
+
+    [[nodiscard]] const raw_t& get() const noexcept {
+        if constexpr (std::is_lvalue_reference_v<T>) {
+            return storage_.get();
+        } else {
+            return storage_;
+        }
+    }
+
+private:
+    static storage_t make_storage(T&& value) {
+        if constexpr (std::is_lvalue_reference_v<T>) {
+            return std::ref(value);
+        } else {
+            return std::forward<T>(value);
+        }
+    }
+
+    storage_t storage_;
+};
+
+template <typename T>
+comparison_operand<T&&> make_comparison_operand(T&& value) {
+    return comparison_operand<T&&>(std::forward<T>(value));
+}
+
 template <typename T> inline std::string format_value(const T& value) {
     if constexpr (std::is_same_v<T, bool>) {
         return value ? "true" : "false";
@@ -318,108 +352,168 @@ inline int RUN_ALL_TESTS() {
 
 #define EXPECT_EQ(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         ::testing::internal::compare_equal(                                                        \
-            gtest_lhs, gtest_rhs, #val1 " == " #val2, __FILE__, __LINE__, false);                  \
+            gtest_lhs.get(),                                                                       \
+            gtest_rhs.get(),                                                                       \
+            #val1 " == " #val2,                                                                    \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            false);                                                                                \
     } while (0)
 
 #define ASSERT_EQ(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         if (::testing::internal::compare_equal(                                                    \
-                gtest_lhs, gtest_rhs, #val1 " == " #val2, __FILE__, __LINE__, true)) {             \
+                gtest_lhs.get(),                                                                   \
+                gtest_rhs.get(),                                                                   \
+                #val1 " == " #val2,                                                                \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                true)) {                                                                           \
             return;                                                                                \
         }                                                                                          \
     } while (0)
 
 #define EXPECT_NE(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         ::testing::internal::compare_not_equal(                                                    \
-            gtest_lhs, gtest_rhs, #val1 " != " #val2, __FILE__, __LINE__, false);                  \
+            gtest_lhs.get(),                                                                       \
+            gtest_rhs.get(),                                                                       \
+            #val1 " != " #val2,                                                                    \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            false);                                                                                \
     } while (0)
 
 #define ASSERT_NE(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         if (::testing::internal::compare_not_equal(                                                \
-                gtest_lhs, gtest_rhs, #val1 " != " #val2, __FILE__, __LINE__, true)) {             \
+                gtest_lhs.get(),                                                                   \
+                gtest_rhs.get(),                                                                   \
+                #val1 " != " #val2,                                                                \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                true)) {                                                                           \
             return;                                                                                \
         }                                                                                          \
     } while (0)
 
 #define EXPECT_LT(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         ::testing::internal::compare_less(                                                         \
-            gtest_lhs, gtest_rhs, #val1 " < " #val2, __FILE__, __LINE__, false);                   \
+            gtest_lhs.get(),                                                                       \
+            gtest_rhs.get(),                                                                       \
+            #val1 " < " #val2,                                                                     \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            false);                                                                                \
     } while (0)
 
 #define ASSERT_LT(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         if (::testing::internal::compare_less(                                                     \
-                gtest_lhs, gtest_rhs, #val1 " < " #val2, __FILE__, __LINE__, true)) {              \
+                gtest_lhs.get(),                                                                   \
+                gtest_rhs.get(),                                                                   \
+                #val1 " < " #val2,                                                                 \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                true)) {                                                                           \
             return;                                                                                \
         }                                                                                          \
     } while (0)
 
 #define EXPECT_LE(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         ::testing::internal::compare_less_equal(                                                   \
-            gtest_lhs, gtest_rhs, #val1 " <= " #val2, __FILE__, __LINE__, false);                  \
+            gtest_lhs.get(),                                                                       \
+            gtest_rhs.get(),                                                                       \
+            #val1 " <= " #val2,                                                                    \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            false);                                                                                \
     } while (0)
 
 #define ASSERT_LE(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         if (::testing::internal::compare_less_equal(                                               \
-                gtest_lhs, gtest_rhs, #val1 " <= " #val2, __FILE__, __LINE__, true)) {             \
+                gtest_lhs.get(),                                                                   \
+                gtest_rhs.get(),                                                                   \
+                #val1 " <= " #val2,                                                                \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                true)) {                                                                           \
             return;                                                                                \
         }                                                                                          \
     } while (0)
 
 #define EXPECT_GT(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         ::testing::internal::compare_greater(                                                      \
-            gtest_lhs, gtest_rhs, #val1 " > " #val2, __FILE__, __LINE__, false);                   \
+            gtest_lhs.get(),                                                                       \
+            gtest_rhs.get(),                                                                       \
+            #val1 " > " #val2,                                                                     \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            false);                                                                                \
     } while (0)
 
 #define ASSERT_GT(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         if (::testing::internal::compare_greater(                                                  \
-                gtest_lhs, gtest_rhs, #val1 " > " #val2, __FILE__, __LINE__, true)) {              \
+                gtest_lhs.get(),                                                                   \
+                gtest_rhs.get(),                                                                   \
+                #val1 " > " #val2,                                                                 \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                true)) {                                                                           \
             return;                                                                                \
         }                                                                                          \
     } while (0)
 
 #define EXPECT_GE(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         ::testing::internal::compare_greater_equal(                                                \
-            gtest_lhs, gtest_rhs, #val1 " >= " #val2, __FILE__, __LINE__, false);                  \
+            gtest_lhs.get(),                                                                       \
+            gtest_rhs.get(),                                                                       \
+            #val1 " >= " #val2,                                                                    \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            false);                                                                                \
     } while (0)
 
 #define ASSERT_GE(val1, val2)                                                                      \
     do {                                                                                           \
-        const auto& gtest_lhs = (val1);                                                            \
-        const auto& gtest_rhs = (val2);                                                            \
+        auto gtest_lhs = ::testing::internal::make_comparison_operand((val1));                     \
+        auto gtest_rhs = ::testing::internal::make_comparison_operand((val2));                     \
         if (::testing::internal::compare_greater_equal(                                            \
-                gtest_lhs, gtest_rhs, #val1 " >= " #val2, __FILE__, __LINE__, true)) {             \
+                gtest_lhs.get(),                                                                   \
+                gtest_rhs.get(),                                                                   \
+                #val1 " >= " #val2,                                                                \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                true)) {                                                                           \
             return;                                                                                \
         }                                                                                          \
     } while (0)

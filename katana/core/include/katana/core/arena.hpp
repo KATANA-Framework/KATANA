@@ -281,14 +281,12 @@ public:
     }
 
 private:
-    using inline_storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
-
     [[nodiscard]] pointer inline_data() noexcept {
-        return reinterpret_cast<pointer>(inline_storage_.data());
+        return std::launder(reinterpret_cast<pointer>(inline_storage_.data()));
     }
 
     [[nodiscard]] const_pointer inline_data() const noexcept {
-        return reinterpret_cast<const_pointer>(inline_storage_.data());
+        return std::launder(reinterpret_cast<const_pointer>(inline_storage_.data()));
     }
 
     [[nodiscard]] bool using_inline_storage() const noexcept { return data_ == inline_data(); }
@@ -360,7 +358,7 @@ private:
     pointer data_;
     size_type size_;
     size_type capacity_;
-    std::array<inline_storage_t, InlineCapacity> inline_storage_{};
+    alignas(T) std::array<std::byte, sizeof(T) * InlineCapacity> inline_storage_{};
 };
 
 template <typename CharT = char>

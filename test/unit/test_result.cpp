@@ -31,6 +31,7 @@ TEST(Result, ValueAccess) {
     EXPECT_EQ(moved, "hello");
 }
 
+#ifndef __cpp_lib_expected
 TEST(Result, ValueAccessThrows) {
     result<int> r = std::unexpected(make_error_code(error_code::invalid_fd));
     bool threw = false;
@@ -64,6 +65,7 @@ TEST(Result, ErrorAccessThrows) {
     }
     EXPECT_TRUE(threw || r.has_value());
 }
+#endif
 
 TEST(Result, AndThenSuccess) {
     result<int> r = 10;

@@ -397,6 +397,40 @@ paths:
     EXPECT_NE(bindings.find("set_header(\"Content-Type\""), std::string::npos);
 }
 
+TEST_F(CodegenIntegrationTest, RouterBindingsDefineJsonConstantForRequestOnlyJsonRoutes) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Request Only JSON API
+  version: 1.0.0
+paths:
+  /jobs:
+    post:
+      operationId: createJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '204':
+          description: accepted
+)";
+
+    create_openapi_spec("request_only_json.yaml", spec);
+    ASSERT_TRUE(run_codegen("request_only_json.yaml"));
+
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
+    EXPECT_NE(bindings.find("constexpr std::string_view kJsonContentType = \"application/json\""),
+              std::string::npos);
+    EXPECT_NE(bindings.find("katana::http_utils::detail::media_type_token(*content_type)"),
+              std::string::npos);
+}
+
 TEST_F(CodegenIntegrationTest, InlineNamingFlagProducesFlatNames) {
     const char* spec = R"(
 openapi: 3.0.0
