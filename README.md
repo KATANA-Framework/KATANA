@@ -23,7 +23,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 
 ## Текущее состояние (реальность)
 
-**Реализовано (Stage 1 + Stage 2):**
+**Реализовано (Stage 1 + Stage 2 + часть Stage 3):**
 - ✅ Epoll/io_uring reactor + reactor_pool
 - ✅ Арены/IO-буфера
 - ✅ HTTP/1.1 парсер/сериализация
@@ -40,6 +40,8 @@ KATANA — серверный фреймворк на C++ для разрабо�
   - Constexpr route tables с compile-time type safety
   - x-katana-* extensions (declarative; parsed + comment-only, runtime enforcement — Stage 5)
 - ✅ Unit/integration/fuzz тесты
+- ✅ Media type registry и общий механизм `Content-Type`/`Accept` для JSON, CBOR, MessagePack
+- ✅ Conformance harness для generated router/bindings по OpenAPI fixture (`test/conformance`, 15 end-to-end сценариев)
 
 **В разработке / не реализовано:**
 - ⏳ SQL генерация/libpq
@@ -47,7 +49,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 - ⏳ OpenTelemetry tracing
 - ⏳ Prometheus metrics
 - ⏳ Structured logging
-- ⏳ Media type registry (CBOR/MessagePack) — отнесено в Stage 3
+- ⏳ Стабилизация canonical Linux/WSL test path и CI-проходов для полного Stage 3 closeout
 
 Разделы README/ARCHITECTURE описывают целевое состояние фреймворка. То, что уже работает — помечено ✅ выше.
 
@@ -652,6 +654,12 @@ Thread pinning (опциональная оптимизация):
 - единый conformance harness для generated router/bindings по OpenAPI fixtures;
 - стабилизация тестового контура: одинаковые сценарии запуска в Linux/WSL, perf smoke, нормальный preset path;
 - ~~ревизия `x-katana-*` extension contract~~ — **выполнено**: см. [docs/X_KATANA_EXTENSIONS.md](docs/X_KATANA_EXTENSIONS.md).
+
+**Текущий статус**
+- ✅ media type registry уже подключён в runtime/codegen; CBOR/MessagePack на Stage 3 остаются codec stubs;
+- ✅ conformance harness уже существует: [docs/CONFORMANCE.md](docs/CONFORMANCE.md), fixture в `test/conformance/fixtures/petstore_minimal.json`, pre-generated headers committed;
+- ✅ ревизия `x-katana-*` contract завершена;
+- ⏳ остаётся закрыть canonical Linux/WSL CI path и финальный Stage 3 closeout.
 
 **Что не входит**
 - SQL runtime, Redis runtime, tracing exporters.
