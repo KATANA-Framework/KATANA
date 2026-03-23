@@ -84,14 +84,13 @@ test/conformance/
 ## Running
 
 ```bash
-cmake --build build/debug-local --target conformance_tests -j
-ctest --test-dir build/debug-local -R conformance_tests --output-on-failure
+./scripts/run_canonical_pipeline.sh --preset debug --ctest-arg -R --ctest-arg conformance_tests
 ```
 
 For a direct binary run:
 
 ```bash
-./build/debug-local/test/conformance_tests
+./build/debug/test/conformance_tests
 ```
 
 ## Notes
@@ -99,6 +98,7 @@ For a direct binary run:
 - `conformance_tests` has IPO/LTO disabled in CMake. This avoids a GCC LTO internal compiler error in `bench-local` caused by the large generated include graph. It does not affect runtime binaries.
 - The harness currently uses one committed fixture spec plus explicit C++ test cases. A future data-driven runner can be added later if needed.
 - CBOR and MessagePack remain Stage 3 stubs. The conformance suite verifies that those paths fail predictably with `501 Not Implemented`.
+- The canonical Linux/WSL/CI path uses `scripts/run_canonical_pipeline.sh` with CMake presets instead of per-environment ad hoc command lines.
 
 ## Definition of Done
 

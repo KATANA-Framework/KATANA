@@ -7,13 +7,14 @@ DOCKER_BENCH_IMAGE ?= katana-bench-epoll
 DOCKER_PROFILE_IMAGE ?= katana-profile
 PERF_PATH ?= $(HOME)/src/WSL2-Linux-Kernel/tools/perf/perf
 
-.PHONY: help configure build test format lint bench bench-report fuzz profile clean \
+.PHONY: help configure build test ci format lint bench bench-report fuzz profile clean \
 	docker-bench-image docker-bench docker-profile-image docker-profile
 
 help:
 	@echo "Common targets:"
 	@echo "  make build PRESET=debug|release|asan|tsan|ubsan|io_uring-debug|io_uring-release"
 	@echo "  make test  PRESET=debug (runs ctest with the chosen preset)"
+	@echo "  make ci    PRESET=debug (canonical configure+build+test pipeline used by CI/WSL)"
 	@echo "  make format (clang-format + cmake-format via pre-commit if available)"
 	@echo "  make lint   (pre-commit run --all-files)"
 	@echo "  make bench  (Release benchmarks preset + run performance_benchmark)"
@@ -32,6 +33,9 @@ build: configure
 
 test: build
 	ctest --preset $(PRESET) --output-on-failure
+
+ci:
+	./scripts/run_canonical_pipeline.sh --preset $(PRESET)
 
 format:
 	@if command -v pre-commit >/dev/null 2>&1; then \

@@ -800,7 +800,7 @@ Stage 2 закрыт. Дальнейшее развитие OpenAPI-слоя и�
 - [x] conformance harness для generated endpoints по OpenAPI fixtures (см. [CONFORMANCE.md](CONFORMANCE.md))
 - [x] media type registry integration для JSON/CBOR/MessagePack
 - [x] чёткая спецификация поддерживаемых `x-katana-*` extensions (см. [X_KATANA_EXTENSIONS.md](X_KATANA_EXTENSIONS.md))
-- [ ] стабилизация runtime/codegen test path в canonical Linux/WSL CI
+- [x] стабилизация runtime/codegen test path в canonical Linux/WSL CI
 
 ### Дальше, после стабилизации runtime
 
