@@ -27,9 +27,9 @@ struct content_type_info {
     std::string_view mime_type;
     katana::http::media_format format;
 
-    constexpr content_type_info(std::string_view mime,
-                                katana::http::media_format fmt =
-                                    katana::http::media_format::unknown) noexcept
+    constexpr content_type_info(
+        std::string_view mime,
+        katana::http::media_format fmt = katana::http::media_format::unknown) noexcept
         : mime_type(katana::http::detail::media_type_token(mime)),
           format(fmt == katana::http::media_format::unknown
                      ? katana::http::infer_media_format(mime_type)
@@ -227,9 +227,9 @@ negotiate_response_type(const katana::http::request& req,
         return std::nullopt;
     auto accept = req.headers.get(katana::http::field::accept);
     auto* negotiated = katana::http::detail::negotiate_accept(
-        accept.value_or(std::string_view{}),
-        produces,
-        [](const content_type_info& info) { return info.mime_type; });
+        accept.value_or(std::string_view{}), produces, [](const content_type_info& info) {
+            return info.mime_type;
+        });
     if (negotiated == nullptr) {
         return std::nullopt;
     }
