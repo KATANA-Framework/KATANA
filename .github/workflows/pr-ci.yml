@@ -9,7 +9,7 @@ env:
 
 jobs:
   quick-test:
-    name: Quick Test (${{ matrix.compiler.cxx }}, ${{ matrix.sanitizer }})
+    name: Quick Test (${{ matrix.compiler.cxx }}, ${{ matrix.preset }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -17,7 +17,7 @@ jobs:
         compiler:
           - { cc: gcc-13, cxx: g++-13 }
           - { cc: clang-18, cxx: clang++-18 }
-        sanitizer: [none, asan, ubsan]
+        preset: [debug, asan, ubsan]
 
     steps:
     - uses: actions/checkout@v4
@@ -28,9 +28,9 @@ jobs:
         path: |
           build
           ~/.cache/ccache
-        key: ${{ runner.os }}-${{ matrix.compiler.cxx }}-${{ matrix.sanitizer }}-${{ hashFiles('**/CMakeLists.txt') }}
+        key: ${{ runner.os }}-${{ matrix.compiler.cxx }}-${{ matrix.preset }}-${{ hashFiles('**/CMakeLists.txt') }}
         restore-keys: |
-          ${{ runner.os }}-${{ matrix.compiler.cxx }}-${{ matrix.sanitizer }}-
+          ${{ runner.os }}-${{ matrix.compiler.cxx }}-${{ matrix.preset }}-
           ${{ runner.os }}-${{ matrix.compiler.cxx }}-
 
     - name: Install dependencies
@@ -49,46 +49,13 @@ jobs:
             liburing-dev ccache
         fi
 
-    - name: Configure CMake
-      run: |
-        # Set sanitizer flags
-        SANITIZER_FLAGS=""
-        LINKER_FLAGS=""
-        case "${{ matrix.sanitizer }}" in
-          asan)
-            SANITIZER_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g"
-            LINKER_FLAGS="-fsanitize=address"
-            ;;
-          ubsan)
-            SANITIZER_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g"
-            LINKER_FLAGS="-fsanitize=undefined"
-            ;;
-        esac
-
-        # Set clang scan-deps flags if using clang
-        SCAN_DEPS_FLAGS=""
-        if [[ "${{ matrix.compiler.cc }}" == "clang-18" ]]; then
-          SCAN_DEPS_FLAGS="-DCMAKE_C_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=/usr/bin/clang-scan-deps-18"
-        fi
-
-        cmake -B ${{github.workspace}}/build \
-          -G Ninja \
-          -DCMAKE_BUILD_TYPE=Debug \
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
-          -DCMAKE_CXX_FLAGS="$SANITIZER_FLAGS" \
-          -DCMAKE_EXE_LINKER_FLAGS="$LINKER_FLAGS" \
-          -DENABLE_TESTING=ON \
-          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-          ${SCAN_DEPS_FLAGS}
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config Debug -j$(nproc)
-
-    - name: Run Unit Tests
-      working-directory: ${{github.workspace}}/build
-      run: ctest -C Debug --output-on-failure --verbose -R "^test_"
+    - name: Run canonical preset pipeline
+      env:
+        CC: ${{ matrix.compiler.cc }}
+        CXX: ${{ matrix.compiler.cxx }}
+        CMAKE_C_COMPILER_LAUNCHER: ccache
+        CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      run: ./scripts/run_canonical_pipeline.sh --preset ${{ matrix.preset }} --ctest-arg --verbose
 
   fuzzing:
     name: Fuzzing (short)

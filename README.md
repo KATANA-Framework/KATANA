@@ -23,7 +23,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 
 ## Текущее состояние (реальность)
 
-**Реализовано (Stage 1 + Stage 2 + часть Stage 3):**
+**Реализовано (Stage 1 + Stage 2 + Stage 3):**
 - ✅ Epoll/io_uring reactor + reactor_pool
 - ✅ Арены/IO-буфера
 - ✅ HTTP/1.1 парсер/сериализация
@@ -49,7 +49,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 - ⏳ OpenTelemetry tracing
 - ⏳ Prometheus metrics
 - ⏳ Structured logging
-- ⏳ Стабилизация canonical Linux/WSL test path и CI-проходов для полного Stage 3 closeout
+- ✅ Canonical Linux/WSL test path и preset-based CI runner (`scripts/run_canonical_pipeline.sh`, `make ci`)
 
 Разделы README/ARCHITECTURE описывают целевое состояние фреймворка. То, что уже работает — помечено ✅ выше.
 
@@ -59,10 +59,11 @@ KATANA — серверный фреймворк на C++ для разрабо�
 2. Конфигурация: `cmake --preset debug` (доступны также `release`, `asan`, `tsan`, `ubsan`, `io_uring-*`, `bench`, `examples`).
 3. Сборка: `cmake --build --preset debug`.
 4. Тесты: `ctest --preset debug` (используется лёгкий gtest-совместимый харнес из `test/gtest/gtest.h`).
-5. Примеры: `cmake --build --preset examples && ./build/examples/hello_world_server`.
-6. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && python3 scripts/run_benchmarks.py --build-dir build/bench --include-e2e`.
-7. Удобно через Makefile: `make build PRESET=debug`, `make test PRESET=debug`, `make bench`, `make fuzz`, `make profile`.
-8. CRUD бенч: по умолчанию in-memory; для высокого RPS можно задать `KATANA_CRUD_BACKEND=memcached` (опционально `MEMCACHED_HOST`/`MEMCACHED_PORT`). Docker бенч-сборка поднимает memcached автоматически.
+5. Canonical preset pipeline для Linux/WSL/CI: `./scripts/run_canonical_pipeline.sh --preset debug` или `make ci PRESET=debug`.
+6. Примеры: `cmake --build --preset examples && ./build/examples/hello_world_server`.
+7. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && python3 scripts/run_benchmarks.py --build-dir build/bench --include-e2e`.
+8. Удобно через Makefile: `make build PRESET=debug`, `make test PRESET=debug`, `make ci PRESET=debug`, `make bench`, `make fuzz`, `make profile`.
+9. CRUD бенч: по умолчанию in-memory; для высокого RPS можно задать `KATANA_CRUD_BACKEND=memcached` (опционально `MEMCACHED_HOST`/`MEMCACHED_PORT`). Docker бенч-сборка поднимает memcached автоматически.
 
 ## Router Quick Start (Stage 2)
 
@@ -247,7 +248,7 @@ if (result) {
 
 * Форматирование — `.clang-format`, статический анализ — `.clang-tidy`.
 * Локальный авто-линт: `pip install pre-commit && pre-commit install` (clang-format, cmake-format, базовые проверки YAML/конфликтов).
-* Перед PR: `cmake --build --preset debug && ctest --preset debug`; низкоуровневые изменения гонять с sanitizer-пресетами (`asan/tsan/ubsan`).
+* Перед PR: `./scripts/run_canonical_pipeline.sh --preset debug`; низкоуровневые изменения гонять тем же runner'ом с sanitizer-пресетами (`asan/tsan/ubsan`).
 * Дополнительно: гайды в `CONTRIBUTING.md` и `docs/TESTING.md`.
 * Для тестирования без реактора добавлены харнесы: `test/support/http_handler_harness.hpp` (оборачивает handler над Request/Response) и `test/support/virtual_event_loop.hpp` (фейковый event loop с виртуальным временем).
 
@@ -659,7 +660,8 @@ Thread pinning (опциональная оптимизация):
 - ✅ media type registry уже подключён в runtime/codegen; CBOR/MessagePack на Stage 3 остаются codec stubs;
 - ✅ conformance harness уже существует: [docs/CONFORMANCE.md](docs/CONFORMANCE.md), fixture в `test/conformance/fixtures/petstore_minimal.json`, pre-generated headers committed;
 - ✅ ревизия `x-katana-*` contract завершена;
-- ⏳ остаётся закрыть canonical Linux/WSL CI path и финальный Stage 3 closeout.
+- ✅ canonical Linux/WSL CI path сведён к единому preset runner'у и используется в workflow'ах;
+- ✅ Stage 3 closeout завершён.
 
 **Что не входит**
 - SQL runtime, Redis runtime, tracing exporters.
