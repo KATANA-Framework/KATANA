@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20...4.2)
 project(katana VERSION 0.1.0 LANGUAGES CXX)
 
+include(CheckIPOSupported)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -19,6 +21,23 @@ add_compile_options(
     -Wpedantic
 )
 
+set(KATANA_ENABLE_IPO OFF)
+if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    check_ipo_supported(RESULT katana_ipo_supported OUTPUT katana_ipo_error LANGUAGES CXX)
+    if(katana_ipo_supported)
+        set(KATANA_ENABLE_IPO ON)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            if(CMAKE_CXX_COMPILER_AR MATCHES "-NOTFOUND$" OR
+               CMAKE_CXX_COMPILER_RANLIB MATCHES "-NOTFOUND$")
+                set(KATANA_ENABLE_IPO OFF)
+                message(STATUS "Disabling IPO for Clang: archiver/ranlib helpers are unavailable")
+            endif()
+        endif()
+    else()
+        message(STATUS "Disabling IPO: ${katana_ipo_error}")
+    endif()
+endif()
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_compile_options(
         -O3
@@ -26,7 +45,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
         -march=native
         -mtune=native
     )
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    if(KATANA_ENABLE_IPO)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    endif()
 elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     add_compile_options(
         -O3
@@ -37,7 +58,9 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
         -march=native
         -mtune=native
     )
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    if(KATANA_ENABLE_IPO)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    endif()
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-O0 -g)
 elseif(CMAKE_BUILD_TYPE STREQUAL "ASan")

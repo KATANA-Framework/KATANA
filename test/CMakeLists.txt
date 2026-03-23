@@ -56,7 +56,9 @@ target_link_libraries(conformance_tests
 )
 
 target_include_directories(conformance_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-set_target_properties(conformance_tests PROPERTIES INTERPROCEDURAL_OPTIMIZATION FALSE)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set_target_properties(conformance_tests PROPERTIES INTERPROCEDURAL_OPTIMIZATION FALSE)
+endif()
 
 add_custom_target(run_unit_tests
     COMMAND unit_tests
