@@ -56,8 +56,7 @@ TEST(ContentNegotiation, RegistryMiddlewarePassesThroughRegisteredHeaders) {
     bool called = false;
     auto middleware = make_content_negotiation_middleware(media_type_registry::default_instance());
 
-    auto middleware_result =
-        middleware(req, ctx, out, [&](response& next_out) -> result<void> {
+    auto middleware_result = middleware(req, ctx, out, [&](response& next_out) -> result<void> {
         called = true;
         next_out = response::ok("ok", "text/plain");
         return {};

@@ -465,8 +465,9 @@ paths:
     ASSERT_TRUE(run_codegen("request_multicodec.yaml"));
 
     auto bindings = read_generated_file("generated_router_bindings.hpp");
-    EXPECT_NE(bindings.find("const auto& request_content_type = route_0_consumes[*content_type_index];"),
-              std::string::npos);
+    EXPECT_NE(
+        bindings.find("const auto& request_content_type = route_0_consumes[*content_type_index];"),
+        std::string::npos);
     EXPECT_NE(bindings.find("request_content_type.format != katana::http::media_format::json"),
               std::string::npos);
     EXPECT_NE(bindings.find("problem_details::not_implemented"), std::string::npos);
@@ -505,9 +506,11 @@ paths:
     ASSERT_TRUE(run_codegen("response_multicodec.yaml"));
 
     auto bindings = read_generated_file("generated_router_bindings.hpp");
-    EXPECT_NE(bindings.find("auto negotiated_content_type = negotiate_response_type(req, route_0_produces);"),
+    EXPECT_NE(bindings.find(
+                  "auto negotiated_content_type = negotiate_response_type(req, route_0_produces);"),
               std::string::npos);
-    EXPECT_NE(bindings.find("katana::http::infer_media_format(response_content_type) != katana::http::media_format::json"),
+    EXPECT_NE(bindings.find("katana::http::infer_media_format(response_content_type) != "
+                            "katana::http::media_format::json"),
               std::string::npos);
     EXPECT_NE(bindings.find("problem_details::not_implemented"), std::string::npos);
     EXPECT_NE(bindings.find("codec for Accept is not implemented"), std::string::npos);

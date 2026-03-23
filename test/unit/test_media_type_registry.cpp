@@ -36,8 +36,7 @@ TEST(MediaTypeRegistry, RegisterTypeRejectsDuplicatesAndCapsStorage) {
 TEST(MediaTypeRegistry, NegotiatePrefersHigherQValue) {
     const auto& registry = media_type_registry::default_instance();
 
-    const auto* negotiated =
-        registry.negotiate("application/json;q=0.4, application/cbor;q=0.9");
+    const auto* negotiated = registry.negotiate("application/json;q=0.4, application/cbor;q=0.9");
 
     ASSERT_NE(negotiated, nullptr);
     EXPECT_EQ(negotiated->mime_type, "application/cbor");

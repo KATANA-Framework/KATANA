@@ -23,7 +23,8 @@ inline bool validate_content_type(const request& req,
         return true; // No content type restrictions
     }
 
-    return katana::http_utils::find_content_type(req.headers.get(field::content_type), accepted_types)
+    return katana::http_utils::find_content_type(req.headers.get(field::content_type),
+                                                 accepted_types)
         .has_value();
 }
 
@@ -56,22 +57,22 @@ inline bool validate_accept(const request& req, const media_type_registry& regis
 
 // Middleware factory for registry-driven content negotiation
 inline middleware_fn make_content_negotiation_middleware(const media_type_registry& registry) {
-    return [&registry](
-               const request& req, request_context& ctx, response& out, next_fn next)
-               -> result<void> {
-        (void)ctx;
-        if (!validate_content_type(req, registry)) {
-            respond::into(out).problem(problem_details::unsupported_media_type());
-            return {};
-        }
+    return
+        [&registry](
+            const request& req, request_context& ctx, response& out, next_fn next) -> result<void> {
+            (void)ctx;
+            if (!validate_content_type(req, registry)) {
+                respond::into(out).problem(problem_details::unsupported_media_type());
+                return {};
+            }
 
-        if (!validate_accept(req, registry)) {
-            respond::into(out).problem(problem_details::not_acceptable());
-            return {};
-        }
+            if (!validate_accept(req, registry)) {
+                respond::into(out).problem(problem_details::not_acceptable());
+                return {};
+            }
 
-        return next(out);
-    };
+            return next(out);
+        };
 }
 
 // Middleware factory for content negotiation

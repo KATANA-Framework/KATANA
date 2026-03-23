@@ -141,8 +141,8 @@ namespace detail {
         if (ch < '0' || ch > '9') {
             return 0;
         }
-        millis = static_cast<std::uint16_t>(millis + static_cast<std::uint16_t>(ch - '0') *
-                                                         multiplier);
+        millis =
+            static_cast<std::uint16_t>(millis + static_cast<std::uint16_t>(ch - '0') * multiplier);
         multiplier = static_cast<std::uint16_t>(multiplier / 10);
     }
     return millis;
@@ -169,10 +169,9 @@ struct accept_score {
     std::string_view remaining = accept_header;
     while (!remaining.empty()) {
         const auto comma = remaining.find(',');
-        auto item =
-            comma == std::string_view::npos ? remaining : remaining.substr(0, comma);
-        remaining = comma == std::string_view::npos ? std::string_view{}
-                                                    : remaining.substr(comma + 1);
+        auto item = comma == std::string_view::npos ? remaining : remaining.substr(0, comma);
+        remaining =
+            comma == std::string_view::npos ? std::string_view{} : remaining.substr(comma + 1);
         item = trim_ascii_ws(item);
         if (item.empty()) {
             continue;
@@ -189,8 +188,9 @@ struct accept_score {
                 auto param = next_semicolon == std::string_view::npos
                                  ? params
                                  : params.substr(0, next_semicolon);
-                params = next_semicolon == std::string_view::npos ? std::string_view{}
-                                                                  : params.substr(next_semicolon + 1);
+                params = next_semicolon == std::string_view::npos
+                             ? std::string_view{}
+                             : params.substr(next_semicolon + 1);
 
                 param = trim_ascii_ws(param);
                 const auto equals = param.find('=');
@@ -220,10 +220,9 @@ struct accept_score {
 }
 
 template <typename Candidate, typename GetMime>
-[[nodiscard]] inline const Candidate*
-negotiate_accept(std::string_view accept_header,
-                 std::span<const Candidate> candidates,
-                 GetMime get_mime) noexcept {
+[[nodiscard]] inline const Candidate* negotiate_accept(std::string_view accept_header,
+                                                       std::span<const Candidate> candidates,
+                                                       GetMime get_mime) noexcept {
     if (candidates.empty()) {
         return nullptr;
     }
@@ -236,8 +235,7 @@ negotiate_accept(std::string_view accept_header,
             continue;
         }
         if (!best_candidate || score.q_millis > best_score.q_millis ||
-            (score.q_millis == best_score.q_millis &&
-             score.specificity > best_score.specificity)) {
+            (score.q_millis == best_score.q_millis && score.specificity > best_score.specificity)) {
             best_candidate = &candidate;
             best_score = score;
         }
@@ -291,7 +289,8 @@ public:
         return true;
     }
 
-    [[nodiscard]] constexpr const media_type_entry* find(std::string_view mime_type) const noexcept {
+    [[nodiscard]] constexpr const media_type_entry*
+    find(std::string_view mime_type) const noexcept {
         mime_type = detail::media_type_token(mime_type);
         if (mime_type.empty()) {
             return nullptr;
@@ -307,9 +306,7 @@ public:
     [[nodiscard]] inline const media_type_entry*
     negotiate(std::string_view accept_header) const noexcept {
         return detail::negotiate_accept(
-            accept_header,
-            all(),
-            [](const media_type_entry& entry) { return entry.mime_type; });
+            accept_header, all(), [](const media_type_entry& entry) { return entry.mime_type; });
     }
 
     [[nodiscard]] constexpr std::span<const media_type_entry> all() const noexcept {

@@ -3,9 +3,9 @@ repos:
     rev: v4.6.0
     hooks:
       - id: trailing-whitespace
-        exclude: '^(profiling_results/|\.docker_build/)'
+        exclude: '^(profiling_results/|benchmark_results/|\.docker_build/|examples/codegen/.*/generated/|test/conformance/generated/)'
       - id: end-of-file-fixer
-        exclude: '^(profiling_results/|\.docker_build/)'
+        exclude: '^(profiling_results/|benchmark_results/|\.docker_build/|examples/codegen/.*/generated/|test/conformance/generated/)'
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: check-yaml
@@ -15,4 +15,4 @@ repos:
     hooks:
       - id: clang-format
         files: "\\.(c|cc|cxx|cpp|h|hh|hpp)$"
-        exclude: '^(profiling_results/|\.docker_build/)'
+        exclude: '^(profiling_results/|\.docker_build/|examples/codegen/.*/generated/|test/conformance/generated/|test/gtest/)'

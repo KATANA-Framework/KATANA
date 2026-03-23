@@ -50,8 +50,8 @@ public:
             last_session.reset();
         }
 
-        std::string body = "{\"trace\":\"" + last_trace + "\",\"limitApplied\":" +
-                           std::to_string(limit.value_or(25));
+        std::string body = "{\"trace\":\"" + last_trace +
+                           "\",\"limitApplied\":" + std::to_string(limit.value_or(25));
         if (last_session) {
             body += ",\"session\":\"" + *last_session + "\"";
         }
@@ -77,8 +77,8 @@ public:
         ++get_calls;
         last_pet_id = petId;
 
-        out.with_status(200).with_body("{\"id\":" + std::to_string(petId) +
-                                       ",\"name\":\"pet-" + std::to_string(petId) +
+        out.with_status(200).with_body("{\"id\":" + std::to_string(petId) + ",\"name\":\"pet-" +
+                                       std::to_string(petId) +
                                        "\",\"age\":4,\"ownerEmail\":\"pet@example.com\"}");
         return {};
     }
@@ -149,11 +149,10 @@ protected:
 };
 
 TEST_F(ConformanceTest, ListPetsBindsQueryHeaderAndCookie) {
-    auto resp = run_request("GET",
-                            "/pets?limit=7",
-                            {{"Accept", "application/json"},
-                             {"X-Trace", "trace-123"},
-                             {"Cookie", "session=sess-42"}});
+    auto resp = run_request(
+        "GET",
+        "/pets?limit=7",
+        {{"Accept", "application/json"}, {"X-Trace", "trace-123"}, {"Cookie", "session=sess-42"}});
 
     EXPECT_EQ(resp.status, 200);
     EXPECT_EQ(handler.list_calls, 1);
@@ -204,11 +203,10 @@ TEST_F(ConformanceTest, ListPetsRejectsNonJsonAcceptCodecBeforeHandler) {
 }
 
 TEST_F(ConformanceTest, CreatePetAcceptsValidJson) {
-    auto resp = run_request(
-        "POST",
-        "/pets",
-        {{"Accept", "application/json"}, {"Content-Type", "application/json"}},
-        R"({"name":"Milo","age":5,"ownerEmail":"owner@example.com"})");
+    auto resp = run_request("POST",
+                            "/pets",
+                            {{"Accept", "application/json"}, {"Content-Type", "application/json"}},
+                            R"({"name":"Milo","age":5,"ownerEmail":"owner@example.com"})");
 
     EXPECT_EQ(resp.status, 201);
     EXPECT_EQ(handler.create_calls, 1);
@@ -232,11 +230,10 @@ TEST_F(ConformanceTest, CreatePetRejectsMalformedJsonBeforeHandler) {
 }
 
 TEST_F(ConformanceTest, CreatePetRejectsValidationErrorBeforeHandler) {
-    auto resp = run_request(
-        "POST",
-        "/pets",
-        {{"Accept", "application/json"}, {"Content-Type", "application/json"}},
-        R"({"name":"Mo","age":5,"ownerEmail":"bad-email"})");
+    auto resp = run_request("POST",
+                            "/pets",
+                            {{"Accept", "application/json"}, {"Content-Type", "application/json"}},
+                            R"({"name":"Mo","age":5,"ownerEmail":"bad-email"})");
 
     EXPECT_EQ(resp.status, 400);
     EXPECT_EQ(handler.create_calls, 0);
