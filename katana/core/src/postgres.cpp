@@ -996,10 +996,13 @@ struct postgres_executor::impl {
                                                       next_request.sql,
                                                       state.last_error);
             if (!prepared_name) {
+                const auto prepared_error = prepared_name.error();
                 if (next_request.operation == async_request::kind::query) {
-                    next_request.query_handler(std::unexpected(prepared_name.error()));
+                    auto error_result = katana::result<rows>(std::unexpect, prepared_error);
+                    next_request.query_handler(error_result);
                 } else {
-                    next_request.exec_handler(std::unexpected(prepared_name.error()));
+                    auto error_result = katana::result<exec_result>(std::unexpect, prepared_error);
+                    next_request.exec_handler(error_result);
                 }
                 continue;
             }
