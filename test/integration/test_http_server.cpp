@@ -211,35 +211,33 @@ pid_t spawn_deferred_server(uint16_t port) {
          })},
         {http::method::get,
          http::path_pattern::from_literal<"/deferred">(),
-         http::handler_fn([](const http::request&,
-                             http::request_context& ctx,
-                             http::response&) -> result<void> {
-             auto deferred = ctx.share_deferred_response();
-             if (!deferred) {
-                 return std::unexpected(make_error_code(error_code::reactor_stopped));
-             }
+         http::handler_fn(
+             [](const http::request&, http::request_context& ctx, http::response&) -> result<void> {
+                 auto deferred = ctx.share_deferred_response();
+                 if (!deferred) {
+                     return std::unexpected(make_error_code(error_code::reactor_stopped));
+                 }
 
-             if (!ctx.schedule([deferred]() {
-                     http::response out;
-                     out.assign_text("later");
-                     (void)deferred.complete(std::move(out));
-                 })) {
-                 return std::unexpected(make_error_code(error_code::reactor_stopped));
-             }
+                 if (!ctx.schedule([deferred]() {
+                         http::response out;
+                         out.assign_text("later");
+                         (void)deferred.complete(std::move(out));
+                     })) {
+                     return std::unexpected(make_error_code(error_code::reactor_stopped));
+                 }
 
-             return result<void>{};
-         })},
+                 return result<void>{};
+             })},
         {http::method::get,
          http::path_pattern::from_literal<"/abandon">(),
-         http::handler_fn([](const http::request&,
-                             http::request_context& ctx,
-                             http::response&) -> result<void> {
-             auto deferred = ctx.share_deferred_response();
-             if (!deferred) {
-                 return std::unexpected(make_error_code(error_code::reactor_stopped));
-             }
-             return result<void>{};
-         })},
+         http::handler_fn(
+             [](const http::request&, http::request_context& ctx, http::response&) -> result<void> {
+                 auto deferred = ctx.share_deferred_response();
+                 if (!deferred) {
+                     return std::unexpected(make_error_code(error_code::reactor_stopped));
+                 }
+                 return result<void>{};
+             })},
     };
 
     const http::router r(routes);

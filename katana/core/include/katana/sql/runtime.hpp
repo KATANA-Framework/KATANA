@@ -371,10 +371,8 @@ template <typename T> inline katana::result<std::string> format_pg_array_element
     } else if constexpr (std::is_floating_point_v<T>) {
         std::array<char, 128> buffer{};
 #if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
-        const auto [ptr, ec] = std::to_chars(buffer.data(),
-                                             buffer.data() + buffer.size(),
-                                             value,
-                                             std::chars_format::general);
+        const auto [ptr, ec] = std::to_chars(
+            buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::general);
         if (ec == std::errc{}) {
             return std::string(buffer.data(), static_cast<std::size_t>(ptr - buffer.data()));
         }
@@ -527,14 +525,15 @@ template <typename T> inline katana::result<T> parse_value(std::string_view raw)
     } else if constexpr (is_std_vector_v<T>) {
         T out;
         using element_type = typename T::value_type;
-        auto status = for_each_pg_array_token(raw, [&](std::string_view token) -> katana::result<void> {
-            auto parsed = parse_value<element_type>(token);
-            if (!parsed) {
-                return std::unexpected(parsed.error());
-            }
-            out.push_back(std::move(*parsed));
-            return {};
-        });
+        auto status =
+            for_each_pg_array_token(raw, [&](std::string_view token) -> katana::result<void> {
+                auto parsed = parse_value<element_type>(token);
+                if (!parsed) {
+                    return std::unexpected(parsed.error());
+                }
+                out.push_back(std::move(*parsed));
+                return {};
+            });
         if (!status) {
             return std::unexpected(status.error());
         }

@@ -1,7 +1,7 @@
 #include "katana/core/shutdown.hpp"
 
-#include <csignal>
 #include <cerrno>
+#include <csignal>
 #include <cstdint>
 #include <fcntl.h>
 #include <unistd.h>

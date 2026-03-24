@@ -143,9 +143,7 @@ public:
     explicit shared_deferred_response_handle(deferred_response_handle handle)
         : handle_(std::make_shared<deferred_response_handle>(std::move(handle))) {}
 
-    [[nodiscard]] bool valid() const noexcept {
-        return handle_ != nullptr && handle_->valid();
-    }
+    [[nodiscard]] bool valid() const noexcept { return handle_ != nullptr && handle_->valid(); }
 
     explicit operator bool() const noexcept { return valid(); }
 
@@ -209,9 +207,8 @@ public:
         return complete(std::move(resp));
     }
 
-    bool json(std::string body,
-              int32_t status_code = 200,
-              std::string_view reason_phrase = "OK") const {
+    bool
+    json(std::string body, int32_t status_code = 200, std::string_view reason_phrase = "OK") const {
         response resp;
         resp.assign_json(std::move(body), status_code, reason_phrase);
         return complete(std::move(resp));

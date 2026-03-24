@@ -133,7 +133,8 @@ TEST(GeneratedSqlRepositoryIntegration, SupportsAsyncGeneratedQueries) {
                               "active BOOLEAN NOT NULL, "
                               "last_seen_at TIMESTAMPTZ)",
                               {}));
-    ASSERT_TRUE(executor.exec("repo_async_truncate_temp_users", "TRUNCATE katana_stage4_users", {}));
+    ASSERT_TRUE(
+        executor.exec("repo_async_truncate_temp_users", "TRUNCATE katana_stage4_users", {}));
     ASSERT_TRUE(executor.exec("repo_async_insert_user_1",
                               "INSERT INTO katana_stage4_users (id, name, active) "
                               "VALUES (1, 'Ada', true)",
@@ -143,24 +144,23 @@ TEST(GeneratedSqlRepositoryIntegration, SupportsAsyncGeneratedQueries) {
     katana::sql::generated::generated_repository repo(pool_executor);
 
     std::promise<katana::result<std::optional<katana::sql::generated::GetUserRow>>> get_promise;
-    ASSERT_TRUE(repo.get_user_async(1, [&get_promise](auto result) {
-        get_promise.set_value(std::move(result));
-    }));
+    ASSERT_TRUE(repo.get_user_async(
+        1, [&get_promise](auto result) { get_promise.set_value(std::move(result)); }));
     auto async_user = get_promise.get_future().get();
     ASSERT_TRUE(async_user);
     ASSERT_TRUE(async_user->has_value());
     EXPECT_EQ(async_user->value().name, std::optional<std::string>("Ada"));
 
     std::promise<katana::result<katana::sql::exec_result>> exec_promise;
-    ASSERT_TRUE(repo.touch_user_async(1, [&exec_promise](auto result) {
-        exec_promise.set_value(std::move(result));
-    }));
+    ASSERT_TRUE(repo.touch_user_async(
+        1, [&exec_promise](auto result) { exec_promise.set_value(std::move(result)); }));
     auto async_exec = exec_promise.get_future().get();
     ASSERT_TRUE(async_exec);
     EXPECT_EQ(async_exec->affected_rows, 1u);
 }
 
-TEST(GeneratedSqlRepositoryIntegration, AsyncGeneratedQueriesUseReactorThreadWhenHandlerContextAvailable) {
+TEST(GeneratedSqlRepositoryIntegration,
+     AsyncGeneratedQueriesUseReactorThreadWhenHandlerContextAvailable) {
     const char* dsn = postgres_dsn();
     if (dsn == nullptr || *dsn == '\0') {
         std::cout << "[sql] KATANA_TEST_POSTGRES_DSN is not set; skipping reactor-thread async "
@@ -207,8 +207,8 @@ TEST(GeneratedSqlRepositoryIntegration, AsyncGeneratedQueriesUseReactorThreadWhe
         ctx.reactor_user = &r;
         katana::http::handler_context::scope scope(req, ctx);
 
-        const bool started = repo.get_user_async(
-            1, [&result_promise, &callback_thread_promise, &r](auto result) {
+        const bool started =
+            repo.get_user_async(1, [&result_promise, &callback_thread_promise, &r](auto result) {
                 callback_thread_promise.set_value(std::this_thread::get_id());
                 result_promise.set_value(std::move(result));
                 r.stop();

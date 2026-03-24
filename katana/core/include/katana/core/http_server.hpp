@@ -200,7 +200,8 @@ private:
     flush_result flush_active_response(connection_state& state);
     void prepare_active_response(connection_state& state, response& resp);
     static deferred_response_handle make_deferred_response_handle(void* user);
-    static bool complete_deferred_response_opaque(std::shared_ptr<void> opaque_state, response resp);
+    static bool complete_deferred_response_opaque(std::shared_ptr<void> opaque_state,
+                                                  response resp);
     static void cancel_deferred_response_opaque(std::shared_ptr<void> opaque_state);
     void complete_deferred_response(connection_state& state, response resp, reactor& r);
     void handle_connection(connection_state& state, reactor& r);

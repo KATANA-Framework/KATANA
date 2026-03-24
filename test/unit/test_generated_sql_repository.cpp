@@ -194,8 +194,9 @@ TEST(GeneratedSqlRepositoryTest, RejectsMultipleRowsForOneQuery) {
 
 TEST(GeneratedSqlRepositoryTest, SupportsUpsertQueriesReturningRows) {
     FakeExecutor executor;
-    executor.query_rows = {
-        {{"id", std::string("7")}, {"name", std::string("Grace")}, {"active", std::string("true")}}};
+    executor.query_rows = {{{"id", std::string("7")},
+                            {"name", std::string("Grace")},
+                            {"active", std::string("true")}}};
 
     katana::sql::generated::generated_repository repo(executor);
     auto result = repo.upsert_user(7, "Grace", true);
@@ -214,14 +215,15 @@ TEST(GeneratedSqlRepositoryTest, SupportsBulkArrayParameters) {
     FakeExecutor executor;
     executor.query_rows = {
         {{"id", std::string("1")}, {"name", std::string("Ada")}, {"active", std::string("true")}},
-        {{"id", std::string("2")}, {"name", std::string("Linus")}, {"active", std::string("false")}},
+        {{"id", std::string("2")},
+         {"name", std::string("Linus")},
+         {"active", std::string("false")}},
     };
 
     katana::sql::generated::generated_repository repo(executor);
-    auto result = repo.bulk_upsert_users(
-        std::vector<int64_t>{1, 2},
-        std::vector<std::string>{"Ada", "Linus"},
-        std::vector<bool>{true, false});
+    auto result = repo.bulk_upsert_users(std::vector<int64_t>{1, 2},
+                                         std::vector<std::string>{"Ada", "Linus"},
+                                         std::vector<bool>{true, false});
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->size(), 2u);

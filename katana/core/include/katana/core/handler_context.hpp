@@ -70,8 +70,8 @@ public:
         return ctx().share_deferred_response();
     }
 
-    static async_response_writer async_response(
-        std::optional<std::string_view> default_content_type = std::nullopt) {
+    static async_response_writer
+    async_response(std::optional<std::string_view> default_content_type = std::nullopt) {
         return async_response_writer(ctx().share_deferred_response(), default_content_type);
     }
 
@@ -96,8 +96,8 @@ inline monotonic_arena& arena() {
 inline shared_deferred_response_handle defer_response_shared() {
     return handler_context::defer_response_shared();
 }
-inline async_response_writer async_response(
-    std::optional<std::string_view> default_content_type = std::nullopt) {
+inline async_response_writer
+async_response(std::optional<std::string_view> default_content_type = std::nullopt) {
     return handler_context::async_response(default_content_type);
 }
 

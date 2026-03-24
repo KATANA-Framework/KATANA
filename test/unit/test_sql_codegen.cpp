@@ -96,8 +96,9 @@ UPDATE users SET touched_at = NOW() WHERE id = $1::bigint;
     EXPECT_NE(repo.find("bool get_user_async(int64_t p1, get_user_async_handler handler) const"),
               std::string::npos);
     EXPECT_NE(repo.find("touch_user(int64_t p1) const"), std::string::npos);
-    EXPECT_NE(repo.find("bool touch_user_async(int64_t p1, touch_user_async_handler handler) const"),
-              std::string::npos);
+    EXPECT_NE(
+        repo.find("bool touch_user_async(int64_t p1, touch_user_async_handler handler) const"),
+        std::string::npos);
 }
 
 TEST_F(SqlCodegenTest, SqlAstDumpIsStable) {
@@ -170,7 +171,8 @@ RETURNING
     ASSERT_FALSE(ast_json.empty());
     EXPECT_NE(repo.find("upsert_user(int64_t p1, std::string_view p2, bool p3) const"),
               std::string::npos);
-    EXPECT_NE(repo.find("bulk_upsert_users(const std::vector<int64_t>& p1, const std::vector<std::string>& p2, const std::vector<bool>& p3) const"),
+    EXPECT_NE(repo.find("bulk_upsert_users(const std::vector<int64_t>& p1, const "
+                        "std::vector<std::string>& p2, const std::vector<bool>& p3) const"),
               std::string::npos);
     EXPECT_NE(models.find("struct UpsertUserRow"), std::string::npos);
     EXPECT_NE(models.find("struct BulkUpsertUsersRow"), std::string::npos);

@@ -242,10 +242,9 @@ deferred_response_handle server::make_deferred_response_handle(void* user) {
     deferred_state->owner = state->owner_server;
     deferred_state->owner_reactor = state->owner_reactor;
     deferred_state->connection = state->shared_from_this();
-    return deferred_response_handle(
-        std::move(deferred_state),
-        &server::complete_deferred_response_opaque,
-        &server::cancel_deferred_response_opaque);
+    return deferred_response_handle(std::move(deferred_state),
+                                    &server::complete_deferred_response_opaque,
+                                    &server::cancel_deferred_response_opaque);
 }
 
 bool server::complete_deferred_response_opaque(std::shared_ptr<void> opaque_state, response resp) {

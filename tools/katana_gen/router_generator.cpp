@@ -888,8 +888,8 @@ std::string generate_router_bindings(const document& doc) {
                 << "    katana::http::handler_context::scope context_scope(req, ctx);\n";
 
             dispatch_functions << "    if (ctx.can_defer_response()) {\n";
-            dispatch_functions
-                << "        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {\n";
+            dispatch_functions << "        if (auto* async_handler = "
+                                  "dynamic_cast<async_api_handler*>(&handler)) {\n";
             if (has_response_content) {
                 if (is_single_json_response) {
                     dispatch_functions << "            auto async_out = "
@@ -906,8 +906,7 @@ std::string generate_router_bindings(const document& doc) {
                        "katana::http::async_response_writer(ctx.share_deferred_response());\n";
             }
             dispatch_functions << "            if (async_out) {\n";
-            dispatch_functions << "                if (async_handler->" << method_name
-                               << "_async(";
+            dispatch_functions << "                if (async_handler->" << method_name << "_async(";
 
             bool first_async_arg = true;
             if (!is_static_route) {
@@ -1637,8 +1636,8 @@ std::string generate_handler_interfaces(const document& doc) {
                 out << "        (void)body;\n";
             }
             out << "        out = katana::http::response::error(\n";
-            out << "            katana::problem_details::not_implemented(\""
-                << method_name << " requires an async override or sync implementation\"));\n";
+            out << "            katana::problem_details::not_implemented(\"" << method_name
+                << " requires an async override or sync implementation\"));\n";
             out << "        return {};\n";
             out << "    }\n\n";
         }
