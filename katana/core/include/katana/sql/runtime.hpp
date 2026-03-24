@@ -13,9 +13,9 @@
 #include <initializer_list>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <stdexcept>
 #include <system_error>
 #include <type_traits>
 #include <vector>
@@ -32,7 +32,8 @@ class cell_view {
 public:
     cell_view() noexcept = default;
     cell_view(const char* data, std::size_t size) noexcept : data_(data), size_(size) {}
-    explicit cell_view(std::string_view value) noexcept : data_(value.data()), size_(value.size()) {}
+    explicit cell_view(std::string_view value) noexcept
+        : data_(value.data()), size_(value.size()) {}
 
     static cell_view null() noexcept {
         cell_view out;
@@ -106,15 +107,15 @@ public:
     [[nodiscard]] const std::string_view& operator*() const noexcept { return view_; }
     [[nodiscard]] const char* data() const noexcept { return is_null_ ? nullptr : view_.data(); }
 
-    template <typename Integer>
-    static parameter from_integer(Integer value) {
+    template <typename Integer> static parameter from_integer(Integer value) {
         parameter out;
         const auto [ptr, ec] =
             std::to_chars(out.storage_.data(), out.storage_.data() + out.storage_.size(), value);
         if (ec != std::errc{}) {
             return null();
         }
-        out.view_ = std::string_view(out.storage_.data(), static_cast<std::size_t>(ptr - out.storage_.data()));
+        out.view_ = std::string_view(out.storage_.data(),
+                                     static_cast<std::size_t>(ptr - out.storage_.data()));
         return out;
     }
 
@@ -137,20 +138,21 @@ public:
         return out;
     }
 
-    template <typename Float>
-    static parameter from_float(Float value) {
+    template <typename Float> static parameter from_float(Float value) {
         parameter out;
 #if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
-        const auto [ptr, ec] = std::to_chars(
-            out.storage_.data(), out.storage_.data() + out.storage_.size(), value, std::chars_format::general);
+        const auto [ptr, ec] = std::to_chars(out.storage_.data(),
+                                             out.storage_.data() + out.storage_.size(),
+                                             value,
+                                             std::chars_format::general);
         if (ec == std::errc{}) {
-            out.view_ =
-                std::string_view(out.storage_.data(), static_cast<std::size_t>(ptr - out.storage_.data()));
+            out.view_ = std::string_view(out.storage_.data(),
+                                         static_cast<std::size_t>(ptr - out.storage_.data()));
             return out;
         }
 #endif
-        const int written =
-            std::snprintf(out.storage_.data(), out.storage_.size(), "%.17g", static_cast<double>(value));
+        const int written = std::snprintf(
+            out.storage_.data(), out.storage_.size(), "%.17g", static_cast<double>(value));
         if (written <= 0 || static_cast<std::size_t>(written) >= out.storage_.size()) {
             return null();
         }
@@ -285,13 +287,11 @@ class executor {
 public:
     virtual ~executor() = default;
 
-    virtual katana::result<rows> query(std::string_view statement_name,
-                                       std::string_view sql,
-                                       const parameters& params) = 0;
+    virtual katana::result<rows>
+    query(std::string_view statement_name, std::string_view sql, const parameters& params) = 0;
 
-    virtual katana::result<exec_result> exec(std::string_view statement_name,
-                                             std::string_view sql,
-                                             const parameters& params) = 0;
+    virtual katana::result<exec_result>
+    exec(std::string_view statement_name, std::string_view sql, const parameters& params) = 0;
 
     virtual katana::result<void> query_each(std::string_view statement_name,
                                             std::string_view sql,
@@ -370,7 +370,8 @@ template <typename T> inline katana::result<T> parse_value(std::string_view raw)
         char* parse_end = nullptr;
         errno = 0;
         const double parsed = std::strtod(buffer_begin, &parse_end);
-        if (parse_end == nullptr || *parse_end != '\0' || errno == ERANGE || !std::isfinite(parsed)) {
+        if (parse_end == nullptr || *parse_end != '\0' || errno == ERANGE ||
+            !std::isfinite(parsed)) {
             return std::unexpected(std::make_error_code(std::errc::invalid_argument));
         }
         return static_cast<T>(parsed);

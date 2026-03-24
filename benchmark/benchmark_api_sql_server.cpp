@@ -80,7 +80,8 @@ int main() {
     const uint16_t port = read_port();
     const std::size_t default_workers =
         std::min<std::size_t>(std::max<std::size_t>(1, std::thread::hardware_concurrency()), 64);
-    const std::size_t executor_count = read_size_env("KATANA_BENCHMARK_API_EXECUTORS", default_workers);
+    const std::size_t executor_count =
+        read_size_env("KATANA_BENCHMARK_API_EXECUTORS", default_workers);
     const uint16_t workers = static_cast<uint16_t>(
         std::min<std::size_t>(read_size_env("KATANA_BENCHMARK_API_WORKERS", executor_count), 64));
 

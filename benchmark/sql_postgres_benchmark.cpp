@@ -4,9 +4,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -41,9 +41,10 @@ template <typename Fn> bench_stats run_bench(int iterations, Fn&& fn) {
         const auto end = std::chrono::steady_clock::now();
         bench_util::do_not_optimize(value);
 
-        const double sample_us = static_cast<double>(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()) /
-                                 1000.0;
+        const double sample_us =
+            static_cast<double>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()) /
+            1000.0;
         samples_us.push_back(sample_us);
         total_us += sample_us;
     }
@@ -84,17 +85,17 @@ katana::result<void> seed_fixture(katana::sql::postgres_executor& executor) {
         return std::unexpected(result.error());
     }
 
-    if (auto result = executor.exec("bench_truncate_temp_users", "TRUNCATE katana_stage4_users", {});
+    if (auto result =
+            executor.exec("bench_truncate_temp_users", "TRUNCATE katana_stage4_users", {});
         !result) {
         return std::unexpected(result.error());
     }
 
-    if (auto result = executor.exec(
-            "bench_seed_users",
-            "INSERT INTO katana_stage4_users (id, name, active) "
-            "SELECT g, 'user_' || g::text, (g % 2 = 0) "
-            "FROM generate_series(1, 256) AS g",
-            {});
+    if (auto result = executor.exec("bench_seed_users",
+                                    "INSERT INTO katana_stage4_users (id, name, active) "
+                                    "SELECT g, 'user_' || g::text, (g % 2 = 0) "
+                                    "FROM generate_series(1, 256) AS g",
+                                    {});
         !result) {
         return std::unexpected(result.error());
     }

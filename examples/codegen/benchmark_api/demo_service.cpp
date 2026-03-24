@@ -27,8 +27,7 @@ void debug_backend_error(std::string_view operation, const std::error_code& erro
     }
 }
 
-template <typename Row>
-katana::result<item_record> row_to_item(const Row& row) {
+template <typename Row> katana::result<item_record> row_to_item(const Row& row) {
     if (!row.id || !row.name || !row.price || !row.category_name) {
         return std::unexpected(std::make_error_code(std::errc::invalid_argument));
     }
@@ -52,8 +51,7 @@ void fill_item_dto(Item& out, const item_record& item, monotonic_arena& arena) {
     out.id = item.id;
     out.name = arena_string<>(item.name, arena_allocator<char>(&arena));
     if (item.description) {
-        out.description = arena_string<>(
-            *item.description, arena_allocator<char>(&arena));
+        out.description = arena_string<>(*item.description, arena_allocator<char>(&arena));
     }
     out.price = item.price;
     if (item.stock) {
@@ -136,23 +134,22 @@ public:
         return row_to_item(row->value());
     }
 
-    katana::result<std::optional<item_record>> update_item(
-        int64_t id, const update_item_command& command) override {
-        auto category =
-            command.category ? std::optional<std::string>(std::string(to_string(*command.category)))
-                             : std::optional<std::string>{};
-        auto row = repo_.update_item(
-            id,
-            command.name.has_value(),
-            command.name.value_or(std::string{}),
-            command.description.has_value(),
-            command.description.value_or(std::string{}),
-            command.price.has_value(),
-            command.price.value_or(0.0),
-            command.stock.has_value(),
-            command.stock.value_or(0),
-            category.has_value(),
-            category.value_or(std::string{}));
+    katana::result<std::optional<item_record>>
+    update_item(int64_t id, const update_item_command& command) override {
+        auto category = command.category
+                            ? std::optional<std::string>(std::string(to_string(*command.category)))
+                            : std::optional<std::string>{};
+        auto row = repo_.update_item(id,
+                                     command.name.has_value(),
+                                     command.name.value_or(std::string{}),
+                                     command.description.has_value(),
+                                     command.description.value_or(std::string{}),
+                                     command.price.has_value(),
+                                     command.price.value_or(0.0),
+                                     command.stock.has_value(),
+                                     command.stock.value_or(0),
+                                     category.has_value(),
+                                     category.value_or(std::string{}));
         if (!row) {
             debug_backend_error("update_item.sql", row.error());
             return std::unexpected(row.error());
@@ -228,9 +225,8 @@ public:
             std::vector<double> sorted(values.begin(), values.end());
             std::sort(sorted.begin(), sorted.end());
             const std::size_t size = sorted.size();
-            resp.median = (size % 2U == 0U)
-                              ? (sorted[size / 2U - 1U] + sorted[size / 2U]) * 0.5
-                              : sorted[size / 2U];
+            resp.median = (size % 2U == 0U) ? (sorted[size / 2U - 1U] + sorted[size / 2U]) * 0.5
+                                            : sorted[size / 2U];
         }
 
         out.assign_json(serialize_StatsResponse(resp));
@@ -242,8 +238,8 @@ public:
         UserResponse resp(&arena);
         resp.id =
             arena_string<>("550e8400-e29b-41d4-a716-446655440000", arena_allocator<char>(&arena));
-        resp.username = arena_string<>(
-            req.username.data(), req.username.size(), arena_allocator<char>(&arena));
+        resp.username =
+            arena_string<>(req.username.data(), req.username.size(), arena_allocator<char>(&arena));
         resp.email =
             arena_string<>(req.email.data(), req.email.size(), arena_allocator<char>(&arena));
         resp.role = req.role.value_or(UserRole_enum::user);
@@ -295,8 +291,8 @@ public:
         create_item_command command{
             .name = std::string(body.name.data(), body.name.size()),
             .description = body.description
-                               ? std::optional<std::string>(
-                                     std::string(body.description->data(), body.description->size()))
+                               ? std::optional<std::string>(std::string(body.description->data(),
+                                                                        body.description->size()))
                                : std::optional<std::string>{},
             .price = body.price,
             .stock = body.stock,
@@ -336,12 +332,13 @@ public:
 
     result<void> update_item(int64_t id, const UpdateItemRequest& body, response& out) override {
         update_item_command command{
-            .name = body.name ? std::optional<std::string>(std::string(body.name->data(), body.name->size()))
+            .name = body.name ? std::optional<std::string>(
+                                    std::string(body.name->data(), body.name->size()))
                               : std::optional<std::string>{},
-            .description =
-                body.description ? std::optional<std::string>(
-                                       std::string(body.description->data(), body.description->size()))
-                                 : std::optional<std::string>{},
+            .description = body.description
+                               ? std::optional<std::string>(std::string(body.description->data(),
+                                                                        body.description->size()))
+                               : std::optional<std::string>{},
             .price = body.price,
             .stock = body.stock,
             .category = body.category,
@@ -407,8 +404,7 @@ public:
         const auto now = std::chrono::steady_clock::now();
         const auto uptime_ms =
             std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time_).count();
-        out.assign_json(
-            R"({"status":"ok","uptime_ms":)" + std::to_string(uptime_ms) + "}");
+        out.assign_json(R"({"status":"ok","uptime_ms":)" + std::to_string(uptime_ms) + "}");
         return {};
     }
 
@@ -417,24 +413,22 @@ private:
     std::chrono::steady_clock::time_point start_time_;
 };
 
-constexpr std::string_view create_table_sql =
-    "CREATE TABLE IF NOT EXISTS katana_stage4_items ("
-    "id BIGSERIAL PRIMARY KEY, "
-    "name TEXT NOT NULL, "
-    "description TEXT, "
-    "price DOUBLE PRECISION NOT NULL, "
-    "stock BIGINT, "
-    "category TEXT NOT NULL, "
-    "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
-    "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
-    ")";
+constexpr std::string_view create_table_sql = "CREATE TABLE IF NOT EXISTS katana_stage4_items ("
+                                              "id BIGSERIAL PRIMARY KEY, "
+                                              "name TEXT NOT NULL, "
+                                              "description TEXT, "
+                                              "price DOUBLE PRECISION NOT NULL, "
+                                              "stock BIGINT, "
+                                              "category TEXT NOT NULL, "
+                                              "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+                                              "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+                                              ")";
 
 constexpr std::string_view category_index_sql =
     "CREATE INDEX IF NOT EXISTS katana_stage4_items_category_id_idx "
     "ON katana_stage4_items (category, id)";
 
-constexpr std::string_view reset_items_sql =
-    "TRUNCATE katana_stage4_items RESTART IDENTITY";
+constexpr std::string_view reset_items_sql = "TRUNCATE katana_stage4_items RESTART IDENTITY";
 
 constexpr std::string_view seed_items_sql =
     "INSERT INTO katana_stage4_items (name, description, price, stock, category) "
@@ -460,12 +454,11 @@ std::unique_ptr<generated::api_handler> make_handler(item_backend& items) {
 }
 
 service::service(service_config config)
-    : config_(std::move(config)),
-      pool_({
-          .postgres = {.connection_string = config_.connection_string},
-          .executor_count = config_.executor_count,
-          .eager_connect = config_.eager_connect,
-      }),
+    : config_(std::move(config)), pool_({
+                                      .postgres = {.connection_string = config_.connection_string},
+                                      .executor_count = config_.executor_count,
+                                      .eager_connect = config_.eager_connect,
+                                  }),
       pool_executor_(pool_) {
     items_ = std::make_unique<sql_item_backend>(pool_executor_);
     handler_ = make_handler(*items_);
@@ -533,9 +526,8 @@ katana::result<void> service::ensure_schema() {
     if (!created_table) {
         return std::unexpected(created_table.error());
     }
-    auto created_index = executor.exec("benchmark_api_create_items_category_idx",
-                                       category_index_sql,
-                                       {});
+    auto created_index =
+        executor.exec("benchmark_api_create_items_category_idx", category_index_sql, {});
     if (!created_index) {
         return std::unexpected(created_index.error());
     }

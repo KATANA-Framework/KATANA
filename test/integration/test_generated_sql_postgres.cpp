@@ -19,7 +19,8 @@ const char* postgres_dsn() {
 TEST(GeneratedSqlRepositoryIntegration, UsesPostgresPoolExecutor) {
     const char* dsn = postgres_dsn();
     if (dsn == nullptr || *dsn == '\0') {
-        std::cout << "[sql] KATANA_TEST_POSTGRES_DSN is not set; skipping generated repository integration body\n";
+        std::cout << "[sql] KATANA_TEST_POSTGRES_DSN is not set; skipping generated repository "
+                     "integration body\n";
         return;
     }
 

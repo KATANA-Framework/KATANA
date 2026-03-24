@@ -53,13 +53,12 @@ class item_backend {
 public:
     virtual ~item_backend() = default;
 
-    virtual katana::result<item_page> list_items(std::size_t limit,
-                                                 std::size_t offset,
-                                                 std::optional<std::string_view> category) = 0;
+    virtual katana::result<item_page>
+    list_items(std::size_t limit, std::size_t offset, std::optional<std::string_view> category) = 0;
     virtual katana::result<std::optional<item_record>> get_item(int64_t id) = 0;
     virtual katana::result<item_record> create_item(const create_item_command& command) = 0;
-    virtual katana::result<std::optional<item_record>> update_item(
-        int64_t id, const update_item_command& command) = 0;
+    virtual katana::result<std::optional<item_record>>
+    update_item(int64_t id, const update_item_command& command) = 0;
     virtual katana::result<bool> delete_item(int64_t id) = 0;
 };
 

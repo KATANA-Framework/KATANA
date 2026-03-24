@@ -120,10 +120,12 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
                 out << "        std::size_t row_count = 0;\n";
                 out << "        auto status = executor_.query_each(\"" << query.name << "\", "
                     << query.name << "_sql, params,\n";
-                out << "            [&](const katana::sql::row_view& row) -> katana::result<void> {\n";
+                out << "            [&](const katana::sql::row_view& row) -> katana::result<void> "
+                       "{\n";
                 out << "                ++row_count;\n";
                 out << "                if (row_count != 1) {\n";
-                out << "                    return std::unexpected(std::make_error_code(std::errc::invalid_argument));\n";
+                out << "                    return "
+                       "std::unexpected(std::make_error_code(std::errc::invalid_argument));\n";
                 out << "                }\n";
                 out << "                auto mapped = map_" << query.name << "(row);\n";
                 out << "                if (!mapped) {\n";
@@ -143,7 +145,8 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
                 out << "        std::vector<" << row_type_name(query) << "> out_rows;\n";
                 out << "        auto status = executor_.query_each(\"" << query.name << "\", "
                     << query.name << "_sql, params,\n";
-                out << "            [&](const katana::sql::row_view& row) -> katana::result<void> {\n";
+                out << "            [&](const katana::sql::row_view& row) -> katana::result<void> "
+                       "{\n";
                 out << "                auto mapped = map_" << query.name << "(row);\n";
                 out << "                if (!mapped) {\n";
                 out << "                    return std::unexpected(mapped.error());\n";
@@ -164,8 +167,8 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
     out << "    katana::sql::executor& executor_;\n\n";
 
     for (const auto& query : catalog.queries) {
-        out << "    static constexpr std::string_view " << query.name << "_sql = "
-            << raw_sql_literal(query.sql) << ";\n\n";
+        out << "    static constexpr std::string_view " << query.name
+            << "_sql = " << raw_sql_literal(query.sql) << ";\n\n";
         if (query.mode == sql_query_mode::exec) {
             continue;
         }
@@ -176,7 +179,8 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
             const auto& column = query.columns[column_index];
             out << "        {\n";
             out << "            if (row.size() <= " << column_index << ") {\n";
-            out << "                return std::unexpected(std::make_error_code(std::errc::invalid_argument));\n";
+            out << "                return "
+                   "std::unexpected(std::make_error_code(std::errc::invalid_argument));\n";
             out << "            }\n";
             out << "            const auto& cell = row.at(" << column_index << ");\n";
             out << "            if (cell.has_value()) {\n";
