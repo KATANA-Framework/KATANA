@@ -67,33 +67,52 @@ public:
     katana::result<item_page> list_items(std::size_t limit,
                                          std::size_t offset,
                                          std::optional<std::string_view> category) override {
-        auto rows = repo_.list_items_page(static_cast<int64_t>(limit),
-                                          static_cast<int64_t>(offset),
-                                          category.has_value(),
-                                          category.value_or(std::string_view{}));
-        if (!rows) {
-            debug_backend_error("list_items.sql", rows.error());
-            return std::unexpected(rows.error());
-        }
-
         item_page page;
         page.limit = static_cast<int64_t>(limit);
         page.offset = static_cast<int64_t>(offset);
-        page.items.reserve(rows->size());
 
-        for (const auto& row : *rows) {
-            if (row.total_count) {
-                page.total = *row.total_count;
+        const auto map_rows = [&](const auto& rows) -> katana::result<void> {
+            page.items.reserve(rows.size());
+            for (const auto& row : rows) {
+                if (row.total_count) {
+                    page.total = *row.total_count;
+                }
+                if (!row.id) {
+                    continue;
+                }
+                auto mapped = row_to_item(row);
+                if (!mapped) {
+                    debug_backend_error("list_items.map", mapped.error());
+                    return std::unexpected(mapped.error());
+                }
+                page.items.push_back(std::move(*mapped));
             }
-            if (!row.id) {
-                continue;
+            return {};
+        };
+
+        if (category) {
+            auto rows = repo_.list_items_page_by_category(static_cast<int64_t>(limit),
+                                                          static_cast<int64_t>(offset),
+                                                          *category);
+            if (!rows) {
+                debug_backend_error("list_items.sql.filtered", rows.error());
+                return std::unexpected(rows.error());
             }
-            auto mapped = row_to_item(row);
+            auto mapped = map_rows(*rows);
             if (!mapped) {
-                debug_backend_error("list_items.map", mapped.error());
                 return std::unexpected(mapped.error());
             }
-            page.items.push_back(std::move(*mapped));
+        } else {
+            auto rows =
+                repo_.list_items_page_all(static_cast<int64_t>(limit), static_cast<int64_t>(offset));
+            if (!rows) {
+                debug_backend_error("list_items.sql.all", rows.error());
+                return std::unexpected(rows.error());
+            }
+            auto mapped = map_rows(*rows);
+            if (!mapped) {
+                return std::unexpected(mapped.error());
+            }
         }
 
         return page;
@@ -117,13 +136,14 @@ public:
     }
 
     katana::result<item_record> create_item(const create_item_command& command) override {
+        const auto category = to_string(command.category);
         auto row = repo_.create_item(command.name,
                                      command.description.has_value(),
-                                     command.description.value_or(std::string{}),
+                                     command.description.value_or(std::string_view{}),
                                      command.price,
                                      command.stock.has_value(),
                                      command.stock.value_or(0),
-                                     std::string(to_string(command.category)));
+                                     category);
         if (!row) {
             debug_backend_error("create_item.sql", row.error());
             return std::unexpected(row.error());
@@ -136,20 +156,20 @@ public:
 
     katana::result<std::optional<item_record>>
     update_item(int64_t id, const update_item_command& command) override {
-        auto category = command.category
-                            ? std::optional<std::string>(std::string(to_string(*command.category)))
-                            : std::optional<std::string>{};
+        const auto category =
+            command.category ? std::optional<std::string_view>(to_string(*command.category))
+                             : std::optional<std::string_view>{};
         auto row = repo_.update_item(id,
                                      command.name.has_value(),
-                                     command.name.value_or(std::string{}),
+                                     command.name.value_or(std::string_view{}),
                                      command.description.has_value(),
-                                     command.description.value_or(std::string{}),
+                                     command.description.value_or(std::string_view{}),
                                      command.price.has_value(),
                                      command.price.value_or(0.0),
                                      command.stock.has_value(),
                                      command.stock.value_or(0),
                                      category.has_value(),
-                                     category.value_or(std::string{}));
+                                     category.value_or(std::string_view{}));
         if (!row) {
             debug_backend_error("update_item.sql", row.error());
             return std::unexpected(row.error());
@@ -274,6 +294,7 @@ public:
         resp.total = page->total;
         resp.limit = page->limit;
         resp.offset = page->offset;
+        resp.items.reserve(page->items.size());
         for (const auto& item : page->items) {
             Item dto(&arena);
             fill_item_dto(dto, item, arena);
@@ -289,11 +310,9 @@ public:
                              const CreateItemRequest& body,
                              response& out) override {
         create_item_command command{
-            .name = std::string(body.name.data(), body.name.size()),
-            .description = body.description
-                               ? std::optional<std::string>(std::string(body.description->data(),
-                                                                        body.description->size()))
-                               : std::optional<std::string>{},
+            .name = body.name,
+            .description = body.description ? std::optional<std::string_view>(*body.description)
+                                            : std::optional<std::string_view>{},
             .price = body.price,
             .stock = body.stock,
             .category = body.category,
@@ -332,13 +351,11 @@ public:
 
     result<void> update_item(int64_t id, const UpdateItemRequest& body, response& out) override {
         update_item_command command{
-            .name = body.name ? std::optional<std::string>(
-                                    std::string(body.name->data(), body.name->size()))
-                              : std::optional<std::string>{},
+            .name = body.name ? std::optional<std::string_view>(*body.name)
+                              : std::optional<std::string_view>{},
             .description = body.description
-                               ? std::optional<std::string>(std::string(body.description->data(),
-                                                                        body.description->size()))
-                               : std::optional<std::string>{},
+                               ? std::optional<std::string_view>(*body.description)
+                               : std::optional<std::string_view>{},
             .price = body.price,
             .stock = body.stock,
             .category = body.category,
@@ -425,10 +442,11 @@ constexpr std::string_view create_table_sql = "CREATE TABLE IF NOT EXISTS katana
                                               ")";
 
 constexpr std::string_view category_index_sql =
-    "CREATE INDEX IF NOT EXISTS katana_stage4_items_category_id_idx "
-    "ON katana_stage4_items (category, id)";
+    "CREATE INDEX IF NOT EXISTS katana_stage4_items_category_id_cover_idx "
+    "ON katana_stage4_items (category, id) INCLUDE (name, description, price, stock)";
 
 constexpr std::string_view reset_items_sql = "TRUNCATE katana_stage4_items RESTART IDENTITY";
+constexpr std::string_view analyze_items_sql = "ANALYZE katana_stage4_items";
 
 constexpr std::string_view seed_items_sql =
     "INSERT INTO katana_stage4_items (name, description, price, stock, category) "
@@ -453,6 +471,10 @@ std::unique_ptr<generated::api_handler> make_handler(item_backend& items) {
     return std::make_unique<benchmark_handler>(items);
 }
 
+std::unique_ptr<item_backend> make_sql_item_backend(katana::sql::executor& executor) {
+    return std::make_unique<sql_item_backend>(executor);
+}
+
 service::service(service_config config)
     : config_(std::move(config)), pool_({
                                       .postgres = {.connection_string = config_.connection_string},
@@ -460,7 +482,7 @@ service::service(service_config config)
                                       .eager_connect = config_.eager_connect,
                                   }),
       pool_executor_(pool_) {
-    items_ = std::make_unique<sql_item_backend>(pool_executor_);
+    items_ = make_sql_item_backend(pool_executor_);
     handler_ = make_handler(*items_);
 }
 
@@ -498,6 +520,10 @@ katana::result<void> service::start() {
         auto seeded = seed_items(config_.seed_item_count);
         if (!seeded) {
             return seeded;
+        }
+        auto analyzed = analyze_items();
+        if (!analyzed) {
+            return analyzed;
         }
     }
 
@@ -560,6 +586,15 @@ katana::result<void> service::seed_items(std::size_t count) {
     }
 
     return tx.commit();
+}
+
+katana::result<void> service::analyze_items() {
+    auto& executor = pool_.current_executor();
+    auto analyzed = executor.exec("benchmark_api_analyze_items", analyze_items_sql, {});
+    if (!analyzed) {
+        return std::unexpected(analyzed.error());
+    }
+    return {};
 }
 
 } // namespace katana::benchmark_api_demo

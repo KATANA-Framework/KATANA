@@ -4,9 +4,25 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_BUILD_DIR="${KATANA_SQL_TEST_BUILD_DIR:-/tmp/katana-stage4-build}"
 BENCH_BUILD_DIR="${KATANA_SQL_BENCH_BUILD_DIR:-/tmp/katana-stage4-bench}"
-COMPOSE_FILE="${REPO_ROOT}/docker/sql/docker-compose.yml"
 COMPOSE_PROJECT="katana-stage4-sql"
-POSTGRES_DSN="host=127.0.0.1 port=55432 dbname=katana_stage4 user=katana password=katana sslmode=disable"
+DOCKER_NETWORK_MODE="${KATANA_SQL_DOCKER_NETWORK_MODE:-bridge}"
+
+case "${DOCKER_NETWORK_MODE}" in
+    bridge)
+        COMPOSE_FILE="${REPO_ROOT}/docker/sql/docker-compose.yml"
+        POSTGRES_PORT="${KATANA_SQL_POSTGRES_PORT:-55432}"
+        ;;
+    host)
+        COMPOSE_FILE="${REPO_ROOT}/docker/sql/docker-compose.hostnet.yml"
+        POSTGRES_PORT="${KATANA_SQL_POSTGRES_PORT:-5432}"
+        ;;
+    *)
+        echo "Unsupported KATANA_SQL_DOCKER_NETWORK_MODE=${DOCKER_NETWORK_MODE} (expected bridge or host)" >&2
+        exit 1
+        ;;
+esac
+
+POSTGRES_DSN="host=127.0.0.1 port=${POSTGRES_PORT} dbname=katana_stage4 user=katana password=katana sslmode=disable"
 
 cleanup() {
     docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" down -v >/dev/null 2>&1 || true

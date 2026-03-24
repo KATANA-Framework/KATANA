@@ -45,6 +45,7 @@ import math
 import os
 import platform
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -73,15 +74,11 @@ def _discover_default_build_dir() -> Path:
         return Path(env_override).expanduser().resolve()
 
     build_root = REPO_ROOT / "build"
-    prioritized: List[Path] = []
+    preferred_names = ["bench-local"]
     if _is_wsl():
-        prioritized.extend([build_root / "bench-wsl", build_root / "bench"])
+        preferred_names.extend(["bench-wsl", "bench"])
     else:
-        prioritized.extend([build_root / "bench", build_root / "bench-wsl"])
-
-    for candidate in prioritized:
-        if (candidate / "CMakeCache.txt").exists():
-            return candidate
+        preferred_names.extend(["bench", "bench-wsl"])
 
     discovered: List[Path] = []
     if build_root.exists():
@@ -92,7 +89,21 @@ def _discover_default_build_dir() -> Path:
         path for path in REPO_ROOT.iterdir() if path.is_dir() and path.name.startswith("build") and (path / "CMakeCache.txt").exists()
     )
     if discovered:
-        return sorted({path.resolve() for path in discovered}, key=lambda path: str(path))[0]
+        unique = {path.resolve() for path in discovered}
+
+        def build_dir_rank(path: Path) -> tuple[int, float, str]:
+            try:
+                preferred_rank = preferred_names.index(path.name)
+            except ValueError:
+                preferred_rank = len(preferred_names)
+            cache_path = path / "CMakeCache.txt"
+            try:
+                mtime = cache_path.stat().st_mtime
+            except OSError:
+                mtime = 0.0
+            return (preferred_rank, -mtime, str(path))
+
+        return min(unique, key=build_dir_rank)
 
     return build_root / ("bench-wsl" if _is_wsl() else "bench")
 
@@ -165,6 +176,7 @@ class BenchmarkReport:
     stage_repeats: Dict[int, int] = field(default_factory=dict)
     environment: Dict[str, Any] = field(default_factory=dict)
     quality_summary: Optional[Dict[str, Any]] = None
+    budget_summary: Optional[Dict[str, Any]] = None
     comparison_summary: Optional[Dict[str, Any]] = None
 
 
@@ -177,7 +189,128 @@ DEFAULT_STAGE_REPEATS = {
     11: 5,
     12: 5,
     16: 3,  # Concurrent DB throughput runs are heavier than in-process microbenches.
+    17: 3,  # SQL HTTP wrk stages need repeats for usable latency/throughput medians.
+    18: 3,
 }
+
+
+def default_sql_http_workers() -> int:
+    env_override = os.environ.get("KATANA_SQL_HTTP_WORKERS")
+    if env_override:
+        with contextlib.suppress(ValueError):
+            parsed = int(env_override)
+            if parsed > 0:
+                return parsed
+
+    return min(max(1, os.cpu_count() or 1), 12)
+
+
+def default_sql_http_peak_workers() -> int:
+    env_override = os.environ.get("KATANA_SQL_HTTP_PEAK_WORKERS")
+    if env_override:
+        with contextlib.suppress(ValueError):
+            parsed = int(env_override)
+            if parsed > 0:
+                return parsed
+
+    logical = default_sql_http_workers()
+    if logical >= 8:
+        return min(logical + logical // 3, 16)
+    return logical
+
+
+def default_sql_bench_threads() -> int:
+    env_override = os.environ.get("KATANA_SQL_BENCH_THREADS")
+    if env_override:
+        with contextlib.suppress(ValueError):
+            parsed = int(env_override)
+            if parsed > 0:
+                return parsed
+
+    return min(max(1, os.cpu_count() or 1), 12)
+
+
+STAGE4_SQL_BUDGETS: Dict[int, Dict[str, Dict[str, Dict[str, float]]]] = {
+    15: {
+        "postgres repo get_user (1 row)": {
+            "throughput": {"min": 12000.0},
+            "latency_ns": {"max": 85000.0},
+            "tail_p99_ns": {"max": 140000.0},
+            "errors": {"max": 0.0},
+        },
+        "postgres repo list_users (128 rows)": {
+            "throughput": {"min": 9000.0},
+            "latency_ns": {"max": 120000.0},
+            "tail_p99_ns": {"max": 170000.0},
+            "errors": {"max": 0.0},
+        },
+        "postgres repo touch_user (exec)": {
+            "throughput": {"min": 10500.0},
+            "latency_ns": {"max": 100000.0},
+            "tail_p99_ns": {"max": 120000.0},
+            "errors": {"max": 0.0},
+        },
+        "postgres tx begin+touch+rollback": {
+            "throughput": {"min": 5000.0},
+            "latency_ns": {"max": 200000.0},
+            "tail_p99_ns": {"max": 240000.0},
+            "errors": {"max": 0.0},
+        },
+    },
+    16: {
+        "postgres concurrent get_user": {
+            "throughput": {"min": 40000.0},
+            "latency_ns": {"max": 26000.0},
+            "errors": {"max": 0.0},
+        },
+        "postgres concurrent list_users": {
+            "throughput": {"min": 27500.0},
+            "latency_ns": {"max": 37000.0},
+            "errors": {"max": 0.0},
+        },
+        "postgres concurrent touch_user": {
+            "throughput": {"min": 2000.0},
+            "latency_ns": {"max": 500000.0},
+            "errors": {"max": 0.0},
+        },
+        "postgres concurrent touch_user tx32": {
+            "throughput": {"min": 28000.0},
+            "latency_ns": {"max": 40000.0},
+            "errors": {"max": 0.0},
+        },
+        "postgres concurrent mixed workload": {
+            "throughput": {"min": 9000.0},
+            "latency_ns": {"max": 120000.0},
+            "errors": {"max": 0.0},
+        },
+    },
+    17: {
+        "wrk benchmark_api SQL read-heavy": {
+            "throughput": {"min": 24000.0},
+            "latency_p50_us": {"max": 11000.0},
+            "latency_p95_us": {"max": 19000.0},
+            "latency_p99_us": {"max": 26000.0},
+            "errors": {"max": 0.0},
+        },
+    },
+    18: {
+        "wrk benchmark_api SQL mixed CRUD": {
+            "throughput": {"min": 14500.0},
+            "latency_p50_us": {"max": 19000.0},
+            "latency_p95_us": {"max": 32000.0},
+            "latency_p99_us": {"max": 45000.0},
+            "errors": {"max": 0.0},
+        },
+    },
+}
+
+STAGE4_SQL_BUDGET_NOTES = [
+    "Stage 15-18 budgets are Stage 4 local sanity gates for generated SQL/runtime plus SQL HTTP CRUD.",
+    "Use the runner default repeat policy for budget decisions; single-run wrk samples are too noisy for hard conclusions.",
+    "HTTP budgets target the blocking libpq path as implemented today; they are not async-DB targets.",
+    "Durable write paths remain commit/WAL-flush bound: compare touch_user vs touch_user tx32 before blaming codegen/runtime.",
+    "Reference BENCHMARK_RESULTS.md numbers should be collected with cpu_governor=performance; local powersave runs are expected to be slower.",
+]
 
 
 # Stage definitions
@@ -325,6 +458,9 @@ STAGES = {
         "name": "SQL PostgreSQL Throughput Benchmarks",
         "binary": "sql_postgres_throughput_benchmark",
         "description": "Concurrent PostgreSQL repository throughput over a multi-connection pool",
+        "env": {
+            "KATANA_SQL_BENCH_THREADS": str(default_sql_bench_threads()),
+        },
     },
     17: {
         "name": "HTTP Load Benchmark (benchmark_api SQL read-heavy via wrk)",
@@ -341,13 +477,15 @@ STAGES = {
             "KATANA_BENCHMARK_API_BOOTSTRAP": "1",
             "KATANA_BENCHMARK_API_RESET": "1",
             "KATANA_BENCHMARK_API_SEED_COUNT": "4096",
+            "KATANA_BENCHMARK_API_WORKERS": "{bench_workers}",
             "KATANA_BENCHMARK_API_EXECUTORS": "{bench_workers}",
         },
-        "bench_workers": 4,
+        "bench_workers": default_sql_http_workers(),
         "port": 18086,
         "wrk_threads": 4,
         "wrk_connections": 256,
         "wrk_duration_sec": 10,
+        "wrk_warmup_sec": 2,
         "wrk_env": {"KATANA_BENCHMARK_API_ITEM_COUNT": "4096"},
         "wrk_script": "test/load/scripts/benchmark_api_read_heavy.lua",
         "wrk_url": "http://127.0.0.1:{port}/items/1",
@@ -367,13 +505,15 @@ STAGES = {
             "KATANA_BENCHMARK_API_BOOTSTRAP": "1",
             "KATANA_BENCHMARK_API_RESET": "1",
             "KATANA_BENCHMARK_API_SEED_COUNT": "4096",
+            "KATANA_BENCHMARK_API_WORKERS": "{bench_workers}",
             "KATANA_BENCHMARK_API_EXECUTORS": "{bench_workers}",
         },
-        "bench_workers": 4,
+        "bench_workers": default_sql_http_peak_workers(),
         "port": 18087,
         "wrk_threads": 4,
         "wrk_connections": 256,
         "wrk_duration_sec": 10,
+        "wrk_warmup_sec": 2,
         "wrk_env": {"KATANA_BENCHMARK_API_ITEM_COUNT": "4096"},
         "wrk_script": "test/load/scripts/benchmark_api_mixed_crud.lua",
         "wrk_url": "http://127.0.0.1:{port}/items/1",
@@ -413,6 +553,100 @@ def _run_capture(cmd: List[str], timeout: int = 3) -> Optional[str]:
         return out or None
     except Exception:
         return None
+
+
+def _cpu_governor_paths() -> List[Path]:
+    root = Path("/sys/devices/system/cpu")
+    return sorted(root.glob("cpu[0-9]*/cpufreq/scaling_governor"))
+
+
+def _read_current_cpu_governor() -> Optional[str]:
+    for path in _cpu_governor_paths():
+        value = _safe_read_text(path)
+        if value:
+            return value
+    return None
+
+
+def _set_cpu_governor_via_sysfs(target: str, paths: List[Path]) -> Tuple[bool, Optional[str]]:
+    try:
+        for path in paths:
+            path.write_text(f"{target}\n", encoding="utf-8")
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _set_cpu_governor_via_sudo(target: str) -> Tuple[bool, Optional[str]]:
+    if shutil.which("sudo") is None:
+        return False, "sudo is not available"
+
+    shell_cmd = (
+        "for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do "
+        "[ -e \"$f\" ] || continue; "
+        f"echo {shlex.quote(target)} > \"$f\"; "
+        "done"
+    )
+    proc = subprocess.run(
+        ["sudo", "-n", "sh", "-c", shell_cmd],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return True, None
+
+    details = proc.stderr.strip() or proc.stdout.strip() or f"sudo exited with {proc.returncode}"
+    return False, details
+
+
+def set_cpu_governor(target: str) -> Tuple[bool, str]:
+    paths = _cpu_governor_paths()
+    if not paths:
+        return False, "cpufreq sysfs is unavailable on this host"
+
+    current = _read_current_cpu_governor()
+    if current == target:
+        return True, f"already {target}"
+
+    if all(os.access(path, os.W_OK) for path in paths):
+        ok, error = _set_cpu_governor_via_sysfs(target, paths)
+        if ok:
+            return True, f"set via sysfs ({len(paths)} CPUs)"
+        return False, error or "failed to write governor via sysfs"
+
+    ok, error = _set_cpu_governor_via_sudo(target)
+    if ok:
+        return True, "set via sudo"
+    return False, error or "failed to change governor"
+
+
+@contextlib.contextmanager
+def managed_cpu_governor(target: str, restore: bool):
+    if target == "keep":
+        yield
+        return
+
+    previous = _read_current_cpu_governor()
+    success, message = set_cpu_governor(target)
+    if not success:
+        raise RuntimeError(
+            f"failed to set CPU governor to {target}: {message}. "
+            "Set it manually or rerun after sudo authentication."
+        )
+    print(f"CPU governor: {target} ({message})")
+
+    try:
+        yield
+    finally:
+        if restore and previous and previous != target:
+            restored, restore_message = set_cpu_governor(previous)
+            if restored:
+                print(f"CPU governor restored to {previous} ({restore_message})")
+            else:
+                print(
+                    f"Warning: failed to restore CPU governor to {previous}: {restore_message}"
+                )
 
 
 def _extract_cmake_cache_vars(cache_path: Path, keys: List[str]) -> Dict[str, str]:
@@ -637,6 +871,102 @@ def summarize_quality(report: BenchmarkReport, cv_warn_pct: float) -> Dict[str, 
     }
 
 
+def _budget_metric_unit(metric_name: str) -> str:
+    if metric_name == "bytes_per_sec":
+        return "bytes/sec"
+    if metric_name.endswith("_ns"):
+        return "ns"
+    if metric_name.endswith("_us"):
+        return "us"
+    if metric_name == "errors":
+        return "count"
+    return ""
+
+
+def evaluate_stage4_sql_budgets(report: BenchmarkReport) -> Optional[Dict[str, Any]]:
+    applicable_stage_ids = {
+        stage.stage_id for stage in report.stages if stage.stage_id in STAGE4_SQL_BUDGETS and stage.success
+    }
+    if not applicable_stage_ids:
+        return None
+
+    checks: List[Dict[str, Any]] = []
+    missing: List[Dict[str, Any]] = []
+    stage_map = {stage.stage_id: stage for stage in report.stages if stage.success}
+
+    for stage_id in sorted(applicable_stage_ids):
+        stage = stage_map.get(stage_id)
+        if stage is None:
+            continue
+        by_name = {bench.name: bench for bench in stage.benchmarks}
+        for bench_name, metric_rules in STAGE4_SQL_BUDGETS[stage_id].items():
+            bench = by_name.get(bench_name)
+            if bench is None:
+                missing.append(
+                    {
+                        "stage_id": stage_id,
+                        "benchmark": bench_name,
+                        "metric": "*",
+                        "reason": "benchmark_missing",
+                    }
+                )
+                continue
+
+            for metric_name, rule in metric_rules.items():
+                value = getattr(bench, metric_name, None)
+                if value is None:
+                    missing.append(
+                        {
+                            "stage_id": stage_id,
+                            "benchmark": bench_name,
+                            "metric": metric_name,
+                            "reason": "metric_missing",
+                        }
+                    )
+                    continue
+
+                min_value = rule.get("min")
+                max_value = rule.get("max")
+                if min_value is not None:
+                    passed = float(value) >= float(min_value)
+                    comparator = ">="
+                    target = float(min_value)
+                else:
+                    passed = float(value) <= float(max_value)
+                    comparator = "<="
+                    target = float(max_value)
+
+                checks.append(
+                    {
+                        "stage_id": stage_id,
+                        "stage_name": stage.stage_name,
+                        "benchmark": bench_name,
+                        "metric": metric_name,
+                        "actual": float(value),
+                        "target": target,
+                        "comparator": comparator,
+                        "unit": bench.throughput_unit if metric_name == "throughput" else _budget_metric_unit(metric_name),
+                        "passed": passed,
+                    }
+                )
+
+    failures = [item for item in checks if not item["passed"]]
+    failures.sort(key=lambda item: (item["stage_id"], str(item["benchmark"]), str(item["metric"])))
+    missing.sort(key=lambda item: (item["stage_id"], str(item["benchmark"]), str(item["metric"])))
+
+    return {
+        "name": "stage4_sql",
+        "applicable_stage_ids": sorted(applicable_stage_ids),
+        "checked_count": len(checks),
+        "passed_count": len(checks) - len(failures),
+        "failed_count": len(failures),
+        "missing_count": len(missing),
+        "failures": failures,
+        "missing": missing[:25],
+        "notes": STAGE4_SQL_BUDGET_NOTES,
+    }
+
+
 def ensure_build() -> bool:
     """Ensure benchmark binaries are built."""
     if not BUILD_DIR.exists():
@@ -675,7 +1005,11 @@ def ensure_build() -> bool:
         text=True,
     )
     if result.returncode != 0:
-        print(f"Build failed: {result.stderr}")
+        print("Build failed.")
+        if result.stdout.strip():
+            print(result.stdout)
+        if result.stderr.strip():
+            print(result.stderr)
         return False
 
     return True
@@ -1770,21 +2104,47 @@ def run_wrk_http_once(stage: Dict[str, Any]) -> Tuple[BenchmarkResult, Optional[
         wrk_env = dict(env)
         for key, value in stage.get("wrk_env", {}).items():
             wrk_env[key] = value.format(port=port, bench_workers=bench_workers)
-        wrk_cmd = [
-            wrk_binary,
-            "-t",
-            str(stage["wrk_threads"]),
-            "-c",
-            str(stage["wrk_connections"]),
-            "-d",
-            f"{stage['wrk_duration_sec']}s",
-            "--latency",
-            "-s",
-            str(script_path),
-            stage["wrk_url"].format(port=port),
-        ]
+
+        def build_wrk_cmd(duration_sec: int, include_latency: bool) -> List[str]:
+            cmd = [
+                wrk_binary,
+                "-t",
+                str(stage["wrk_threads"]),
+                "-c",
+                str(stage["wrk_connections"]),
+                "-d",
+                f"{duration_sec}s",
+                "-s",
+                str(script_path),
+                stage["wrk_url"].format(port=port),
+            ]
+            if include_latency:
+                cmd.insert(7, "--latency")
+            return cmd
+
+        warmup_sec = int(stage.get("wrk_warmup_sec", 0))
+        if warmup_sec > 0:
+            warmup_proc = subprocess.run(
+                build_wrk_cmd(warmup_sec, include_latency=False),
+                capture_output=True,
+                text=True,
+                timeout=max(15, warmup_sec + 10),
+                env=wrk_env,
+            )
+            if warmup_proc.returncode != 0:
+                details = warmup_proc.stderr.strip() or warmup_proc.stdout.strip()
+                return (
+                    BenchmarkResult(
+                        name=stage["benchmark_name"],
+                        throughput=0.0,
+                        throughput_unit="req/sec",
+                        errors=0,
+                    ),
+                    f"wrk warmup failed: {details}",
+                )
+
         proc = subprocess.run(
-            wrk_cmd,
+            build_wrk_cmd(int(stage["wrk_duration_sec"]), include_latency=True),
             capture_output=True,
             text=True,
             timeout=max(30, int(stage["wrk_duration_sec"]) + 15),
@@ -1839,6 +2199,7 @@ def run_wrk_http_stage(
             "wrk_threads": stage.get("wrk_threads"),
             "wrk_connections": stage.get("wrk_connections"),
             "wrk_duration_sec": stage.get("wrk_duration_sec"),
+            "wrk_warmup_sec": stage.get("wrk_warmup_sec"),
             "wrk_script": stage.get("wrk_script"),
             "wrk_url": stage.get("wrk_url"),
             "bench_workers": stage.get("bench_workers", default_bench_workers()),
@@ -2306,6 +2667,7 @@ def run_stage(
             "kind": "microbenchmark",
             "binary": binary_name,
             "binary_path": str(binary_path),
+            "env": stage.get("env"),
         },
     )
 
@@ -2324,6 +2686,9 @@ def run_stage(
     started = time.perf_counter()
     run_results: List[List[BenchmarkResult]] = []
     run_errors: List[str] = []
+    stage_env = dict(os.environ)
+    for key, value in stage.get("env", {}).items():
+        stage_env[key] = str(value)
 
     def _skip_message(stdout: str, stderr: str) -> Optional[str]:
         combined = "\n".join(part for part in [stdout.strip(), stderr.strip()] if part).lower()
@@ -2342,6 +2707,7 @@ def run_stage(
                 capture_output=True,
                 text=True,
                 timeout=300,
+                env=stage_env,
             )
             if warmup_proc.returncode != 0:
                 print(f"  Warmup failed (ignored): exit code {warmup_proc.returncode}")
@@ -2356,6 +2722,7 @@ def run_stage(
                 capture_output=True,
                 text=True,
                 timeout=300,
+                env=stage_env,
             )
             if proc.returncode != 0:
                 run_errors.append(f"run {run_idx + 1}: exit code {proc.returncode}")
@@ -2495,10 +2862,13 @@ def generate_markdown(report: BenchmarkReport) -> str:
         lines.append(f"> Commit: {report.commit_sha}")
 
     quality = report.quality_summary or {}
+    budget = report.budget_summary or {}
     noisy_count = int(quality.get("noisy_metrics_count", 0))
     severe_noisy_count = int(quality.get("severe_noisy_metrics_count", 0))
     cv_warn = float(quality.get("cv_warn_pct", 20.0))
     e2e_included = bool(quality.get("e2e_included", False))
+    budget_failed = int(budget.get("failed_count", 0))
+    budget_checked = int(budget.get("checked_count", 0))
     stability_verdict = "stable enough for trend tracking"
     if noisy_count > 0:
         stability_verdict = "contains noisy metrics, inspect before trusting small deltas"
@@ -2510,6 +2880,7 @@ def generate_markdown(report: BenchmarkReport) -> str:
         f"- Stability verdict: {stability_verdict}",
         f"- Noisy metrics (CV > {cv_warn:.1f}%): {noisy_count}",
         f"- Severely noisy metrics (CV > {cv_warn * 2.0:.1f}%): {severe_noisy_count}",
+        f"- Budget gate failures: {budget_failed} / {budget_checked}" if budget_checked > 0 else "- Budget gates evaluated: no",
         f"- E2E network stages included: {'yes' if e2e_included else 'no'}",
         "",
         f"> **Note**: Results shown use {_aggregation_title(report.aggregation_mode)} "
@@ -2554,6 +2925,35 @@ def generate_markdown(report: BenchmarkReport) -> str:
                     f"stage{item.get('stage_id')}.{item.get('benchmark')}.{item.get('metric')}"
                 )
                 lines.append(f"| {label} | {item.get('cv_pct', 0.0):.2f}% |")
+            lines.append("")
+        lines.extend(["---", ""])
+
+    if report.budget_summary:
+        budget = report.budget_summary
+        lines.extend(["## Budget Gates", ""])
+        lines.append(f"- Budget preset: {budget.get('name', 'unknown')}")
+        lines.append(f"- Checked metrics: {budget.get('checked_count', 0)}")
+        lines.append(f"- Failed metrics: {budget.get('failed_count', 0)}")
+        lines.append(f"- Missing metrics: {budget.get('missing_count', 0)}")
+        lines.append("")
+        for note in budget.get("notes", []):
+            lines.append(f"- Note: {note}")
+        if budget.get("notes"):
+            lines.append("")
+
+        failures = budget.get("failures", [])
+        if failures:
+            lines.extend([
+                "| Stage | Benchmark | Metric | Target | Actual |",
+                "|-------|-----------|--------|--------|--------|",
+            ])
+            for item in failures[:20]:
+                unit = f" {item.get('unit')}" if item.get("unit") else ""
+                lines.append(
+                    f"| {item.get('stage_id')} | {item.get('benchmark')} | {item.get('metric')} | "
+                    f"{item.get('comparator')} {item.get('target'):.3f}{unit} | "
+                    f"{item.get('actual'):.3f}{unit} |"
+                )
             lines.append("")
         lines.extend(["---", ""])
 
@@ -2949,6 +3349,9 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "# Recommended repeat policy with explicit quality gate",
         "./scripts/run_benchmarks.py --aggregation median --stage-repeat 1=20 --cv-threshold-pct 15",
         "",
+        "# Run Stage 4 SQL budgets as a CI gate",
+        "./scripts/run_benchmarks.py --stage 15 16 17 18 --fail-on-budget",
+        "",
         "# Point the runner at a custom build tree or wrk binary",
         "KATANA_BENCH_BUILD_DIR=build/bench-wsl KATANA_WRK_BIN=wrk ./scripts/run_benchmarks.py --include-e2e",
         "",
@@ -2984,6 +3387,7 @@ def to_json(report: BenchmarkReport) -> Dict[str, Any]:
         "stage_repeats": report.stage_repeats,
         "environment": report.environment,
         "quality_summary": report.quality_summary,
+        "budget_summary": report.budget_summary,
         "comparison_summary": report.comparison_summary,
         "stages": [
             {
@@ -3086,6 +3490,27 @@ def print_comparison_summary(summary: Dict[str, Any]) -> None:
             print(
                 f"    - {item['key']}: {item.get('reason')} "
                 f"(samples {item.get('current_sample_count', '-')}/{item.get('baseline_sample_count', '-')})"
+            )
+
+
+def print_budget_summary(summary: Optional[Dict[str, Any]]) -> None:
+    if not summary:
+        return
+
+    print("\nBudget gates:")
+    print(f"  Preset: {summary.get('name', 'unknown')}")
+    print(f"  Checked metrics: {summary.get('checked_count', 0)}")
+    print(f"  Failed metrics: {summary.get('failed_count', 0)}")
+    print(f"  Missing metrics: {summary.get('missing_count', 0)}")
+
+    failures = summary.get("failures", [])
+    if failures:
+        print("  Failures:")
+        for item in failures[:20]:
+            unit = f" {item.get('unit')}" if item.get("unit") else ""
+            print(
+                f"    - stage {item.get('stage_id')} / {item.get('benchmark')} / {item.get('metric')}: "
+                f"{item.get('actual'):.3f}{unit} (target {item.get('comparator')} {item.get('target'):.3f}{unit})"
             )
 
 
@@ -3238,6 +3663,25 @@ def main():
         help="Return non-zero when hard regressions are detected in --compare mode.",
     )
     parser.add_argument(
+        "--fail-on-budget",
+        action="store_true",
+        help="Return non-zero when applicable Stage 4 SQL budget checks fail.",
+    )
+    parser.add_argument(
+        "--cpu-governor",
+        choices=["keep", "performance", "powersave"],
+        default="keep",
+        help=(
+            "Attempt to switch Linux cpufreq governor before running benchmarks "
+            "(default: keep current governor)."
+        ),
+    )
+    parser.add_argument(
+        "--no-restore-cpu-governor",
+        action="store_true",
+        help="Do not restore the previous CPU governor after the run.",
+    )
+    parser.add_argument(
         "--e2e-connections",
         type=int,
         default=16,
@@ -3328,125 +3772,146 @@ def main():
         print("Error: --perf-events produced an empty event list")
         return 1
 
-    if not args.no_build:
-        if not ensure_build():
-            print("Error: Failed to build benchmarks")
-            return 1
+    try:
+        with managed_cpu_governor(
+            args.cpu_governor,
+            restore=not args.no_restore_cpu_governor,
+        ):
+            if not args.no_build:
+                if not ensure_build():
+                    print("Error: Failed to build benchmarks")
+                    return 1
 
-    print(f"\n{'='*60}")
-    print("KATANA Benchmark Runner")
-    print(f"{'='*60}")
-    print(f"Build dir: {BUILD_DIR}")
-    print(f"Stages to run: {stages_to_run}")
-    print(f"Default repeats: {base_repeats}")
-    print(
-        "Stage repeats: "
-        + ", ".join(f"{sid}={effective_repeats_by_stage[sid]}" for sid in stages_to_run)
-    )
-    print(f"Aggregation mode: {args.aggregation}")
-    print(f"Stage warmup: {'disabled' if args.no_stage_warmup else 'enabled'}")
-    print(f"perf stat: {'enabled' if args.perf_stat else 'disabled'}")
+            print(f"\n{'='*60}")
+            print("KATANA Benchmark Runner")
+            print(f"{'='*60}")
+            print(f"Build dir: {BUILD_DIR}")
+            print(f"Stages to run: {stages_to_run}")
+            print(f"Default repeats: {base_repeats}")
+            print(
+                "Stage repeats: "
+                + ", ".join(f"{sid}={effective_repeats_by_stage[sid]}" for sid in stages_to_run)
+            )
+            print(f"Aggregation mode: {args.aggregation}")
+            print(f"Stage warmup: {'disabled' if args.no_stage_warmup else 'enabled'}")
+            print(f"perf stat: {'enabled' if args.perf_stat else 'disabled'}")
 
-    report = BenchmarkReport(
-        generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        commit_sha=get_git_sha(),
-        repeats=base_repeats,
-        aggregation_mode=args.aggregation,
-        stage_repeats={k: v for k, v in sorted(effective_repeats_by_stage.items())},
-        environment=collect_environment_metadata(),
-    )
+            report = BenchmarkReport(
+                generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                commit_sha=get_git_sha(),
+                repeats=base_repeats,
+                aggregation_mode=args.aggregation,
+                stage_repeats={k: v for k, v in sorted(effective_repeats_by_stage.items())},
+                environment=collect_environment_metadata(),
+            )
 
-    started = time.perf_counter()
-    for stage_id in stages_to_run:
-        result = run_stage(
-            stage_id,
-            repeats=effective_repeats_by_stage[stage_id],
-            aggregation_mode=args.aggregation,
-            include_runs=args.include_runs,
-            stage_warmup=not args.no_stage_warmup,
-            perf_stat=args.perf_stat,
-            perf_events=perf_events,
-            e2e_connections=args.e2e_connections,
-            e2e_requests_per_connection=args.e2e_requests_per_connection,
-            e2e_port=args.e2e_port,
-        )
-        report.stages.append(result)
-    report.total_duration_ms = int((time.perf_counter() - started) * 1000)
+            started = time.perf_counter()
+            for stage_id in stages_to_run:
+                result = run_stage(
+                    stage_id,
+                    repeats=effective_repeats_by_stage[stage_id],
+                    aggregation_mode=args.aggregation,
+                    include_runs=args.include_runs,
+                    stage_warmup=not args.no_stage_warmup,
+                    perf_stat=args.perf_stat,
+                    perf_events=perf_events,
+                    e2e_connections=args.e2e_connections,
+                    e2e_requests_per_connection=args.e2e_requests_per_connection,
+                    e2e_port=args.e2e_port,
+                )
+                report.stages.append(result)
+            report.total_duration_ms = int((time.perf_counter() - started) * 1000)
 
-    compare_path: Optional[Path] = args.compare
-    if compare_path is None and not args.no_auto_compare_baseline:
-        candidate = args.auto_compare_baseline
-        if candidate.exists():
-            compare_path = candidate
-            print(f"\nAuto compare baseline detected: {compare_path}")
+            compare_path: Optional[Path] = args.compare
+            if compare_path is None and not args.no_auto_compare_baseline:
+                candidate = args.auto_compare_baseline
+                if candidate.exists():
+                    compare_path = candidate
+                    print(f"\nAuto compare baseline detected: {compare_path}")
 
-    if compare_path:
-        if not compare_path.exists():
-            print(f"Error: Baseline file not found: {compare_path}")
-            return 1
-        try:
-            with open(compare_path, "r") as f:
-                baseline_json = json.load(f)
-        except Exception as exc:
-            print(f"Error: Failed to load baseline JSON: {exc}")
-            return 1
+            if compare_path:
+                if not compare_path.exists():
+                    print(f"Error: Baseline file not found: {compare_path}")
+                    return 1
+                try:
+                    with open(compare_path, "r") as f:
+                        baseline_json = json.load(f)
+                except Exception as exc:
+                    print(f"Error: Failed to load baseline JSON: {exc}")
+                    return 1
 
-        comparison_summary = compare_reports_with_cv(
-            current_report=to_json(report),
-            baseline_report=baseline_json,
-            threshold_pct=args.regression_threshold_pct,
-            cv_threshold_pct=args.cv_threshold_pct,
-        )
-        report.comparison_summary = comparison_summary
-        print_comparison_summary(comparison_summary)
+                comparison_summary = compare_reports_with_cv(
+                    current_report=to_json(report),
+                    baseline_report=baseline_json,
+                    threshold_pct=args.regression_threshold_pct,
+                    cv_threshold_pct=args.cv_threshold_pct,
+                )
+                report.comparison_summary = comparison_summary
+                print_comparison_summary(comparison_summary)
 
-    report.quality_summary = summarize_quality(report, cv_warn_pct=args.cv_warn_pct)
+            report.quality_summary = summarize_quality(report, cv_warn_pct=args.cv_warn_pct)
+            report.budget_summary = evaluate_stage4_sql_budgets(report)
+            print_budget_summary(report.budget_summary)
 
-    print(f"\n{'='*60}")
-    print("Summary")
-    print(f"{'='*60}")
-    for stage in report.stages:
-        status = "PASS" if stage.success else "FAIL"
-        bench_count = len(stage.benchmarks)
-        print(f"  Stage {stage.stage_id}: {stage.stage_name}")
-        print(
-            f"    Status: {status}, Benchmarks: {bench_count}, "
-            f"Runs: {stage.run_count}, Duration: {stage.duration_ms}ms"
-        )
-    quality = report.quality_summary or {}
-    print(
-        f"\nQuality: noisy_metrics={quality.get('noisy_metrics_count', 0)} "
-        f"(CV>{quality.get('cv_warn_pct', args.cv_warn_pct):.1f}%)"
-    )
-    print(f"\nTotal duration: {report.total_duration_ms}ms")
+            print(f"\n{'='*60}")
+            print("Summary")
+            print(f"{'='*60}")
+            for stage in report.stages:
+                status = "PASS" if stage.success else "FAIL"
+                bench_count = len(stage.benchmarks)
+                print(f"  Stage {stage.stage_id}: {stage.stage_name}")
+                print(
+                    f"    Status: {status}, Benchmarks: {bench_count}, "
+                    f"Runs: {stage.run_count}, Duration: {stage.duration_ms}ms"
+                )
+            quality = report.quality_summary or {}
+            print(
+                f"\nQuality: noisy_metrics={quality.get('noisy_metrics_count', 0)} "
+                f"(CV>{quality.get('cv_warn_pct', args.cv_warn_pct):.1f}%)"
+            )
+            budget = report.budget_summary or {}
+            if budget:
+                print(
+                    "Budget gates: "
+                    f"failed={budget.get('failed_count', 0)} / checked={budget.get('checked_count', 0)}"
+                )
+            print(f"\nTotal duration: {report.total_duration_ms}ms")
 
-    if args.json:
-        print(json.dumps(to_json(report), indent=2))
+            if args.json:
+                print(json.dumps(to_json(report), indent=2))
 
-    if args.output:
-        args.output.mkdir(parents=True, exist_ok=True)
-        json_path = args.output / "benchmark_results.json"
-        md_path = args.output / "BENCHMARK_RESULTS.md"
-        with open(json_path, "w") as f:
-            json.dump(to_json(report), f, indent=2)
-        print(f"\nJSON results saved to: {json_path}")
+            if args.output:
+                args.output.mkdir(parents=True, exist_ok=True)
+                json_path = args.output / "benchmark_results.json"
+                md_path = args.output / "BENCHMARK_RESULTS.md"
+                with open(json_path, "w") as f:
+                    json.dump(to_json(report), f, indent=2)
+                print(f"\nJSON results saved to: {json_path}")
 
-        with open(md_path, "w") as f:
-            f.write(generate_markdown(report))
-        print(f"Markdown results saved to: {md_path}")
+                with open(md_path, "w") as f:
+                    f.write(generate_markdown(report))
+                print(f"Markdown results saved to: {md_path}")
 
-    if args.update_docs:
-        with open(RESULTS_MD_PATH, "w") as f:
-            f.write(generate_markdown(report))
-        print(f"\nUpdated: {RESULTS_MD_PATH}")
+            if args.update_docs:
+                with open(RESULTS_MD_PATH, "w") as f:
+                    f.write(generate_markdown(report))
+                print(f"\nUpdated: {RESULTS_MD_PATH}")
 
-    all_passed = all(s.success for s in report.stages)
-    hard_regressions = 0
-    if report.comparison_summary:
-        hard_regressions = int(report.comparison_summary.get("hard_regressions_count", 0))
-    if args.fail_on_regression and hard_regressions > 0:
+            all_passed = all(s.success for s in report.stages)
+            hard_regressions = 0
+            if report.comparison_summary:
+                hard_regressions = int(report.comparison_summary.get("hard_regressions_count", 0))
+            budget_failures = 0
+            if report.budget_summary:
+                budget_failures = int(report.budget_summary.get("failed_count", 0))
+            if args.fail_on_regression and hard_regressions > 0:
+                return 1
+            if args.fail_on_budget and budget_failures > 0:
+                return 1
+            return 0 if all_passed else 1
+    except RuntimeError as exc:
+        print(f"Error: {exc}")
         return 1
-    return 0 if all_passed else 1
 
 
 if __name__ == "__main__":

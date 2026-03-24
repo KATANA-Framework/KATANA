@@ -5,6 +5,7 @@
 #include <cmath>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -48,6 +49,29 @@ TEST(SqlRuntimeTest, OwnsStringViewParameterStorage) {
 
     ASSERT_TRUE(parameter.has_value());
     EXPECT_EQ(parameter.value(), std::string_view("tools"));
+}
+
+TEST(SqlRuntimeTest, EncodesPgArrayParameters) {
+    const auto ids = katana::sql::encode_value(std::vector<int64_t>{1, 2, 3});
+    const auto names =
+        katana::sql::encode_value(std::vector<std::string>{"Ada", "Linus", "Grace"});
+
+    ASSERT_TRUE(ids.has_value());
+    ASSERT_TRUE(names.has_value());
+    EXPECT_EQ(ids.value(), std::string_view("{1,2,3}"));
+    EXPECT_EQ(names.value(), std::string_view("{\"Ada\",\"Linus\",\"Grace\"}"));
+}
+
+TEST(SqlRuntimeTest, ParsesPgArrayValues) {
+    const auto ids =
+        katana::sql::parse_value<std::vector<int64_t>>(katana::sql::cell_view::borrowed("{1,2,3}"));
+    const auto names = katana::sql::parse_value<std::vector<std::string>>(
+        katana::sql::cell_view::borrowed("{\"Ada\",\"Linus\",\"Grace Hopper\"}"));
+
+    ASSERT_TRUE(ids);
+    ASSERT_TRUE(names);
+    EXPECT_EQ(*ids, (std::vector<int64_t>{1, 2, 3}));
+    EXPECT_EQ(*names, (std::vector<std::string>{"Ada", "Linus", "Grace Hopper"}));
 }
 
 } // namespace

@@ -100,7 +100,7 @@ int main() {
         return 1;
     }
 
-    auto router = generated::make_router(service.handler());
+    auto router = generated::make_fast_router(service.handler());
     return http::server(router).listen(port).workers(workers).run();
 }
 

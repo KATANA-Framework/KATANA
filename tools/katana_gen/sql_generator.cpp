@@ -42,6 +42,9 @@ std::string param_cpp_type(const sql_parameter& parameter) {
     if (parameter.cpp_type == "std::string") {
         return "std::string_view";
     }
+    if (parameter.cpp_type.starts_with("std::vector<")) {
+        return "const " + parameter.cpp_type + "&";
+    }
     return parameter.cpp_type;
 }
 
@@ -57,6 +60,7 @@ std::string generate_sql_models(const sql_catalog& catalog) {
     out << "#include <cstdint>\n";
     out << "#include <optional>\n";
     out << "#include <string>\n\n";
+    out << "#include <vector>\n\n";
     out << "namespace katana::sql::generated {\n\n";
     for (const auto& query : catalog.queries) {
         if (query.columns.empty()) {

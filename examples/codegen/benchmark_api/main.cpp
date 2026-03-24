@@ -98,7 +98,7 @@ int main() {
         return 1;
     }
 
-    auto router = generated::make_router(service.handler());
+    auto router = generated::make_fast_router(service.handler());
 
     std::cout << "KATANA Benchmark API on :" << port << " (" << workers << " workers)\n"
               << "PostgreSQL-backed Stage 4 demo service enabled.\n"

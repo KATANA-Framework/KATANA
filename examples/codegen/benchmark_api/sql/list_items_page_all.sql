@@ -1,4 +1,4 @@
--- name: list_items_page :many
+-- name: list_items_page_all :many
 SELECT
   page.id::bigint AS id,
   page.name::text AS name,
@@ -10,7 +10,6 @@ SELECT
 FROM (
   SELECT COUNT(*)::bigint AS total_count
   FROM katana_stage4_items
-  WHERE (NOT $3::bool OR category = $4::text)
 ) AS counts
 LEFT JOIN LATERAL (
   SELECT
@@ -21,7 +20,6 @@ LEFT JOIN LATERAL (
     stock,
     category
   FROM katana_stage4_items
-  WHERE (NOT $3::bool OR category = $4::text)
   ORDER BY id
   LIMIT $1::bigint OFFSET $2::bigint
 ) AS page ON TRUE;

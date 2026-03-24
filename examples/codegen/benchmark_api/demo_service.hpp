@@ -34,16 +34,16 @@ struct item_page {
 };
 
 struct create_item_command {
-    std::string name;
-    std::optional<std::string> description;
+    std::string_view name;
+    std::optional<std::string_view> description;
     double price = 0.0;
     std::optional<int64_t> stock;
     ItemCategory_enum category = ItemCategory_enum::other;
 };
 
 struct update_item_command {
-    std::optional<std::string> name;
-    std::optional<std::string> description;
+    std::optional<std::string_view> name;
+    std::optional<std::string_view> description;
     std::optional<double> price;
     std::optional<int64_t> stock;
     std::optional<ItemCategory_enum> category;
@@ -62,6 +62,7 @@ public:
     virtual katana::result<bool> delete_item(int64_t id) = 0;
 };
 
+std::unique_ptr<item_backend> make_sql_item_backend(katana::sql::executor& executor);
 std::unique_ptr<generated::api_handler> make_handler(item_backend& items);
 
 struct service_config {
@@ -92,6 +93,7 @@ private:
     katana::result<void> ensure_schema();
     katana::result<void> reset_items();
     katana::result<void> seed_items(std::size_t count);
+    katana::result<void> analyze_items();
 
     service_config config_;
     katana::sql::postgres_pool pool_;

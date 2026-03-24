@@ -49,7 +49,8 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/sql/create_item.sql
         ${CMAKE_CURRENT_SOURCE_DIR}/sql/delete_item.sql
         ${CMAKE_CURRENT_SOURCE_DIR}/sql/get_item.sql
-        ${CMAKE_CURRENT_SOURCE_DIR}/sql/list_items_page.sql
+        ${CMAKE_CURRENT_SOURCE_DIR}/sql/list_items_page_all.sql
+        ${CMAKE_CURRENT_SOURCE_DIR}/sql/list_items_page_by_category.sql
         ${CMAKE_CURRENT_SOURCE_DIR}/sql/update_item.sql
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Generating Benchmark API SQL repository"

@@ -342,7 +342,8 @@ add_custom_command(
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/create_item.sql
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/delete_item.sql
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/get_item.sql
-            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/list_items_page.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/list_items_page_all.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/list_items_page_by_category.sql
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/update_item.sql
     COMMENT "Generating benchmark_api SQL code for wrk server"
 )

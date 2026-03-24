@@ -61,6 +61,13 @@ std::string map_pg_type_to_cpp(std::string_view pg_type) {
     if (normalized.empty()) {
         return "std::string";
     }
+    if (normalized.ends_with("[]")) {
+        return "std::vector<" + map_pg_type_to_cpp(normalized.substr(0, normalized.size() - 2)) +
+               ">";
+    }
+    if (normalized.starts_with('_')) {
+        return "std::vector<" + map_pg_type_to_cpp(normalized.substr(1)) + ">";
+    }
     if (normalized == "smallint" || normalized == "int2") {
         return "int16_t";
     }
@@ -222,6 +229,17 @@ std::optional<std::string> read_type_name(std::string_view expr, std::size_t sta
 
         raw.push_back(' ');
         raw += token;
+    }
+
+    while (pos < expr.size()) {
+        while (pos < expr.size() && std::isspace(static_cast<unsigned char>(expr[pos]))) {
+            ++pos;
+        }
+        if (pos + 1 >= expr.size() || expr[pos] != '[' || expr[pos + 1] != ']') {
+            break;
+        }
+        raw += "[]";
+        pos += 2;
     }
 
     return normalize_type_name(raw);
@@ -440,8 +458,17 @@ std::vector<sql_column> parse_columns(std::string_view sql, sql_query_mode mode)
     }
 
     const auto without_comments = strip_sql_comments(sql);
-    std::optional<std::string> segment =
-        extract_projection_segment(without_comments, "select", "from");
+    const auto lowered = to_lower_ascii(trim_copy(without_comments));
+    const bool prefer_returning =
+        lowered.starts_with("insert") || lowered.starts_with("update") || lowered.starts_with("delete");
+
+    std::optional<std::string> segment;
+    if (prefer_returning) {
+        segment = extract_projection_segment(without_comments, "returning", "");
+    }
+    if (!segment) {
+        segment = extract_projection_segment(without_comments, "select", "from");
+    }
     if (!segment) {
         segment = extract_projection_segment(without_comments, "returning", "");
     }
