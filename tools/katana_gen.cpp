@@ -2,6 +2,7 @@
 #include "katana/core/openapi_loader.hpp"
 #include "katana_gen/generator.hpp"
 #include "katana_gen/options.hpp"
+#include "katana_gen/sql_codegen.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -14,6 +15,45 @@ using katana::openapi::document;
 using namespace katana_gen;
 
 namespace {
+
+std::string generate_openapi_package_header(bool emit_dto,
+                                            bool emit_validator,
+                                            bool emit_serdes,
+                                            bool emit_router,
+                                            bool emit_handler,
+                                            bool emit_bindings) {
+    std::string out = "#pragma once\n\n";
+    if (emit_dto) {
+        out += "#include \"generated_dtos.hpp\"\n";
+    }
+    if (emit_validator) {
+        out += "#include \"generated_validators.hpp\"\n";
+    }
+    if (emit_serdes) {
+        out += "#include \"generated_json.hpp\"\n";
+    }
+    if (emit_router) {
+        out += "#include \"generated_routes.hpp\"\n";
+    }
+    if (emit_handler) {
+        out += "#include \"generated_handlers.hpp\"\n";
+    }
+    if (emit_bindings) {
+        out += "#include \"generated_router_bindings.hpp\"\n";
+    }
+    return out;
+}
+
+std::string generate_sql_package_header(bool emit_models, bool emit_repository) {
+    std::string out = "#pragma once\n\n";
+    if (emit_models) {
+        out += "#include \"generated_sql_models.hpp\"\n";
+    }
+    if (emit_repository) {
+        out += "#include \"generated_sql_repository.hpp\"\n";
+    }
+    return out;
+}
 
 std::string error_message(const std::error_code& ec) {
     switch (static_cast<error_code>(ec.value())) {
@@ -218,6 +258,23 @@ int run_openapi(const options& opts) {
         std::cout << "\n";
     }
 
+    {
+        auto package_code =
+            generate_openapi_package_header(emit_dto, emit_validator, emit_serdes, emit_router, emit_handler, emit_bindings);
+        auto package_path = opts.output / "generated_openapi_package.hpp";
+        std::ofstream out(package_path, std::ios::binary);
+        if (!out) {
+            std::cerr << "[openapi] failed to write " << package_path << "\n";
+            return 1;
+        }
+        out << package_code;
+        std::cout << "[codegen] OpenAPI package written to " << package_path;
+        if (opts.verbose) {
+            std::cout << " (" << package_code.size() << " bytes)";
+        }
+        std::cout << "\n";
+    }
+
     if (opts.dump_ast) {
         auto json = dump_ast_summary(doc);
         auto out_path = opts.output / "openapi_ast.json";
@@ -235,13 +292,107 @@ int run_openapi(const options& opts) {
     return 0;
 }
 
+int run_sql(const options& opts) {
+    if (opts.input.empty()) {
+        std::cerr << "[sql] input directory is required\n";
+        return 1;
+    }
+
+    if (opts.emit != "all" && opts.emit.find("models") == std::string::npos &&
+        opts.emit.find("repository") == std::string::npos) {
+        std::cerr << "[sql] unknown emit target: " << opts.emit
+                  << " (expected: models|repository|all)\n";
+        return 1;
+    }
+
+    std::error_code fs_ec;
+    fs::create_directories(opts.output, fs_ec);
+    if (fs_ec) {
+        std::cerr << "[sql] failed to create output dir: " << fs_ec.message() << "\n";
+        return 1;
+    }
+
+    auto catalog = load_sql_catalog(opts.input);
+    if (!catalog) {
+        std::cerr << "[sql] failed to load SQL catalog: " << catalog.error().message() << "\n";
+        return 1;
+    }
+
+    const auto ast_json = dump_sql_ast_summary(*catalog);
+    if (opts.json_output) {
+        std::cout << ast_json << "\n";
+    }
+
+    if (opts.dump_ast) {
+        auto ast_path = opts.output / "sql_ast.json";
+        std::ofstream out(ast_path, std::ios::binary);
+        if (!out) {
+            std::cerr << "[sql] failed to write " << ast_path << "\n";
+            return 1;
+        }
+        out << ast_json;
+        std::cout << "[sql] AST summary written to " << ast_path << "\n";
+    }
+
+    if (opts.check_only) {
+        std::cout << "[check] OK: queries=" << catalog->queries.size() << "\n";
+        return 0;
+    }
+
+    const bool emit_models = opts.emit == "all" || opts.emit.find("models") != std::string::npos;
+    const bool emit_repository =
+        opts.emit == "all" || opts.emit.find("repository") != std::string::npos;
+
+    if (emit_models) {
+        auto models_code = generate_sql_models(*catalog);
+        auto models_path = opts.output / "generated_sql_models.hpp";
+        std::ofstream out(models_path, std::ios::binary);
+        if (!out) {
+            std::cerr << "[sql] failed to write " << models_path << "\n";
+            return 1;
+        }
+        out << models_code;
+        std::cout << "[codegen] SQL models written to " << models_path << "\n";
+    }
+
+    if (emit_repository) {
+        auto repository_code = generate_sql_repository(*catalog);
+        auto repository_path = opts.output / "generated_sql_repository.hpp";
+        std::ofstream out(repository_path, std::ios::binary);
+        if (!out) {
+            std::cerr << "[sql] failed to write " << repository_path << "\n";
+            return 1;
+        }
+        out << repository_code;
+        std::cout << "[codegen] SQL repository written to " << repository_path << "\n";
+    }
+
+    {
+        auto package_code = generate_sql_package_header(emit_models, emit_repository);
+        auto package_path = opts.output / "generated_sql_package.hpp";
+        std::ofstream out(package_path, std::ios::binary);
+        if (!out) {
+            std::cerr << "[sql] failed to write " << package_path << "\n";
+            return 1;
+        }
+        out << package_code;
+        std::cout << "[codegen] SQL package written to " << package_path << "\n";
+    }
+
+    std::cout << "[sql] OK: queries=" << catalog->queries.size() << "\n";
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     options opts = parse_args(argc, argv);
-    if (opts.subcommand != "openapi") {
-        std::cerr << "Unknown subcommand: " << opts.subcommand << "\n";
-        print_usage();
+    if (opts.subcommand == "openapi") {
+        return run_openapi(opts);
     }
-    return run_openapi(opts);
+    if (opts.subcommand == "sql") {
+        return run_sql(opts);
+    }
+    std::cerr << "Unknown subcommand: " << opts.subcommand << "\n";
+    print_usage();
 }
