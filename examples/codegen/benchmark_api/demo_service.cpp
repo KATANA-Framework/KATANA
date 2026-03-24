@@ -60,10 +60,9 @@ void fill_item_dto(Item& out, const item_record& item, monotonic_arena& arena) {
     out.category = item.category;
 }
 
-katana::http::response
-make_item_json_response(const item_record& item,
-                        int32_t status_code = 200,
-                        std::string_view reason_phrase = "OK") {
+katana::http::response make_item_json_response(const item_record& item,
+                                               int32_t status_code = 200,
+                                               std::string_view reason_phrase = "OK") {
     monotonic_arena arena;
     Item dto(&arena);
     fill_item_dto(dto, item, arena);
@@ -125,23 +124,23 @@ katana::http::response make_list_items_response(katana::result<item_page> page_r
 
 class sql_item_backend final : public item_backend {
 public:
-    explicit sql_item_backend(katana::sql::executor& executor) : executor_(executor), repo_(executor) {}
+    explicit sql_item_backend(katana::sql::executor& executor)
+        : executor_(executor), repo_(executor) {}
 
     katana::result<item_page> list_items(std::size_t limit,
                                          std::size_t offset,
                                          std::optional<std::string_view> category) override {
         if (category) {
-            auto rows = repo_.list_items_page_by_category(static_cast<int64_t>(limit),
-                                                          static_cast<int64_t>(offset),
-                                                          *category);
+            auto rows = repo_.list_items_page_by_category(
+                static_cast<int64_t>(limit), static_cast<int64_t>(offset), *category);
             if (!rows) {
                 debug_backend_error("list_items.sql.filtered", rows.error());
                 return std::unexpected(rows.error());
             }
             return map_item_page(limit, offset, *rows, "list_items.map.filtered");
         } else {
-            auto rows =
-                repo_.list_items_page_all(static_cast<int64_t>(limit), static_cast<int64_t>(offset));
+            auto rows = repo_.list_items_page_all(static_cast<int64_t>(limit),
+                                                  static_cast<int64_t>(offset));
             if (!rows) {
                 debug_backend_error("list_items.sql.all", rows.error());
                 return std::unexpected(rows.error());
@@ -188,9 +187,9 @@ public:
 
     katana::result<std::optional<item_record>>
     update_item(int64_t id, const update_item_command& command) override {
-        const auto category =
-            command.category ? std::optional<std::string_view>(to_string(*command.category))
-                             : std::optional<std::string_view>{};
+        const auto category = command.category
+                                  ? std::optional<std::string_view>(to_string(*command.category))
+                                  : std::optional<std::string_view>{};
         auto row = repo_.update_item(id,
                                      command.name.has_value(),
                                      command.name.value_or(std::string_view{}),
@@ -230,9 +229,8 @@ public:
         return dynamic_cast<katana::sql::async_executor*>(&executor_) != nullptr;
     }
 
-    [[nodiscard]] bool
-    try_dispatch_get_item_async(int64_t id,
-                                katana::http::async_response_writer out) {
+    [[nodiscard]] bool try_dispatch_get_item_async(int64_t id,
+                                                   katana::http::async_response_writer out) {
         if (!out) {
             return false;
         }
@@ -261,11 +259,10 @@ public:
             });
     }
 
-    [[nodiscard]] bool
-    try_dispatch_list_items_async(std::size_t limit,
-                                  std::size_t offset,
-                                  std::optional<std::string_view> category,
-                                  katana::http::async_response_writer out) {
+    [[nodiscard]] bool try_dispatch_list_items_async(std::size_t limit,
+                                                     std::size_t offset,
+                                                     std::optional<std::string_view> category,
+                                                     katana::http::async_response_writer out) {
         if (!out) {
             return false;
         }
@@ -297,9 +294,7 @@ public:
             static_cast<int64_t>(offset),
             [complete = std::move(complete)](
                 katana::result<std::vector<katana::sql::generated::ListItemsPageAllRow>>
-                    rows_result) {
-                complete(std::move(rows_result), "list_items.async.map.all");
-            });
+                    rows_result) { complete(std::move(rows_result), "list_items.async.map.all"); });
     }
 
 private:
@@ -487,9 +482,8 @@ public:
         update_item_command command{
             .name = body.name ? std::optional<std::string_view>(*body.name)
                               : std::optional<std::string_view>{},
-            .description = body.description
-                               ? std::optional<std::string_view>(*body.description)
-                               : std::optional<std::string_view>{},
+            .description = body.description ? std::optional<std::string_view>(*body.description)
+                                            : std::optional<std::string_view>{},
             .price = body.price,
             .stock = body.stock,
             .category = body.category,
@@ -580,7 +574,8 @@ constexpr std::string_view category_index_sql =
     "ON katana_stage4_items (category, id) INCLUDE (name, description, price, stock)";
 
 constexpr std::string_view benchmark_disable_autovacuum_sql =
-    "ALTER TABLE katana_stage4_items SET (autovacuum_enabled = false, toast.autovacuum_enabled = false)";
+    "ALTER TABLE katana_stage4_items SET (autovacuum_enabled = false, toast.autovacuum_enabled = "
+    "false)";
 
 constexpr std::string_view benchmark_restore_autovacuum_sql =
     "ALTER TABLE katana_stage4_items RESET (autovacuum_enabled, toast.autovacuum_enabled)";
@@ -712,7 +707,8 @@ katana::result<void> service::ensure_schema() {
 
 katana::result<void> service::apply_benchmark_table_profile() {
     auto& executor = pool_.current_executor();
-    auto altered = executor.exec("benchmark_api_disable_autovacuum", benchmark_disable_autovacuum_sql, {});
+    auto altered =
+        executor.exec("benchmark_api_disable_autovacuum", benchmark_disable_autovacuum_sql, {});
     if (!altered) {
         return std::unexpected(altered.error());
     }

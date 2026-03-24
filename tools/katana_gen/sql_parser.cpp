@@ -459,8 +459,8 @@ std::vector<sql_column> parse_columns(std::string_view sql, sql_query_mode mode)
 
     const auto without_comments = strip_sql_comments(sql);
     const auto lowered = to_lower_ascii(trim_copy(without_comments));
-    const bool prefer_returning =
-        lowered.starts_with("insert") || lowered.starts_with("update") || lowered.starts_with("delete");
+    const bool prefer_returning = lowered.starts_with("insert") || lowered.starts_with("update") ||
+                                  lowered.starts_with("delete");
 
     std::optional<std::string> segment;
     if (prefer_returning) {

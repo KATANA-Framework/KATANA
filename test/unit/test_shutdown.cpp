@@ -1,8 +1,8 @@
 #include "katana/core/shutdown.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <csignal>
-#include <atomic>
 #include <gtest/gtest.h>
 #include <thread>
 
@@ -167,9 +167,8 @@ TEST_F(ShutdownManagerTest, SignalHandlerTriggersCallback) {
     auto& mgr = shutdown_manager::instance();
 
     std::atomic<int> callback_count{0};
-    mgr.set_shutdown_callback([&callback_count]() {
-        callback_count.fetch_add(1, std::memory_order_relaxed);
-    });
+    mgr.set_shutdown_callback(
+        [&callback_count]() { callback_count.fetch_add(1, std::memory_order_relaxed); });
     mgr.setup_signal_handlers();
 
     ASSERT_EQ(std::raise(SIGTERM), 0);

@@ -61,8 +61,7 @@ TEST(SqlRuntimeTest, OwnsStringViewParameterStorage) {
 
 TEST(SqlRuntimeTest, EncodesPgArrayParameters) {
     const auto ids = katana::sql::encode_value(std::vector<int64_t>{1, 2, 3});
-    const auto names =
-        katana::sql::encode_value(std::vector<std::string>{"Ada", "Linus", "Grace"});
+    const auto names = katana::sql::encode_value(std::vector<std::string>{"Ada", "Linus", "Grace"});
 
     ASSERT_TRUE(ids.has_value());
     ASSERT_TRUE(names.has_value());

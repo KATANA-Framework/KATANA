@@ -258,11 +258,13 @@ katana::result<const char*> ensure_prepared_impl(PGconn*& connection,
     return it->c_str();
 }
 
-katana::result<rows>
-execute_query_impl(PGconn* connection, const char* prepared_name, const parameters& params, std::string& error) {
+katana::result<rows> execute_query_impl(PGconn* connection,
+                                        const char* prepared_name,
+                                        const parameters& params,
+                                        std::string& error) {
     auto values = build_param_values(params);
-    PGresult* result =
-        PQexecPrepared(connection, prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
+    PGresult* result = PQexecPrepared(
+        connection, prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
     if (result == nullptr) {
         record_error_message(error, "PQexecPrepared returned null");
         return std::unexpected(sql_error());
@@ -281,11 +283,13 @@ execute_query_impl(PGconn* connection, const char* prepared_name, const paramete
     return out_rows;
 }
 
-katana::result<exec_result>
-execute_exec_impl(PGconn* connection, const char* prepared_name, const parameters& params, std::string& error) {
+katana::result<exec_result> execute_exec_impl(PGconn* connection,
+                                              const char* prepared_name,
+                                              const parameters& params,
+                                              std::string& error) {
     auto values = build_param_values(params);
-    PGresult* result =
-        PQexecPrepared(connection, prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
+    PGresult* result = PQexecPrepared(
+        connection, prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
     if (result == nullptr) {
         record_error_message(error, "PQexecPrepared returned null");
         return std::unexpected(sql_error());
@@ -319,8 +323,8 @@ katana::result<void> execute_query_each_impl(PGconn* connection,
                                              row_handler handler,
                                              std::string& error) {
     auto values = build_param_values(params);
-    PGresult* result =
-        PQexecPrepared(connection, prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
+    PGresult* result = PQexecPrepared(
+        connection, prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
     if (result == nullptr) {
         record_error_message(error, "PQexecPrepared returned null");
         return std::unexpected(sql_error());
@@ -360,8 +364,10 @@ katana::result<void> execute_query_each_impl(PGconn* connection,
     return {};
 }
 
-katana::result<void>
-run_simple_impl(PGconn*& connection, std::string_view connection_string, const char* sql, std::string& error) {
+katana::result<void> run_simple_impl(PGconn*& connection,
+                                     std::string_view connection_string,
+                                     const char* sql,
+                                     std::string& error) {
     auto connected = ensure_connected_impl(connection, connection_string, error);
     if (!connected) {
         return connected;
@@ -450,14 +456,11 @@ bool ensure_reactor_watch(reactor_async_state& state, event_type events) {
     }
 
     auto weak_state = std::weak_ptr<reactor_async_state>(state.shared_from_this());
-    fd_watch watch(*state.owner_reactor,
-                   fd,
-                   events,
-                   [weak_state](event_type ready_events) {
-                       if (auto locked = weak_state.lock()) {
-                           drive_reactor_async_queue(locked, ready_events);
-                       }
-                   });
+    fd_watch watch(*state.owner_reactor, fd, events, [weak_state](event_type ready_events) {
+        if (auto locked = weak_state.lock()) {
+            drive_reactor_async_queue(locked, ready_events);
+        }
+    });
     if (!watch.is_registered()) {
         record_error_message(state.last_error, "failed to register PostgreSQL socket with reactor");
         return false;
@@ -497,7 +500,8 @@ bool start_reactor_connect_locked(reactor_async_state& state) {
 
 bool start_reactor_prepare_locked(reactor_async_state& state) {
     if (!state.active_request.has_value() || state.connection == nullptr) {
-        record_error_message(state.last_error, "reactor prepare requested without active connection");
+        record_error_message(state.last_error,
+                             "reactor prepare requested without active connection");
         return false;
     }
 
@@ -554,8 +558,8 @@ bool start_reactor_execute_locked(reactor_async_state& state) {
     return ensure_reactor_watch(state, watch_events);
 }
 
-reactor_phase_poll_result
-poll_connect_phase_locked(reactor_async_state& state, event_type ready_events) {
+reactor_phase_poll_result poll_connect_phase_locked(reactor_async_state& state,
+                                                    event_type ready_events) {
     if (state.connection == nullptr) {
         record_error_message(state.last_error, "reactor connect poll without connection");
         return reactor_phase_poll_result::failed;
@@ -591,8 +595,8 @@ poll_connect_phase_locked(reactor_async_state& state, event_type ready_events) {
     }
 }
 
-reactor_command_poll_result
-poll_command_phase_locked(reactor_async_state& state, event_type ready_events) {
+reactor_command_poll_result poll_command_phase_locked(reactor_async_state& state,
+                                                      event_type ready_events) {
     if (state.connection == nullptr) {
         record_error_message(state.last_error, "reactor command poll without connection");
         return {.state = reactor_command_poll_result::status::failed};
@@ -610,9 +614,9 @@ poll_command_phase_locked(reactor_async_state& state, event_type ready_events) {
         }
 
         state.flush_pending = flush_status == 1;
-        const auto watch_events =
-            state.flush_pending ? (event_type::readable | event_type::writable)
-                                : event_type::readable;
+        const auto watch_events = state.flush_pending
+                                      ? (event_type::readable | event_type::writable)
+                                      : event_type::readable;
         if (!ensure_reactor_watch(state, watch_events)) {
             return {.state = reactor_command_poll_result::status::failed};
         }
@@ -667,8 +671,8 @@ bool start_reactor_request_locked(reactor_async_state& state) {
     return true;
 }
 
-std::optional<reactor_request_completion>
-poll_reactor_request_locked(reactor_async_state& state, event_type ready_events) {
+std::optional<reactor_request_completion> poll_reactor_request_locked(reactor_async_state& state,
+                                                                      event_type ready_events) {
     if (!state.active_request.has_value() || state.connection == nullptr) {
         if (!state.active_request.has_value()) {
             return std::nullopt;
@@ -740,7 +744,8 @@ poll_reactor_request_locked(reactor_async_state& state, event_type ready_events)
                 return fail_active_request();
             }
 
-            std::unique_ptr<PGresult, decltype(&PQclear)> result_holder(poll_result.result, &PQclear);
+            std::unique_ptr<PGresult, decltype(&PQclear)> result_holder(poll_result.result,
+                                                                        &PQclear);
             if (PQresultStatus(result_holder.get()) != PGRES_COMMAND_OK) {
                 record_error_message(state.last_error, PQresultErrorMessage(result_holder.get()));
                 return fail_active_request();
@@ -762,7 +767,8 @@ poll_reactor_request_locked(reactor_async_state& state, event_type ready_events)
                 return fail_active_request();
             }
 
-            std::unique_ptr<PGresult, decltype(&PQclear)> result_holder(poll_result.result, &PQclear);
+            std::unique_ptr<PGresult, decltype(&PQclear)> result_holder(poll_result.result,
+                                                                        &PQclear);
             reactor_request_completion completion;
             completion.request = std::move(*state.active_request);
             state.active_request.reset();
@@ -771,7 +777,8 @@ poll_reactor_request_locked(reactor_async_state& state, event_type ready_events)
             const auto status = PQresultStatus(result_holder.get());
             if (completion.request.operation == async_request::kind::query) {
                 if (status != PGRES_TUPLES_OK) {
-                    record_error_message(state.last_error, PQresultErrorMessage(result_holder.get()));
+                    record_error_message(state.last_error,
+                                         PQresultErrorMessage(result_holder.get()));
                     completion.query_result = std::unexpected(sql_error());
                     close_reactor_async_connection(state);
                 } else {
@@ -780,13 +787,15 @@ poll_reactor_request_locked(reactor_async_state& state, event_type ready_events)
                 }
             } else {
                 if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
-                    record_error_message(state.last_error, PQresultErrorMessage(result_holder.get()));
+                    record_error_message(state.last_error,
+                                         PQresultErrorMessage(result_holder.get()));
                     completion.exec_result_value = std::unexpected(sql_error());
                     close_reactor_async_connection(state);
                 } else {
                     exec_result out;
                     if (status == PGRES_TUPLES_OK) {
-                        out.affected_rows = static_cast<std::size_t>(PQntuples(result_holder.get()));
+                        out.affected_rows =
+                            static_cast<std::size_t>(PQntuples(result_holder.get()));
                     } else {
                         const char* tuples = PQcmdTuples(result_holder.get());
                         if (tuples != nullptr && *tuples != '\0') {
@@ -924,8 +933,8 @@ struct postgres_executor::impl {
             std::lock_guard<std::mutex> lock(state->mutex);
             state->stopping = true;
             owner_reactor = state->owner_reactor;
-            on_owner_thread = owner_reactor != nullptr &&
-                              state->owner_thread_id == std::this_thread::get_id();
+            on_owner_thread =
+                owner_reactor != nullptr && state->owner_thread_id == std::this_thread::get_id();
             if (owner_reactor == nullptr || on_owner_thread) {
                 close_reactor_async_connection(*state);
                 state->active_request.reset();
@@ -1122,7 +1131,8 @@ katana::result<void> postgres_executor::query_each(std::string_view statement_na
     if (!prepared_name) {
         return std::unexpected(prepared_name.error());
     }
-    return execute_query_each_impl(impl_->connection, *prepared_name, params, std::move(handler), last_error_);
+    return execute_query_each_impl(
+        impl_->connection, *prepared_name, params, std::move(handler), last_error_);
 }
 
 katana::result<void> postgres_executor::run_simple(const char* sql) {
@@ -1159,11 +1169,12 @@ bool postgres_executor::query_async(std::string_view statement_name,
     request.params = std::move(params);
     request.query_handler = std::move(handler);
 
-    if (auto* owner_reactor = current_handler_reactor(); owner_reactor != nullptr &&
-                                                      impl_ != nullptr &&
-                                                      impl_->reactor_async != nullptr) {
-        if (impl::enqueue_reactor_async(
-                impl_->reactor_async, std::move(request), config_.connection_string, *owner_reactor)) {
+    if (auto* owner_reactor = current_handler_reactor();
+        owner_reactor != nullptr && impl_ != nullptr && impl_->reactor_async != nullptr) {
+        if (impl::enqueue_reactor_async(impl_->reactor_async,
+                                        std::move(request),
+                                        config_.connection_string,
+                                        *owner_reactor)) {
             return true;
         }
     }
@@ -1173,8 +1184,8 @@ bool postgres_executor::query_async(std::string_view statement_name,
         std::lock_guard<std::mutex> lock(async.mutex);
         if (!async.worker_started) {
             async.stopping = false;
-            async.worker = std::thread(
-                [state = &async, connection_string = config_.connection_string] {
+            async.worker =
+                std::thread([state = &async, connection_string = config_.connection_string] {
                     impl::run_async_worker(*state, std::move(connection_string));
                 });
             async.worker_started = true;
@@ -1205,11 +1216,12 @@ bool postgres_executor::exec_async(std::string_view statement_name,
     request.params = std::move(params);
     request.exec_handler = std::move(handler);
 
-    if (auto* owner_reactor = current_handler_reactor(); owner_reactor != nullptr &&
-                                                      impl_ != nullptr &&
-                                                      impl_->reactor_async != nullptr) {
-        if (impl::enqueue_reactor_async(
-                impl_->reactor_async, std::move(request), config_.connection_string, *owner_reactor)) {
+    if (auto* owner_reactor = current_handler_reactor();
+        owner_reactor != nullptr && impl_ != nullptr && impl_->reactor_async != nullptr) {
+        if (impl::enqueue_reactor_async(impl_->reactor_async,
+                                        std::move(request),
+                                        config_.connection_string,
+                                        *owner_reactor)) {
             return true;
         }
     }
@@ -1219,8 +1231,8 @@ bool postgres_executor::exec_async(std::string_view statement_name,
         std::lock_guard<std::mutex> lock(async.mutex);
         if (!async.worker_started) {
             async.stopping = false;
-            async.worker = std::thread(
-                [state = &async, connection_string = config_.connection_string] {
+            async.worker =
+                std::thread([state = &async, connection_string = config_.connection_string] {
                     impl::run_async_worker(*state, std::move(connection_string));
                 });
             async.worker_started = true;

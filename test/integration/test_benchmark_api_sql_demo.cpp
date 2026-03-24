@@ -325,16 +325,15 @@ TEST(BenchmarkApiSqlDemoIntegration, GeneratedRepositorySupportsAsyncCrudWrites)
 
     std::promise<katana::result<std::optional<katana::sql::generated::CreateItemRow>>>
         create_promise;
-    ASSERT_TRUE(repo.create_item_async("Async Drill",
-                                       true,
-                                       "Generated async create",
-                                       199.50,
-                                       true,
-                                       11,
-                                       "tools",
-                                       [&create_promise](auto result) {
-                                           create_promise.set_value(std::move(result));
-                                       }));
+    ASSERT_TRUE(repo.create_item_async(
+        "Async Drill",
+        true,
+        "Generated async create",
+        199.50,
+        true,
+        11,
+        "tools",
+        [&create_promise](auto result) { create_promise.set_value(std::move(result)); }));
     auto created = create_promise.get_future().get();
     ASSERT_TRUE(created);
     ASSERT_TRUE(created->has_value());
@@ -345,20 +344,19 @@ TEST(BenchmarkApiSqlDemoIntegration, GeneratedRepositorySupportsAsyncCrudWrites)
 
     std::promise<katana::result<std::optional<katana::sql::generated::UpdateItemRow>>>
         update_promise;
-    ASSERT_TRUE(repo.update_item_async(created_id,
-                                       true,
-                                       "Async Drill X",
-                                       true,
-                                       "Generated async update",
-                                       true,
-                                       149.25,
-                                       true,
-                                       7,
-                                       true,
-                                       "electronics",
-                                       [&update_promise](auto result) {
-                                           update_promise.set_value(std::move(result));
-                                       }));
+    ASSERT_TRUE(repo.update_item_async(
+        created_id,
+        true,
+        "Async Drill X",
+        true,
+        "Generated async update",
+        true,
+        149.25,
+        true,
+        7,
+        true,
+        "electronics",
+        [&update_promise](auto result) { update_promise.set_value(std::move(result)); }));
     auto updated = update_promise.get_future().get();
     ASSERT_TRUE(updated);
     ASSERT_TRUE(updated->has_value());
