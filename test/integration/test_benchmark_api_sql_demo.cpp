@@ -74,7 +74,8 @@ std::optional<int64_t> extract_id(std::string_view json) {
 TEST(BenchmarkApiSqlDemoIntegration, CrudLifecycleOverGeneratedRouter) {
     const char* dsn = postgres_dsn();
     if (dsn == nullptr || *dsn == '\0') {
-        std::cout << "[sql-demo] KATANA_TEST_POSTGRES_DSN is not set; skipping CRUD lifecycle integration body\n";
+        std::cout << "[sql-demo] KATANA_TEST_POSTGRES_DSN is not set; skipping CRUD lifecycle "
+                     "integration body\n";
         return;
     }
 
@@ -104,38 +105,39 @@ TEST(BenchmarkApiSqlDemoIntegration, CrudLifecycleOverGeneratedRouter) {
     const auto created_id = extract_id(created.body);
     ASSERT_TRUE(created_id.has_value());
 
-    const response fetched =
-        dispatch_request(router, make_request(method::get, "/items/" + std::to_string(*created_id)));
+    const response fetched = dispatch_request(
+        router, make_request(method::get, "/items/" + std::to_string(*created_id)));
     ASSERT_EQ(fetched.status, 200);
     EXPECT_NE(fetched.body.find("\"Cordless drill\""), std::string::npos);
 
-    const response listed =
-        dispatch_request(router, make_request(method::get, "/items?limit=10&offset=0&category=tools"));
+    const response listed = dispatch_request(
+        router, make_request(method::get, "/items?limit=10&offset=0&category=tools"));
     ASSERT_EQ(listed.status, 200);
     EXPECT_NE(listed.body.find("\"total\":"), std::string::npos);
     EXPECT_NE(listed.body.find("\"Drill\""), std::string::npos);
 
-    const response updated = dispatch_request(
-        router,
-        make_request(method::put,
-                     "/items/" + std::to_string(*created_id),
-                     R"({"name":"Drill X","price":109.99,"stock":20})"));
+    const response updated =
+        dispatch_request(router,
+                         make_request(method::put,
+                                      "/items/" + std::to_string(*created_id),
+                                      R"({"name":"Drill X","price":109.99,"stock":20})"));
     ASSERT_EQ(updated.status, 200);
     EXPECT_NE(updated.body.find("\"Drill X\""), std::string::npos);
 
-    const response deleted =
-        dispatch_request(router, make_request(method::del, "/items/" + std::to_string(*created_id)));
+    const response deleted = dispatch_request(
+        router, make_request(method::del, "/items/" + std::to_string(*created_id)));
     ASSERT_EQ(deleted.status, 204);
 
-    const response missing =
-        dispatch_request(router, make_request(method::get, "/items/" + std::to_string(*created_id)));
+    const response missing = dispatch_request(
+        router, make_request(method::get, "/items/" + std::to_string(*created_id)));
     ASSERT_EQ(missing.status, 404);
 }
 
 TEST(BenchmarkApiSqlDemoIntegration, EmptyPagePreservesTotalCount) {
     const char* dsn = postgres_dsn();
     if (dsn == nullptr || *dsn == '\0') {
-        std::cout << "[sql-demo] KATANA_TEST_POSTGRES_DSN is not set; skipping empty-page integration body\n";
+        std::cout << "[sql-demo] KATANA_TEST_POSTGRES_DSN is not set; skipping empty-page "
+                     "integration body\n";
         return;
     }
 
@@ -150,8 +152,8 @@ TEST(BenchmarkApiSqlDemoIntegration, EmptyPagePreservesTotalCount) {
     ASSERT_TRUE(demo.start());
 
     auto router = generated::make_fast_router(demo.handler());
-    const response listed =
-        dispatch_request(router, make_request(method::get, "/items?limit=5&offset=999&category=tools"));
+    const response listed = dispatch_request(
+        router, make_request(method::get, "/items?limit=5&offset=999&category=tools"));
 
     ASSERT_EQ(listed.status, 200);
     EXPECT_NE(listed.body.find("\"items\":[]"), std::string::npos);

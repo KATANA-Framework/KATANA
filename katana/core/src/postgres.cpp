@@ -200,8 +200,9 @@ std::string_view postgres_executor::last_error_message() const noexcept {
 }
 
 katana::result<const char*> postgres_executor::ensure_prepared(std::string_view statement_name,
-                                                                std::string_view sql) {
-    if (const auto it = prepared_statements_.find(statement_name); it != prepared_statements_.end()) {
+                                                               std::string_view sql) {
+    if (const auto it = prepared_statements_.find(statement_name);
+        it != prepared_statements_.end()) {
         return it->c_str();
     }
     auto connected = ensure_connected();
@@ -211,7 +212,8 @@ katana::result<const char*> postgres_executor::ensure_prepared(std::string_view 
 
     std::string owned_name(statement_name);
     std::string owned_sql(sql);
-    PGresult* result = PQprepare(impl_->connection, owned_name.c_str(), owned_sql.c_str(), 0, nullptr);
+    PGresult* result =
+        PQprepare(impl_->connection, owned_name.c_str(), owned_sql.c_str(), 0, nullptr);
     if (result == nullptr) {
         record_error("PQprepare returned null");
         return std::unexpected(sql_error());
@@ -239,13 +241,8 @@ katana::result<rows> postgres_executor::query(std::string_view statement_name,
     }
 
     auto values = build_param_values(params);
-    PGresult* result = PQexecPrepared(impl_->connection,
-                                      *prepared_name,
-                                      values.count(),
-                                      values.data(),
-                                      nullptr,
-                                      nullptr,
-                                      0);
+    PGresult* result = PQexecPrepared(
+        impl_->connection, *prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
     if (result == nullptr) {
         record_error("PQexecPrepared returned null");
         return std::unexpected(sql_error());
@@ -274,13 +271,8 @@ katana::result<exec_result> postgres_executor::exec(std::string_view statement_n
     }
 
     auto values = build_param_values(params);
-    PGresult* result = PQexecPrepared(impl_->connection,
-                                      *prepared_name,
-                                      values.count(),
-                                      values.data(),
-                                      nullptr,
-                                      nullptr,
-                                      0);
+    PGresult* result = PQexecPrepared(
+        impl_->connection, *prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
     if (result == nullptr) {
         record_error("PQexecPrepared returned null");
         return std::unexpected(sql_error());
@@ -318,13 +310,8 @@ katana::result<void> postgres_executor::query_each(std::string_view statement_na
     }
 
     auto values = build_param_values(params);
-    PGresult* result = PQexecPrepared(impl_->connection,
-                                      *prepared_name,
-                                      values.count(),
-                                      values.data(),
-                                      nullptr,
-                                      nullptr,
-                                      0);
+    PGresult* result = PQexecPrepared(
+        impl_->connection, *prepared_name, values.count(), values.data(), nullptr, nullptr, 0);
     if (result == nullptr) {
         record_error("PQexecPrepared returned null");
         return std::unexpected(sql_error());
@@ -479,7 +466,8 @@ postgres_executor& postgres_pool::current_executor() noexcept {
         return *executors_[it->second];
     }
 
-    const std::size_t slot = next_executor_.fetch_add(1, std::memory_order_relaxed) % executors_.size();
+    const std::size_t slot =
+        next_executor_.fetch_add(1, std::memory_order_relaxed) % executors_.size();
     executor_slots.emplace(this, slot);
     return *executors_[slot];
 }

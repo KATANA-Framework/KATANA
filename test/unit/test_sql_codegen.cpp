@@ -38,8 +38,8 @@ protected:
             return false;
         }
 
-        std::string cmd = katana_gen.string() + " sql -i " + temp_dir.string() + " -o " +
-                          temp_dir.string();
+        std::string cmd =
+            katana_gen.string() + " sql -i " + temp_dir.string() + " -o " + temp_dir.string();
         if (!extra_flags.empty()) {
             cmd += " " + extra_flags;
         }

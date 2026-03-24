@@ -3,8 +3,8 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -26,9 +26,8 @@ public:
         return katana::sql::rows{};
     }
 
-    katana::result<katana::sql::exec_result> exec(std::string_view,
-                                                  std::string_view,
-                                                  const katana::sql::parameters&) override {
+    katana::result<katana::sql::exec_result>
+    exec(std::string_view, std::string_view, const katana::sql::parameters&) override {
         return katana::sql::exec_result{.affected_rows = 1};
     }
 
@@ -68,10 +67,9 @@ public:
 
     void seed() {
         point_lookup_rows_ = {
-            katana::sql::row{
-                {{"id", katana::sql::cell(std::string("42"))},
-                 {"name", katana::sql::cell(std::string("Ada"))},
-                 {"active", katana::sql::cell(std::string("true"))}}},
+            katana::sql::row{{{"id", katana::sql::cell(std::string("42"))},
+                              {"name", katana::sql::cell(std::string("Ada"))},
+                              {"active", katana::sql::cell(std::string("true"))}}},
         };
 
         list_rows_.clear();

@@ -23,18 +23,18 @@ struct benchmark_fixture {
 SELECT id::bigint AS id, name::text AS name, active::bool AS active
 FROM users
 WHERE id = $1::bigint;
-)"); 
+)");
         add_source("list_users.sql",
                    R"(-- name: list_users :many
 SELECT id::bigint AS id, name::text AS name
 FROM users
 WHERE active = $1::bool
 ORDER BY id;
-)"); 
+)");
         add_source("touch_user.sql",
                    R"(-- name: touch_user :exec
 UPDATE users SET last_seen_at = NOW() WHERE id = $1::bigint;
-)"); 
+)");
     }
 
     ~benchmark_fixture() {

@@ -5,9 +5,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstdint>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -40,8 +40,8 @@ struct throughput_stats {
 };
 
 katana::result<void> seed_fixture(katana::sql::postgres_executor& executor, int user_count) {
-    if (auto result =
-            executor.exec("bench_set_client_min_messages", "SET client_min_messages TO warning", {});
+    if (auto result = executor.exec(
+            "bench_set_client_min_messages", "SET client_min_messages TO warning", {});
         !result) {
         return std::unexpected(result.error());
     }
@@ -57,20 +57,17 @@ katana::result<void> seed_fixture(katana::sql::postgres_executor& executor, int 
         return std::unexpected(result.error());
     }
 
-    if (auto result = executor.exec("bench_truncate_shared_users", "TRUNCATE katana_stage4_users", {});
+    if (auto result =
+            executor.exec("bench_truncate_shared_users", "TRUNCATE katana_stage4_users", {});
         !result) {
         return std::unexpected(result.error());
     }
 
-    const std::string seed_sql =
-        "INSERT INTO katana_stage4_users (id, name, active) "
-        "SELECT g, 'user_' || g::text, (g % 2 = 0) "
-        "FROM generate_series(1, " + std::to_string(user_count) + ") AS g";
-    if (auto result = executor.exec(
-            "bench_seed_shared_users",
-            seed_sql,
-            {});
-        !result) {
+    const std::string seed_sql = "INSERT INTO katana_stage4_users (id, name, active) "
+                                 "SELECT g, 'user_' || g::text, (g % 2 = 0) "
+                                 "FROM generate_series(1, " +
+                                 std::to_string(user_count) + ") AS g";
+    if (auto result = executor.exec("bench_seed_shared_users", seed_sql, {}); !result) {
         return std::unexpected(result.error());
     }
 
@@ -187,12 +184,17 @@ int main() {
 
     const auto duration = std::chrono::seconds(duration_seconds);
     const auto user_id_for = [shard_size](int thread_index, std::uint64_t iteration) -> int64_t {
-        const auto shard_base = static_cast<std::uint64_t>(thread_index) * static_cast<std::uint64_t>(shard_size);
-        return static_cast<int64_t>(1 + shard_base + (iteration % static_cast<std::uint64_t>(shard_size)));
+        const auto shard_base =
+            static_cast<std::uint64_t>(thread_index) * static_cast<std::uint64_t>(shard_size);
+        return static_cast<int64_t>(1 + shard_base +
+                                    (iteration % static_cast<std::uint64_t>(shard_size)));
     };
 
     const auto get_user_stats = run_parallel_bench(
-        pool, thread_count, duration, [&](auto& repo, auto&, int thread_index, std::uint64_t iteration, const auto&) {
+        pool,
+        thread_count,
+        duration,
+        [&](auto& repo, auto&, int thread_index, std::uint64_t iteration, const auto&) {
             const auto user_id = user_id_for(thread_index, iteration);
             auto result = repo.get_user(user_id);
             return result && result->has_value() ? 1U : 0U;
@@ -205,39 +207,44 @@ int main() {
         });
 
     const auto touch_user_stats = run_parallel_bench(
-        pool, thread_count, duration, [&](auto& repo, auto&, int thread_index, std::uint64_t iteration, const auto&) {
+        pool,
+        thread_count,
+        duration,
+        [&](auto& repo, auto&, int thread_index, std::uint64_t iteration, const auto&) {
             const auto user_id = user_id_for(thread_index, iteration);
             auto result = repo.touch_user(user_id);
             return result && result->affected_rows == 1U ? 1U : 0U;
         });
 
-    const auto touch_user_tx_stats =
-        run_parallel_bench(pool,
-                           thread_count,
-                           duration,
-                           [&](auto& repo, auto& executor, int thread_index, std::uint64_t iteration, const auto&) {
-                               constexpr std::uint64_t batch_size = 32;
-                               auto begun = executor.begin();
-                               if (!begun) {
-                                   return 0U;
-                               }
+    const auto touch_user_tx_stats = run_parallel_bench(
+        pool,
+        thread_count,
+        duration,
+        [&](auto& repo, auto& executor, int thread_index, std::uint64_t iteration, const auto&) {
+            constexpr std::uint64_t batch_size = 32;
+            auto begun = executor.begin();
+            if (!begun) {
+                return 0U;
+            }
 
-                               for (std::uint64_t offset = 0; offset < batch_size; ++offset) {
-                                   const auto user_id =
-                                       user_id_for(thread_index, iteration * batch_size + offset);
-                                   auto result = repo.touch_user(user_id);
-                                   if (!result || result->affected_rows != 1U) {
-                                       (void)executor.rollback();
-                                       return 0U;
-                                   }
-                               }
+            for (std::uint64_t offset = 0; offset < batch_size; ++offset) {
+                const auto user_id = user_id_for(thread_index, iteration * batch_size + offset);
+                auto result = repo.touch_user(user_id);
+                if (!result || result->affected_rows != 1U) {
+                    (void)executor.rollback();
+                    return 0U;
+                }
+            }
 
-                               auto committed = executor.commit();
-                               return committed ? static_cast<unsigned>(batch_size) : 0U;
-                           });
+            auto committed = executor.commit();
+            return committed ? static_cast<unsigned>(batch_size) : 0U;
+        });
 
     const auto mixed_stats = run_parallel_bench(
-        pool, thread_count, duration, [&](auto& repo, auto&, int thread_index, std::uint64_t iteration, const auto&) {
+        pool,
+        thread_count,
+        duration,
+        [&](auto& repo, auto&, int thread_index, std::uint64_t iteration, const auto&) {
             const auto user_id = user_id_for(thread_index, iteration);
             const auto slot = iteration % 10U;
             if (slot < 7U) {

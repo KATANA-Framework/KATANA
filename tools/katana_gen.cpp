@@ -259,8 +259,8 @@ int run_openapi(const options& opts) {
     }
 
     {
-        auto package_code =
-            generate_openapi_package_header(emit_dto, emit_validator, emit_serdes, emit_router, emit_handler, emit_bindings);
+        auto package_code = generate_openapi_package_header(
+            emit_dto, emit_validator, emit_serdes, emit_router, emit_handler, emit_bindings);
         auto package_path = opts.output / "generated_openapi_package.hpp";
         std::ofstream out(package_path, std::ios::binary);
         if (!out) {

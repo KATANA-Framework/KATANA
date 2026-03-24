@@ -272,8 +272,7 @@ std::optional<std::string> extract_alias(std::string_view expr) {
     const auto as_pos = lower.rfind(" as ");
     if (as_pos != std::string::npos) {
         auto alias = trim_copy(expr.substr(as_pos + 4));
-        while (!alias.empty() &&
-               !std::isalnum(static_cast<unsigned char>(alias.back())) &&
+        while (!alias.empty() && !std::isalnum(static_cast<unsigned char>(alias.back())) &&
                alias.back() != '_') {
             alias.pop_back();
         }
@@ -288,8 +287,7 @@ std::optional<std::string> extract_alias(std::string_view expr) {
         base = base.substr(0, cast_pos);
     }
     std::string base_owned = trim_copy(base);
-    while (!base_owned.empty() &&
-           !std::isalnum(static_cast<unsigned char>(base_owned.back())) &&
+    while (!base_owned.empty() && !std::isalnum(static_cast<unsigned char>(base_owned.back())) &&
            base_owned.back() != '_') {
         base_owned.pop_back();
     }
@@ -369,9 +367,8 @@ std::optional<std::string> extract_projection_segment(std::string_view sql,
         }
         const bool before_ok =
             pos == 0 || !std::isalnum(static_cast<unsigned char>(lower[pos - 1]));
-        const bool after_ok =
-            pos + end.size() >= lower.size() ||
-            !std::isalnum(static_cast<unsigned char>(lower[pos + end.size()]));
+        const bool after_ok = pos + end.size() >= lower.size() ||
+                              !std::isalnum(static_cast<unsigned char>(lower[pos + end.size()]));
         if (before_ok && after_ok) {
             return trim_copy(sql.substr(body_start, pos - body_start));
         }
@@ -394,8 +391,8 @@ std::vector<sql_parameter> parse_parameters(std::string_view sql) {
             continue;
         }
 
-        const auto index =
-            static_cast<std::size_t>(std::stoul(std::string(sql.substr(index_start, index_end - index_start))));
+        const auto index = static_cast<std::size_t>(
+            std::stoul(std::string(sql.substr(index_start, index_end - index_start))));
 
         std::string type_name;
         std::size_t cursor = index_end;
@@ -437,7 +434,8 @@ std::vector<sql_parameter> parse_parameters(std::string_view sql) {
 }
 
 std::vector<sql_column> parse_columns(std::string_view sql, sql_query_mode mode) {
-    if (mode == sql_query_mode::exec && to_lower_ascii(sql).find("returning") == std::string::npos) {
+    if (mode == sql_query_mode::exec &&
+        to_lower_ascii(sql).find("returning") == std::string::npos) {
         return {};
     }
 

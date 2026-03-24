@@ -2,8 +2,8 @@
 
 #include "katana/sql/runtime.hpp"
 
-#include <cstddef>
 #include <atomic>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -33,13 +33,17 @@ struct transparent_string_hash {
         return std::hash<std::string_view>{}(value);
     }
 
-    std::size_t operator()(const std::string& value) const noexcept { return (*this)(std::string_view(value)); }
+    std::size_t operator()(const std::string& value) const noexcept {
+        return (*this)(std::string_view(value));
+    }
 };
 
 struct transparent_string_equal {
     using is_transparent = void;
 
-    bool operator()(std::string_view lhs, std::string_view rhs) const noexcept { return lhs == rhs; }
+    bool operator()(std::string_view lhs, std::string_view rhs) const noexcept {
+        return lhs == rhs;
+    }
 };
 
 class postgres_executor final : public executor {
@@ -55,13 +59,11 @@ public:
     [[nodiscard]] bool is_connected() const noexcept;
     [[nodiscard]] std::string_view last_error_message() const noexcept;
 
-    katana::result<rows> query(std::string_view statement_name,
-                               std::string_view sql,
-                               const parameters& params) override;
+    katana::result<rows>
+    query(std::string_view statement_name, std::string_view sql, const parameters& params) override;
 
-    katana::result<exec_result> exec(std::string_view statement_name,
-                                     std::string_view sql,
-                                     const parameters& params) override;
+    katana::result<exec_result>
+    exec(std::string_view statement_name, std::string_view sql, const parameters& params) override;
 
     katana::result<void> query_each(std::string_view statement_name,
                                     std::string_view sql,
@@ -75,7 +77,8 @@ public:
 private:
     struct impl;
 
-    katana::result<const char*> ensure_prepared(std::string_view statement_name, std::string_view sql);
+    katana::result<const char*> ensure_prepared(std::string_view statement_name,
+                                                std::string_view sql);
     katana::result<void> ensure_connected();
     katana::result<void> run_simple(const char* sql);
     void record_error(std::string message);
@@ -129,13 +132,11 @@ class postgres_pool_executor final : public executor {
 public:
     explicit postgres_pool_executor(postgres_pool& pool) noexcept : pool_(pool) {}
 
-    katana::result<rows> query(std::string_view statement_name,
-                               std::string_view sql,
-                               const parameters& params) override;
+    katana::result<rows>
+    query(std::string_view statement_name, std::string_view sql, const parameters& params) override;
 
-    katana::result<exec_result> exec(std::string_view statement_name,
-                                     std::string_view sql,
-                                     const parameters& params) override;
+    katana::result<exec_result>
+    exec(std::string_view statement_name, std::string_view sql, const parameters& params) override;
 
     katana::result<void> query_each(std::string_view statement_name,
                                     std::string_view sql,
