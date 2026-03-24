@@ -12,9 +12,11 @@ using namespace std::chrono_literals;
 class ShutdownManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Reset shutdown state before each test
-        // Note: We can't truly reset the singleton, so tests must be careful
-        // We'll work with the state as-is
+        shutdown_manager::instance().reset_for_tests();
+    }
+
+    void TearDown() override {
+        shutdown_manager::instance().reset_for_tests();
     }
 };
 
@@ -53,15 +55,8 @@ TEST_F(ShutdownManagerTest, RecordShutdownTime) {
 TEST_F(ShutdownManagerTest, IsDeadlineExceededNoShutdown) {
     auto& mgr = shutdown_manager::instance();
 
-    // Create a new manager state by working with what we have
-    // This test might be affected by previous tests, but we can still check behavior
-
-    // If shutdown is not requested, deadline should not be exceeded
-    // Note: Can't easily reset singleton, so we'll test the logic
-
-    if (!mgr.is_shutdown_requested()) {
-        EXPECT_FALSE(mgr.is_deadline_exceeded(100ms));
-    }
+    EXPECT_FALSE(mgr.is_shutdown_requested());
+    EXPECT_FALSE(mgr.is_deadline_exceeded(100ms));
 }
 
 TEST_F(ShutdownManagerTest, IsDeadlineExceededWithinDeadline) {
@@ -96,7 +91,7 @@ TEST_F(ShutdownManagerTest, IsDeadlineExceededAutoRecord) {
     // First call should auto-record and return false
     bool result1 = mgr.is_deadline_exceeded(1000ms);
 
-    // Should have auto-recorded the time (or it was already recorded)
+    // Should have auto-recorded the time.
     auto recorded = mgr.shutdown_time();
     (void)recorded; // Just verify we can get it without crash
 
@@ -197,8 +192,7 @@ TEST_F(ShutdownManagerTest, MultipleCallbacks) {
     // Set second callback (replaces first)
     mgr.set_shutdown_callback([&call_count]() { call_count += 10; });
 
-    // Reset shutdown flag for next trigger (we can't truly reset singleton)
-    // So we'll just call the callback by setting it again
+    mgr.reset_for_tests();
     call_count = 0;
     mgr.set_shutdown_callback([&call_count]() { call_count += 10; });
 
@@ -210,10 +204,8 @@ TEST_F(ShutdownManagerTest, MultipleCallbacks) {
 TEST_F(ShutdownManagerTest, ShutdownTimeInitiallyDefault) {
     auto& mgr = shutdown_manager::instance();
 
-    // Note: Can't easily reset singleton, so this test is best-effort
-    // Just verify we can get shutdown_time without crash
     auto time = mgr.shutdown_time();
-    (void)time; // Just make sure it doesn't crash
+    EXPECT_EQ(time, shutdown_manager::time_point{});
 }
 
 TEST_F(ShutdownManagerTest, ThreadSafeShutdownRequest) {
