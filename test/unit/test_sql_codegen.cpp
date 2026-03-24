@@ -9,6 +9,22 @@ namespace fs = std::filesystem;
 
 namespace {
 
+std::string shell_quote(const fs::path& path) {
+    std::string value = path.string();
+    std::string quoted;
+    quoted.reserve(value.size() + 2);
+    quoted.push_back('\'');
+    for (char ch : value) {
+        if (ch == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted.push_back(ch);
+        }
+    }
+    quoted.push_back('\'');
+    return quoted;
+}
+
 std::string read_file(const fs::path& path) {
     std::ifstream in(path);
     if (!in) {
@@ -38,8 +54,8 @@ protected:
             return false;
         }
 
-        std::string cmd =
-            katana_gen.string() + " sql -i " + temp_dir.string() + " -o " + temp_dir.string();
+        std::string cmd = shell_quote(katana_gen) + " sql -i " + shell_quote(temp_dir) + " -o " +
+                          shell_quote(temp_dir);
         if (!extra_flags.empty()) {
             cmd += " " + extra_flags;
         }
