@@ -9,6 +9,22 @@ namespace fs = std::filesystem;
 
 namespace {
 
+std::string shell_quote(const fs::path& path) {
+    std::string value = path.string();
+    std::string quoted;
+    quoted.reserve(value.size() + 2);
+    quoted.push_back('\'');
+    for (char ch : value) {
+        if (ch == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted.push_back(ch);
+        }
+    }
+    quoted.push_back('\'');
+    return quoted;
+}
+
 std::string read_file(const fs::path& p) {
     std::ifstream in(p);
     if (!in) {
@@ -38,8 +54,9 @@ protected:
             return false;
         }
 
-        std::string cmd = katana_gen.string() + " openapi -i " + (temp_dir / spec_file).string() +
-                          " -o " + temp_dir.string() + " " + extra_flags;
+        std::string cmd = shell_quote(katana_gen) + " openapi -i " +
+                          shell_quote(temp_dir / spec_file) + " -o " + shell_quote(temp_dir) + " " +
+                          extra_flags;
         return std::system(cmd.c_str()) == 0;
     }
 

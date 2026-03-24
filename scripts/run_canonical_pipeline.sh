@@ -243,6 +243,11 @@ if [[ "$clang_compiler" == *clang* ]]; then
     fi
 fi
 
+# The project does not currently use C++20 modules. GCC's dependency scanner
+# is fragile here and can break canonical CI builds on ordinary header-only
+# includes, so keep scanning disabled unless a caller explicitly overrides it.
+cmake_args+=("-DCMAKE_CXX_SCAN_FOR_MODULES=OFF")
+
 cmake_args+=("${cmake_extra[@]}")
 
 echo "==> Configure preset: ${preset}"
