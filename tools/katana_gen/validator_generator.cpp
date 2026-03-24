@@ -32,8 +32,9 @@ bool try_generate_handcoded_pattern(std::ostream& out,
         out << "    if (" << empty_check << ") {\n";
         out << "        const auto& pv_ = " << val_expr << ";\n";
         out << "        bool pattern_ok_ = true;\n";
-        out << "        for (unsigned char ch_ : pv_) {\n";
-        out << "            if (!std::isalnum(ch_)) { pattern_ok_ = false; break; }\n";
+        out << "        for (char ch_ : pv_) {\n";
+        out << "            if (!std::isalnum(static_cast<unsigned char>(ch_))) { pattern_ok_ = "
+               "false; break; }\n";
         out << "        }\n";
         out << "        if (!pattern_ok_) {\n";
         out << "            return validation_error{\"" << prop_name
@@ -51,9 +52,9 @@ bool try_generate_handcoded_pattern(std::ostream& out,
         out << "    if (" << empty_check << ") {\n";
         out << "        const auto& pv_ = " << val_expr << ";\n";
         out << "        bool pattern_ok_ = true;\n";
-        out << "        for (unsigned char ch_ : pv_) {\n";
-        out << "            if (!std::isalnum(ch_) && ch_ != '_' && ch_ != '-') { pattern_ok_ = "
-               "false; break; }\n";
+        out << "        for (char ch_ : pv_) {\n";
+        out << "            if (!std::isalnum(static_cast<unsigned char>(ch_)) && ch_ != '_' && "
+               "ch_ != '-') { pattern_ok_ = false; break; }\n";
         out << "        }\n";
         out << "        if (!pattern_ok_) {\n";
         out << "            return validation_error{\"" << prop_name
@@ -85,8 +86,9 @@ bool try_generate_handcoded_pattern(std::ostream& out,
         out << "    if (" << empty_check << ") {\n";
         out << "        const auto& pv_ = " << val_expr << ";\n";
         out << "        bool pattern_ok_ = true;\n";
-        out << "        for (unsigned char ch_ : pv_) {\n";
-        out << "            if (!std::isalpha(ch_)) { pattern_ok_ = false; break; }\n";
+        out << "        for (char ch_ : pv_) {\n";
+        out << "            if (!std::isalpha(static_cast<unsigned char>(ch_))) { pattern_ok_ = "
+               "false; break; }\n";
         out << "        }\n";
         out << "        if (!pattern_ok_) {\n";
         out << "            return validation_error{\"" << prop_name
@@ -104,8 +106,9 @@ bool try_generate_handcoded_pattern(std::ostream& out,
         out << "    if (" << empty_check << ") {\n";
         out << "        const auto& pv_ = " << val_expr << ";\n";
         out << "        bool pattern_ok_ = true;\n";
-        out << "        for (unsigned char ch_ : pv_) {\n";
-        out << "            if (!std::isdigit(ch_)) { pattern_ok_ = false; break; }\n";
+        out << "        for (char ch_ : pv_) {\n";
+        out << "            if (!std::isdigit(static_cast<unsigned char>(ch_))) { pattern_ok_ = "
+               "false; break; }\n";
         out << "        }\n";
         out << "        if (!pattern_ok_) {\n";
         out << "            return validation_error{\"" << prop_name
