@@ -37,6 +37,8 @@ public:
     void trigger_shutdown();
 
     void setup_signal_handlers();
+    // Test-only hook to isolate singleton state between unit tests.
+    void reset_for_tests() noexcept;
     ~shutdown_manager();
 
     shutdown_manager(const shutdown_manager&) = delete;

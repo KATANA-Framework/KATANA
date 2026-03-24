@@ -182,4 +182,13 @@ void shutdown_manager::setup_signal_handlers() {
     std::signal(SIGTERM, signal_handler);
 }
 
+void shutdown_manager::reset_for_tests() noexcept {
+    stop_signal_dispatcher();
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    shutdown_requested_.store(false, std::memory_order_release);
+    shutdown_time_ = time_point{};
+    callback_ = nullptr;
+}
+
 } // namespace katana
