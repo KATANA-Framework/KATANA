@@ -203,8 +203,7 @@ struct row_schema {
 class row {
 public:
     row() = default;
-    explicit row(std::shared_ptr<row_schema> row_schema_ptr)
-        : schema_(std::move(row_schema_ptr)) {}
+    explicit row(std::shared_ptr<row_schema> row_schema_ptr) : schema_(std::move(row_schema_ptr)) {}
 
     row(std::initializer_list<std::pair<std::string, cell>> fields) {
         schema_ = std::make_shared<row_schema>();
