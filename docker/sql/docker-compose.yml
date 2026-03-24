@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: katana_stage4
+      POSTGRES_USER: katana
+      POSTGRES_PASSWORD: katana
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U katana -d katana_stage4"]
+      interval: 2s
+      timeout: 2s
+      retries: 30

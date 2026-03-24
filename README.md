@@ -18,12 +18,12 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 23.03 00:02 — Sync stage3 docs with conformance status (e12bc69)
+* 24.03 04:27 — Sync Stage 4 SQL/demo CRUD status with live PostgreSQL and wrk benchmarks (638250d)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
 
-**Реализовано (Stage 1 + Stage 2 + Stage 3):**
+**Реализовано (Stage 1 + Stage 2 + Stage 3 + рабочий Stage 4 slice):**
 - ✅ Epoll/io_uring reactor + reactor_pool
 - ✅ Арены/IO-буфера
 - ✅ HTTP/1.1 парсер/сериализация
@@ -42,9 +42,17 @@ KATANA — серверный фреймворк на C++ для разрабо�
 - ✅ Unit/integration/fuzz тесты
 - ✅ Media type registry и общий механизм `Content-Type`/`Accept` для JSON, CBOR, MessagePack
 - ✅ Conformance harness для generated router/bindings по OpenAPI fixture (`test/conformance`, 15 end-to-end сценариев)
+- ✅ **SQL-first data layer**
+  - `katana_gen sql` для `.sql`-каталогов с `:one/:many/:exec`
+  - typed SQL models/repositories
+  - PostgreSQL runtime на `libpq` + prepared statements
+  - pool/executor path для generated repositories
+  - транзакции и live PostgreSQL integration tests
+  - canonical demo CRUD service на `OpenAPI + generated SQL`
+  - `wrk`-based HTTP load path для read-heavy и mixed CRUD сценариев
 
 **В разработке / не реализовано:**
-- ⏳ SQL генерация/libpq
+- ⏳ Stage 4 closeout: UPSERT/basic bulk API, formal benchmark budget, README/docs hardening
 - ⏳ Redis клиент
 - ⏳ OpenTelemetry tracing
 - ⏳ Prometheus metrics
@@ -677,6 +685,19 @@ Thread pinning (опциональная оптимизация):
 ### Этап 4 — PostgreSQL / SQL-first Data Layer
 
 **Фокус**: добавить data access как часть контракта, а не как ручной слой вокруг framework.
+
+**Текущее состояние**
+- ✅ формат SQL-артефактов и аннотаций (`:one`, `:many`, `:exec`)
+- ✅ `katana gen sql` с генерацией typed repositories и result-models
+- ✅ PostgreSQL runtime на `libpq`/prepared statements
+- ✅ pool-backed execution path для generated repositories
+- ✅ базовые транзакции
+- ✅ integration tests с PostgreSQL
+- ✅ canonical demo CRUD service на `OpenAPI + generated SQL`
+- ✅ `wrk`-bench path для read-heavy и mixed CRUD сценариев
+- ⏳ UPSERT и базовые bulk-операции как стабилизированный публичный контракт
+- ⏳ formal benchmark budget / p99 gate для CRUD flows
+- ⏳ Stage 4 docs/API hardening
 
 **Что входит**
 - формат SQL-артефактов и аннотаций (`:one`, `:many`, `:exec`);

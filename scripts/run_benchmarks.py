@@ -6,7 +6,7 @@ This script runs all benchmarks in stages, collects results, and generates
 structured output for documentation and CI integration.
 
 Usage:
-    ./scripts/run_benchmarks.py                    # Run microbenchmark stages 1-4,6-8
+    ./scripts/run_benchmarks.py                    # Run microbenchmark stages 1-4,6-8,13
     ./scripts/run_benchmarks.py --stage 1          # Run only stage 1
     ./scripts/run_benchmarks.py --stage 1 2        # Run stages 1 and 2
     ./scripts/run_benchmarks.py --repeats 10       # 10 runs per stage
@@ -28,6 +28,12 @@ Stages:
     7. Generated API Mixed Workload Benchmarks
     8. Generated API Framework Path Benchmarks
     9-12. wrk-based E2E operating points (canonical + peak, hello + compute_api)
+    13. SQL codegen parsing and generation benchmarks
+    14. Generated SQL repository/runtime microbenchmarks
+    15. PostgreSQL-backed SQL repository benchmarks
+    16. Concurrent PostgreSQL repository throughput benchmarks
+    17. wrk benchmark_api SQL read-heavy HTTP benchmark
+    18. wrk benchmark_api SQL mixed CRUD HTTP benchmark
 """
 
 from __future__ import annotations
@@ -170,6 +176,7 @@ DEFAULT_STAGE_REPEATS = {
     10: 5,
     11: 5,
     12: 5,
+    16: 3,  # Concurrent DB throughput runs are heavier than in-process microbenches.
 }
 
 
@@ -298,6 +305,78 @@ STAGES = {
         "wrk_env": {"KATANA_PIPELINE_DEPTH": "40"},
         "wrk_script": "test/load/scripts/compute_sum_pipeline.lua",
         "wrk_url": "http://127.0.0.1:{port}/",
+    },
+    13: {
+        "name": "SQL Codegen Benchmarks",
+        "binary": "sql_codegen_benchmark",
+        "description": "SQL catalog parsing plus generated model/repository emission cost",
+    },
+    14: {
+        "name": "SQL Runtime Benchmarks",
+        "binary": "sql_runtime_benchmark",
+        "description": "Generated SQL repository overhead for point lookup, list mapping, and exec dispatch",
+    },
+    15: {
+        "name": "SQL PostgreSQL Benchmarks",
+        "binary": "sql_postgres_benchmark",
+        "description": "PostgreSQL-backed generated repository benchmarks over live libpq/prepared statements",
+    },
+    16: {
+        "name": "SQL PostgreSQL Throughput Benchmarks",
+        "binary": "sql_postgres_throughput_benchmark",
+        "description": "Concurrent PostgreSQL repository throughput over a multi-connection pool",
+    },
+    17: {
+        "name": "HTTP Load Benchmark (benchmark_api SQL read-heavy via wrk)",
+        "kind": "wrk_http",
+        "description": "Read-heavy generated HTTP path over benchmark_api SQL demo service",
+        "profile": "canonical",
+        "benchmark_name": "wrk benchmark_api SQL read-heavy",
+        "server_target": "benchmark_api_sql_server",
+        "server_candidates": [
+            "benchmark/benchmark_api_sql_server",
+        ],
+        "server_env": {
+            "PORT": "{port}",
+            "KATANA_BENCHMARK_API_BOOTSTRAP": "1",
+            "KATANA_BENCHMARK_API_RESET": "1",
+            "KATANA_BENCHMARK_API_SEED_COUNT": "4096",
+            "KATANA_BENCHMARK_API_EXECUTORS": "{bench_workers}",
+        },
+        "bench_workers": 4,
+        "port": 18086,
+        "wrk_threads": 4,
+        "wrk_connections": 256,
+        "wrk_duration_sec": 10,
+        "wrk_env": {"KATANA_BENCHMARK_API_ITEM_COUNT": "4096"},
+        "wrk_script": "test/load/scripts/benchmark_api_read_heavy.lua",
+        "wrk_url": "http://127.0.0.1:{port}/items/1",
+    },
+    18: {
+        "name": "HTTP Load Benchmark (benchmark_api SQL mixed CRUD via wrk)",
+        "kind": "wrk_http",
+        "description": "Mixed read/write generated HTTP path over benchmark_api SQL demo service",
+        "profile": "peak",
+        "benchmark_name": "wrk benchmark_api SQL mixed CRUD",
+        "server_target": "benchmark_api_sql_server",
+        "server_candidates": [
+            "benchmark/benchmark_api_sql_server",
+        ],
+        "server_env": {
+            "PORT": "{port}",
+            "KATANA_BENCHMARK_API_BOOTSTRAP": "1",
+            "KATANA_BENCHMARK_API_RESET": "1",
+            "KATANA_BENCHMARK_API_SEED_COUNT": "4096",
+            "KATANA_BENCHMARK_API_EXECUTORS": "{bench_workers}",
+        },
+        "bench_workers": 4,
+        "port": 18087,
+        "wrk_threads": 4,
+        "wrk_connections": 256,
+        "wrk_duration_sec": 10,
+        "wrk_env": {"KATANA_BENCHMARK_API_ITEM_COUNT": "4096"},
+        "wrk_script": "test/load/scripts/benchmark_api_mixed_crud.lua",
+        "wrk_url": "http://127.0.0.1:{port}/items/1",
     },
 }
 
@@ -611,7 +690,7 @@ def parse_codegen_quality_output(output: str) -> List[BenchmarkResult]:
     # "  name                               X.X ns    YYYYY ops/sec    ZZZZZ bytes/sec"
     # "  name                               X.X ns    YYYYY ops/sec    ZZZZZ bytes/sec    p95: A ns    p99: B ns"
     pattern = re.compile(
-        r"^\s+(.+?)\s+([\d.]+)\s+(ns|us)\s+([\d.]+)\s+ops/sec(?:\s+([\d.]+)\s+bytes/sec)?(?:\s+p95:\s+([\d.]+)\s+ns\s+p99:\s+([\d.]+)\s+ns)?\s*$",
+        r"^\s+(.+?)\s+([\d.]+)\s+(ns|us)\s+([\d.]+)\s+ops/sec(?:\s+([\d.]+)\s+bytes/sec)?(?:\s+p95:\s+([\d.]+)\s+(ns|us)\s+p99:\s+([\d.]+)\s+(ns|us))?\s*$",
         re.MULTILINE,
     )
 
@@ -622,11 +701,17 @@ def parse_codegen_quality_output(output: str) -> List[BenchmarkResult]:
         throughput = float(match.group(4))
         bytes_per_sec = float(match.group(5)) if match.group(5) else None
         tail_p95_ns = float(match.group(6)) if match.group(6) else None
-        tail_p99_ns = float(match.group(7)) if match.group(7) else None
+        tail_p95_unit = match.group(7) if match.group(7) else None
+        tail_p99_ns = float(match.group(8)) if match.group(8) else None
+        tail_p99_unit = match.group(9) if match.group(9) else None
 
         # Convert to ns if in us
         if unit == "us":
             latency *= 1000
+        if tail_p95_ns is not None and tail_p95_unit == "us":
+            tail_p95_ns *= 1000
+        if tail_p99_ns is not None and tail_p99_unit == "us":
+            tail_p99_ns *= 1000
 
         results.append(
             BenchmarkResult(
@@ -863,6 +948,14 @@ def parse_stage_output(binary_name: str, output: str) -> List[BenchmarkResult]:
         return parse_benchmark_api_codegen_output(output)
     if binary_name == "benchmark_api_framework_benchmark":
         return parse_benchmark_api_codegen_output(output)
+    if binary_name == "sql_codegen_benchmark":
+        return parse_codegen_quality_output(output)
+    if binary_name == "sql_runtime_benchmark":
+        return parse_codegen_quality_output(output)
+    if binary_name == "sql_postgres_benchmark":
+        return parse_codegen_quality_output(output)
+    if binary_name == "sql_postgres_throughput_benchmark":
+        return parse_codegen_quality_output(output)
     return []
 
 
@@ -1205,6 +1298,14 @@ def _wait_for_port(host: str, port: int, timeout_s: float = 10.0) -> bool:
         except OSError:
             time.sleep(0.1)
     return False
+
+
+def _is_port_in_use(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=0.2):
+            return True
+    except OSError:
+        return False
 
 
 def _start_server_process(binary: Path, env: Dict[str, str]) -> subprocess.Popen[str]:
@@ -1631,6 +1732,16 @@ def run_wrk_http_once(stage: Dict[str, Any]) -> Tuple[BenchmarkResult, Optional[
         )
 
     port = int(stage["port"])
+    if _is_port_in_use("127.0.0.1", port):
+        return (
+            BenchmarkResult(
+                name=stage["benchmark_name"],
+                throughput=0.0,
+                throughput_unit="req/sec",
+                errors=0,
+            ),
+            f"port {port} already in use before starting {stage['server_target']}",
+        )
     env = dict(os.environ)
     bench_workers = int(stage.get("bench_workers", default_bench_workers()))
     for key, value in stage.get("server_env", {}).items():
@@ -2214,6 +2325,16 @@ def run_stage(
     run_results: List[List[BenchmarkResult]] = []
     run_errors: List[str] = []
 
+    def _skip_message(stdout: str, stderr: str) -> Optional[str]:
+        combined = "\n".join(part for part in [stdout.strip(), stderr.strip()] if part).lower()
+        if "[skip]" not in combined and "skipping" not in combined:
+            return None
+        for source in (stdout, stderr):
+            for line in source.splitlines():
+                if "[skip]" in line.lower() or "skipping" in line.lower():
+                    return line.strip()
+        return "benchmark self-reported skip"
+
     if stage_warmup:
         try:
             warmup_proc = subprocess.run(
@@ -2239,6 +2360,14 @@ def run_stage(
             if proc.returncode != 0:
                 run_errors.append(f"run {run_idx + 1}: exit code {proc.returncode}")
                 continue
+
+            skip_message = _skip_message(proc.stdout, proc.stderr)
+            if skip_message is not None:
+                result.success = True
+                result.error_message = f"skipped: {skip_message}"
+                result.duration_ms = int((time.perf_counter() - started) * 1000)
+                print(f"  Skipped: {result.error_message}")
+                return result
 
             parsed = parse_stage_output(binary_name, proc.stdout)
             if not parsed:
@@ -2973,7 +3102,7 @@ def main():
         "-s",
         type=int,
         nargs="*",
-        help="Run only specific stages. If not specified, runs stages 1-4 and 6-8.",
+        help="Run only specific stages. If not specified, runs stages 1-4, 6-8, and 13.",
     )
     parser.add_argument(
         "--include-e2e",
@@ -3162,7 +3291,7 @@ def main():
     if args.stage:
         stages_to_run = args.stage
     else:
-        stages_to_run = [1, 2, 3, 4, 6, 7, 8]
+        stages_to_run = [1, 2, 3, 4, 6, 7, 8, 13]
         if args.include_e2e:
             stages_to_run.extend([9, 10, 11, 12])
         if args.include_legacy_e2e:

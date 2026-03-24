@@ -110,6 +110,108 @@ target_link_libraries(openapi_benchmark
         pthread
 )
 
+add_executable(sql_codegen_benchmark
+    sql_codegen_benchmark.cpp
+    ${CMAKE_SOURCE_DIR}/tools/katana_gen/sql_parser.cpp
+    ${CMAKE_SOURCE_DIR}/tools/katana_gen/sql_generator.cpp
+)
+
+target_compile_options(sql_codegen_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_include_directories(sql_codegen_benchmark
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/tools
+)
+
+target_link_libraries(sql_codegen_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+
+set(GENERATED_SQL_BENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated_sql)
+set(GENERATED_SQL_BENCH_SOURCES
+    ${GENERATED_SQL_BENCH_DIR}/generated_sql_models.hpp
+    ${GENERATED_SQL_BENCH_DIR}/generated_sql_repository.hpp
+)
+
+add_custom_command(
+    OUTPUT ${GENERATED_SQL_BENCH_SOURCES}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENERATED_SQL_BENCH_DIR}
+    COMMAND katana_gen sql -i ${CMAKE_SOURCE_DIR}/test/fixtures/sql/basic -o ${GENERATED_SQL_BENCH_DIR}
+    DEPENDS katana_gen
+            ${CMAKE_SOURCE_DIR}/test/fixtures/sql/basic/get_user.sql
+            ${CMAKE_SOURCE_DIR}/test/fixtures/sql/basic/list_users.sql
+            ${CMAKE_SOURCE_DIR}/test/fixtures/sql/basic/touch_user.sql
+    COMMENT "Generating SQL repository fixture for benchmarks"
+)
+
+add_custom_target(generated_sql_bench_codegen DEPENDS ${GENERATED_SQL_BENCH_SOURCES})
+
+add_executable(sql_runtime_benchmark sql_runtime_benchmark.cpp)
+
+target_compile_options(sql_runtime_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_include_directories(sql_runtime_benchmark
+    PRIVATE
+        ${GENERATED_SQL_BENCH_DIR}
+)
+
+target_link_libraries(sql_runtime_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+add_dependencies(sql_runtime_benchmark generated_sql_bench_codegen)
+
+add_executable(sql_postgres_benchmark sql_postgres_benchmark.cpp)
+
+target_compile_options(sql_postgres_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_include_directories(sql_postgres_benchmark
+    PRIVATE
+        ${GENERATED_SQL_BENCH_DIR}
+)
+
+target_link_libraries(sql_postgres_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+add_dependencies(sql_postgres_benchmark generated_sql_bench_codegen)
+
+add_executable(sql_postgres_throughput_benchmark sql_postgres_throughput_benchmark.cpp)
+
+target_compile_options(sql_postgres_throughput_benchmark
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_include_directories(sql_postgres_throughput_benchmark
+    PRIVATE
+        ${GENERATED_SQL_BENCH_DIR}
+)
+
+target_link_libraries(sql_postgres_throughput_benchmark
+    PRIVATE
+        katana_core
+        pthread
+)
+add_dependencies(sql_postgres_throughput_benchmark generated_sql_bench_codegen)
+
 set(GENERATED_BENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 set(GENERATED_BENCH_SOURCES
     ${GENERATED_BENCH_DIR}/generated_dtos.hpp
@@ -150,7 +252,7 @@ target_link_libraries(generated_api_benchmark
 )
 add_dependencies(generated_api_benchmark generated_api_codegen)
 
-set(GENERATED_BENCHMARK_API_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated_benchmark_api)
+set(GENERATED_BENCHMARK_API_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark_api_generated_openapi)
 set(GENERATED_BENCHMARK_API_SOURCES
     ${GENERATED_BENCHMARK_API_DIR}/generated_dtos.hpp
     ${GENERATED_BENCHMARK_API_DIR}/generated_handlers.hpp
@@ -158,6 +260,7 @@ set(GENERATED_BENCHMARK_API_SOURCES
     ${GENERATED_BENCHMARK_API_DIR}/generated_routes.hpp
     ${GENERATED_BENCHMARK_API_DIR}/generated_router_bindings.hpp
     ${GENERATED_BENCHMARK_API_DIR}/generated_validators.hpp
+    ${GENERATED_BENCHMARK_API_DIR}/generated_openapi_package.hpp
 )
 
 add_custom_command(
@@ -221,6 +324,59 @@ target_link_libraries(benchmark_api_framework_benchmark
 )
 
 add_dependencies(benchmark_api_framework_benchmark benchmark_api_codegen_generate)
+
+set(GENERATED_BENCHMARK_API_SQL_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark_api_generated_sql)
+set(GENERATED_BENCHMARK_API_SQL_SOURCES
+    ${GENERATED_BENCHMARK_API_SQL_DIR}/generated_sql_models.hpp
+    ${GENERATED_BENCHMARK_API_SQL_DIR}/generated_sql_repository.hpp
+    ${GENERATED_BENCHMARK_API_SQL_DIR}/generated_sql_package.hpp
+)
+
+add_custom_command(
+    OUTPUT ${GENERATED_BENCHMARK_API_SQL_SOURCES}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENERATED_BENCHMARK_API_SQL_DIR}
+    COMMAND katana_gen sql
+            -i ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql
+            -o ${GENERATED_BENCHMARK_API_SQL_DIR}
+    DEPENDS katana_gen
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/create_item.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/delete_item.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/get_item.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/list_items_page.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/update_item.sql
+    COMMENT "Generating benchmark_api SQL code for wrk server"
+)
+
+add_custom_target(benchmark_api_sql_codegen_generate DEPENDS ${GENERATED_BENCHMARK_API_SQL_SOURCES})
+
+add_executable(benchmark_api_sql_server
+    benchmark_api_sql_server.cpp
+    ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/demo_service.cpp
+)
+
+target_compile_options(benchmark_api_sql_server
+    PRIVATE
+        -O3
+        -march=native
+)
+
+target_include_directories(benchmark_api_sql_server
+    PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api
+        ${CMAKE_SOURCE_DIR}
+)
+
+target_link_libraries(benchmark_api_sql_server
+    PRIVATE
+        katana_core
+        pthread
+)
+
+add_dependencies(benchmark_api_sql_server
+    benchmark_api_codegen_generate
+    benchmark_api_sql_codegen_generate
+)
 
 # Commented out - file does not exist
 # add_executable(cycle_profiling cycle_profiling.cpp ${GENERATED_BENCH_SOURCES})

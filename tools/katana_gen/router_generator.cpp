@@ -70,6 +70,14 @@ static std::string to_upper_snake_case(std::string_view str) {
     return result;
 }
 
+static void write_optional_type(std::ostringstream& out, std::string_view base, bool required) {
+    if (required) {
+        out << base;
+        return;
+    }
+    out << "std::optional<" << base << ">";
+}
+
 std::string generate_router_table(const document& doc) {
     std::ostringstream out;
     out << "#pragma once\n\n";
@@ -1297,22 +1305,21 @@ std::string generate_handler_interfaces(const document& doc) {
                         out << ", ";
                     first_param = false;
                     auto arg_name = sanitize_identifier(param.name);
-                    auto wrap_optional = [&](std::string_view base) {
-                        if (param.required) {
-                            return std::string(base);
-                        }
-                        return std::string("std::optional<") + std::string(base) + ">";
-                    };
                     if (param.type->kind == katana::openapi::schema_kind::string) {
-                        out << wrap_optional("std::string_view") << " " << arg_name;
+                        write_optional_type(out, "std::string_view", param.required);
+                        out << " " << arg_name;
                     } else if (param.type->kind == katana::openapi::schema_kind::integer) {
-                        out << wrap_optional("int64_t") << " " << arg_name;
+                        write_optional_type(out, "int64_t", param.required);
+                        out << " " << arg_name;
                     } else if (param.type->kind == katana::openapi::schema_kind::number) {
-                        out << wrap_optional("double") << " " << arg_name;
+                        write_optional_type(out, "double", param.required);
+                        out << " " << arg_name;
                     } else if (param.type->kind == katana::openapi::schema_kind::boolean) {
-                        out << wrap_optional("bool") << " " << arg_name;
+                        write_optional_type(out, "bool", param.required);
+                        out << " " << arg_name;
                     } else {
-                        out << wrap_optional("std::string_view") << " " << arg_name;
+                        write_optional_type(out, "std::string_view", param.required);
+                        out << " " << arg_name;
                     }
                 }
             }

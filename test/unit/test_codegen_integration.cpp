@@ -31,12 +31,9 @@ protected:
     bool run_codegen(const std::string& spec_file,
                      const std::string& emit = "all",
                      const std::string& extra_flags = "") {
-        auto katana_gen = fs::path("./katana_gen");
+        auto katana_gen = fs::path(KATANA_GEN_BIN);
         if (!fs::exists(katana_gen)) {
-            katana_gen = fs::path("./build/debug/katana_gen");
-        }
-        if (!fs::exists(katana_gen)) {
-            katana_gen = fs::path("../katana_gen"); // when running from build/debug/test
+            katana_gen = fs::path("./katana_gen");
         }
         if (!fs::exists(katana_gen)) {
             return false;

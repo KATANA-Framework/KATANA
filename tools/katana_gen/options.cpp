@@ -7,23 +7,25 @@
 namespace katana_gen {
 
 [[noreturn]] void print_usage() {
-    std::cout << R"(katana_gen — OpenAPI code generator for KATANA
+    std::cout << R"(katana_gen — code generator for KATANA
 
 Usage:
   katana_gen openapi -i <spec> -o <out_dir> [options]
+  katana_gen sql -i <sql_dir> -o <out_dir> [options]
   katana_gen examples
 
 Options:
-  -i, --input <file>         OpenAPI specification path (JSON/YAML)
+  -i, --input <path>         OpenAPI spec file or SQL directory
   -o, --output <dir>         Output directory (default: .)
-  --emit <targets>           What to generate: dto,validator,serdes,router,handler,all (default: all)
+  --emit <targets>           OpenAPI: dto,validator,serdes,router,handler,all
+                             SQL: models,repository,all (default: all)
   --layer <mode>             Architecture: flat,layered (default: flat)
   --alloc <type>             Allocator: pmr,std (default: pmr)
   --inline-naming <style>    Inline schema naming: operation,flat (default: operation)
   --json                     Output as JSON format
-  --check                    Validate spec only, no files written
+  --check                    Validate input only, no files written
   --strict                   Strict validation, fail on any error
-  --dump-ast                 Save AST summary to openapi_ast.json
+  --dump-ast                 Save AST summary to openapi_ast.json or sql_ast.json
   -v, --verbose              Show detailed generation progress
   -h, --help                 Show this help
 )";
@@ -38,6 +40,9 @@ Options:
 
   # Generate everything (DTOs, serdes, router, handlers)
   katana_gen openapi -i api/openapi.yaml -o gen --emit all --inline-naming operation
+
+  # Generate SQL models and repository bindings
+  katana_gen sql -i sql -o gen --emit all
 
   # Flat inline schema names (deterministic snapshots)
   katana_gen openapi -i api/openapi.yaml -o gen --emit dto,serdes,router --inline-naming flat
