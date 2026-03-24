@@ -8,7 +8,7 @@
 
 namespace {
 
-class FakeExecutor final : public katana::sql::executor {
+class FakeExecutor final : public katana::sql::executor, public katana::sql::async_executor {
 public:
     katana::result<katana::sql::rows> query(std::string_view statement_name,
                                             std::string_view sql,
@@ -56,6 +56,28 @@ public:
         return {};
     }
 
+    bool query_async(std::string_view statement_name,
+                     std::string_view sql,
+                     katana::sql::parameters params,
+                     katana::sql::async_query_handler handler) override {
+        last_statement_name = std::string(statement_name);
+        last_sql = std::string(sql);
+        last_params = std::move(params);
+        handler(query_rows);
+        return true;
+    }
+
+    bool exec_async(std::string_view statement_name,
+                    std::string_view sql,
+                    katana::sql::parameters params,
+                    katana::sql::async_exec_handler handler) override {
+        last_statement_name = std::string(statement_name);
+        last_sql = std::string(sql);
+        last_params = std::move(params);
+        handler(exec_result_value);
+        return true;
+    }
+
     std::string last_statement_name;
     std::string last_sql;
     katana::sql::parameters last_params;
@@ -100,6 +122,46 @@ TEST(GeneratedSqlRepositoryTest, MapsManyQueries) {
     EXPECT_EQ(*executor.last_params[0], "true");
     EXPECT_EQ((*result)[0].id, std::optional<int64_t>(1));
     EXPECT_EQ((*result)[1].name, std::optional<std::string>("Linus"));
+}
+
+TEST(GeneratedSqlRepositoryTest, MapsAsyncSingleRowQueries) {
+    FakeExecutor executor;
+    executor.query_rows = {
+        {{"id", std::string("42")}, {"name", std::string("Ada")}, {"active", std::string("true")}}};
+
+    katana::sql::generated::generated_repository repo(executor);
+    bool invoked = false;
+    katana::result<std::optional<katana::sql::generated::GetUserRow>> async_result =
+        std::optional<katana::sql::generated::GetUserRow>{};
+
+    ASSERT_TRUE(repo.get_user_async(42, [&](auto result) {
+        invoked = true;
+        async_result = std::move(result);
+    }));
+
+    ASSERT_TRUE(invoked);
+    ASSERT_TRUE(async_result);
+    ASSERT_TRUE(async_result->has_value());
+    EXPECT_EQ(async_result->value().id, std::optional<int64_t>(42));
+    EXPECT_EQ(async_result->value().name, std::optional<std::string>("Ada"));
+}
+
+TEST(GeneratedSqlRepositoryTest, MapsAsyncExecQueries) {
+    FakeExecutor executor;
+    executor.exec_result_value.affected_rows = 3;
+
+    katana::sql::generated::generated_repository repo(executor);
+    bool invoked = false;
+    katana::result<katana::sql::exec_result> async_result = katana::sql::exec_result{};
+
+    ASSERT_TRUE(repo.touch_user_async(77, [&](auto result) {
+        invoked = true;
+        async_result = std::move(result);
+    }));
+
+    ASSERT_TRUE(invoked);
+    ASSERT_TRUE(async_result);
+    EXPECT_EQ(async_result->affected_rows, 3u);
 }
 
 TEST(GeneratedSqlRepositoryTest, PassesExecQueriesThrough) {

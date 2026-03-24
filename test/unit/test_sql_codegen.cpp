@@ -92,7 +92,12 @@ UPDATE users SET touched_at = NOW() WHERE id = $1::bigint;
     EXPECT_NE(models.find("struct GetUserRow"), std::string::npos);
     EXPECT_NE(models.find("std::optional<int64_t> id;"), std::string::npos);
     EXPECT_NE(repo.find("get_user(int64_t p1) const"), std::string::npos);
+    EXPECT_NE(repo.find("using get_user_async_handler"), std::string::npos);
+    EXPECT_NE(repo.find("bool get_user_async(int64_t p1, get_user_async_handler handler) const"),
+              std::string::npos);
     EXPECT_NE(repo.find("touch_user(int64_t p1) const"), std::string::npos);
+    EXPECT_NE(repo.find("bool touch_user_async(int64_t p1, touch_user_async_handler handler) const"),
+              std::string::npos);
 }
 
 TEST_F(SqlCodegenTest, SqlAstDumpIsStable) {

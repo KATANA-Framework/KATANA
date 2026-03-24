@@ -52,6 +52,16 @@ std::string optional_cpp_type(const std::string& cpp_type) {
     return "std::optional<" + cpp_type + ">";
 }
 
+std::string repository_return_type(const sql_query& query) {
+    if (query.mode == sql_query_mode::exec) {
+        return "katana::result<katana::sql::exec_result>";
+    }
+    if (query.mode == sql_query_mode::one) {
+        return "katana::result<std::optional<" + row_type_name(query) + ">>";
+    }
+    return "katana::result<std::vector<" + row_type_name(query) + ">>";
+}
+
 } // namespace
 
 std::string generate_sql_models(const sql_catalog& catalog) {
@@ -83,22 +93,23 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
     out << "#include \"katana/sql/runtime.hpp\"\n\n";
     out << "#include <optional>\n";
     out << "#include <string_view>\n";
+    out << "#include <utility>\n";
     out << "#include <vector>\n\n";
     out << "namespace katana::sql::generated {\n\n";
     out << "class generated_repository {\n";
     out << "public:\n";
+    for (const auto& query : catalog.queries) {
+        out << "    using " << query.name << "_async_handler = katana::inplace_function<void("
+            << repository_return_type(query) << "), 256>;\n";
+    }
+    if (!catalog.queries.empty()) {
+        out << "\n";
+    }
     out << "    explicit generated_repository(katana::sql::executor& executor) noexcept\n";
     out << "        : executor_(executor) {}\n\n";
 
     for (const auto& query : catalog.queries) {
-        std::string return_type;
-        if (query.mode == sql_query_mode::exec) {
-            return_type = "katana::result<katana::sql::exec_result>";
-        } else if (query.mode == sql_query_mode::one) {
-            return_type = "katana::result<std::optional<" + row_type_name(query) + ">>";
-        } else {
-            return_type = "katana::result<std::vector<" + row_type_name(query) + ">>";
-        }
+        const std::string return_type = repository_return_type(query);
 
         out << "    " << return_type << " " << query.name << "(";
         for (std::size_t i = 0; i < query.parameters.size(); ++i) {
@@ -165,6 +176,77 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
             }
         }
         out << "    }\n\n";
+
+        out << "    bool " << query.name << "_async(";
+        for (std::size_t i = 0; i < query.parameters.size(); ++i) {
+            const auto& parameter = query.parameters[i];
+            if (i != 0) {
+                out << ", ";
+            }
+            out << param_cpp_type(parameter) << " p" << parameter.index;
+        }
+        if (!query.parameters.empty()) {
+            out << ", ";
+        }
+        out << query.name << "_async_handler handler) const {\n";
+        out << "        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);\n";
+        out << "        if (async_executor == nullptr || !handler) {\n";
+        out << "            return false;\n";
+        out << "        }\n";
+        out << "        katana::sql::parameters params;\n";
+        out << "        params.reserve(" << query.parameters.size() << ");\n";
+        for (const auto& parameter : query.parameters) {
+            out << "        params.push_back(katana::sql::encode_value(p" << parameter.index
+                << "));\n";
+        }
+        if (query.mode == sql_query_mode::exec) {
+            out << "        return async_executor->exec_async(\"" << query.name << "\", "
+                << query.name << "_sql, std::move(params), std::move(handler));\n";
+        } else if (query.mode == sql_query_mode::one) {
+            out << "        return async_executor->query_async(\"" << query.name << "\", "
+                << query.name << "_sql, std::move(params),\n";
+            out << "            [handler = std::move(handler)](katana::result<katana::sql::rows> rows_result) {\n";
+            out << "                if (!rows_result) {\n";
+            out << "                    handler(std::unexpected(rows_result.error()));\n";
+            out << "                    return;\n";
+            out << "                }\n";
+            out << "                if (rows_result->size() > 1) {\n";
+            out << "                    handler(std::unexpected(std::make_error_code(std::errc::invalid_argument)));\n";
+            out << "                    return;\n";
+            out << "                }\n";
+            out << "                if (rows_result->empty()) {\n";
+            out << "                    handler(std::optional<" << row_type_name(query) << ">{});\n";
+            out << "                    return;\n";
+            out << "                }\n";
+            out << "                auto mapped = map_" << query.name << "(rows_result->front());\n";
+            out << "                if (!mapped) {\n";
+            out << "                    handler(std::unexpected(mapped.error()));\n";
+            out << "                    return;\n";
+            out << "                }\n";
+            out << "                handler(std::optional<" << row_type_name(query) << ">(std::move(*mapped)));\n";
+            out << "            });\n";
+        } else {
+            out << "        return async_executor->query_async(\"" << query.name << "\", "
+                << query.name << "_sql, std::move(params),\n";
+            out << "            [handler = std::move(handler)](katana::result<katana::sql::rows> rows_result) {\n";
+            out << "                if (!rows_result) {\n";
+            out << "                    handler(std::unexpected(rows_result.error()));\n";
+            out << "                    return;\n";
+            out << "                }\n";
+            out << "                std::vector<" << row_type_name(query) << "> out_rows;\n";
+            out << "                out_rows.reserve(rows_result->size());\n";
+            out << "                for (const auto& row : *rows_result) {\n";
+            out << "                    auto mapped = map_" << query.name << "(row);\n";
+            out << "                    if (!mapped) {\n";
+            out << "                        handler(std::unexpected(mapped.error()));\n";
+            out << "                        return;\n";
+            out << "                    }\n";
+            out << "                    out_rows.push_back(std::move(*mapped));\n";
+            out << "                }\n";
+            out << "                handler(std::move(out_rows));\n";
+            out << "            });\n";
+        }
+        out << "    }\n\n";
     }
 
     out << "private:\n";
@@ -176,8 +258,9 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
         if (query.mode == sql_query_mode::exec) {
             continue;
         }
+        out << "    template <typename Row>\n";
         out << "    static katana::result<" << row_type_name(query) << "> map_" << query.name
-            << "(const katana::sql::row_view& row) {\n";
+            << "(const Row& row) {\n";
         out << "        " << row_type_name(query) << " out;\n";
         for (std::size_t column_index = 0; column_index < query.columns.size(); ++column_index) {
             const auto& column = query.columns[column_index];

@@ -2,16 +2,27 @@
 
 ## Current state
 
-Stage 4 SQL HTTP benchmark path is still built around synchronous `libpq` calls executed directly on HTTP worker threads. This has two immediate effects:
+Stage 4 SQL HTTP benchmark path is now split:
 
-- worker threads spend request time blocked in PostgreSQL I/O;
-- latency under mixed CRUD load includes queueing pressure from blocked workers, not just SQL execution time.
+- generated async repository calls can run on a reactor-bound nonblocking PostgreSQL path inside HTTP handler scope;
+- default durable write-heavy flows still spend most of their time in PostgreSQL commit/WAL work, and mixed CRUD latency still includes queueing pressure from the remaining sync path.
 
 Recent perf evidence on the benchmark fixture shows:
 
 - app-server CPU is not the main bottleneck anymore;
 - PostgreSQL dominates system cycles under mixed CRUD;
 - Docker port publishing adds measurable overhead and should not be used for reference SQL numbers when host-network or native Postgres is available.
+
+What is already in place:
+
+- HTTP runtime now supports deferred completion on the owning reactor;
+- generated OpenAPI routers can dispatch into optional `*_async(..., async_response_writer)` handlers;
+- generated SQL repositories already expose `*_async(...)` methods in parallel with the sync API.
+
+What is still missing:
+
+- a default async write path that actually improves durable mixed CRUD instead of only shifting where the wait happens;
+- better separation between reactor I/O progress and heavy completion work where that matters for tail latency.
 
 ## What will not work
 
@@ -37,6 +48,8 @@ Keep benchmark results honest and reproducible before touching runtime shape:
 
 ### Phase 2: async HTTP completion path
 
+Status: implemented.
+
 Before async SQL is useful, HTTP needs a way to finish a response after the initial dispatch frame returns.
 
 Minimal runtime capability needed:
@@ -50,7 +63,9 @@ Without this layer, an async PostgreSQL client still collapses back into sync be
 
 ### Phase 3: nonblocking PostgreSQL executor
 
-Build a separate async executor around nonblocking `libpq` primitives:
+Status: implemented for handler-scoped generated `query_async/exec_async`, still being hardened/perf-tuned.
+
+Async executor shape is built around nonblocking `libpq` primitives:
 
 - `PQconnectStart` / `PQconnectPoll`;
 - `PQsetnonblocking`;
@@ -61,7 +76,7 @@ Build a separate async executor around nonblocking `libpq` primitives:
 - `PQisBusy`;
 - `PQgetResult`.
 
-Executor shape should be reactor-friendly:
+Executor shape should stay reactor-friendly:
 
 - one async connection object bound to one reactor;
 - fd readiness drives progress;
@@ -69,6 +84,8 @@ Executor shape should be reactor-friendly:
 - statement preparation cached per connection as today.
 
 ### Phase 4: generated async repository API
+
+Status: implemented.
 
 Once async executor exists, generated repositories should expose async methods in parallel with the sync API:
 
@@ -92,12 +109,12 @@ After async executor is stable, the next real wins are:
 
 ## Recommended implementation order
 
-1. Add async completion support to HTTP server.
-2. Introduce a dedicated `sql::async_executor` interface without breaking the current sync executor.
-3. Implement a reactor-driven nonblocking Postgres connection.
-4. Add generated async repository emission.
-5. Convert `benchmark_api` CRUD path to async repository calls.
-6. Re-benchmark Stage 17 and Stage 18 before touching further SQL ergonomics.
+1. Keep the current async HTTP completion and generated async handler contract stable.
+2. Introduce or harden a dedicated `sql::async_executor` interface without breaking the current sync executor.
+3. Keep hardening the reactor-driven nonblocking Postgres connection and remove unnecessary fd-watch churn.
+4. Keep generated async repository emission aligned with the executor contract.
+5. Convert `benchmark_api` read path first, then re-evaluate write path only if it improves Stage 18.
+6. Re-benchmark Stage 17 and Stage 18 in both default cold mode and steady-state reuse-server mode before touching further SQL ergonomics.
 
 ## Success criteria
 

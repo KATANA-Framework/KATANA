@@ -26,6 +26,32 @@ namespace {
 constexpr size_t SMALL_CONTIGUOUS_RESPONSE_BODY_THRESHOLD = 256;
 constexpr size_t PIPELINE_RESPONSE_BATCH_LIMIT = 64 * 1024;
 
+struct deferred_response_state {
+    server* owner = nullptr;
+    reactor* owner_reactor = nullptr;
+    std::weak_ptr<void> connection;
+    std::atomic<bool> resolved{false};
+};
+
+struct deferred_response_delivery {
+    std::shared_ptr<deferred_response_state> state;
+    response resp;
+};
+
+bool try_resolve_deferred_response(const std::shared_ptr<deferred_response_state>& state) {
+    bool expected = false;
+    return state != nullptr &&
+           state->resolved.compare_exchange_strong(expected, true, std::memory_order_acq_rel);
+}
+
+bool schedule_request_context_task(void* user, http::request_context::scheduled_task task) {
+    if (user == nullptr) {
+        return false;
+    }
+    auto* owner_reactor = static_cast<reactor*>(user);
+    return owner_reactor->schedule(std::move(task));
+}
+
 struct conn_close_counters {
     std::atomic<uint64_t> read_error{0};
     std::atomic<uint64_t> read_eof{0};
@@ -206,7 +232,80 @@ void server::prepare_active_response(connection_state& state, response& resp) {
     prepare_response_storage(state.active_response, state.active_response_body, resp);
 }
 
+deferred_response_handle server::make_deferred_response_handle(void* user) {
+    auto* state = static_cast<connection_state*>(user);
+    if (state == nullptr || state->owner_server == nullptr || state->owner_reactor == nullptr) {
+        return {};
+    }
+
+    auto deferred_state = std::make_shared<deferred_response_state>();
+    deferred_state->owner = state->owner_server;
+    deferred_state->owner_reactor = state->owner_reactor;
+    deferred_state->connection = state->shared_from_this();
+    return deferred_response_handle(
+        std::move(deferred_state),
+        &server::complete_deferred_response_opaque,
+        &server::cancel_deferred_response_opaque);
+}
+
+bool server::complete_deferred_response_opaque(std::shared_ptr<void> opaque_state, response resp) {
+    auto state = std::static_pointer_cast<deferred_response_state>(std::move(opaque_state));
+    if (!try_resolve_deferred_response(state) || state->owner == nullptr ||
+        state->owner_reactor == nullptr) {
+        return false;
+    }
+
+    auto delivery = std::make_shared<deferred_response_delivery>();
+    delivery->state = state;
+    delivery->resp = std::move(resp);
+    return state->owner_reactor->schedule([delivery]() {
+        auto connection = delivery->state->connection.lock();
+        if (!connection) {
+            return;
+        }
+
+        auto typed_connection = std::static_pointer_cast<connection_state>(connection);
+        delivery->state->owner->complete_deferred_response(
+            *typed_connection, std::move(delivery->resp), *delivery->state->owner_reactor);
+    });
+}
+
+void server::cancel_deferred_response_opaque(std::shared_ptr<void> opaque_state) {
+    auto state = std::static_pointer_cast<deferred_response_state>(std::move(opaque_state));
+    if (!try_resolve_deferred_response(state) || state->owner == nullptr ||
+        state->owner_reactor == nullptr) {
+        return;
+    }
+
+    auto delivery = std::make_shared<deferred_response_delivery>();
+    delivery->state = state;
+    delivery->resp.assign_error(
+        problem_details::internal_server_error("Deferred response was abandoned"));
+    (void)state->owner_reactor->schedule([delivery]() {
+        auto connection = delivery->state->connection.lock();
+        if (!connection) {
+            return;
+        }
+
+        auto typed_connection = std::static_pointer_cast<connection_state>(connection);
+        delivery->state->owner->complete_deferred_response(
+            *typed_connection, std::move(delivery->resp), *delivery->state->owner_reactor);
+    });
+}
+
+void server::complete_deferred_response(connection_state& state, response resp, reactor& r) {
+    if (!state.watch || !state.deferred_response_active) {
+        return;
+    }
+
+    state.deferred_ready_response.emplace(std::move(resp));
+    handle_connection(state, r);
+}
+
 void server::handle_connection(connection_state& state, [[maybe_unused]] reactor& r) {
+    state.owner_server = this;
+    state.owner_reactor = &r;
+
     // DEBUG: Track iterations
     [[maybe_unused]] static thread_local int iter_count = 0;
     ++iter_count;
@@ -320,6 +419,104 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         return true;
     };
 
+    auto finalize_response = [&](const request& req, response& resp) -> bool {
+        if (on_request_callback_) {
+            on_request_callback_(req, resp);
+        }
+
+        auto connection_header = req.headers.get(http::field::connection);
+        bool close_connection =
+            connection_header && (*connection_header == "close" || *connection_header == "Close");
+
+        if (!resp.headers.contains(http::field::connection)) {
+            resp.headers.set_known_borrowed(http::field::connection,
+                                            close_connection ? "close" : "keep-alive");
+        }
+
+        const bool can_batch_small_response =
+            !close_connection && !resp.chunked &&
+            resp.body.size() <= SMALL_CONTIGUOUS_RESPONSE_BODY_THRESHOLD;
+
+        if (conn_debug_enabled()) {
+            std::cerr << "[conn_debug] response uri=" << req.uri << " body=" << resp.body.size()
+                      << " can_batch_small=" << can_batch_small_response
+                      << " active_pending=" << state.pending_response_bytes()
+                      << " queued=" << state.queued_response_bytes() << "\n";
+        }
+
+        if (can_batch_small_response) {
+            state.response_scratch.clear();
+            resp.serialize_into(state.response_scratch);
+
+            if (state.pending_response_bytes() + state.response_scratch.size() <=
+                    PIPELINE_RESPONSE_BATCH_LIMIT &&
+                !state.has_queued_response()) {
+                state.active_response.append(state.response_scratch);
+                ++state.active_response_completed_requests;
+                reset_for_next_request();
+
+                if (state.http_parser.buffered_bytes() != 0) {
+                    return true;
+                }
+            } else {
+                if (state.has_pending_response()) {
+                    queue_prepared_response(false, 1);
+                    reset_for_next_request();
+                    if (!flush_ready_responses()) {
+                        return false;
+                    }
+                    if (state.http_parser.buffered_bytes() != 0) {
+                        return true;
+                    }
+                    state.set_watch_events(event_type::readable);
+                    return false;
+                }
+
+                state.active_response = std::move(state.response_scratch);
+                state.active_response_body.clear();
+                state.write_pos = 0;
+                state.close_requested = false;
+                state.active_response_completed_requests = 1;
+                reset_for_next_request();
+            }
+        } else {
+            if (state.has_pending_response()) {
+                queue_response(resp, close_connection, 1);
+                reset_for_next_request();
+                if (!flush_ready_responses()) {
+                    return false;
+                }
+                if (state.http_parser.buffered_bytes() != 0) {
+                    return true;
+                }
+                state.set_watch_events(event_type::readable);
+                return false;
+            }
+
+            state.close_requested = close_connection;
+            prepare_active_response(state, resp);
+            state.write_pos = 0;
+            state.active_response_completed_requests = 1;
+            reset_for_next_request();
+        }
+
+        if (!flush_ready_responses()) {
+            DEBUG_LOG("[DEBUG] Write blocked/error with remaining=%zu\n",
+                      state.pending_response_bytes() - state.write_pos);
+            return false;
+        }
+
+        DEBUG_LOG("[DEBUG] Write complete\n");
+        DEBUG_LOG("[DEBUG] Response sent, continuing keep-alive loop\n");
+
+        if (state.http_parser.buffered_bytes() == 0) {
+            state.set_watch_events(event_type::readable);
+            return false;
+        }
+
+        return true;
+    };
+
     auto close_with_parse_error = [&]() -> void {
         if (parser_debug_enabled()) {
             std::cerr << "[parser_debug] state="
@@ -350,6 +547,23 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         state.active_response_completed_requests = 0;
         (void)flush_ready_responses();
     };
+
+    if (state.deferred_response_active && state.deferred_ready_response.has_value()) {
+        auto ready_response = std::move(*state.deferred_ready_response);
+        state.deferred_ready_response.reset();
+        state.deferred_response_active = false;
+        if (!finalize_response(state.http_parser.get_request(), ready_response)) {
+            return;
+        }
+    }
+
+    if (state.deferred_response_active) {
+        if (state.has_pending_response() && !flush_ready_responses()) {
+            return;
+        }
+        state.set_watch_events(event_type::none);
+        return;
+    }
 
     if (state.has_pending_response()) {
         if (!flush_ready_responses()) {
@@ -408,101 +622,26 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 
         const auto& req = state.http_parser.get_request();
         request_context ctx{state.arena};
+        ctx.task_scheduler_user = &r;
+        ctx.task_scheduler = &schedule_request_context_task;
+        ctx.reactor_user = &r;
+        ctx.deferred_response_user = &state;
+        ctx.deferred_response_factory = &server::make_deferred_response_handle;
         response resp{&state.arena};
         dispatch_request(req, ctx, resp);
 
-        if (on_request_callback_) {
-            on_request_callback_(req, resp);
-        }
-
-        auto connection_header = req.headers.get(http::field::connection);
-        bool close_connection =
-            connection_header && (*connection_header == "close" || *connection_header == "Close");
-
-        if (!resp.headers.contains(http::field::connection)) {
-            resp.headers.set_known_borrowed(http::field::connection,
-                                            close_connection ? "close" : "keep-alive");
-        }
-
-        const bool can_batch_small_response =
-            !close_connection && !resp.chunked &&
-            resp.body.size() <= SMALL_CONTIGUOUS_RESPONSE_BODY_THRESHOLD;
-
-        if (conn_debug_enabled()) {
-            std::cerr << "[conn_debug] response uri=" << req.uri << " body=" << resp.body.size()
-                      << " can_batch_small=" << can_batch_small_response
-                      << " active_pending=" << state.pending_response_bytes()
-                      << " queued=" << state.queued_response_bytes() << "\n";
-        }
-
-        if (can_batch_small_response) {
-            state.response_scratch.clear();
-            resp.serialize_into(state.response_scratch);
-
-            if (state.pending_response_bytes() + state.response_scratch.size() <=
-                    PIPELINE_RESPONSE_BATCH_LIMIT &&
-                !state.has_queued_response()) {
-                state.active_response.append(state.response_scratch);
-                ++state.active_response_completed_requests;
-                reset_for_next_request();
-
-                if (state.http_parser.buffered_bytes() != 0) {
-                    continue;
-                }
-            } else {
-                if (state.has_pending_response()) {
-                    queue_prepared_response(false, 1);
-                    reset_for_next_request();
-                    if (!flush_ready_responses()) {
-                        return;
-                    }
-                    if (state.http_parser.buffered_bytes() != 0) {
-                        continue;
-                    }
-                    state.set_watch_events(event_type::readable);
-                    return;
-                }
-
-                state.active_response = std::move(state.response_scratch);
-                state.active_response_body.clear();
-                state.write_pos = 0;
-                state.close_requested = false;
-                state.active_response_completed_requests = 1;
-                reset_for_next_request();
-            }
-        } else {
-            if (state.has_pending_response()) {
-                queue_response(resp, close_connection, 1);
-                reset_for_next_request();
-                if (!flush_ready_responses()) {
-                    return;
-                }
-                if (state.http_parser.buffered_bytes() != 0) {
-                    continue;
-                }
-                state.set_watch_events(event_type::readable);
+        if (ctx.is_response_deferred()) {
+            state.deferred_response_active = true;
+            if (state.has_pending_response() && !flush_ready_responses()) {
                 return;
             }
-
-            state.close_requested = close_connection;
-            prepare_active_response(state, resp);
-            state.write_pos = 0;
-            state.active_response_completed_requests = 1;
-            reset_for_next_request();
-        }
-
-        if (!flush_ready_responses()) {
-            DEBUG_LOG("[DEBUG] Write blocked/error with remaining=%zu\n",
-                      state.pending_response_bytes() - state.write_pos);
+            if (!state.has_pending_response()) {
+                state.set_watch_events(event_type::none);
+            }
             return;
         }
 
-        DEBUG_LOG("[DEBUG] Write complete\n");
-
-        DEBUG_LOG("[DEBUG] Response sent, continuing keep-alive loop\n");
-
-        if (state.http_parser.buffered_bytes() == 0) {
-            state.set_watch_events(event_type::readable);
+        if (!finalize_response(req, resp)) {
             return;
         }
     }

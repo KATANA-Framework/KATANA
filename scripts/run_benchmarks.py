@@ -164,6 +164,25 @@ class StageResult:
 
 
 @dataclass
+class WrkHttpInvocation:
+    wrk_binary: str
+    server_binary: Path
+    port: int
+    bench_workers: int
+    env: Dict[str, str]
+    wrk_env: Dict[str, str]
+    script_path: Path
+    benchmark_name: str
+    server_target: str
+    wrk_threads: int
+    wrk_connections: int
+    wrk_duration_sec: int
+    wrk_warmup_sec: int
+    wrk_url: str
+    cleanup_sql: List[str] = field(default_factory=list)
+
+
+@dataclass
 class BenchmarkReport:
     """Complete benchmark report."""
 
@@ -476,10 +495,14 @@ STAGES = {
             "PORT": "{port}",
             "KATANA_BENCHMARK_API_BOOTSTRAP": "1",
             "KATANA_BENCHMARK_API_RESET": "1",
+            "KATANA_BENCHMARK_API_DISABLE_AUTOVACUUM": "1",
             "KATANA_BENCHMARK_API_SEED_COUNT": "4096",
             "KATANA_BENCHMARK_API_WORKERS": "{bench_workers}",
             "KATANA_BENCHMARK_API_EXECUTORS": "{bench_workers}",
         },
+        "cleanup_sql": [
+            "ALTER TABLE katana_stage4_items RESET (autovacuum_enabled, toast.autovacuum_enabled)",
+        ],
         "bench_workers": default_sql_http_workers(),
         "port": 18086,
         "wrk_threads": 4,
@@ -504,10 +527,14 @@ STAGES = {
             "PORT": "{port}",
             "KATANA_BENCHMARK_API_BOOTSTRAP": "1",
             "KATANA_BENCHMARK_API_RESET": "1",
+            "KATANA_BENCHMARK_API_DISABLE_AUTOVACUUM": "1",
             "KATANA_BENCHMARK_API_SEED_COUNT": "4096",
             "KATANA_BENCHMARK_API_WORKERS": "{bench_workers}",
             "KATANA_BENCHMARK_API_EXECUTORS": "{bench_workers}",
         },
+        "cleanup_sql": [
+            "ALTER TABLE katana_stage4_items RESET (autovacuum_enabled, toast.autovacuum_enabled)",
+        ],
         "bench_workers": default_sql_http_peak_workers(),
         "port": 18087,
         "wrk_threads": 4,
@@ -1678,6 +1705,181 @@ def _is_network_restricted_error(message: Optional[str]) -> bool:
     )
 
 
+def _prepare_wrk_http_invocation(stage: Dict[str, Any]) -> Tuple[Optional[WrkHttpInvocation], Optional[str]]:
+    wrk_binary = shutil.which(os.environ.get("KATANA_WRK_BIN", "wrk"))
+    if not wrk_binary:
+        return None, "wrk not found in PATH"
+
+    server_candidates = _resolve_binary_candidates(stage["server_candidates"])
+    server_binary = _find_binary(server_candidates)
+    if server_binary is None:
+        return None, f"{stage['server_target']} binary not found"
+
+    port = int(stage["port"])
+    bench_workers = int(stage.get("bench_workers", default_bench_workers()))
+    env = dict(os.environ)
+    for key, value in stage.get("server_env", {}).items():
+        env[key] = value.format(port=port, bench_workers=bench_workers)
+
+    wrk_env = dict(env)
+    for key, value in stage.get("wrk_env", {}).items():
+        wrk_env[key] = value.format(port=port, bench_workers=bench_workers)
+
+    return (
+        WrkHttpInvocation(
+            wrk_binary=wrk_binary,
+            server_binary=server_binary,
+            port=port,
+            bench_workers=bench_workers,
+            env=env,
+            wrk_env=wrk_env,
+            script_path=REPO_ROOT / stage["wrk_script"],
+            benchmark_name=stage["benchmark_name"],
+            server_target=stage["server_target"],
+            wrk_threads=int(stage["wrk_threads"]),
+            wrk_connections=int(stage["wrk_connections"]),
+            wrk_duration_sec=int(stage["wrk_duration_sec"]),
+            wrk_warmup_sec=int(stage.get("wrk_warmup_sec", 0)),
+            wrk_url=stage["wrk_url"].format(port=port),
+            cleanup_sql=list(stage.get("cleanup_sql", [])),
+        ),
+        None,
+    )
+
+
+def _build_wrk_http_command(
+    invocation: WrkHttpInvocation,
+    duration_sec: int,
+    *,
+    include_latency: bool,
+) -> List[str]:
+    cmd = [
+        invocation.wrk_binary,
+        "-t",
+        str(invocation.wrk_threads),
+        "-c",
+        str(invocation.wrk_connections),
+        "-d",
+        f"{duration_sec}s",
+        "-s",
+        str(invocation.script_path),
+        invocation.wrk_url,
+    ]
+    if include_latency:
+        cmd.insert(7, "--latency")
+    return cmd
+
+
+def _start_wrk_http_server(invocation: WrkHttpInvocation) -> Tuple[Optional[subprocess.Popen[str]], Optional[str]]:
+    if _is_port_in_use("127.0.0.1", invocation.port):
+        return None, f"port {invocation.port} already in use before starting {invocation.server_target}"
+
+    server_proc = _start_server_process(invocation.server_binary, env=invocation.env)
+    if _wait_for_port("127.0.0.1", invocation.port, timeout_s=10.0):
+        return server_proc, None
+
+    details = ""
+    if server_proc.poll() is not None and server_proc.stderr is not None:
+        with contextlib.suppress(Exception):
+            details = server_proc.stderr.read().strip()
+    _stop_server_process(server_proc)
+    suffix = f": {details}" if details else ""
+    return None, f"{invocation.server_target} failed to listen on {invocation.port}{suffix}"
+
+
+def _run_wrk_http_subprocess(
+    invocation: WrkHttpInvocation,
+    *,
+    duration_sec: int,
+    include_latency: bool,
+    mode: str,
+) -> Tuple[Optional[subprocess.CompletedProcess[str]], Optional[str]]:
+    proc = subprocess.run(
+        _build_wrk_http_command(invocation, duration_sec, include_latency=include_latency),
+        capture_output=True,
+        text=True,
+        timeout=max(30 if include_latency else 15, duration_sec + 15 if include_latency else duration_sec + 10),
+        env=invocation.wrk_env,
+    )
+    if proc.returncode == 0:
+        return proc, None
+    details = proc.stderr.strip() or proc.stdout.strip()
+    return None, f"wrk {mode} failed: {details}"
+
+
+def _run_wrk_http_warmup(invocation: WrkHttpInvocation) -> Optional[str]:
+    if invocation.wrk_warmup_sec <= 0:
+        return None
+    _, error = _run_wrk_http_subprocess(
+        invocation,
+        duration_sec=invocation.wrk_warmup_sec,
+        include_latency=False,
+        mode="warmup",
+    )
+    return error
+
+
+def _run_wrk_http_measurement(invocation: WrkHttpInvocation) -> Tuple[BenchmarkResult, Optional[str]]:
+    proc, error = _run_wrk_http_subprocess(
+        invocation,
+        duration_sec=invocation.wrk_duration_sec,
+        include_latency=True,
+        mode="run",
+    )
+    if error:
+        return (
+            BenchmarkResult(
+                name=invocation.benchmark_name,
+                throughput=0.0,
+                throughput_unit="req/sec",
+                errors=0,
+            ),
+            error,
+        )
+
+    assert proc is not None
+    parsed = _parse_wrk_output(proc.stdout, invocation.benchmark_name)
+    if parsed is None:
+        return (
+            BenchmarkResult(
+                name=invocation.benchmark_name,
+                throughput=0.0,
+                throughput_unit="req/sec",
+                errors=0,
+            ),
+            "failed to parse wrk output",
+        )
+    return parsed, None
+
+
+def _run_wrk_http_cleanup(invocation: WrkHttpInvocation) -> Optional[str]:
+    if not invocation.cleanup_sql:
+        return None
+
+    psql_binary = shutil.which("psql")
+    if not psql_binary:
+        return "psql not found in PATH for PostgreSQL cleanup"
+
+    dsn = invocation.env.get("KATANA_BENCHMARK_API_POSTGRES_DSN") or invocation.env.get(
+        "KATANA_TEST_POSTGRES_DSN"
+    )
+    if not dsn:
+        return "PostgreSQL cleanup requested but DSN is not set"
+
+    for sql in invocation.cleanup_sql:
+        proc = subprocess.run(
+            [psql_binary, dsn, "-v", "ON_ERROR_STOP=1", "-Atc", sql],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=invocation.env,
+        )
+        if proc.returncode != 0:
+            details = proc.stderr.strip() or proc.stdout.strip()
+            return f"PostgreSQL cleanup failed: {details}"
+    return None
+
+
 def _parse_wrk_time_to_us(raw: str) -> Optional[float]:
     match = re.match(r"^\s*([\d.]+)\s*(us|ms|s)\s*$", raw)
     if not match:
@@ -2040,8 +2242,8 @@ def run_e2e_keepalive_stage(
 
 
 def run_wrk_http_once(stage: Dict[str, Any]) -> Tuple[BenchmarkResult, Optional[str]]:
-    wrk_binary = shutil.which(os.environ.get("KATANA_WRK_BIN", "wrk"))
-    if not wrk_binary:
+    invocation, error = _prepare_wrk_http_invocation(stage)
+    if invocation is None:
         return (
             BenchmarkResult(
                 name=stage["benchmark_name"],
@@ -2049,133 +2251,34 @@ def run_wrk_http_once(stage: Dict[str, Any]) -> Tuple[BenchmarkResult, Optional[
                 throughput_unit="req/sec",
                 errors=0,
             ),
-            "wrk not found in PATH",
+            error,
         )
-
-    server_candidates = _resolve_binary_candidates(stage["server_candidates"])
-    server_binary = _find_binary(server_candidates)
-    if server_binary is None:
-        return (
-            BenchmarkResult(
-                name=stage["benchmark_name"],
-                throughput=0.0,
-                throughput_unit="req/sec",
-                errors=0,
-            ),
-            f"{stage['server_target']} binary not found",
-        )
-
-    port = int(stage["port"])
-    if _is_port_in_use("127.0.0.1", port):
-        return (
-            BenchmarkResult(
-                name=stage["benchmark_name"],
-                throughput=0.0,
-                throughput_unit="req/sec",
-                errors=0,
-            ),
-            f"port {port} already in use before starting {stage['server_target']}",
-        )
-    env = dict(os.environ)
-    bench_workers = int(stage.get("bench_workers", default_bench_workers()))
-    for key, value in stage.get("server_env", {}).items():
-        env[key] = value.format(port=port, bench_workers=bench_workers)
 
     server_proc: Optional[subprocess.Popen[str]] = None
+    measured_result = BenchmarkResult(
+        name=stage["benchmark_name"],
+        throughput=0.0,
+        throughput_unit="req/sec",
+        errors=0,
+    )
+    run_error: Optional[str] = None
     try:
-        server_proc = _start_server_process(server_binary, env=env)
-        if not _wait_for_port("127.0.0.1", port, timeout_s=10.0):
-            details = ""
-            if server_proc.poll() is not None and server_proc.stderr is not None:
-                with contextlib.suppress(Exception):
-                    details = server_proc.stderr.read().strip()
-            suffix = f": {details}" if details else ""
-            return (
-                BenchmarkResult(
-                    name=stage["benchmark_name"],
-                    throughput=0.0,
-                    throughput_unit="req/sec",
-                    errors=0,
-                ),
-                f"{stage['server_target']} failed to listen on {port}{suffix}",
-            )
-
-        script_path = REPO_ROOT / stage["wrk_script"]
-        wrk_env = dict(env)
-        for key, value in stage.get("wrk_env", {}).items():
-            wrk_env[key] = value.format(port=port, bench_workers=bench_workers)
-
-        def build_wrk_cmd(duration_sec: int, include_latency: bool) -> List[str]:
-            cmd = [
-                wrk_binary,
-                "-t",
-                str(stage["wrk_threads"]),
-                "-c",
-                str(stage["wrk_connections"]),
-                "-d",
-                f"{duration_sec}s",
-                "-s",
-                str(script_path),
-                stage["wrk_url"].format(port=port),
-            ]
-            if include_latency:
-                cmd.insert(7, "--latency")
-            return cmd
-
-        warmup_sec = int(stage.get("wrk_warmup_sec", 0))
-        if warmup_sec > 0:
-            warmup_proc = subprocess.run(
-                build_wrk_cmd(warmup_sec, include_latency=False),
-                capture_output=True,
-                text=True,
-                timeout=max(15, warmup_sec + 10),
-                env=wrk_env,
-            )
-            if warmup_proc.returncode != 0:
-                details = warmup_proc.stderr.strip() or warmup_proc.stdout.strip()
-                return (
-                    BenchmarkResult(
-                        name=stage["benchmark_name"],
-                        throughput=0.0,
-                        throughput_unit="req/sec",
-                        errors=0,
-                    ),
-                    f"wrk warmup failed: {details}",
-                )
-
-        proc = subprocess.run(
-            build_wrk_cmd(int(stage["wrk_duration_sec"]), include_latency=True),
-            capture_output=True,
-            text=True,
-            timeout=max(30, int(stage["wrk_duration_sec"]) + 15),
-            env=wrk_env,
-        )
-        if proc.returncode != 0:
-            details = proc.stderr.strip() or proc.stdout.strip()
-            return (
-                BenchmarkResult(
-                    name=stage["benchmark_name"],
-                    throughput=0.0,
-                    throughput_unit="req/sec",
-                    errors=0,
-                ),
-                f"wrk failed: {details}",
-            )
-
-        parsed = _parse_wrk_output(proc.stdout, stage["benchmark_name"])
-        if parsed is None:
-            return (
-                BenchmarkResult(
-                    name=stage["benchmark_name"],
-                    throughput=0.0,
-                    throughput_unit="req/sec",
-                    errors=0,
-                ),
-                "failed to parse wrk output",
-            )
-        return parsed, None
+        server_proc, error = _start_wrk_http_server(invocation)
+        if error:
+            run_error = error
+        else:
+            error = _run_wrk_http_warmup(invocation)
+            if error:
+                run_error = error
+            else:
+                measured_result, run_error = _run_wrk_http_measurement(invocation)
     finally:
         _stop_server_process(server_proc)
+        cleanup_error = _run_wrk_http_cleanup(invocation)
+        if cleanup_error and run_error is None:
+            run_error = cleanup_error
+
+    return measured_result, run_error
 
 
 def run_wrk_http_stage(
@@ -2185,6 +2288,7 @@ def run_wrk_http_stage(
     repeats: int,
     aggregation_mode: str,
     include_runs: bool,
+    reuse_server: bool,
 ) -> StageResult:
     result = StageResult(
         stage_id=stage_id,
@@ -2204,6 +2308,7 @@ def run_wrk_http_stage(
             "wrk_url": stage.get("wrk_url"),
             "bench_workers": stage.get("bench_workers", default_bench_workers()),
             "pipeline_depth": stage.get("wrk_env", {}).get("KATANA_PIPELINE_DEPTH"),
+            "server_lifecycle": "reused" if reuse_server else "per_run",
         },
     )
 
@@ -2212,13 +2317,41 @@ def run_wrk_http_stage(
     run_errors: List[str] = []
     started = time.perf_counter()
 
-    for run_idx in range(repeats):
-        print(f"  Run {run_idx + 1}/{repeats}...")
-        run_result, error = run_wrk_http_once(stage)
-        if error:
-            run_errors.append(f"run {run_idx + 1}: {error}")
-            continue
-        run_results.append([run_result])
+    if not reuse_server:
+        for run_idx in range(repeats):
+            print(f"  Run {run_idx + 1}/{repeats}...")
+            run_result, error = run_wrk_http_once(stage)
+            if error:
+                run_errors.append(f"run {run_idx + 1}: {error}")
+                continue
+            run_results.append([run_result])
+    else:
+        invocation, error = _prepare_wrk_http_invocation(stage)
+        if error or invocation is None:
+            run_errors.append(f"setup: {error or 'failed to prepare wrk stage'}")
+        else:
+            server_proc: Optional[subprocess.Popen[str]] = None
+            try:
+                server_proc, error = _start_wrk_http_server(invocation)
+                if error:
+                    run_errors.append(f"setup: {error}")
+                else:
+                    error = _run_wrk_http_warmup(invocation)
+                    if error:
+                        run_errors.append(f"warmup: {error}")
+                    else:
+                        for run_idx in range(repeats):
+                            print(f"  Run {run_idx + 1}/{repeats}...")
+                            run_result, error = _run_wrk_http_measurement(invocation)
+                            if error:
+                                run_errors.append(f"run {run_idx + 1}: {error}")
+                                continue
+                            run_results.append([run_result])
+            finally:
+                _stop_server_process(server_proc)
+                cleanup_error = _run_wrk_http_cleanup(invocation)
+                if cleanup_error:
+                    run_errors.append(f"cleanup: {cleanup_error}")
 
     result.duration_ms = int((time.perf_counter() - started) * 1000)
     if run_errors:
@@ -2622,6 +2755,7 @@ def run_stage(
     e2e_connections: int = 16,
     e2e_requests_per_connection: int = 200,
     e2e_port: int = 18082,
+    wrk_reuse_server: bool = False,
 ) -> StageResult:
     """Run a single benchmark stage."""
     if stage_id not in STAGES:
@@ -2652,6 +2786,7 @@ def run_stage(
             repeats=repeats,
             aggregation_mode=aggregation_mode,
             include_runs=include_runs,
+            reuse_server=wrk_reuse_server,
         )
 
     binary_name = stage["binary"]
@@ -3352,6 +3487,9 @@ def generate_markdown(report: BenchmarkReport) -> str:
         "# Run Stage 4 SQL budgets as a CI gate",
         "./scripts/run_benchmarks.py --stage 15 16 17 18 --fail-on-budget",
         "",
+        "# Diagnose steady-state wrk behavior without per-sample server restarts",
+        "./scripts/run_benchmarks.py --stage 17 18 --wrk-reuse-server",
+        "",
         "# Point the runner at a custom build tree or wrk binary",
         "KATANA_BENCH_BUILD_DIR=build/bench-wsl KATANA_WRK_BIN=wrk ./scripts/run_benchmarks.py --include-e2e",
         "",
@@ -3605,6 +3743,14 @@ def main():
         help="Disable unmeasured warmup launch before each non-E2E stage.",
     )
     parser.add_argument(
+        "--wrk-reuse-server",
+        action="store_true",
+        help=(
+            "Reuse one live server per wrk_http stage instead of restarting per sample. "
+            "Diagnostic steady-state mode only; default cold-start gate semantics stay unchanged."
+        ),
+    )
+    parser.add_argument(
         "--perf-stat",
         action="store_true",
         help="Collect perf stat counters for each non-E2E stage (best effort).",
@@ -3794,6 +3940,10 @@ def main():
             )
             print(f"Aggregation mode: {args.aggregation}")
             print(f"Stage warmup: {'disabled' if args.no_stage_warmup else 'enabled'}")
+            print(
+                "wrk server lifecycle: "
+                + ("reused per stage (steady-state diagnostic)" if args.wrk_reuse_server else "restart per sample")
+            )
             print(f"perf stat: {'enabled' if args.perf_stat else 'disabled'}")
 
             report = BenchmarkReport(
@@ -3818,6 +3968,7 @@ def main():
                     e2e_connections=args.e2e_connections,
                     e2e_requests_per_connection=args.e2e_requests_per_connection,
                     e2e_port=args.e2e_port,
+                    wrk_reuse_server=args.wrk_reuse_server,
                 )
                 report.stages.append(result)
             report.total_duration_ms = int((time.perf_counter() - started) * 1000)

@@ -46,7 +46,7 @@ struct transparent_string_equal {
     }
 };
 
-class postgres_executor final : public executor {
+class postgres_executor final : public executor, public async_executor {
 public:
     explicit postgres_executor(postgres_config config);
     ~postgres_executor() override;
@@ -69,6 +69,16 @@ public:
                                     std::string_view sql,
                                     const parameters& params,
                                     row_handler handler) override;
+
+    bool query_async(std::string_view statement_name,
+                     std::string_view sql,
+                     parameters params,
+                     async_query_handler handler) override;
+
+    bool exec_async(std::string_view statement_name,
+                    std::string_view sql,
+                    parameters params,
+                    async_exec_handler handler) override;
 
     katana::result<void> begin();
     katana::result<void> commit();
@@ -128,7 +138,7 @@ private:
     mutable std::atomic<std::size_t> next_executor_{0};
 };
 
-class postgres_pool_executor final : public executor {
+class postgres_pool_executor final : public executor, public async_executor {
 public:
     explicit postgres_pool_executor(postgres_pool& pool) noexcept : pool_(pool) {}
 
@@ -142,6 +152,16 @@ public:
                                     std::string_view sql,
                                     const parameters& params,
                                     row_handler handler) override;
+
+    bool query_async(std::string_view statement_name,
+                     std::string_view sql,
+                     parameters params,
+                     async_query_handler handler) override;
+
+    bool exec_async(std::string_view statement_name,
+                    std::string_view sql,
+                    parameters params,
+                    async_exec_handler handler) override;
 
 private:
     postgres_pool& pool_;

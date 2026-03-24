@@ -31,6 +31,14 @@ TEST(SqlRuntimeTest, RejectsNullCellViewParse) {
     ASSERT_FALSE(parsed);
 }
 
+TEST(SqlRuntimeTest, ParsesValuesFromOwnedCell) {
+    katana::sql::cell raw = std::string("42");
+    const auto parsed = katana::sql::parse_value<int64_t>(raw);
+
+    ASSERT_TRUE(parsed);
+    EXPECT_EQ(*parsed, 42);
+}
+
 TEST(SqlRuntimeTest, PreservesInlineParameterStorageAcrossCopies) {
     auto original = katana::sql::parameter::from_integer(123456789LL);
     auto copied = original;

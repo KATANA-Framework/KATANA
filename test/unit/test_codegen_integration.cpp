@@ -294,7 +294,17 @@ paths:
     create_openapi_spec("test.yaml", spec);
     ASSERT_TRUE(run_codegen("test.yaml", "all"));
 
+    auto handlers = read_generated_file("generated_handlers.hpp");
     auto bindings = read_generated_file("generated_router_bindings.hpp");
+    EXPECT_NE(handlers.find("struct async_api_handler"), std::string::npos);
+    EXPECT_NE(handlers.find("struct async_api_handler_base : api_handler, async_api_handler"),
+              std::string::npos);
+    EXPECT_NE(handlers.find("virtual bool update_item_async"), std::string::npos);
+    EXPECT_NE(handlers.find("katana::http::async_response_writer out"), std::string::npos);
+    EXPECT_NE(handlers.find("problem_details::not_implemented"), std::string::npos);
+    EXPECT_NE(bindings.find("dynamic_cast<async_api_handler*>(&handler)"), std::string::npos);
+    EXPECT_NE(bindings.find("ctx.reset_deferred_response()"), std::string::npos);
+    EXPECT_NE(bindings.find("katana::http::async_response_writer"), std::string::npos);
     EXPECT_NE(bindings.find("query_param(req.uri, \"page\")"), std::string::npos);
     EXPECT_NE(bindings.find("req.headers.get(\"X-Trace\")"), std::string::npos);
     EXPECT_NE(bindings.find("cookie_param(req, \"session\")"), std::string::npos);

@@ -887,6 +887,66 @@ std::string generate_router_bindings(const document& doc) {
             dispatch_functions
                 << "    katana::http::handler_context::scope context_scope(req, ctx);\n";
 
+            dispatch_functions << "    if (ctx.can_defer_response()) {\n";
+            dispatch_functions
+                << "        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {\n";
+            if (has_response_content) {
+                if (is_single_json_response) {
+                    dispatch_functions << "            auto async_out = "
+                                          "katana::http::async_response_writer("
+                                          "ctx.share_deferred_response(), kJsonContentType);\n";
+                } else {
+                    dispatch_functions
+                        << "            auto async_out = katana::http::async_response_writer("
+                           "ctx.share_deferred_response(), response_content_type);\n";
+                }
+            } else {
+                dispatch_functions
+                    << "            auto async_out = "
+                       "katana::http::async_response_writer(ctx.share_deferred_response());\n";
+            }
+            dispatch_functions << "            if (async_out) {\n";
+            dispatch_functions << "                if (async_handler->" << method_name
+                               << "_async(";
+
+            bool first_async_arg = true;
+            if (!is_static_route) {
+                for (const auto& param : op.parameters) {
+                    if (param.in != katana::openapi::param_location::path || !param.type) {
+                        continue;
+                    }
+                    if (!first_async_arg)
+                        dispatch_functions << ", ";
+                    first_async_arg = false;
+                    dispatch_functions << sanitize_identifier(param.name);
+                }
+            }
+            for (const auto& param : op.parameters) {
+                if (param.in == katana::openapi::param_location::path || !param.type) {
+                    continue;
+                }
+                if (!first_async_arg)
+                    dispatch_functions << ", ";
+                first_async_arg = false;
+                dispatch_functions << sanitize_identifier(param.name);
+            }
+            if (has_body) {
+                if (!first_async_arg)
+                    dispatch_functions << ", ";
+                first_async_arg = false;
+                dispatch_functions << "*parsed_body";
+            }
+            if (!first_async_arg)
+                dispatch_functions << ", ";
+            dispatch_functions << "async_out)) {\n";
+            dispatch_functions << "                    return {};\n";
+            dispatch_functions << "                }\n";
+            dispatch_functions << "                async_out.disarm();\n";
+            dispatch_functions << "                ctx.reset_deferred_response();\n";
+            dispatch_functions << "            }\n";
+            dispatch_functions << "        }\n";
+            dispatch_functions << "    }\n";
+
             // Handler invocation
             dispatch_functions << "    auto handler_result = handler." << method_name << "(";
 
@@ -1200,6 +1260,7 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "//   }\n";
     out << "#pragma once\n\n";
     out << "#include \"katana/core/http.hpp\"\n";
+    out << "#include \"katana/core/problem.hpp\"\n";
     out << "#include \"katana/core/router.hpp\"\n";
     out << "#include \"generated_dtos.hpp\"\n";
     out << "#include <string_view>\n";
@@ -1337,6 +1398,249 @@ std::string generate_handler_interfaces(const document& doc) {
             if (!first_param)
                 out << ", ";
             out << "response& out) = 0;\n\n";
+        }
+    }
+
+    out << "};\n\n";
+
+    out << "// Optional async handler interface for generated routers.\n";
+    out << "// Implement only operations that should own deferred HTTP completion.\n";
+    out << "// Returning false falls back to the synchronous api_handler method.\n";
+    out << "struct async_api_handler {\n";
+    out << "    virtual ~async_api_handler() = default;\n\n";
+
+    for (const auto& path_item : doc.paths) {
+        for (const auto& op : path_item.operations) {
+            if (op.operation_id.empty()) {
+                continue;
+            }
+
+            std::string method_name = to_snake_case(op.operation_id);
+
+            out << "    virtual bool " << method_name << "_async(";
+
+            bool first_param = true;
+            for (const auto& param : op.parameters) {
+                if (param.in == katana::openapi::param_location::path && param.type) {
+                    if (!first_param)
+                        out << ", ";
+                    first_param = false;
+                    auto arg_name = sanitize_identifier(param.name);
+                    if (param.type->kind == katana::openapi::schema_kind::string) {
+                        out << "std::string_view " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::integer) {
+                        out << "int64_t " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::number) {
+                        out << "double " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::boolean) {
+                        out << "bool " << arg_name;
+                    } else {
+                        out << "std::string_view " << arg_name;
+                    }
+                }
+            }
+
+            for (const auto& param : op.parameters) {
+                if ((param.in == katana::openapi::param_location::query ||
+                     param.in == katana::openapi::param_location::header ||
+                     param.in == katana::openapi::param_location::cookie) &&
+                    param.type) {
+                    if (!first_param)
+                        out << ", ";
+                    first_param = false;
+                    auto arg_name = sanitize_identifier(param.name);
+                    if (param.type->kind == katana::openapi::schema_kind::string) {
+                        write_optional_type(out, "std::string_view", param.required);
+                        out << " " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::integer) {
+                        write_optional_type(out, "int64_t", param.required);
+                        out << " " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::number) {
+                        write_optional_type(out, "double", param.required);
+                        out << " " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::boolean) {
+                        write_optional_type(out, "bool", param.required);
+                        out << " " << arg_name;
+                    } else {
+                        write_optional_type(out, "std::string_view", param.required);
+                        out << " " << arg_name;
+                    }
+                }
+            }
+
+            std::vector<std::string> body_schema_names;
+            if (op.body && !op.body->content.empty()) {
+                for (const auto& media : op.body->content) {
+                    auto media_name = schema_identifier(doc, media.type);
+                    if (!media_name.empty() &&
+                        std::find(body_schema_names.begin(), body_schema_names.end(), media_name) ==
+                            body_schema_names.end()) {
+                        body_schema_names.push_back(media_name);
+                    }
+                }
+            }
+            bool body_is_variant = body_schema_names.size() > 1;
+            std::string body_type_expr;
+            if (!body_schema_names.empty()) {
+                if (body_is_variant) {
+                    body_type_expr = "std::variant<";
+                    for (size_t i = 0; i < body_schema_names.size(); ++i) {
+                        if (i > 0) {
+                            body_type_expr += ", ";
+                        }
+                        body_type_expr += body_schema_names[i];
+                    }
+                    body_type_expr += ">";
+                } else {
+                    body_type_expr = body_schema_names.front();
+                }
+            }
+
+            if (op.body && !op.body->content.empty() && !body_type_expr.empty()) {
+                if (!first_param)
+                    out << ", ";
+                first_param = false;
+                out << "const " << body_type_expr << "& body";
+            }
+
+            if (!first_param)
+                out << ", ";
+            out << "katana::http::async_response_writer out) {\n";
+
+            for (const auto& param : op.parameters) {
+                if (!param.type) {
+                    continue;
+                }
+                out << "        (void)" << sanitize_identifier(param.name) << ";\n";
+            }
+            if (op.body && !op.body->content.empty() && !body_type_expr.empty()) {
+                out << "        (void)body;\n";
+            }
+            out << "        (void)out;\n";
+            out << "        return false;\n";
+            out << "    }\n\n";
+        }
+    }
+
+    out << "};\n\n";
+
+    out << "// Convenience base for async-first services.\n";
+    out << "// Override *_async methods only; synchronous fallbacks return 501.\n";
+    out << "struct async_api_handler_base : api_handler, async_api_handler {\n";
+    out << "    virtual ~async_api_handler_base() = default;\n\n";
+
+    for (const auto& path_item : doc.paths) {
+        for (const auto& op : path_item.operations) {
+            if (op.operation_id.empty()) {
+                continue;
+            }
+
+            std::string method_name = to_snake_case(op.operation_id);
+
+            std::vector<std::string> body_schema_names;
+            if (op.body && !op.body->content.empty()) {
+                for (const auto& media : op.body->content) {
+                    auto media_name = schema_identifier(doc, media.type);
+                    if (!media_name.empty() &&
+                        std::find(body_schema_names.begin(), body_schema_names.end(), media_name) ==
+                            body_schema_names.end()) {
+                        body_schema_names.push_back(media_name);
+                    }
+                }
+            }
+            bool body_is_variant = body_schema_names.size() > 1;
+            std::string body_type_expr;
+            if (!body_schema_names.empty()) {
+                if (body_is_variant) {
+                    body_type_expr = "std::variant<";
+                    for (size_t i = 0; i < body_schema_names.size(); ++i) {
+                        if (i > 0) {
+                            body_type_expr += ", ";
+                        }
+                        body_type_expr += body_schema_names[i];
+                    }
+                    body_type_expr += ">";
+                } else {
+                    body_type_expr = body_schema_names.front();
+                }
+            }
+
+            out << "    katana::result<void> " << method_name << "(";
+
+            bool first_param = true;
+            for (const auto& param : op.parameters) {
+                if (param.in == katana::openapi::param_location::path && param.type) {
+                    if (!first_param)
+                        out << ", ";
+                    first_param = false;
+                    auto arg_name = sanitize_identifier(param.name);
+                    if (param.type->kind == katana::openapi::schema_kind::string) {
+                        out << "std::string_view " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::integer) {
+                        out << "int64_t " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::number) {
+                        out << "double " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::boolean) {
+                        out << "bool " << arg_name;
+                    } else {
+                        out << "std::string_view " << arg_name;
+                    }
+                }
+            }
+
+            for (const auto& param : op.parameters) {
+                if ((param.in == katana::openapi::param_location::query ||
+                     param.in == katana::openapi::param_location::header ||
+                     param.in == katana::openapi::param_location::cookie) &&
+                    param.type) {
+                    if (!first_param)
+                        out << ", ";
+                    first_param = false;
+                    auto arg_name = sanitize_identifier(param.name);
+                    if (param.type->kind == katana::openapi::schema_kind::string) {
+                        write_optional_type(out, "std::string_view", param.required);
+                        out << " " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::integer) {
+                        write_optional_type(out, "int64_t", param.required);
+                        out << " " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::number) {
+                        write_optional_type(out, "double", param.required);
+                        out << " " << arg_name;
+                    } else if (param.type->kind == katana::openapi::schema_kind::boolean) {
+                        write_optional_type(out, "bool", param.required);
+                        out << " " << arg_name;
+                    } else {
+                        write_optional_type(out, "std::string_view", param.required);
+                        out << " " << arg_name;
+                    }
+                }
+            }
+
+            if (op.body && !op.body->content.empty() && !body_type_expr.empty()) {
+                if (!first_param)
+                    out << ", ";
+                first_param = false;
+                out << "const " << body_type_expr << "& body";
+            }
+
+            if (!first_param)
+                out << ", ";
+            out << "response& out) override {\n";
+
+            for (const auto& param : op.parameters) {
+                if (!param.type) {
+                    continue;
+                }
+                out << "        (void)" << sanitize_identifier(param.name) << ";\n";
+            }
+            if (op.body && !op.body->content.empty() && !body_type_expr.empty()) {
+                out << "        (void)body;\n";
+            }
+            out << "        out = katana::http::response::error(\n";
+            out << "            katana::problem_details::not_implemented(\""
+                << method_name << " requires an async override or sync implementation\"));\n";
+            out << "        return {};\n";
+            out << "    }\n\n";
         }
     }
 

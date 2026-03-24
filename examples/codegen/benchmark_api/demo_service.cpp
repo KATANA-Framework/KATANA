@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <system_error>
 #include <utility>
 
@@ -17,7 +18,6 @@ namespace katana::benchmark_api_demo {
 namespace {
 
 using sql_repo = katana::sql::generated::generated_repository;
-
 void debug_backend_error(std::string_view operation, const std::error_code& error) {
     if (const char* debug = std::getenv("KATANA_BENCHMARK_API_DEBUG_ERRORS")) {
         if (*debug != '\0' && *debug != '0') {
@@ -60,36 +60,76 @@ void fill_item_dto(Item& out, const item_record& item, monotonic_arena& arena) {
     out.category = item.category;
 }
 
+katana::http::response
+make_item_json_response(const item_record& item,
+                        int32_t status_code = 200,
+                        std::string_view reason_phrase = "OK") {
+    monotonic_arena arena;
+    Item dto(&arena);
+    fill_item_dto(dto, item, arena);
+
+    katana::http::response out;
+    out.assign_json(serialize_Item(dto), status_code, reason_phrase);
+    return out;
+}
+
+template <typename Rows>
+katana::result<item_page> map_item_page(std::size_t limit,
+                                        std::size_t offset,
+                                        const Rows& rows,
+                                        std::string_view error_prefix) {
+    item_page page;
+    page.limit = static_cast<int64_t>(limit);
+    page.offset = static_cast<int64_t>(offset);
+    page.items.reserve(rows.size());
+    for (const auto& row : rows) {
+        if (row.total_count) {
+            page.total = *row.total_count;
+        }
+        if (!row.id) {
+            continue;
+        }
+        auto mapped = row_to_item(row);
+        if (!mapped) {
+            debug_backend_error(error_prefix, mapped.error());
+            return std::unexpected(mapped.error());
+        }
+        page.items.push_back(std::move(*mapped));
+    }
+    return page;
+}
+
+katana::http::response make_list_items_response(katana::result<item_page> page_result) {
+    katana::http::response out;
+    if (!page_result) {
+        debug_backend_error("list_items.async", page_result.error());
+        out.assign_error(problem_details::internal_server_error("list_items failed"));
+        return out;
+    }
+
+    monotonic_arena arena;
+    ItemList resp(&arena);
+    resp.total = page_result->total;
+    resp.limit = page_result->limit;
+    resp.offset = page_result->offset;
+    resp.items.reserve(page_result->items.size());
+    for (const auto& item : page_result->items) {
+        Item dto(&arena);
+        fill_item_dto(dto, item, arena);
+        resp.items.push_back(std::move(dto));
+    }
+
+    out.assign_json(serialize_ItemList(resp));
+    return out;
+}
+
 class sql_item_backend final : public item_backend {
 public:
-    explicit sql_item_backend(katana::sql::executor& executor) : repo_(executor) {}
+    explicit sql_item_backend(katana::sql::executor& executor) : executor_(executor), repo_(executor) {}
 
     katana::result<item_page> list_items(std::size_t limit,
                                          std::size_t offset,
                                          std::optional<std::string_view> category) override {
-        item_page page;
-        page.limit = static_cast<int64_t>(limit);
-        page.offset = static_cast<int64_t>(offset);
-
-        const auto map_rows = [&](const auto& rows) -> katana::result<void> {
-            page.items.reserve(rows.size());
-            for (const auto& row : rows) {
-                if (row.total_count) {
-                    page.total = *row.total_count;
-                }
-                if (!row.id) {
-                    continue;
-                }
-                auto mapped = row_to_item(row);
-                if (!mapped) {
-                    debug_backend_error("list_items.map", mapped.error());
-                    return std::unexpected(mapped.error());
-                }
-                page.items.push_back(std::move(*mapped));
-            }
-            return {};
-        };
-
         if (category) {
             auto rows = repo_.list_items_page_by_category(static_cast<int64_t>(limit),
                                                           static_cast<int64_t>(offset),
@@ -98,10 +138,7 @@ public:
                 debug_backend_error("list_items.sql.filtered", rows.error());
                 return std::unexpected(rows.error());
             }
-            auto mapped = map_rows(*rows);
-            if (!mapped) {
-                return std::unexpected(mapped.error());
-            }
+            return map_item_page(limit, offset, *rows, "list_items.map.filtered");
         } else {
             auto rows =
                 repo_.list_items_page_all(static_cast<int64_t>(limit), static_cast<int64_t>(offset));
@@ -109,13 +146,8 @@ public:
                 debug_backend_error("list_items.sql.all", rows.error());
                 return std::unexpected(rows.error());
             }
-            auto mapped = map_rows(*rows);
-            if (!mapped) {
-                return std::unexpected(mapped.error());
-            }
+            return map_item_page(limit, offset, *rows, "list_items.map.all");
         }
-
-        return page;
     }
 
     katana::result<std::optional<item_record>> get_item(int64_t id) override {
@@ -194,11 +226,88 @@ public:
         return result->affected_rows != 0U;
     }
 
+    [[nodiscard]] bool supports_async_dispatch() const noexcept {
+        return dynamic_cast<katana::sql::async_executor*>(&executor_) != nullptr;
+    }
+
+    [[nodiscard]] bool
+    try_dispatch_get_item_async(int64_t id,
+                                katana::http::async_response_writer out) {
+        if (!out) {
+            return false;
+        }
+
+        return repo_.get_item_async(
+            id,
+            [out](katana::result<std::optional<katana::sql::generated::GetItemRow>> row_result) {
+                if (!row_result) {
+                    debug_backend_error("get_item.async.sql", row_result.error());
+                    (void)out.fail(problem_details::internal_server_error("get_item failed"));
+                    return;
+                }
+                if (!row_result->has_value()) {
+                    (void)out.fail(problem_details::not_found("Item not found"));
+                    return;
+                }
+
+                auto mapped = row_to_item(row_result->value());
+                if (!mapped) {
+                    debug_backend_error("get_item.async.map", mapped.error());
+                    (void)out.fail(problem_details::internal_server_error("get_item failed"));
+                    return;
+                }
+
+                (void)out.complete(make_item_json_response(*mapped));
+            });
+    }
+
+    [[nodiscard]] bool
+    try_dispatch_list_items_async(std::size_t limit,
+                                  std::size_t offset,
+                                  std::optional<std::string_view> category,
+                                  katana::http::async_response_writer out) {
+        if (!out) {
+            return false;
+        }
+
+        const auto complete = [out, limit, offset](auto rows_result, std::string_view map_error) {
+            if (!rows_result) {
+                debug_backend_error("list_items.async.sql", rows_result.error());
+                (void)out.fail(problem_details::internal_server_error("list_items failed"));
+                return;
+            }
+            (void)out.complete(
+                make_list_items_response(map_item_page(limit, offset, *rows_result, map_error)));
+        };
+
+        if (category) {
+            return repo_.list_items_page_by_category_async(
+                static_cast<int64_t>(limit),
+                static_cast<int64_t>(offset),
+                *category,
+                [complete = std::move(complete)](
+                    katana::result<std::vector<katana::sql::generated::ListItemsPageByCategoryRow>>
+                        rows_result) {
+                    complete(std::move(rows_result), "list_items.async.map.filtered");
+                });
+        }
+
+        return repo_.list_items_page_all_async(
+            static_cast<int64_t>(limit),
+            static_cast<int64_t>(offset),
+            [complete = std::move(complete)](
+                katana::result<std::vector<katana::sql::generated::ListItemsPageAllRow>>
+                    rows_result) {
+                complete(std::move(rows_result), "list_items.async.map.all");
+            });
+    }
+
 private:
+    katana::sql::executor& executor_;
     sql_repo repo_;
 };
 
-class benchmark_handler final : public generated::api_handler {
+class benchmark_handler final : public generated::async_api_handler_base {
 public:
     explicit benchmark_handler(item_backend& items)
         : items_(items), start_time_(std::chrono::steady_clock::now()) {}
@@ -266,6 +375,31 @@ public:
         resp.created_at = arena_string<>("2026-01-01T00:00:00Z", arena_allocator<char>(&arena));
         out.assign_json(serialize_UserResponse(resp), 201, "Created");
         return {};
+    }
+
+    bool list_items_async(std::optional<int64_t> limit,
+                          std::optional<int64_t> offset,
+                          std::optional<std::string_view> category,
+                          katana::http::async_response_writer out) override {
+        if (category && !ItemCategory_enum_from_string(*category)) {
+            return false;
+        }
+
+        const std::size_t resolved_limit =
+            static_cast<std::size_t>(std::max<int64_t>(1, limit.value_or(20)));
+        const std::size_t resolved_offset =
+            static_cast<std::size_t>(std::max<int64_t>(0, offset.value_or(0)));
+
+        auto* sql_items = dynamic_cast<sql_item_backend*>(&items_);
+        return sql_items != nullptr && sql_items->supports_async_dispatch() &&
+               sql_items->try_dispatch_list_items_async(
+                   resolved_limit, resolved_offset, category, std::move(out));
+    }
+
+    bool get_item_async(int64_t id, katana::http::async_response_writer out) override {
+        auto* sql_items = dynamic_cast<sql_item_backend*>(&items_);
+        return sql_items != nullptr && sql_items->supports_async_dispatch() &&
+               sql_items->try_dispatch_get_item_async(id, std::move(out));
     }
 
     result<void> list_items(std::optional<int64_t> limit,
@@ -445,6 +579,12 @@ constexpr std::string_view category_index_sql =
     "CREATE INDEX IF NOT EXISTS katana_stage4_items_category_id_cover_idx "
     "ON katana_stage4_items (category, id) INCLUDE (name, description, price, stock)";
 
+constexpr std::string_view benchmark_disable_autovacuum_sql =
+    "ALTER TABLE katana_stage4_items SET (autovacuum_enabled = false, toast.autovacuum_enabled = false)";
+
+constexpr std::string_view benchmark_restore_autovacuum_sql =
+    "ALTER TABLE katana_stage4_items RESET (autovacuum_enabled, toast.autovacuum_enabled)";
+
 constexpr std::string_view reset_items_sql = "TRUNCATE katana_stage4_items RESTART IDENTITY";
 constexpr std::string_view analyze_items_sql = "ANALYZE katana_stage4_items";
 
@@ -509,6 +649,13 @@ katana::result<void> service::start() {
         return created;
     }
 
+    if (config_.benchmark_disable_autovacuum) {
+        auto tuned = apply_benchmark_table_profile();
+        if (!tuned) {
+            return tuned;
+        }
+    }
+
     if (config_.reset_data_on_start) {
         auto cleared = reset_items();
         if (!cleared) {
@@ -531,6 +678,9 @@ katana::result<void> service::start() {
 }
 
 void service::stop() noexcept {
+    if (config_.benchmark_disable_autovacuum) {
+        (void)restore_benchmark_table_profile();
+    }
     pool_.disconnect_all();
 }
 
@@ -556,6 +706,25 @@ katana::result<void> service::ensure_schema() {
         executor.exec("benchmark_api_create_items_category_idx", category_index_sql, {});
     if (!created_index) {
         return std::unexpected(created_index.error());
+    }
+    return {};
+}
+
+katana::result<void> service::apply_benchmark_table_profile() {
+    auto& executor = pool_.current_executor();
+    auto altered = executor.exec("benchmark_api_disable_autovacuum", benchmark_disable_autovacuum_sql, {});
+    if (!altered) {
+        return std::unexpected(altered.error());
+    }
+    return {};
+}
+
+katana::result<void> service::restore_benchmark_table_profile() {
+    auto& executor = pool_.current_executor();
+    auto restored =
+        executor.exec("benchmark_api_restore_autovacuum", benchmark_restore_autovacuum_sql, {});
+    if (!restored) {
+        return std::unexpected(restored.error());
     }
     return {};
 }

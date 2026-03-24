@@ -4,6 +4,7 @@
 
 #include <charconv>
 #include <cstdlib>
+#include <future>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -299,6 +300,78 @@ TEST(BenchmarkApiSqlDemoIntegration, CanonicalCrudUsesSingleSqlRoundTripPerOpera
     EXPECT_EQ(counting.query_calls, 0U);
     EXPECT_EQ(counting.query_each_calls, 5U);
     EXPECT_EQ(counting.exec_calls, 1U);
+}
+
+TEST(BenchmarkApiSqlDemoIntegration, GeneratedRepositorySupportsAsyncCrudWrites) {
+    const char* dsn = postgres_dsn();
+    if (dsn == nullptr || *dsn == '\0') {
+        std::cout << "[sql-demo] KATANA_TEST_POSTGRES_DSN is not set; skipping generated async "
+                     "CRUD write integration body\n";
+        return;
+    }
+
+    service demo({
+        .connection_string = dsn,
+        .executor_count = 1,
+        .eager_connect = true,
+        .bootstrap_schema = true,
+        .reset_data_on_start = true,
+        .seed_item_count = 0,
+    });
+    ASSERT_TRUE(demo.start());
+
+    katana::sql::postgres_pool_executor pool_executor(demo.pool());
+    katana::sql::generated::generated_repository repo(pool_executor);
+
+    std::promise<katana::result<std::optional<katana::sql::generated::CreateItemRow>>>
+        create_promise;
+    ASSERT_TRUE(repo.create_item_async("Async Drill",
+                                       true,
+                                       "Generated async create",
+                                       199.50,
+                                       true,
+                                       11,
+                                       "tools",
+                                       [&create_promise](auto result) {
+                                           create_promise.set_value(std::move(result));
+                                       }));
+    auto created = create_promise.get_future().get();
+    ASSERT_TRUE(created);
+    ASSERT_TRUE(created->has_value());
+    ASSERT_EQ(created->value().name, std::optional<std::string>("Async Drill"));
+    ASSERT_TRUE(created->value().id.has_value());
+
+    const auto created_id = *created->value().id;
+
+    std::promise<katana::result<std::optional<katana::sql::generated::UpdateItemRow>>>
+        update_promise;
+    ASSERT_TRUE(repo.update_item_async(created_id,
+                                       true,
+                                       "Async Drill X",
+                                       true,
+                                       "Generated async update",
+                                       true,
+                                       149.25,
+                                       true,
+                                       7,
+                                       true,
+                                       "electronics",
+                                       [&update_promise](auto result) {
+                                           update_promise.set_value(std::move(result));
+                                       }));
+    auto updated = update_promise.get_future().get();
+    ASSERT_TRUE(updated);
+    ASSERT_TRUE(updated->has_value());
+    EXPECT_EQ(updated->value().name, std::optional<std::string>("Async Drill X"));
+    EXPECT_EQ(updated->value().category_name, std::optional<std::string>("electronics"));
+
+    std::promise<katana::result<katana::sql::exec_result>> delete_promise;
+    ASSERT_TRUE(repo.delete_item_async(created_id, [&delete_promise](auto result) {
+        delete_promise.set_value(std::move(result));
+    }));
+    auto deleted = delete_promise.get_future().get();
+    ASSERT_TRUE(deleted);
+    EXPECT_EQ(deleted->affected_rows, 1U);
 }
 
 #else
