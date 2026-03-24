@@ -12,9 +12,11 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory ${GENERATED_SQL_TEST_DIR}
     COMMAND katana_gen sql -i ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sql/basic -o ${GENERATED_SQL_TEST_DIR}
     DEPENDS katana_gen
+            ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sql/basic/bulk_upsert_users.sql
             ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sql/basic/get_user.sql
             ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sql/basic/list_users.sql
             ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sql/basic/touch_user.sql
+            ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sql/basic/upsert_user.sql
     COMMENT "Generating SQL repository fixture for unit tests"
 )
 
@@ -62,7 +64,8 @@ add_custom_command(
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/create_item.sql
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/delete_item.sql
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/get_item.sql
-            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/list_items_page.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/list_items_page_all.sql
+            ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/list_items_page_by_category.sql
             ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api/sql/update_item.sql
     COMMENT "Generating benchmark_api SQL fixture for tests"
 )

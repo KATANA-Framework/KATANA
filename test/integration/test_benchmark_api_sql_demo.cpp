@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #ifdef KATANA_HAS_LIBPQ
 
@@ -25,6 +26,46 @@ using katana::http::response;
 const char* postgres_dsn() {
     return std::getenv("KATANA_TEST_POSTGRES_DSN");
 }
+
+class counting_executor final : public katana::sql::executor {
+public:
+    explicit counting_executor(katana::sql::executor& inner) noexcept : inner_(inner) {}
+
+    katana::result<katana::sql::rows> query(std::string_view statement_name,
+                                            std::string_view sql,
+                                            const katana::sql::parameters& params) override {
+        ++query_calls;
+        statement_names.emplace_back(statement_name);
+        return inner_.query(statement_name, sql, params);
+    }
+
+    katana::result<katana::sql::exec_result> exec(std::string_view statement_name,
+                                                  std::string_view sql,
+                                                  const katana::sql::parameters& params) override {
+        ++exec_calls;
+        statement_names.emplace_back(statement_name);
+        return inner_.exec(statement_name, sql, params);
+    }
+
+    katana::result<void> query_each(std::string_view statement_name,
+                                    std::string_view sql,
+                                    const katana::sql::parameters& params,
+                                    katana::sql::row_handler handler) override {
+        ++query_each_calls;
+        statement_names.emplace_back(statement_name);
+        return inner_.query_each(statement_name, sql, params, std::move(handler));
+    }
+
+    [[nodiscard]] std::size_t total_calls() const noexcept {
+        return query_calls + exec_calls + query_each_calls;
+    }
+
+    katana::sql::executor& inner_;
+    std::size_t query_calls = 0;
+    std::size_t exec_calls = 0;
+    std::size_t query_each_calls = 0;
+    std::vector<std::string> statement_names;
+};
 
 request make_request(method http_method, std::string_view uri, std::string_view body = {}) {
     request req;
@@ -124,6 +165,11 @@ TEST(BenchmarkApiSqlDemoIntegration, CrudLifecycleOverGeneratedRouter) {
     ASSERT_EQ(updated.status, 200);
     EXPECT_NE(updated.body.find("\"Drill X\""), std::string::npos);
 
+    const response fetched_updated = dispatch_request(
+        router, make_request(method::get, "/items/" + std::to_string(*created_id)));
+    ASSERT_EQ(fetched_updated.status, 200);
+    EXPECT_NE(fetched_updated.body.find("\"Drill X\""), std::string::npos);
+
     const response deleted = dispatch_request(
         router, make_request(method::del, "/items/" + std::to_string(*created_id)));
     ASSERT_EQ(deleted.status, 204);
@@ -131,6 +177,10 @@ TEST(BenchmarkApiSqlDemoIntegration, CrudLifecycleOverGeneratedRouter) {
     const response missing = dispatch_request(
         router, make_request(method::get, "/items/" + std::to_string(*created_id)));
     ASSERT_EQ(missing.status, 404);
+
+    const response delete_missing = dispatch_request(
+        router, make_request(method::del, "/items/" + std::to_string(*created_id)));
+    ASSERT_EQ(delete_missing.status, 404);
 }
 
 TEST(BenchmarkApiSqlDemoIntegration, EmptyPagePreservesTotalCount) {
@@ -158,6 +208,97 @@ TEST(BenchmarkApiSqlDemoIntegration, EmptyPagePreservesTotalCount) {
     ASSERT_EQ(listed.status, 200);
     EXPECT_NE(listed.body.find("\"items\":[]"), std::string::npos);
     EXPECT_NE(listed.body.find("\"total\":"), std::string::npos);
+}
+
+TEST(BenchmarkApiSqlDemoIntegration, CanonicalCrudUsesSingleSqlRoundTripPerOperation) {
+    const char* dsn = postgres_dsn();
+    if (dsn == nullptr || *dsn == '\0') {
+        std::cout << "[sql-demo] KATANA_TEST_POSTGRES_DSN is not set; skipping SQL round-trip "
+                     "integration body\n";
+        return;
+    }
+
+    service demo({
+        .connection_string = dsn,
+        .executor_count = 1,
+        .eager_connect = true,
+        .bootstrap_schema = true,
+        .reset_data_on_start = true,
+        .seed_item_count = 12,
+    });
+    ASSERT_TRUE(demo.start());
+
+    katana::sql::postgres_pool_executor pool_executor(demo.pool());
+    counting_executor counting(pool_executor);
+    auto backend = katana::benchmark_api_demo::make_sql_item_backend(counting);
+    auto handler = katana::benchmark_api_demo::make_handler(*backend);
+    auto router = generated::make_fast_router(*handler);
+
+    request create = make_request(
+        method::post,
+        "/items",
+        R"({"name":"Stage4 Drill","description":"Round-trip check","price":149.99,"stock":8,"category":"tools"})");
+    create.headers.set_view("X-Request-Id", "550e8400-e29b-41d4-a716-446655440002");
+    create.headers.set(field::cookie, "session=integration");
+
+    std::size_t total_before = counting.total_calls();
+    const response created = dispatch_request(router, create);
+    ASSERT_EQ(created.status, 201);
+    ASSERT_EQ(counting.total_calls(), total_before + 1U);
+    ASSERT_EQ(counting.query_calls, 0U);
+    ASSERT_EQ(counting.exec_calls, 0U);
+    ASSERT_EQ(counting.query_each_calls, 1U);
+    ASSERT_FALSE(counting.statement_names.empty());
+    EXPECT_EQ(counting.statement_names.back(), "create_item");
+
+    const auto created_id = extract_id(created.body);
+    ASSERT_TRUE(created_id.has_value());
+
+    total_before = counting.total_calls();
+    const response listed = dispatch_request(
+        router, make_request(method::get, "/items?limit=20&offset=0&category=tools"));
+    ASSERT_EQ(listed.status, 200);
+    ASSERT_EQ(counting.total_calls(), total_before + 1U);
+    EXPECT_EQ(counting.statement_names.back(), "list_items_page_by_category");
+    EXPECT_NE(listed.body.find("\"Stage4 Drill\""), std::string::npos);
+
+    total_before = counting.total_calls();
+    const response fetched = dispatch_request(
+        router, make_request(method::get, "/items/" + std::to_string(*created_id)));
+    ASSERT_EQ(fetched.status, 200);
+    ASSERT_EQ(counting.total_calls(), total_before + 1U);
+    EXPECT_EQ(counting.statement_names.back(), "get_item");
+    EXPECT_NE(fetched.body.find("\"Round-trip check\""), std::string::npos);
+
+    total_before = counting.total_calls();
+    const response updated =
+        dispatch_request(router,
+                         make_request(method::put,
+                                      "/items/" + std::to_string(*created_id),
+                                      R"({"name":"Stage4 Drill X","price":139.99,"stock":5})"));
+    ASSERT_EQ(updated.status, 200);
+    ASSERT_EQ(counting.total_calls(), total_before + 1U);
+    EXPECT_EQ(counting.statement_names.back(), "update_item");
+    EXPECT_NE(updated.body.find("\"Stage4 Drill X\""), std::string::npos);
+
+    total_before = counting.total_calls();
+    const response deleted = dispatch_request(
+        router, make_request(method::del, "/items/" + std::to_string(*created_id)));
+    ASSERT_EQ(deleted.status, 204);
+    ASSERT_EQ(counting.total_calls(), total_before + 1U);
+    EXPECT_EQ(counting.statement_names.back(), "delete_item");
+    EXPECT_EQ(counting.exec_calls, 1U);
+
+    total_before = counting.total_calls();
+    const response missing = dispatch_request(
+        router, make_request(method::get, "/items/" + std::to_string(*created_id)));
+    ASSERT_EQ(missing.status, 404);
+    ASSERT_EQ(counting.total_calls(), total_before + 1U);
+    EXPECT_EQ(counting.statement_names.back(), "get_item");
+
+    EXPECT_EQ(counting.query_calls, 0U);
+    EXPECT_EQ(counting.query_each_calls, 5U);
+    EXPECT_EQ(counting.exec_calls, 1U);
 }
 
 #else

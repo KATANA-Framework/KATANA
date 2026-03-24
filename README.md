@@ -45,14 +45,17 @@ KATANA — серверный фреймворк на C++ для разрабо�
 - ✅ **SQL-first data layer**
   - `katana_gen sql` для `.sql`-каталогов с `:one/:many/:exec`
   - typed SQL models/repositories
+  - typed PostgreSQL array params/results для V1 bulk path (`bigint[]`, `text[]`, `bool[]`, `float8[]`)
+  - `UPSERT` и basic bulk через обычный SQL contract (`INSERT ... ON CONFLICT`, `UNNEST(...)`)
   - PostgreSQL runtime на `libpq` + prepared statements
   - pool/executor path для generated repositories
   - транзакции и live PostgreSQL integration tests
   - canonical demo CRUD service на `OpenAPI + generated SQL`
   - `wrk`-based HTTP load path для read-heavy и mixed CRUD сценариев
+  - Stage 4 SQL perf budget/gate в benchmark runner (`--stage 15 16 17 18 --fail-on-budget`)
 
 **В разработке / не реализовано:**
-- ⏳ Stage 4 closeout: UPSERT/basic bulk API, formal benchmark budget, README/docs hardening
+- ⏳ Stage 4 closeout: финальная vertical-slice полировка и stage sign-off
 - ⏳ Redis клиент
 - ⏳ OpenTelemetry tracing
 - ⏳ Prometheus metrics
@@ -69,7 +72,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 4. Тесты: `ctest --preset debug` (используется лёгкий gtest-совместимый харнес из `test/gtest/gtest.h`).
 5. Canonical preset pipeline для Linux/WSL/CI: `./scripts/run_canonical_pipeline.sh --preset debug` или `make ci PRESET=debug`.
 6. Примеры: `cmake --build --preset examples && ./build/examples/hello_world_server`.
-7. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && python3 scripts/run_benchmarks.py --build-dir build/bench --include-e2e`.
+7. Бенчмарки: `cmake --preset bench && cmake --build --preset bench && python3 scripts/run_benchmarks.py --include-e2e` (если build trees несколько, можно явно задать `--build-dir ...`; для reference SQL цифр полезно `--cpu-governor performance`).
 8. Удобно через Makefile: `make build PRESET=debug`, `make test PRESET=debug`, `make ci PRESET=debug`, `make bench`, `make fuzz`, `make profile`.
 9. CRUD бенч: по умолчанию in-memory; для высокого RPS можно задать `KATANA_CRUD_BACKEND=memcached` (опционально `MEMCACHED_HOST`/`MEMCACHED_PORT`). Docker бенч-сборка поднимает memcached автоматически.
 
@@ -689,22 +692,65 @@ Thread pinning (опциональная оптимизация):
 **Текущее состояние**
 - ✅ формат SQL-артефактов и аннотаций (`:one`, `:many`, `:exec`)
 - ✅ `katana gen sql` с генерацией typed repositories и result-models
+- ✅ `UPSERT` через обычный SQL contract (`INSERT ... ON CONFLICT`)
+- ✅ basic bulk path через typed array params + `UNNEST(...)`
 - ✅ PostgreSQL runtime на `libpq`/prepared statements
 - ✅ pool-backed execution path для generated repositories
 - ✅ базовые транзакции
 - ✅ integration tests с PostgreSQL
 - ✅ canonical demo CRUD service на `OpenAPI + generated SQL`
+- ✅ canonical CRUD lifecycle integration over generated router
+- ✅ N+1 guard: single SQL round-trip per CRUD op в live PostgreSQL integration tests
 - ✅ `wrk`-bench path для read-heavy и mixed CRUD сценариев
-- ⏳ UPSERT и базовые bulk-операции как стабилизированный публичный контракт
-- ⏳ formal benchmark budget / p99 gate для CRUD flows
-- ⏳ Stage 4 docs/API hardening
+- ✅ formal benchmark budget / gate для Stage 15-18 (`scripts/run_benchmarks.py --fail-on-budget`)
+- ✅ README/docs hardening по supported SQL contract и V1 ограничениям
+- ⏳ финальная demo vertical-slice полировка
 
 **Что входит**
 - формат SQL-артефактов и аннотаций (`:one`, `:many`, `:exec`);
 - `katana gen sql` с генерацией typed repositories и result-models;
+- scalar + 1-D array parameters/results для PostgreSQL V1 (`bigint[]`, `text[]`, `bool[]`, `float8[]`);
 - PostgreSQL runtime на `libpq`/prepared statements с per-reactor pools;
 - транзакции, UPSERT, базовые bulk-операции;
 - integration tests с PostgreSQL и benchmark на CRUD/read-heavy сценариях.
+
+**Поддерживаемый SQL contract (V1)**
+- `:one` / `:many` / `:exec` как публичные режимы генерации;
+- `UPSERT` описывается обычным `INSERT ... ON CONFLICT ... RETURNING`;
+- bulk insert/update path описывается обычным SQL через `UNNEST($1::type[], ...)`;
+- scalar types: `bool`, `int2/int4/int8`, `float4/float8/numeric`, `text`;
+- array types: `bool[]`, `int2[]`, `int4[]`, `int8[]`, `float4[]`, `float8[]`, `numeric[]`, `text[]`.
+
+**Ограничения V1**
+- bulk path сейчас ориентирован на PostgreSQL array params, а не на отдельный batch DSL;
+- multidimensional arrays и composite array elements не поддерживаются;
+- HTTP benchmark/demo path всё ещё использует sync `libpq` calls на worker thread, поэтому queueing pressure нужно учитывать отдельно от чистой SQL latency.
+
+**Benchmark budget / gate**
+- Базовый gate для SQL части закреплён в `scripts/run_benchmarks.py` и включается через `--fail-on-budget`.
+- Рекомендуемый прогон: `python3 scripts/run_benchmarks.py --stage 15 16 17 18 --fail-on-budget --cpu-governor performance`.
+- `--cpu-governor performance` пытается переключить governor через sysfs или `sudo -n`; если прав не хватает, выставьте governor вручную перед прогоном.
+- Для budget-решения используйте default repeat policy runner’а; single-run `wrk` на Stage 17/18 годится для локального smoke, но не для жёсткого perf-решения.
+- Stage 16 runner теперь масштабирует `KATANA_SQL_BENCH_THREADS` по машине, а Stage 18 использует отдельный peak-profile worker count; это важно для blocking `libpq` path и не эквивалентно старому legacy `4-thread` запуску.
+- Для benchmark fixture без `docker-proxy` на Linux используйте `docker/sql/docker-compose.hostnet.yml` или `KATANA_SQL_DOCKER_NETWORK_MODE=host` в `scripts/run_sql_postgres_smoke.sh`; в этом режиме DSN по умолчанию `host=127.0.0.1 port=5432 ...`.
+- Это local sanity gate для текущего blocking `libpq` path; reference numbers из `BENCHMARK_RESULTS.md` нужно собирать при `cpu_governor=performance`.
+
+| Scope | Benchmark | Budget |
+|-------|-----------|--------|
+| Stage 15 | `postgres repo get_user (1 row)` | `>= 12k ops/sec`, `mean <= 85 us`, `tail p99 <= 140 us` |
+| Stage 15 | `postgres repo list_users (128 rows)` | `>= 9k ops/sec`, `mean <= 120 us`, `tail p99 <= 170 us` |
+| Stage 15 | `postgres repo touch_user (exec)` | `>= 10.5k ops/sec`, `mean <= 100 us`, `tail p99 <= 120 us` |
+| Stage 16 | `postgres concurrent get_user` | `>= 40k ops/sec`, `mean <= 26 us` |
+| Stage 16 | `postgres concurrent mixed workload` | `>= 9k ops/sec`, `mean <= 120 us` |
+| Stage 17 | `wrk benchmark_api SQL read-heavy` | `>= 24k req/sec`, `p50 <= 11 ms`, `p95 <= 19 ms`, `p99 <= 26 ms`, `errors = 0` |
+| Stage 18 | `wrk benchmark_api SQL mixed CRUD` | `>= 14.5k req/sec`, `p50 <= 19 ms`, `p95 <= 32 ms`, `p99 <= 45 ms`, `errors = 0` |
+
+**Как интерпретировать текущие SQL benchmark bottlenecks**
+- `touch_user` против `touch_user tx32` показывает, что durable write path сейчас в первую очередь упирается в per-statement commit/WAL flush, а не в mapper/codegen overhead.
+- HTTP `read-heavy` и `mixed CRUD` latency отражают не только SQL time, но и queueing на worker threads, потому что demo path выполняет sync `libpq` вызовы прямо в handler thread.
+- На текущей fixture заметен и host/container tax: PostgreSQL гоняется через Docker port publishing, и `perf` показывает заметную долю cycles в `docker-proxy`; для reference numbers лучше native Postgres или host-network profile.
+- Для list path отдельный контроль нужен именно на query shape и table growth; поэтому mixed CRUD script теперь обязан балансировать `POST` созданием и `DELETE` удалением, а не просто раздувать таблицу.
+- Переход с sync `libpq` на async path требует не только нового SQL executor, но и async completion в HTTP runtime; текущий рабочий migration path зафиксирован в `docs/profiling/sql_async_migration.md`.
 
 **Зависимости**
 - Stage 3 должен закрыть contract/runtime harness и нормальный test path.

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cerrno>
 #include <charconv>
 #include <cmath>
@@ -283,6 +284,13 @@ private:
 
 using row_handler = katana::inplace_function<katana::result<void>(const row_view&), 128>;
 
+template <typename T> struct is_std_vector : std::false_type {};
+
+template <typename T, typename Alloc>
+struct is_std_vector<std::vector<T, Alloc>> : std::true_type {};
+
+template <typename T> inline constexpr bool is_std_vector_v = is_std_vector<T>::value;
+
 class executor {
 public:
     virtual ~executor() = default;
@@ -303,6 +311,166 @@ inline const cell* find_cell(const row& input, std::string_view key) {
     return input.find(key);
 }
 
+inline void append_pg_escaped_string(std::string& out, std::string_view value) {
+    out.push_back('"');
+    for (char c : value) {
+        if (c == '"' || c == '\\') {
+            out.push_back('\\');
+        }
+        out.push_back(c);
+    }
+    out.push_back('"');
+}
+
+template <typename T> inline katana::result<std::string> format_pg_array_element(const T& value) {
+    if constexpr (std::is_same_v<T, std::string>) {
+        std::string out;
+        out.reserve(value.size() + 2);
+        append_pg_escaped_string(out, value);
+        return out;
+    } else if constexpr (std::is_same_v<T, std::string_view>) {
+        std::string out;
+        out.reserve(value.size() + 2);
+        append_pg_escaped_string(out, value);
+        return out;
+    } else if constexpr (std::is_same_v<T, const char*>) {
+        if (value == nullptr) {
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+        }
+        std::string out;
+        const std::string_view view(value);
+        out.reserve(view.size() + 2);
+        append_pg_escaped_string(out, view);
+        return out;
+    } else if constexpr (std::is_same_v<T, bool>) {
+        return value ? std::string("true") : std::string("false");
+    } else if constexpr (std::is_integral_v<T>) {
+        std::array<char, 64> buffer{};
+        const auto [ptr, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+        if (ec != std::errc{}) {
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+        }
+        return std::string(buffer.data(), static_cast<std::size_t>(ptr - buffer.data()));
+    } else if constexpr (std::is_floating_point_v<T>) {
+        std::array<char, 128> buffer{};
+#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
+        const auto [ptr, ec] = std::to_chars(buffer.data(),
+                                             buffer.data() + buffer.size(),
+                                             value,
+                                             std::chars_format::general);
+        if (ec == std::errc{}) {
+            return std::string(buffer.data(), static_cast<std::size_t>(ptr - buffer.data()));
+        }
+#endif
+        const int written =
+            std::snprintf(buffer.data(), buffer.size(), "%.17g", static_cast<double>(value));
+        if (written <= 0 || static_cast<std::size_t>(written) >= buffer.size()) {
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+        }
+        return std::string(buffer.data(), static_cast<std::size_t>(written));
+    } else {
+        static_assert(sizeof(T) == 0, "format_pg_array_element does not support this type");
+    }
+}
+
+template <typename T>
+inline katana::result<std::string> format_pg_array(const std::vector<T>& values) {
+    std::string out;
+    out.push_back('{');
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0) {
+            out.push_back(',');
+        }
+        const T element = static_cast<T>(values[index]);
+        auto encoded = format_pg_array_element<T>(element);
+        if (!encoded) {
+            return std::unexpected(encoded.error());
+        }
+        out += *encoded;
+    }
+    out.push_back('}');
+    return out;
+}
+
+template <typename Fn>
+inline katana::result<void> for_each_pg_array_token(std::string_view raw, Fn&& fn) {
+    if (raw.size() < 2 || raw.front() != '{' || raw.back() != '}') {
+        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+    }
+
+    const std::size_t end = raw.size() - 1;
+    std::size_t pos = 1;
+    if (pos == end) {
+        return {};
+    }
+
+    while (pos < end) {
+        std::string token;
+        if (raw[pos] == '"') {
+            ++pos;
+            bool closed = false;
+            while (pos < end) {
+                const char c = raw[pos];
+                if (c == '\\') {
+                    ++pos;
+                    if (pos >= end) {
+                        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+                    }
+                    token.push_back(raw[pos]);
+                    ++pos;
+                    continue;
+                }
+                if (c == '"') {
+                    ++pos;
+                    closed = true;
+                    break;
+                }
+                token.push_back(c);
+                ++pos;
+            }
+            if (!closed) {
+                return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+            }
+        } else {
+            const std::size_t token_start = pos;
+            while (pos < end && raw[pos] != ',') {
+                if (raw[pos] == '{' || raw[pos] == '}' || raw[pos] == '"') {
+                    return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+                }
+                ++pos;
+            }
+            token.assign(raw.substr(token_start, pos - token_start));
+            while (!token.empty() && std::isspace(static_cast<unsigned char>(token.front()))) {
+                token.erase(token.begin());
+            }
+            while (!token.empty() && std::isspace(static_cast<unsigned char>(token.back()))) {
+                token.pop_back();
+            }
+            if (token == "NULL") {
+                return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+            }
+        }
+
+        auto status = fn(std::string_view(token));
+        if (!status) {
+            return std::unexpected(status.error());
+        }
+
+        if (pos == end) {
+            break;
+        }
+        if (raw[pos] != ',') {
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+        }
+        ++pos;
+        while (pos < end && std::isspace(static_cast<unsigned char>(raw[pos]))) {
+            ++pos;
+        }
+    }
+
+    return {};
+}
+
 template <typename T> inline parameter encode_value(const T& value) {
     if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
         return parameter::from_text(value);
@@ -321,6 +489,14 @@ template <typename T> inline parameter encode_value(const T& value) {
     }
 }
 
+template <typename T> inline parameter encode_value(const std::vector<T>& value) {
+    auto encoded = format_pg_array(value);
+    if (!encoded) {
+        return parameter::null();
+    }
+    return parameter::from_text(*encoded);
+}
+
 template <typename T> inline parameter encode_value(const std::optional<T>& value) {
     if (!value.has_value()) {
         return parameter::null();
@@ -331,6 +507,21 @@ template <typename T> inline parameter encode_value(const std::optional<T>& valu
 template <typename T> inline katana::result<T> parse_value(std::string_view raw) {
     if constexpr (std::is_same_v<T, std::string>) {
         return std::string(raw);
+    } else if constexpr (is_std_vector_v<T>) {
+        T out;
+        using element_type = typename T::value_type;
+        auto status = for_each_pg_array_token(raw, [&](std::string_view token) -> katana::result<void> {
+            auto parsed = parse_value<element_type>(token);
+            if (!parsed) {
+                return std::unexpected(parsed.error());
+            }
+            out.push_back(std::move(*parsed));
+            return {};
+        });
+        if (!status) {
+            return std::unexpected(status.error());
+        }
+        return out;
     } else if constexpr (std::is_same_v<T, bool>) {
         if (raw == "true" || raw == "t" || raw == "1") {
             return true;

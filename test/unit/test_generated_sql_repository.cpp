@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -127,6 +128,48 @@ TEST(GeneratedSqlRepositoryTest, RejectsMultipleRowsForOneQuery) {
     auto result = repo.get_user(1);
 
     ASSERT_FALSE(result);
+}
+
+TEST(GeneratedSqlRepositoryTest, SupportsUpsertQueriesReturningRows) {
+    FakeExecutor executor;
+    executor.query_rows = {
+        {{"id", std::string("7")}, {"name", std::string("Grace")}, {"active", std::string("true")}}};
+
+    katana::sql::generated::generated_repository repo(executor);
+    auto result = repo.upsert_user(7, "Grace", true);
+
+    ASSERT_TRUE(result);
+    ASSERT_TRUE(result->has_value());
+    EXPECT_EQ(executor.last_statement_name, "upsert_user");
+    ASSERT_EQ(executor.last_params.size(), 3u);
+    EXPECT_EQ(*executor.last_params[0], "7");
+    EXPECT_EQ(*executor.last_params[1], "Grace");
+    EXPECT_EQ(*executor.last_params[2], "true");
+    EXPECT_EQ(result->value().name, std::optional<std::string>("Grace"));
+}
+
+TEST(GeneratedSqlRepositoryTest, SupportsBulkArrayParameters) {
+    FakeExecutor executor;
+    executor.query_rows = {
+        {{"id", std::string("1")}, {"name", std::string("Ada")}, {"active", std::string("true")}},
+        {{"id", std::string("2")}, {"name", std::string("Linus")}, {"active", std::string("false")}},
+    };
+
+    katana::sql::generated::generated_repository repo(executor);
+    auto result = repo.bulk_upsert_users(
+        std::vector<int64_t>{1, 2},
+        std::vector<std::string>{"Ada", "Linus"},
+        std::vector<bool>{true, false});
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->size(), 2u);
+    EXPECT_EQ(executor.last_statement_name, "bulk_upsert_users");
+    ASSERT_EQ(executor.last_params.size(), 3u);
+    EXPECT_EQ(*executor.last_params[0], "{1,2}");
+    EXPECT_EQ(*executor.last_params[1], "{\"Ada\",\"Linus\"}");
+    EXPECT_EQ(*executor.last_params[2], "{true,false}");
+    EXPECT_EQ((*result)[0].id, std::optional<int64_t>(1));
+    EXPECT_EQ((*result)[1].name, std::optional<std::string>("Linus"));
 }
 
 } // namespace
