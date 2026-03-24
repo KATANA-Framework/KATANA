@@ -11,13 +11,9 @@ using namespace std::chrono_literals;
 
 class ShutdownManagerTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        shutdown_manager::instance().reset_for_tests();
-    }
+    void SetUp() override { shutdown_manager::instance().reset_for_tests(); }
 
-    void TearDown() override {
-        shutdown_manager::instance().reset_for_tests();
-    }
+    void TearDown() override { shutdown_manager::instance().reset_for_tests(); }
 };
 
 TEST_F(ShutdownManagerTest, Singleton) {
