@@ -71,6 +71,7 @@ struct service_config {
     bool eager_connect = true;
     bool bootstrap_schema = true;
     bool reset_data_on_start = true;
+    bool benchmark_disable_autovacuum = false;
     std::size_t seed_item_count = 256;
 };
 
@@ -91,6 +92,8 @@ public:
 
 private:
     katana::result<void> ensure_schema();
+    katana::result<void> apply_benchmark_table_profile();
+    katana::result<void> restore_benchmark_table_profile();
     katana::result<void> reset_items();
     katana::result<void> seed_items(std::size_t count);
     katana::result<void> analyze_items();

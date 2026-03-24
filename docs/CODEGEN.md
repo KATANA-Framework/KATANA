@@ -20,7 +20,7 @@ katana_gen openapi -i test_api.yaml -o ./generated --emit all --alloc pmr
 - `generated_validators.hpp` — проверки required/enum.
 - `generated_json.hpp` — JSON парсинг/сериализация.
 - `generated_routes.hpp` — compile-time метаданные маршрутов.
-- `generated_handlers.hpp` — интерфейс хендлера.
+- `generated_handlers.hpp` — `api_handler`, optional `async_api_handler` и `async_api_handler_base` для async-first сервисов.
 - `generated_router_bindings.hpp` — статический router, связанный с хендлером.
 
 ### Быстрый старт
@@ -36,6 +36,7 @@ cmake --build build --target generated_api_benchmark
 - DTO/парсер без кучи при `arena_string`/`arena_vector`; старайся везде `pmr` на hot path.
 - Параметры пути — `string_view`/примитивы, не копируй их.
 - В хендлерах собирай ответ с предвычисленными заголовками и `serialize_into`, переиспользуя буфер.
+- Если endpoint должен завершаться после возврата из initial dispatch frame, реализуй `*_async(..., katana::http::async_response_writer out)` и наследуйся от `async_api_handler_base`, а не пиши deferred glue вручную в каждом route handler.
 
 ## Регенерация для бенчмарков
 

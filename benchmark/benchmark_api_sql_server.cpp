@@ -91,6 +91,8 @@ int main() {
         .eager_connect = true,
         .bootstrap_schema = read_bool_env("KATANA_BENCHMARK_API_BOOTSTRAP", true),
         .reset_data_on_start = read_bool_env("KATANA_BENCHMARK_API_RESET", true),
+        .benchmark_disable_autovacuum =
+            read_bool_env("KATANA_BENCHMARK_API_DISABLE_AUTOVACUUM", false),
         .seed_item_count = read_size_env("KATANA_BENCHMARK_API_SEED_COUNT", 4096),
     });
 

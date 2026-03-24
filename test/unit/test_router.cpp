@@ -187,3 +187,42 @@ TEST(Router, HarnessIntegrationAndProblemDetails) {
     auto nf_resp = harness.run_raw("GET /missing HTTP/1.1\r\nHost: test\r\n\r\n");
     EXPECT_EQ(nf_resp.status, 404);
 }
+
+TEST(RequestContext, ScheduleReturnsFalseWithoutScheduler) {
+    monotonic_arena arena;
+    request_context ctx{arena};
+
+    bool invoked = false;
+    EXPECT_FALSE(ctx.can_schedule());
+    EXPECT_FALSE(ctx.schedule([&invoked]() { invoked = true; }));
+    EXPECT_FALSE(invoked);
+}
+
+TEST(RequestContext, ScheduleInvokesConfiguredScheduler) {
+    monotonic_arena arena;
+    request_context ctx{arena};
+
+    bool scheduler_called = false;
+    bool task_called = false;
+    ctx.task_scheduler_user = &scheduler_called;
+    ctx.task_scheduler = [](void* user, request_context::scheduled_task task) {
+        auto* called = static_cast<bool*>(user);
+        *called = true;
+        task();
+        return true;
+    };
+
+    EXPECT_TRUE(ctx.can_schedule());
+    EXPECT_TRUE(ctx.schedule([&task_called]() { task_called = true; }));
+    EXPECT_TRUE(scheduler_called);
+    EXPECT_TRUE(task_called);
+}
+
+TEST(RequestContext, ShareDeferredResponseReturnsInvalidWithoutFactory) {
+    monotonic_arena arena;
+    request_context ctx{arena};
+
+    auto deferred = ctx.share_deferred_response();
+    EXPECT_FALSE(static_cast<bool>(deferred));
+    EXPECT_FALSE(ctx.is_response_deferred());
+}

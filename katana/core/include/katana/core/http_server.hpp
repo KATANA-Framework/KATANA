@@ -14,6 +14,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -135,7 +136,9 @@ private:
         }
     }
 
-    struct connection_state {
+    struct connection_state : std::enable_shared_from_this<connection_state> {
+        using deferred_response_slot = std::optional<response>;
+
         tcp_socket socket;
         std::string active_response;
         std::string active_response_body;
@@ -151,6 +154,10 @@ private:
         bool queued_close_requested = false;
         size_t queued_response_completed_requests = 0;
         event_type watch_events = event_type::readable;
+        deferred_response_slot deferred_ready_response{};
+        bool deferred_response_active = false;
+        server* owner_server = nullptr;
+        reactor* owner_reactor = nullptr;
 
         explicit connection_state(tcp_socket sock)
             : socket(std::move(sock)), arena(detail::HTTP_SERVER_ARENA_CAPACITY),
@@ -192,6 +199,10 @@ private:
 
     flush_result flush_active_response(connection_state& state);
     void prepare_active_response(connection_state& state, response& resp);
+    static deferred_response_handle make_deferred_response_handle(void* user);
+    static bool complete_deferred_response_opaque(std::shared_ptr<void> opaque_state, response resp);
+    static void cancel_deferred_response_opaque(std::shared_ptr<void> opaque_state);
+    void complete_deferred_response(connection_state& state, response resp, reactor& r);
     void handle_connection(connection_state& state, reactor& r);
 
     const router* router_ = nullptr;

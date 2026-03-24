@@ -283,6 +283,8 @@ private:
 };
 
 using row_handler = katana::inplace_function<katana::result<void>(const row_view&), 128>;
+using async_query_handler = katana::inplace_function<void(katana::result<rows>), 512>;
+using async_exec_handler = katana::inplace_function<void(katana::result<exec_result>), 512>;
 
 template <typename T> struct is_std_vector : std::false_type {};
 
@@ -305,6 +307,21 @@ public:
                                             std::string_view sql,
                                             const parameters& params,
                                             row_handler handler) = 0;
+};
+
+class async_executor {
+public:
+    virtual ~async_executor() = default;
+
+    virtual bool query_async(std::string_view statement_name,
+                             std::string_view sql,
+                             parameters params,
+                             async_query_handler handler) = 0;
+
+    virtual bool exec_async(std::string_view statement_name,
+                            std::string_view sql,
+                            parameters params,
+                            async_exec_handler handler) = 0;
 };
 
 inline const cell* find_cell(const row& input, std::string_view key) {
@@ -576,6 +593,13 @@ template <typename T> inline katana::result<T> parse_value(const cell_view& raw)
         return std::unexpected(std::make_error_code(std::errc::invalid_argument));
     }
     return parse_value<T>(raw.value());
+}
+
+template <typename T> inline katana::result<T> parse_value(const cell& raw) {
+    if (!raw.has_value()) {
+        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+    }
+    return parse_value<T>(std::string_view(*raw));
 }
 
 } // namespace katana::sql

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <csignal>
+#include <atomic>
 #include <gtest/gtest.h>
 #include <thread>
 
@@ -160,6 +161,27 @@ TEST_F(ShutdownManagerTest, SignalHandlerSIGINT) {
 
     // Instead, just verify the setup worked
     EXPECT_NO_THROW(mgr.setup_signal_handlers());
+}
+
+TEST_F(ShutdownManagerTest, SignalHandlerTriggersCallback) {
+    auto& mgr = shutdown_manager::instance();
+
+    std::atomic<int> callback_count{0};
+    mgr.set_shutdown_callback([&callback_count]() {
+        callback_count.fetch_add(1, std::memory_order_relaxed);
+    });
+    mgr.setup_signal_handlers();
+
+    ASSERT_EQ(std::raise(SIGTERM), 0);
+
+    const auto deadline = std::chrono::steady_clock::now() + 500ms;
+    while (callback_count.load(std::memory_order_relaxed) == 0 &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(10ms);
+    }
+
+    EXPECT_GE(callback_count.load(std::memory_order_relaxed), 1);
+    EXPECT_TRUE(mgr.is_shutdown_requested());
 }
 
 TEST_F(ShutdownManagerTest, MultipleCallbacks) {

@@ -11,6 +11,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -18,6 +19,8 @@
 #include <utility>
 
 namespace katana::http {
+
+class server;
 
 constexpr size_t MAX_ROUTE_SEGMENTS = 16;
 constexpr size_t MAX_PATH_PARAMS = 16;
@@ -69,9 +72,222 @@ private:
     size_t size_{0};
 };
 
+class deferred_response_handle {
+public:
+    deferred_response_handle() = default;
+    deferred_response_handle(deferred_response_handle&&) noexcept = default;
+    deferred_response_handle& operator=(deferred_response_handle&&) noexcept = default;
+    deferred_response_handle(const deferred_response_handle&) = delete;
+    deferred_response_handle& operator=(const deferred_response_handle&) = delete;
+
+    ~deferred_response_handle() { cancel(); }
+
+    [[nodiscard]] bool valid() const noexcept {
+        return state_ != nullptr && complete_fn_ != nullptr;
+    }
+
+    bool complete(response resp) {
+        if (!valid()) {
+            return false;
+        }
+
+        auto state = std::move(state_);
+        auto complete_fn = complete_fn_;
+        complete_fn_ = nullptr;
+        cancel_fn_ = nullptr;
+        return complete_fn(std::move(state), std::move(resp));
+    }
+
+    bool fail(const problem_details& problem) {
+        response resp;
+        resp.assign_error(problem);
+        return complete(std::move(resp));
+    }
+
+    void cancel() {
+        if (state_ == nullptr || cancel_fn_ == nullptr) {
+            return;
+        }
+
+        auto state = std::move(state_);
+        auto cancel_fn = cancel_fn_;
+        complete_fn_ = nullptr;
+        cancel_fn_ = nullptr;
+        cancel_fn(std::move(state));
+    }
+
+    void disarm() noexcept {
+        state_.reset();
+        complete_fn_ = nullptr;
+        cancel_fn_ = nullptr;
+    }
+
+private:
+    using opaque_state = std::shared_ptr<void>;
+    using complete_fn_t = bool (*)(opaque_state, response);
+    using cancel_fn_t = void (*)(opaque_state);
+
+    deferred_response_handle(opaque_state state, complete_fn_t complete_fn, cancel_fn_t cancel_fn)
+        : state_(std::move(state)), complete_fn_(complete_fn), cancel_fn_(cancel_fn) {}
+
+    opaque_state state_{};
+    complete_fn_t complete_fn_{nullptr};
+    cancel_fn_t cancel_fn_{nullptr};
+
+    friend class server;
+};
+
+class shared_deferred_response_handle {
+public:
+    shared_deferred_response_handle() = default;
+    explicit shared_deferred_response_handle(deferred_response_handle handle)
+        : handle_(std::make_shared<deferred_response_handle>(std::move(handle))) {}
+
+    [[nodiscard]] bool valid() const noexcept {
+        return handle_ != nullptr && handle_->valid();
+    }
+
+    explicit operator bool() const noexcept { return valid(); }
+
+    bool complete(response resp) const {
+        if (!valid()) {
+            return false;
+        }
+        return handle_->complete(std::move(resp));
+    }
+
+    bool fail(const problem_details& problem) const {
+        if (!valid()) {
+            return false;
+        }
+        return handle_->fail(problem);
+    }
+
+    void cancel() const {
+        if (handle_ != nullptr) {
+            handle_->cancel();
+        }
+    }
+
+    void disarm() const {
+        if (handle_ != nullptr) {
+            handle_->disarm();
+        }
+    }
+
+private:
+    std::shared_ptr<deferred_response_handle> handle_{};
+};
+
+class async_response_writer {
+public:
+    async_response_writer() = default;
+    explicit async_response_writer(
+        shared_deferred_response_handle handle,
+        std::optional<std::string_view> default_content_type = std::nullopt) noexcept
+        : handle_(std::move(handle)), default_content_type_(default_content_type) {}
+
+    [[nodiscard]] bool valid() const noexcept { return handle_.valid(); }
+    explicit operator bool() const noexcept { return valid(); }
+
+    bool complete(response resp) const {
+        if (!valid()) {
+            return false;
+        }
+        normalize_response(resp);
+        return handle_.complete(std::move(resp));
+    }
+
+    bool fail(const problem_details& problem) const { return handle_.fail(problem); }
+
+    bool text(std::string body,
+              std::string_view content_type = "text/plain",
+              int32_t status_code = 200,
+              std::string_view reason_phrase = "OK") const {
+        response resp;
+        resp.assign_text(std::move(body), content_type, status_code, reason_phrase);
+        return complete(std::move(resp));
+    }
+
+    bool json(std::string body,
+              int32_t status_code = 200,
+              std::string_view reason_phrase = "OK") const {
+        response resp;
+        resp.assign_json(std::move(body), status_code, reason_phrase);
+        return complete(std::move(resp));
+    }
+
+    bool created_json(std::string body) const {
+        response resp;
+        respond::into(resp).created_json(std::move(body));
+        return complete(std::move(resp));
+    }
+
+    bool no_content() const {
+        response resp;
+        respond::into(resp).no_content();
+        return complete(std::move(resp));
+    }
+
+    void cancel() const { handle_.cancel(); }
+    void disarm() const { handle_.disarm(); }
+
+private:
+    void normalize_response(response& resp) const {
+        if (!default_content_type_.has_value() || resp.status == 204 || resp.body.empty() ||
+            resp.headers.get(field::content_type)) {
+            return;
+        }
+        resp.set_header(field::content_type, *default_content_type_);
+    }
+
+    shared_deferred_response_handle handle_{};
+    std::optional<std::string_view> default_content_type_{};
+};
+
 struct request_context {
+    using scheduled_task = inplace_function<void(), 128>;
+    using schedule_task_fn = bool (*)(void*, scheduled_task);
+    using make_deferred_response_fn = deferred_response_handle (*)(void*);
+
     monotonic_arena& arena;
     path_params params{};
+    void* task_scheduler_user = nullptr;
+    schedule_task_fn task_scheduler = nullptr;
+    void* reactor_user = nullptr;
+    void* deferred_response_user = nullptr;
+    make_deferred_response_fn deferred_response_factory = nullptr;
+    bool response_deferred = false;
+
+    [[nodiscard]] bool can_schedule() const noexcept { return task_scheduler != nullptr; }
+
+    bool schedule(scheduled_task task) const {
+        if (task_scheduler == nullptr) {
+            return false;
+        }
+        return task_scheduler(task_scheduler_user, std::move(task));
+    }
+
+    [[nodiscard]] bool can_defer_response() const noexcept {
+        return deferred_response_factory != nullptr && !response_deferred;
+    }
+
+    deferred_response_handle defer_response() {
+        if (deferred_response_factory == nullptr || response_deferred) {
+            return {};
+        }
+
+        response_deferred = true;
+        return deferred_response_factory(deferred_response_user);
+    }
+
+    shared_deferred_response_handle share_deferred_response() {
+        return shared_deferred_response_handle(defer_response());
+    }
+
+    void reset_deferred_response() noexcept { response_deferred = false; }
+
+    [[nodiscard]] bool is_response_deferred() const noexcept { return response_deferred; }
 };
 
 struct path_pattern {

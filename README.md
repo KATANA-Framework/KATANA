@@ -198,7 +198,7 @@ cmake --build --preset debug --target katana_gen
 - `generated_dtos.hpp` — C++ структуры с arena allocators
 - `generated_json.hpp` — JSON parsers через katana::serde
 - `generated_routes.hpp` — constexpr route table для router
-- `generated_handlers.hpp` — интерфейсы хендлеров с типизированными параметрами
+- `generated_handlers.hpp` — sync `api_handler`, optional `async_api_handler` и `async_api_handler_base` для async-first сервисов
 - `generated_router_bindings.hpp` — glue с разбором path/query/header/cookie, optional-значениями и Content-Type/Accept negotiation
 
 ### Quick Start
@@ -701,6 +701,8 @@ Thread pinning (опциональная оптимизация):
 - ✅ canonical demo CRUD service на `OpenAPI + generated SQL`
 - ✅ canonical CRUD lifecycle integration over generated router
 - ✅ N+1 guard: single SQL round-trip per CRUD op в live PostgreSQL integration tests
+- ✅ generated async repository methods (`*_async`) для typed SQL contract
+- ✅ generated async OpenAPI handler contract (`async_api_handler` / `async_api_handler_base`)
 - ✅ `wrk`-bench path для read-heavy и mixed CRUD сценариев
 - ✅ formal benchmark budget / gate для Stage 15-18 (`scripts/run_benchmarks.py --fail-on-budget`)
 - ✅ README/docs hardening по supported SQL contract и V1 ограничениям
@@ -724,13 +726,15 @@ Thread pinning (опциональная оптимизация):
 **Ограничения V1**
 - bulk path сейчас ориентирован на PostgreSQL array params, а не на отдельный batch DSL;
 - multidimensional arrays и composite array elements не поддерживаются;
-- HTTP benchmark/demo path всё ещё использует sync `libpq` calls на worker thread, поэтому queueing pressure нужно учитывать отдельно от чистой SQL latency.
+- generated async HTTP/SQL contracts уже есть, но benchmark/demo write path по умолчанию всё ещё остаётся на sync `libpq`, потому что текущий blocking runtime пока не даёт бесплатного выигрыша на durable mixed CRUD;
+- reactor-bound nonblocking PostgreSQL executor уже есть для generated async `query/exec` внутри HTTP handler scope, но mixed CRUD всё ещё в первую очередь ограничен durable write path и queueing pressure нужно учитывать отдельно от чистой SQL latency.
 
 **Benchmark budget / gate**
 - Базовый gate для SQL части закреплён в `scripts/run_benchmarks.py` и включается через `--fail-on-budget`.
 - Рекомендуемый прогон: `python3 scripts/run_benchmarks.py --stage 15 16 17 18 --fail-on-budget --cpu-governor performance`.
 - `--cpu-governor performance` пытается переключить governor через sysfs или `sudo -n`; если прав не хватает, выставьте governor вручную перед прогоном.
 - Для budget-решения используйте default repeat policy runner’а; single-run `wrk` на Stage 17/18 годится для локального smoke, но не для жёсткого perf-решения.
+- Для steady-state диагностики есть отдельный режим `--wrk-reuse-server`: он переиспользует один живой сервер на весь wrk stage, убирает cold-start noise и лучше показывает hot path, но не заменяет default cold gate.
 - Stage 16 runner теперь масштабирует `KATANA_SQL_BENCH_THREADS` по машине, а Stage 18 использует отдельный peak-profile worker count; это важно для blocking `libpq` path и не эквивалентно старому legacy `4-thread` запуску.
 - Для benchmark fixture без `docker-proxy` на Linux используйте `docker/sql/docker-compose.hostnet.yml` или `KATANA_SQL_DOCKER_NETWORK_MODE=host` в `scripts/run_sql_postgres_smoke.sh`; в этом режиме DSN по умолчанию `host=127.0.0.1 port=5432 ...`.
 - Это local sanity gate для текущего blocking `libpq` path; reference numbers из `BENCHMARK_RESULTS.md` нужно собирать при `cpu_governor=performance`.

@@ -196,6 +196,60 @@ pid_t spawn_pipeline_server(uint16_t port) {
                    .run());
 }
 
+pid_t spawn_deferred_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/small">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text(std::string(kSmallBody));
+             return result<void>{};
+         })},
+        {http::method::get,
+         http::path_pattern::from_literal<"/deferred">(),
+         http::handler_fn([](const http::request&,
+                             http::request_context& ctx,
+                             http::response&) -> result<void> {
+             auto deferred = ctx.share_deferred_response();
+             if (!deferred) {
+                 return std::unexpected(make_error_code(error_code::reactor_stopped));
+             }
+
+             if (!ctx.schedule([deferred]() {
+                     http::response out;
+                     out.assign_text("later");
+                     (void)deferred.complete(std::move(out));
+                 })) {
+                 return std::unexpected(make_error_code(error_code::reactor_stopped));
+             }
+
+             return result<void>{};
+         })},
+        {http::method::get,
+         http::path_pattern::from_literal<"/abandon">(),
+         http::handler_fn([](const http::request&,
+                             http::request_context& ctx,
+                             http::response&) -> result<void> {
+             auto deferred = ctx.share_deferred_response();
+             if (!deferred) {
+                 return std::unexpected(make_error_code(error_code::reactor_stopped));
+             }
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
 int connect_with_retry(uint16_t port) {
     for (int attempt = 0; attempt < 200; ++attempt) {
         int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -429,4 +483,80 @@ TEST(HTTPServerPipeline, FlushesSingleSmallResponseWithoutWaitingForBatch) {
     ASSERT_EQ(second.size(), 1u);
     EXPECT_EQ(second[0].status, 200);
     EXPECT_EQ(second[0].body, kSmallBody);
+}
+
+TEST(HTTPServerDeferredResponse, CompletesOnReactorAndPreservesPipelineOrdering) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_deferred_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    std::string pipeline = make_get_request("/deferred");
+    pipeline += make_get_request("/small");
+    send_all(client_fd, pipeline);
+
+    auto responses = read_responses_slowly(client_fd, 2, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 2u);
+    EXPECT_EQ(responses[0].status, 200);
+    EXPECT_EQ(responses[0].body, "later");
+    EXPECT_EQ(responses[1].status, 200);
+    EXPECT_EQ(responses[1].body, kSmallBody);
+}
+
+TEST(HTTPServerDeferredResponse, AbandonedHandleReturnsInternalServerError) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_deferred_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    send_all(client_fd, make_get_request("/abandon"));
+
+    auto responses = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_EQ(responses[0].status, 500);
+    EXPECT_FALSE(responses[0].body.empty());
 }

@@ -25,6 +25,8 @@ public:
         return *current_context_;
     }
 
+    static request_context* try_ctx() noexcept { return current_context_; }
+
     // RAII scope guard for setting context
     // Automatically sets and clears thread-local context
     class scope {
@@ -64,6 +66,15 @@ public:
 
     static const path_params& params() { return ctx().params; }
 
+    static shared_deferred_response_handle defer_response_shared() {
+        return ctx().share_deferred_response();
+    }
+
+    static async_response_writer async_response(
+        std::optional<std::string_view> default_content_type = std::nullopt) {
+        return async_response_writer(ctx().share_deferred_response(), default_content_type);
+    }
+
 private:
     static thread_local const request* current_request_;
     static thread_local request_context* current_context_;
@@ -76,8 +87,18 @@ inline const request& req() {
 inline request_context& ctx() {
     return handler_context::ctx();
 }
+inline request_context* try_ctx() noexcept {
+    return handler_context::try_ctx();
+}
 inline monotonic_arena& arena() {
     return handler_context::arena();
+}
+inline shared_deferred_response_handle defer_response_shared() {
+    return handler_context::defer_response_shared();
+}
+inline async_response_writer async_response(
+    std::optional<std::string_view> default_content_type = std::nullopt) {
+    return handler_context::async_response(default_content_type);
 }
 
 } // namespace katana::http
