@@ -998,10 +998,11 @@ struct postgres_executor::impl {
             if (!prepared_name) {
                 const auto prepared_error = prepared_name.error();
                 if (next_request.operation == async_request::kind::query) {
-                    auto error_result = katana::result<rows>(std::unexpect, prepared_error);
+                    auto error_result = katana::result<rows>(std::unexpected(prepared_error));
                     next_request.query_handler(error_result);
                 } else {
-                    auto error_result = katana::result<exec_result>(std::unexpect, prepared_error);
+                    auto error_result =
+                        katana::result<exec_result>(std::unexpected(prepared_error));
                     next_request.exec_handler(error_result);
                 }
                 continue;
