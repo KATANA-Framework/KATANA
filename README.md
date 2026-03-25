@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 24.03 05:13 — Format SQL runtime after GCC warning fix (2ebb118)
+* 24.03 21:12 — Fix shutdown test formatting (539e8b7)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
