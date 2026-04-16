@@ -818,6 +818,36 @@ Thread pinning (опциональная оптимизация):
 - `katana dev`, локальные mocks, ускорение incremental builds;
 - CI/perf budgets, cross-platform sanity, conformance packaging.
 
+**План DX-исправлений по итогам CaseCore**
+
+CaseCore стал первым fullstack-проектом, который прогнал framework не только через unit/integration path, но и через реальный browser client, submodule-based standalone repo и contract-first backend flow. Это вскрыло не abstract backlog, а конкретные DX-проблемы.
+
+**P0 — исправить то, что ломает standalone consumer flow**
+- dependency-safe `CMake`: убрать допущения root-project режима, перестать опираться на `CMAKE_SOURCE_DIR` в consumer path, гарантировать корректный `add_subdirectory()`/install/export mode;
+- выровнять propagated compile definitions/runtime backend selection, чтобы consumer target не должен был вручную чинить `KATANA_USE_EPOLL`/`KATANA_USE_IO_URING`;
+- дать официальный browser-safe CORS middleware и preflight handling, чтобы separate frontend работал без ручного glue-кода;
+- задокументировать canonical standalone layout: как отдельный сервис на `katana` должен подключать `katana_core` и `katana_gen`, где держать generated artifacts, как запускать dev/fullstack loop.
+
+**P1 — улучшить ergonomics generated surface**
+- нормализовать namespace policy generated code: DTO, aliases, handler types и helpers должны жить в предсказуемой публичной форме без смешения global namespace и `generated::`;
+- сделать generated output более library-shaped: чище naming, меньше leakage внутренних helper-типов, стабильнее consumer-facing API;
+- улучшить ошибки `katana_gen sql`: точнее показывать, какой файл/запрос/column mapping невалиден и какой формат ожидается генератором;
+- формализовать две supported стратегии generated artifacts:
+  1. ephemeral build output
+  2. checked-in generated files inside repo
+  и явно задокументировать recommended mode для каждой.
+
+**P2 — закрыть fullstack/product DX gap**
+- добавить generated TypeScript client из OpenAPI, чтобы frontend не писал fetch-layer руками поверх того же контракта;
+- оформить product-ready middleware story: auth, rate limit, idempotency, cache policy и route metadata должны подключаться как готовая composition layer, а не собираться вручную вокруг generated router;
+- дать официальный standalone reference service/template с backend + frontend + OpenAPI + SQL catalog + run scripts;
+- добавить dev orchestration уровня `katana dev` для поднятия backend/frontend/deps одной командой и сокращения iteration loop.
+
+**Ожидаемый эффект**
+- Stage 7 должен сократить разрыв между “framework primitives существуют” и “на framework удобно собирать отдельный продукт”;
+- цель не просто генерировать код, а довести consumer experience до состояния, где разработчик пишет доменную логику, а не чинит интеграционный слой вокруг framework;
+- DoD для DX-части Stage 7: standalone fullstack reference service поднимается без ручных патчей framework internals, browser client проходит auth/CORS/error-flow, а generated contract потребляется без знания внутренних деталей codegen/runtime.
+
 **Долгосрочно, вне ближайшего горизонта**
 - HTTP/2, HTTP/3, deeper io_uring track, NUMA-aware placement;
 - SDK generation, admin UI, migration tooling;
