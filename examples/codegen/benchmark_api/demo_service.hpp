@@ -2,6 +2,7 @@
 
 #include "benchmark_api_generated_openapi/generated_openapi_package.hpp"
 #include "benchmark_api_generated_sql/generated_sql_package.hpp"
+#include "katana/core/router.hpp"
 #include "katana/sql/postgres.hpp"
 
 #include <chrono>
@@ -53,6 +54,8 @@ class item_backend {
 public:
     virtual ~item_backend() = default;
 
+    [[nodiscard]] virtual bool supports_async_dispatch() const noexcept { return false; }
+
     virtual katana::result<item_page>
     list_items(std::size_t limit, std::size_t offset, std::optional<std::string_view> category) = 0;
     virtual katana::result<std::optional<item_record>> get_item(int64_t id) = 0;
@@ -60,6 +63,45 @@ public:
     virtual katana::result<std::optional<item_record>>
     update_item(int64_t id, const update_item_command& command) = 0;
     virtual katana::result<bool> delete_item(int64_t id) = 0;
+
+    virtual bool list_items_async(std::size_t limit,
+                                  std::size_t offset,
+                                  std::optional<std::string_view> category,
+                                  katana::http::async_response_writer out) {
+        (void)limit;
+        (void)offset;
+        (void)category;
+        (void)out;
+        return false;
+    }
+
+    virtual bool get_item_async(int64_t id, katana::http::async_response_writer out) {
+        (void)id;
+        (void)out;
+        return false;
+    }
+
+    virtual bool create_item_async(const create_item_command& command,
+                                   katana::http::async_response_writer out) {
+        (void)command;
+        (void)out;
+        return false;
+    }
+
+    virtual bool update_item_async(int64_t id,
+                                   const update_item_command& command,
+                                   katana::http::async_response_writer out) {
+        (void)id;
+        (void)command;
+        (void)out;
+        return false;
+    }
+
+    virtual bool delete_item_async(int64_t id, katana::http::async_response_writer out) {
+        (void)id;
+        (void)out;
+        return false;
+    }
 };
 
 std::unique_ptr<item_backend> make_sql_item_backend(katana::sql::executor& executor);

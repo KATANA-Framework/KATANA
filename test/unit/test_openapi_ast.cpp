@@ -196,6 +196,68 @@ TEST(OpenAPILoader, ParsesMultipleResponseContentAndDefault) {
     EXPECT_EQ(def.content[0].content_type, "application/problem+json");
 }
 
+TEST(OpenAPILoader, ParsesXKatanaExtensionsWithSupportedScalarValues) {
+    const std::string spec = R"(
+openapi: 3.0.0
+info:
+  title: Extensions API
+  version: 1.0.0
+paths:
+  /jobs:
+    get:
+      operationId: listJobs
+      x-katana-cache: false
+      x-katana-alloc: 4096
+      x-katana-rate-limit: "100/s"
+      responses:
+        '200':
+          description: ok
+)";
+
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    ASSERT_TRUE(res);
+    ASSERT_EQ(res->paths.size(), 1U);
+    ASSERT_EQ(res->paths[0].operations.size(), 1U);
+
+    const auto& op = res->paths[0].operations[0];
+    EXPECT_EQ(op.x_katana_cache, "false");
+    EXPECT_EQ(op.x_katana_alloc, "4096");
+    EXPECT_EQ(op.x_katana_rate_limit, "100/s");
+}
+
+TEST(OpenAPILoader, IgnoresUnsupportedXKatanaExtensionValueShapes) {
+    const std::string spec = R"(
+openapi: 3.0.0
+info:
+  title: Extensions API
+  version: 1.0.0
+paths:
+  /jobs:
+    post:
+      operationId: createJob
+      x-katana-cache:
+        ttl: 10s
+      x-katana-alloc:
+        mode: pool
+      x-katana-rate-limit: 100
+      responses:
+        '204':
+          description: accepted
+)";
+
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    ASSERT_TRUE(res);
+    ASSERT_EQ(res->paths.size(), 1U);
+    ASSERT_EQ(res->paths[0].operations.size(), 1U);
+
+    const auto& op = res->paths[0].operations[0];
+    EXPECT_TRUE(op.x_katana_cache.empty());
+    EXPECT_TRUE(op.x_katana_alloc.empty());
+    EXPECT_TRUE(op.x_katana_rate_limit.empty());
+}
+
 TEST(OpenAPILoader, ParsesSchemasShallowObjectArrayString) {
     const std::string spec = R"({
       "openapi": "3.0.0",

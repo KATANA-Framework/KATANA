@@ -340,18 +340,18 @@ or constexpr array in `openapi\_ast.hpp`).
 
 
 
-\- \[ ] Fix README YAML example: change `x-katana-cache: { ttl: 10s }` → `x-katana-cache: "10s"` to match actual parser
+\- \[x] Fix README YAML example: change `x-katana-cache: { ttl: 10s }` → `x-katana-cache: "10s"` to match actual parser
 
-\- \[ ] Qualify README feature list: clarify that extensions are declarative (parsed + comment-only)
+\- \[x] Qualify README feature list: clarify that extensions are declarative (parsed + comment-only)
 
-\- \[ ] Update README extensions section (lines 340–348) with accurate contract table
+\- \[x] Update README extensions section (lines 340–348) with accurate contract table
 
-\- \[ ] Add `x-katana-\*` section to `docs/OPENAPI.md` with value format specification
+\- \[x] Add `x-katana-\*` section to `docs/OPENAPI.md` with value format specification
 
-\- \[ ] Mark `docs/OPENAPI.md:760` checkbox as done after above changes
+\- \[x] Mark `docs/OPENAPI.md:760` checkbox as done after above changes
 
-\- \[ ] Add basic loader tests for x-katana-\* extension parsing (string, bool, number, object-skip)
+\- \[x] Add basic loader tests for x-katana-\* extension parsing (string, bool, number, object-skip)
 
-\- \[ ] Add codegen tests verifying comment emission for extensions
+\- \[x] Add codegen tests verifying comment emission for extensions
 
 \- \[ ] (\*\*Out of scope reminder\*\*) Runtime enforcement is Stage 5 — do not implement here

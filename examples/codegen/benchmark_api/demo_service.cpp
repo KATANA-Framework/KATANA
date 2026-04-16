@@ -225,12 +225,12 @@ public:
         return result->affected_rows != 0U;
     }
 
-    [[nodiscard]] bool supports_async_dispatch() const noexcept {
+    [[nodiscard]] bool supports_async_dispatch() const noexcept override {
         return dynamic_cast<katana::sql::async_executor*>(&executor_) != nullptr;
     }
 
-    [[nodiscard]] bool try_dispatch_get_item_async(int64_t id,
-                                                   katana::http::async_response_writer out) {
+    [[nodiscard]] bool get_item_async(int64_t id,
+                                      katana::http::async_response_writer out) override {
         if (!out) {
             return false;
         }
@@ -259,10 +259,10 @@ public:
             });
     }
 
-    [[nodiscard]] bool try_dispatch_list_items_async(std::size_t limit,
-                                                     std::size_t offset,
-                                                     std::optional<std::string_view> category,
-                                                     katana::http::async_response_writer out) {
+    [[nodiscard]] bool list_items_async(std::size_t limit,
+                                        std::size_t offset,
+                                        std::optional<std::string_view> category,
+                                        katana::http::async_response_writer out) override {
         if (!out) {
             return false;
         }
@@ -295,6 +295,107 @@ public:
             [complete = std::move(complete)](
                 katana::result<std::vector<katana::sql::generated::ListItemsPageAllRow>>
                     rows_result) { complete(std::move(rows_result), "list_items.async.map.all"); });
+    }
+
+    [[nodiscard]] bool create_item_async(const create_item_command& command,
+                                         katana::http::async_response_writer out) override {
+        if (!out) {
+            return false;
+        }
+
+        const auto category = to_string(command.category);
+        return repo_.create_item_async(
+            command.name,
+            command.description.has_value(),
+            command.description.value_or(std::string_view{}),
+            command.price,
+            command.stock.has_value(),
+            command.stock.value_or(0),
+            category,
+            [out](katana::result<std::optional<katana::sql::generated::CreateItemRow>> row_result) {
+                if (!row_result) {
+                    debug_backend_error("create_item.async.sql", row_result.error());
+                    (void)out.fail(problem_details::internal_server_error("create_item failed"));
+                    return;
+                }
+                if (!row_result->has_value()) {
+                    (void)out.fail(problem_details::internal_server_error("create_item failed"));
+                    return;
+                }
+
+                auto mapped = row_to_item(row_result->value());
+                if (!mapped) {
+                    debug_backend_error("create_item.async.map", mapped.error());
+                    (void)out.fail(problem_details::internal_server_error("create_item failed"));
+                    return;
+                }
+
+                (void)out.complete(make_item_json_response(*mapped, 201, "Created"));
+            });
+    }
+
+    [[nodiscard]] bool update_item_async(int64_t id,
+                                         const update_item_command& command,
+                                         katana::http::async_response_writer out) override {
+        if (!out) {
+            return false;
+        }
+
+        const auto category = command.category
+                                  ? std::optional<std::string_view>(to_string(*command.category))
+                                  : std::optional<std::string_view>{};
+        return repo_.update_item_async(
+            id,
+            command.name.has_value(),
+            command.name.value_or(std::string_view{}),
+            command.description.has_value(),
+            command.description.value_or(std::string_view{}),
+            command.price.has_value(),
+            command.price.value_or(0.0),
+            command.stock.has_value(),
+            command.stock.value_or(0),
+            category.has_value(),
+            category.value_or(std::string_view{}),
+            [out](katana::result<std::optional<katana::sql::generated::UpdateItemRow>> row_result) {
+                if (!row_result) {
+                    debug_backend_error("update_item.async.sql", row_result.error());
+                    (void)out.fail(problem_details::internal_server_error("update_item failed"));
+                    return;
+                }
+                if (!row_result->has_value()) {
+                    (void)out.fail(problem_details::not_found("Item not found"));
+                    return;
+                }
+
+                auto mapped = row_to_item(row_result->value());
+                if (!mapped) {
+                    debug_backend_error("update_item.async.map", mapped.error());
+                    (void)out.fail(problem_details::internal_server_error("update_item failed"));
+                    return;
+                }
+
+                (void)out.complete(make_item_json_response(*mapped));
+            });
+    }
+
+    [[nodiscard]] bool delete_item_async(int64_t id,
+                                         katana::http::async_response_writer out) override {
+        if (!out) {
+            return false;
+        }
+
+        return repo_.delete_item_async(id, [out](katana::result<katana::sql::exec_result> result) {
+            if (!result) {
+                debug_backend_error("delete_item.async.sql", result.error());
+                (void)out.fail(problem_details::internal_server_error("delete_item failed"));
+                return;
+            }
+            if (result->affected_rows == 0U) {
+                (void)out.fail(problem_details::not_found("Item not found"));
+                return;
+            }
+            (void)out.no_content();
+        });
     }
 
 private:
@@ -385,16 +486,48 @@ public:
         const std::size_t resolved_offset =
             static_cast<std::size_t>(std::max<int64_t>(0, offset.value_or(0)));
 
-        auto* sql_items = dynamic_cast<sql_item_backend*>(&items_);
-        return sql_items != nullptr && sql_items->supports_async_dispatch() &&
-               sql_items->try_dispatch_list_items_async(
-                   resolved_limit, resolved_offset, category, std::move(out));
+        return items_.supports_async_dispatch() &&
+               items_.list_items_async(resolved_limit, resolved_offset, category, std::move(out));
+    }
+
+    bool create_item_async([[maybe_unused]] std::string_view X_Request_Id,
+                           [[maybe_unused]] std::optional<std::string_view> session,
+                           const CreateItemRequest& body,
+                           katana::http::async_response_writer out) override {
+        create_item_command command{
+            .name = body.name,
+            .description = body.description ? std::optional<std::string_view>(*body.description)
+                                            : std::optional<std::string_view>{},
+            .price = body.price,
+            .stock = body.stock,
+            .category = body.category,
+        };
+        return items_.supports_async_dispatch() &&
+               items_.create_item_async(command, std::move(out));
     }
 
     bool get_item_async(int64_t id, katana::http::async_response_writer out) override {
-        auto* sql_items = dynamic_cast<sql_item_backend*>(&items_);
-        return sql_items != nullptr && sql_items->supports_async_dispatch() &&
-               sql_items->try_dispatch_get_item_async(id, std::move(out));
+        return items_.supports_async_dispatch() && items_.get_item_async(id, std::move(out));
+    }
+
+    bool update_item_async(int64_t id,
+                           const UpdateItemRequest& body,
+                           katana::http::async_response_writer out) override {
+        update_item_command command{
+            .name = body.name ? std::optional<std::string_view>(*body.name)
+                              : std::optional<std::string_view>{},
+            .description = body.description ? std::optional<std::string_view>(*body.description)
+                                            : std::optional<std::string_view>{},
+            .price = body.price,
+            .stock = body.stock,
+            .category = body.category,
+        };
+        return items_.supports_async_dispatch() &&
+               items_.update_item_async(id, command, std::move(out));
+    }
+
+    bool delete_item_async(int64_t id, katana::http::async_response_writer out) override {
+        return items_.supports_async_dispatch() && items_.delete_item_async(id, std::move(out));
     }
 
     result<void> list_items(std::optional<int64_t> limit,
