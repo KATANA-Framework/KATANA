@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+deadpool-postgres = "0.14"
 ntex = { version = "2.17", features = ["tokio"] }
 serde = { version = "1", features = ["derive"] }
+tokio-postgres = "0.7"
+uuid = { version = "1", features = ["serde"] }

@@ -1251,10 +1251,13 @@ void parse_operation_object(json_cursor& cur,
                 op.x_katana_alloc =
                     arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
             } else {
-                // Could be a number
                 auto raw = parse_unquoted_string(cur);
-                op.x_katana_alloc =
-                    arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
+                double parsed = 0.0;
+                auto [end, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), parsed);
+                if (ec == std::errc() && end == raw.data() + raw.size()) {
+                    op.x_katana_alloc =
+                        arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
+                }
             }
         } else if (*key == "x-katana-rate-limit") {
             if (auto v = cur.string()) {

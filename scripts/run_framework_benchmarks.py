@@ -96,6 +96,26 @@ SCENARIOS: Dict[str, Dict[str, Any]] = {
         "pipeline_depth": "40",
         "mode": "pipeline",
     },
+    "sql-read-heavy": {
+        "name": "Stage 4 SQL Read-Heavy",
+        "benchmark_name": "wrk stage4_sql read-heavy",
+        "wrk_script": "test/load/scripts/benchmark_api_read_heavy.lua",
+        "wrk_threads": 4,
+        "wrk_connections": 256,
+        "wrk_duration_sec": 10,
+        "pipeline_depth": None,
+        "mode": "sql",
+    },
+    "sql-mixed-crud": {
+        "name": "Stage 4 SQL Mixed CRUD",
+        "benchmark_name": "wrk stage4_sql mixed-crud",
+        "wrk_script": "test/load/scripts/benchmark_api_mixed_crud.lua",
+        "wrk_threads": 4,
+        "wrk_connections": 256,
+        "wrk_duration_sec": 10,
+        "pipeline_depth": None,
+        "mode": "sql",
+    },
 }
 
 
@@ -235,7 +255,11 @@ def run_wrk_once(
     script_path = REPO_ROOT / scenario["wrk_script"]
 
     env = dict(os.environ)
-    env["KATANA_PIPELINE_DEPTH"] = scenario["pipeline_depth"]
+    pipeline_depth = scenario.get("pipeline_depth")
+    if pipeline_depth is not None:
+        env["KATANA_PIPELINE_DEPTH"] = str(pipeline_depth)
+    else:
+        env.pop("KATANA_PIPELINE_DEPTH", None)
 
     cmd = [
         wrk_binary,
@@ -278,6 +302,7 @@ def run_target_scenario(
     aggregation_mode: str,
     include_runs: bool,
     warmup_runs: int,
+    inter_run_cooldown_sec: float = 0.0,
 ) -> Dict[str, Any]:
     started = time.perf_counter()
     run_results: List[List[katana_bench.BenchmarkResult]] = []
@@ -320,6 +345,8 @@ def run_target_scenario(
         if error:
             run_errors.append(f"warmup {warmup_idx + 1}: {error}")
             break
+        if inter_run_cooldown_sec > 0.0 and warmup_idx + 1 < warmup_runs:
+            time.sleep(inter_run_cooldown_sec)
 
     if not run_errors:
         for run_idx in range(repeats):
@@ -335,6 +362,8 @@ def run_target_scenario(
                 continue
             assert benchmark is not None
             run_results.append([benchmark])
+            if inter_run_cooldown_sec > 0.0 and run_idx + 1 < repeats:
+                time.sleep(inter_run_cooldown_sec)
 
     duration_ms = int((time.perf_counter() - started) * 1000)
     report_entry: Dict[str, Any] = {
@@ -387,6 +416,7 @@ def generate_markdown(report: Dict[str, Any]) -> str:
         f"> Repeats: {report['repeats']}",
         f"> Aggregation: {report['aggregation_mode']}",
         f"> Warmup runs: {report['warmup_runs']}",
+        f"> Inter-run cooldown: {report['inter_run_cooldown_sec']}",
         f"> wrk binary: {report['wrk_binary']}",
         "",
         "This report reuses the same wrk Lua scripts and wrk-output parser as",
@@ -496,6 +526,12 @@ def main() -> int:
         help="Aggregation mode for repeated runs (default: median).",
     )
     parser.add_argument(
+        "--inter-run-cooldown-sec",
+        type=float,
+        default=0.0,
+        help="Sleep between warmup/measured wrk runs for lower noise (default: 0).",
+    )
+    parser.add_argument(
         "--include-runs",
         action="store_true",
         help="Include raw per-run values in the JSON output.",
@@ -524,6 +560,9 @@ def main() -> int:
         return 1
     if args.warmup_runs < 0:
         print("Error: --warmup-runs must be >= 0")
+        return 1
+    if args.inter_run_cooldown_sec < 0:
+        print("Error: --inter-run-cooldown-sec must be >= 0")
         return 1
 
     wrk_binary = shutil.which(os.environ.get("KATANA_WRK_BIN", "wrk"))
@@ -557,6 +596,7 @@ def main() -> int:
                     aggregation_mode=args.aggregation,
                     include_runs=args.include_runs,
                     warmup_runs=args.warmup_runs,
+                    inter_run_cooldown_sec=args.inter_run_cooldown_sec,
                 )
             )
 
@@ -565,6 +605,7 @@ def main() -> int:
         "repeats": args.repeats,
         "aggregation_mode": args.aggregation,
         "warmup_runs": args.warmup_runs,
+        "inter_run_cooldown_sec": args.inter_run_cooldown_sec,
         "wrk_binary": wrk_binary,
         "total_duration_ms": int((time.perf_counter() - started) * 1000),
         "scenario_order": scenario_order,

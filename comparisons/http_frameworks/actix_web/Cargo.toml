@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4"
+deadpool-postgres = "0.14"
+serde = { version = "1", features = ["derive"] }
+tokio-postgres = "0.7"
+uuid = { version = "1", features = ["serde"] }

@@ -544,6 +544,33 @@ paths:
     EXPECT_NE(bindings.find("codec for Accept is not implemented"), std::string::npos);
 }
 
+TEST_F(CodegenIntegrationTest, EmitsXKatanaExtensionCommentsInGeneratedHandlers) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Extensions API
+  version: 1.0.0
+paths:
+  /jobs:
+    get:
+      operationId: listJobs
+      x-katana-cache: "5m"
+      x-katana-alloc: pool
+      x-katana-rate-limit: "100/s"
+      responses:
+        '200':
+          description: ok
+)";
+
+    create_openapi_spec("extensions.yaml", spec);
+    ASSERT_TRUE(run_codegen("extensions.yaml", "all"));
+
+    auto handlers = read_generated_file("generated_handlers.hpp");
+    EXPECT_NE(handlers.find("// @cache: 5m"), std::string::npos);
+    EXPECT_NE(handlers.find("// @alloc: pool"), std::string::npos);
+    EXPECT_NE(handlers.find("// @rate-limit: 100/s"), std::string::npos);
+}
+
 TEST_F(CodegenIntegrationTest, InlineNamingFlagProducesFlatNames) {
     const char* spec = R"(
 openapi: 3.0.0
