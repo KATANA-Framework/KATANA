@@ -171,6 +171,9 @@ if(ENABLE_EXAMPLES)
     add_executable(hello_world_server examples/hello_world_server.cpp)
     target_link_libraries(hello_world_server katana_core)
 
+    add_executable(hello_world_router_server examples/hello_world_router_server.cpp)
+    target_link_libraries(hello_world_router_server katana_core)
+
     add_executable(raii_echo_server examples/raii_echo_server.cpp)
     target_link_libraries(raii_echo_server katana_core)
 
