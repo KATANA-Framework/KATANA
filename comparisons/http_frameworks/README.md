@@ -9,13 +9,15 @@ scenarios plus a keep-alive control pass:
 - `POST /compute/sum` using `test/load/scripts/compute_sum_pipeline.lua`
 
 The goal is not feature parity with each framework. The goal is to benchmark the
-same hot paths and payloads that KATANA already measures in stages 9-12.
+same hot paths and payloads that KATANA already measures in stages 9-12 while
+separating a router-only baseline from KATANA's optimized fast paths.
 
 ## What Was Compared
 
 The comparison matrix covers:
 
-- KATANA
+- KATANA router-only baseline
+- KATANA optimized fast-path
 - Rust `actix-web`
 - Rust `axum`
 - Rust `ntex`
@@ -51,6 +53,9 @@ KATANA:
 - sequential execution only:
   - only one server was running during a measurement
   - no parallel framework runs
+- two KATANA comparison modes:
+  - `katana-router-only`: standard router/generated router path
+  - `katana-fastpath`: the optimized dispatch path used by the maintained KATANA E2E stages
 
 The runner for this suite is [run_framework_benchmarks.py](C:/Users/Ya/OneDrive/Desktop/KATANA/scripts/run_framework_benchmarks.py),
 which reuses the same wrk parsing approach as
@@ -62,6 +67,8 @@ Interpretation matters:
 - depth `>1` is an HTTP/1.1 pipelining stress test
 - large framework deltas under pipelining do not automatically transfer to
   ordinary production traffic
+- for the fairest framework-to-framework comparison, use `katana-router-only`
+- use `katana-fastpath` as a second view that shows what KATANA's optimized path can do
 
 ## Where It Was Compared
 
@@ -134,6 +141,24 @@ for at least:
 
 ## Example Build and Run Commands
 
+### KATANA router-only baseline
+
+```bash
+cmake --preset examples
+cmake --build build/examples --target hello_world_router_server compute_api_router_only -j
+HELLO_PORT=18080 KATANA_WORKERS=4 ./build/examples/hello_world_router_server
+COMPUTE_PORT=18081 KATANA_WORKERS=4 ./build/examples/examples/codegen/compute_api/compute_api_router_only
+```
+
+### KATANA optimized fast-path
+
+```bash
+cmake --preset examples
+cmake --build build/examples --target hello_world_server compute_api -j
+HELLO_PORT=18180 KATANA_WORKERS=4 ./build/examples/hello_world_server
+COMPUTE_PORT=18181 KATANA_WORKERS=4 ./build/examples/examples/codegen/compute_api/compute_api
+```
+
 ### actix-web
 
 ```bash
@@ -193,16 +218,23 @@ python3 scripts/run_framework_benchmarks.py \
 The runner reuses the same wrk Lua scripts and the same wrk-output parsing logic
 as `scripts/run_benchmarks.py`.
 
-For a 1:1 comparison with KATANA stages 9-12, use `BENCH_WORKERS=4` and focus
-on the pipeline scenarios. For a sanity-check framework comparison, review the
-keep-alive scenarios first and treat the pipelined numbers separately.
+For the fairest framework comparison, use `katana-router-only` as the KATANA
+baseline and review keep-alive first. For a 1:1 comparison with the existing
+KATANA stages 9-12, add `katana-fastpath` and then inspect the pipeline
+scenarios separately.
 
 ## Notes About KATANA in the Same Matrix
 
-KATANA currently exposes the maintained benchmark endpoints via two binaries:
+KATANA currently exposes the maintained optimized benchmark endpoints via two
+binaries:
 
 - `hello_world_server`
 - `compute_api`
 
-Because of that, the example target file uses `scenario_urls` for KATANA and a
+For fairness, this suite also includes router-only KATANA variants:
+
+- `hello_world_router_server`
+- `compute_api_router_only`
+
+The example target file uses `scenario_urls` for both KATANA variants and a
 single `base_url` for the comparison servers.
