@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "name": "katana",
+      "name": "katana-router-only",
       "scenario_urls": {
         "hello-keepalive": "http://192.168.0.104:18080/",
         "hello-canonical": "http://192.168.0.104:18080/",
@@ -9,6 +9,17 @@
         "compute-keepalive": "http://192.168.0.104:18081/",
         "compute-canonical": "http://192.168.0.104:18081/",
         "compute-peak": "http://192.168.0.104:18081/"
+      }
+    },
+    {
+      "name": "katana-fastpath",
+      "scenario_urls": {
+        "hello-keepalive": "http://192.168.0.104:18180/",
+        "hello-canonical": "http://192.168.0.104:18180/",
+        "hello-peak": "http://192.168.0.104:18180/",
+        "compute-keepalive": "http://192.168.0.104:18181/",
+        "compute-canonical": "http://192.168.0.104:18181/",
+        "compute-peak": "http://192.168.0.104:18181/"
       }
     },
     {

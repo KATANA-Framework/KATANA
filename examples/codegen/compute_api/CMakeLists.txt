@@ -44,6 +44,17 @@ target_include_directories(compute_api PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+add_executable(compute_api_router_only main_router_only.cpp)
+add_dependencies(compute_api_router_only compute_api_generate)
+
+target_link_libraries(compute_api_router_only PRIVATE katana_core)
+
+target_include_directories(compute_api_router_only PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/api.yaml
     ${CMAKE_CURRENT_BINARY_DIR}/api.yaml
