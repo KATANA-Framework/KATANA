@@ -18,7 +18,7 @@ KATANA — серверный фреймворк на C++ для разрабо�
 ## Последние обновления
 
 <!-- LATEST_UPDATE_START -->
-* 18.04 14:06 — Add router-only Katana framework benchmark targets (204ef2e)
+* 11.05 06:41 — chore: sync README with benchmark results (041767f)
 <!-- LATEST_UPDATE_END -->
 
 ## Текущее состояние (реальность)
