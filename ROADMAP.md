@@ -92,8 +92,12 @@ operational blockers.
   vars (`from_env("KATANA")` → `KATANA_DB_DSN` maps to `db_dsn`) < `--flags` — into one
   normalized snake_case key space, with typed accessors (`get_u16`/`get_int`/`get_bool`/
   `get_or`), load-error capture, and `validate({required...})` returning clear messages. Wired
-  into the fullstack demo (`KATANA_PORT=… ./notes --workers 8`). *Remaining:* secrets handling,
-  hot reload without restart, typed-schema binding to a struct.
+  into the fullstack demo (`KATANA_PORT=… ./notes --workers 8`). `resolve_file_secrets()` adds the
+  Docker/k8s `*_FILE` convention (a `db_password_file` path is read into `db_password`, keeping
+  secrets out of env/args), and `reload()` re-applies every recorded source in order so a changed
+  file / rotated secret / new env is picked up without a restart (wire it to SIGHUP or a watcher).
+  *Remaining:* nothing major — typed-struct binding is covered by the typed getters (C++ has no
+  reflection to auto-bind).
 - **[P0] Structured logging** — **base done.** `katana::log` emits one JSON object per line
   with level, timestamp, message and typed key/value fields (`info("...").field(k, v)`),
   thread-safe, with a configurable min level and sink. The server has an opt-in built-in
