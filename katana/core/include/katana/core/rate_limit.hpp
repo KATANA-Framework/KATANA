@@ -13,7 +13,7 @@
 
 namespace katana::http {
 
-class in_memory_rate_limit_executor final : public route_policy_executor {
+class rate_limit_executor final : public route_policy_executor {
 public:
     using clock = policy_clock;
     using key_extractor_fn = std::function<std::string(const request&, const request_context&)>;
@@ -25,9 +25,9 @@ public:
         rate_limit_store* store = nullptr;
     };
 
-    in_memory_rate_limit_executor() : in_memory_rate_limit_executor(options{}) {}
+    rate_limit_executor() : rate_limit_executor(options{}) {}
 
-    explicit in_memory_rate_limit_executor(options opts)
+    explicit rate_limit_executor(options opts)
         : owned_store_(rate_limit_store_options{opts.cleanup_interval}),
           store_(opts.store != nullptr ? *opts.store : static_cast<rate_limit_store&>(owned_store_)),
           options_(std::move(opts)) {
@@ -118,5 +118,8 @@ private:
     rate_limit_store& store_;
     options options_;
 };
+
+// Back-compat alias: the executor is store-agnostic; 'in_memory_rate_limit_executor' kept for existing callers.
+using in_memory_rate_limit_executor = rate_limit_executor;
 
 } // namespace katana::http

@@ -15,7 +15,7 @@
 
 namespace katana::http {
 
-class in_memory_response_cache_executor final : public route_policy_executor {
+class response_cache_executor final : public route_policy_executor {
 public:
     using clock = policy_clock;
     using key_extractor_fn = std::function<std::string(const request&, const request_context&)>;
@@ -27,9 +27,9 @@ public:
         response_cache_store* store = nullptr;
     };
 
-    in_memory_response_cache_executor() : in_memory_response_cache_executor(options{}) {}
+    response_cache_executor() : response_cache_executor(options{}) {}
 
-    explicit in_memory_response_cache_executor(options opts)
+    explicit response_cache_executor(options opts)
         : owned_store_(response_cache_store_options{opts.cleanup_interval}),
           store_(opts.store != nullptr ? *opts.store : static_cast<response_cache_store&>(owned_store_)),
           options_(std::move(opts)) {
@@ -158,5 +158,8 @@ private:
     response_cache_store& store_;
     options options_;
 };
+
+// Back-compat alias: the executor is store-agnostic; 'in_memory_response_cache_executor' kept for existing callers.
+using in_memory_response_cache_executor = response_cache_executor;
 
 } // namespace katana::http

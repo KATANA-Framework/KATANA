@@ -168,6 +168,45 @@ private:
     std::unordered_map<entry_key, cache_entry, entry_key_hash> entries_;
 };
 
+// Two-tier response cache: a fast in-process L1 in front of a shared L2 (e.g. Redis), so a
+// cache HIT is served without a network round-trip. L1 entries are capped to a short TTL so
+// a cross-instance invalidation (which clears L2) goes stale on other instances for at most
+// that long. Used by redis_contract_policy_executor when an L1 TTL is configured.
+class tiered_response_cache_store final : public response_cache_store {
+public:
+    tiered_response_cache_store(response_cache_store& l1, response_cache_store& l2,
+                                policy_clock::duration l1_ttl)
+        : l1_(l1), l2_(l2), l1_ttl_(l1_ttl) {}
+
+    std::optional<response_snapshot> lookup(const route_policy_view* route_policy,
+                                            std::string_view cache_key,
+                                            policy_clock::time_point now) override {
+        if (auto hit = l1_.lookup(route_policy, cache_key, now)) {
+            return hit; // L1 hit — no network
+        }
+        if (auto hit = l2_.lookup(route_policy, cache_key, now)) {
+            l1_.store(route_policy, cache_key, *hit, l1_ttl_, now); // promote into L1
+            return hit;
+        }
+        return std::nullopt;
+    }
+
+    void store(const route_policy_view* route_policy,
+               std::string_view cache_key,
+               response_snapshot snapshot,
+               policy_clock::duration ttl,
+               policy_clock::time_point now) override {
+        // Write through to L2 with the route's TTL, and into L1 capped at the L1 TTL.
+        l2_.store(route_policy, cache_key, snapshot, ttl, now);
+        l1_.store(route_policy, cache_key, std::move(snapshot), std::min(ttl, l1_ttl_), now);
+    }
+
+private:
+    response_cache_store& l1_;
+    response_cache_store& l2_;
+    policy_clock::duration l1_ttl_;
+};
+
 struct rate_limit_decision {
     bool allowed = true;
     size_t retry_after_seconds = 0;
