@@ -1190,3 +1190,62 @@ TEST(RequestContextLog, OmitsTraceWhenNotTraced) {
     EXPECT_NE(out.find("\"request_id\":\"req-xyz\""), std::string::npos);
     EXPECT_EQ(out.find("trace_id"), std::string::npos);
 }
+
+TEST(CompositeRouter, RoutesAcrossContractsAndGlobalisesIndices) {
+    int a_calls = 0, b_calls = 0;
+    route_entry a_routes[] = {
+        route_entry{method::get, path_pattern::from_literal<"/a">(),
+                    handler_fn([&](const request&, request_context&, response& out) {
+                        ++a_calls; out.assign_text("a"); return result<void>{};
+                    })},
+        route_entry{method::get, path_pattern::from_literal<"/a/{id}">(),
+                    handler_fn([&](const request&, request_context&, response& out) {
+                        out.assign_text("a-id"); return result<void>{};
+                    })},
+    };
+    route_entry b_routes[] = {
+        route_entry{method::post, path_pattern::from_literal<"/b">(),
+                    handler_fn([&](const request&, request_context&, response& out) {
+                        ++b_calls; out.assign_text("b", "text/plain", 201, "Created");
+                        return result<void>{};
+                    })},
+    };
+    router ra(a_routes);
+    router rb(b_routes);
+    composite_router composite{&ra, &rb};
+
+    // route_count is the sum; labels span both with globalised indices.
+    EXPECT_EQ(composite.route_count(), 3u);
+    EXPECT_EQ(composite.route_label(0), "GET /a");
+    EXPECT_EQ(composite.route_label(2), "POST /b"); // index 2 -> second router's route 0
+
+    monotonic_arena arena;
+
+    // First router owns /a.
+    {
+        request_context ctx{arena};
+        response out{&arena};
+        ASSERT_TRUE(composite.dispatch_to(make_request(method::get, "/a"), ctx, out));
+        EXPECT_EQ(out.body, "a");
+        EXPECT_EQ(ctx.route_index, 0);
+    }
+    // Second router owns /b — its local index 0 is globalised to 2.
+    {
+        request_context ctx{arena};
+        response out{&arena};
+        ASSERT_TRUE(composite.dispatch_to(make_request(method::post, "/b"), ctx, out));
+        EXPECT_EQ(out.status, 201);
+        EXPECT_EQ(out.body, "b");
+        EXPECT_EQ(ctx.route_index, 2);
+    }
+    // Unknown path -> 404, route_index cleared.
+    {
+        request_context ctx{arena};
+        response out{&arena};
+        ASSERT_TRUE(composite.dispatch_to(make_request(method::get, "/missing"), ctx, out));
+        EXPECT_EQ(out.status, 404);
+        EXPECT_EQ(ctx.route_index, -1);
+    }
+    EXPECT_EQ(a_calls, 1);
+    EXPECT_EQ(b_calls, 1);
+}

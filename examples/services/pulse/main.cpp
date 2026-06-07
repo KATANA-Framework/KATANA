@@ -28,8 +28,6 @@
 #include "generated/catalog/generated_sql_repository.hpp"
 #include "generated/catalog/generated_validators.hpp"
 
-#include "composite_dispatcher.hpp"
-
 #include "katana/core/config.hpp"
 #include "katana/core/contract_policies.hpp"
 #include "katana/core/http_server.hpp"
@@ -247,7 +245,7 @@ int main(int argc, char** argv) {
 
     const auto& catalog_router = catalog::make_router(cat_handler);
     const auto& analytics_router = analytics::make_router(ana_handler);
-    pulse::composite_dispatcher dispatcher{&catalog_router.router(), &analytics_router.router()};
+    composite_router dispatcher{&catalog_router.router(), &analytics_router.router()};
 
     // Redis-backed x-katana policies (response cache + rate limit + idempotency) with an L1
     // in-process tier, shared by both contracts.
