@@ -90,6 +90,18 @@ inline katana::result<void> dispatch_text_uppercase(const katana::http::request&
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->text_uppercase_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.text_uppercase(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -126,6 +138,18 @@ inline katana::result<void> dispatch_text_lowercase(const katana::http::request&
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->text_lowercase_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.text_lowercase(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -162,6 +186,18 @@ inline katana::result<void> dispatch_text_reverse(const katana::http::request& r
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->text_reverse_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.text_reverse(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -198,6 +234,18 @@ inline katana::result<void> dispatch_text_stats(const katana::http::request& req
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->text_stats_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.text_stats(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -234,6 +282,18 @@ inline katana::result<void> dispatch_text_transform(const katana::http::request&
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->text_transform_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.text_transform(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());

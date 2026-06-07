@@ -117,6 +117,7 @@ target_include_directories(unit_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api
 )
 add_dependencies(unit_tests
+    katana_gen
     generated_sql_test_codegen
     generated_benchmark_api_test_codegen
     generated_benchmark_api_sql_test_codegen
@@ -145,6 +146,7 @@ target_include_directories(sql_unit_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/examples/codegen/benchmark_api
 )
 add_dependencies(sql_unit_tests
+    katana_gen
     generated_sql_test_codegen
     generated_benchmark_api_test_codegen
     generated_benchmark_api_sql_test_codegen

@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -36,7 +38,16 @@ std::string read_file(const fs::path& path) {
 class SqlCodegenTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        temp_dir = fs::temp_directory_path() / "katana_sql_codegen_test";
+        // Unique per process AND per test so `ctest -j` (multiple test binaries
+        // shelling out to katana_gen) can't have one process's TearDown remove_all
+        // delete another's working files. PID isolates processes; the counter
+        // isolates successive tests within a process.
+        static std::atomic<unsigned> seq{0};
+        std::string unique = "katana_sql_codegen_test_" + std::to_string(::getpid()) + "_" +
+                             std::to_string(seq.fetch_add(1));
+        temp_dir = fs::temp_directory_path() / unique;
+        std::error_code ec;
+        fs::remove_all(temp_dir, ec);
         fs::create_directories(temp_dir);
     }
 
