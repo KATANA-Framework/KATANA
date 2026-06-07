@@ -25,7 +25,6 @@
 #include <string>
 #include <cmath>
 #include <cctype>
-#include <regex>
 #include <unordered_set>
 #include <vector>
 
@@ -44,88 +43,109 @@ using katana::format_validators::is_valid_datetime;
 // Validation Functions
 // ============================================================
 
+[[nodiscard]] inline std::optional<validation_error> validate_text_uppercase_request(const text_uppercase_request&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_uppercase_response(const text_uppercase_response&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_lowercase_request(const text_lowercase_request&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_lowercase_response(const text_lowercase_response&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_reverse_request(const text_reverse_request&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_reverse_response(const text_reverse_response&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_stats_request(const text_stats_request&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_stats_response(const text_stats_response&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_transform_request(const text_transform_request&);
+[[nodiscard]] inline std::optional<validation_error> validate_text_transform_response(const text_transform_response&);
+
+// validate text_uppercase_request — object, 1 field(s)  ← api.yaml:18
 [[nodiscard]] inline std::optional<validation_error> validate_text_uppercase_request(const text_uppercase_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_uppercase_request::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_uppercase_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_short, text_uppercase_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_uppercase_request::metadata::TEXT_MAX_LENGTH) {
+    if (katana::utf8_length(obj.text) > text_uppercase_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_long, text_uppercase_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
+// validate text_uppercase_response — object, 1 field(s)  ← api.yaml:31
 [[nodiscard]] inline std::optional<validation_error> validate_text_uppercase_response(const text_uppercase_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
+// validate text_lowercase_request — object, 1 field(s)  ← api.yaml:45
 [[nodiscard]] inline std::optional<validation_error> validate_text_lowercase_request(const text_lowercase_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_lowercase_request::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_lowercase_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_short, text_lowercase_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_lowercase_request::metadata::TEXT_MAX_LENGTH) {
+    if (katana::utf8_length(obj.text) > text_lowercase_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_long, text_lowercase_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
+// validate text_lowercase_response — object, 1 field(s)  ← api.yaml:58
 [[nodiscard]] inline std::optional<validation_error> validate_text_lowercase_response(const text_lowercase_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
+// validate text_reverse_request — object, 1 field(s)  ← api.yaml:72
 [[nodiscard]] inline std::optional<validation_error> validate_text_reverse_request(const text_reverse_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_reverse_request::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_reverse_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_short, text_reverse_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_reverse_request::metadata::TEXT_MAX_LENGTH) {
+    if (katana::utf8_length(obj.text) > text_reverse_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_long, text_reverse_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
+// validate text_reverse_response — object, 1 field(s)  ← api.yaml:85
 [[nodiscard]] inline std::optional<validation_error> validate_text_reverse_response(const text_reverse_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
+// validate text_stats_request — object, 1 field(s)  ← api.yaml:100
 [[nodiscard]] inline std::optional<validation_error> validate_text_stats_request(const text_stats_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (obj.text.size() > text_stats_request::metadata::TEXT_MAX_LENGTH) {
+    if (katana::utf8_length(obj.text) > text_stats_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_long, text_stats_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
+// validate text_stats_response — object, 3 field(s)  ← api.yaml:112
 [[nodiscard]] inline std::optional<validation_error> validate_text_stats_response(const text_stats_response& obj) {
     (void)obj;
     return std::nullopt;
 }
 
+// validate text_transform_request — object, 3 field(s)  ← api.yaml:134
 [[nodiscard]] inline std::optional<validation_error> validate_text_transform_request(const text_transform_request& obj) {
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && obj.text.size() < text_transform_request::metadata::TEXT_MIN_LENGTH) {
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_transform_request::metadata::TEXT_MIN_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_short, text_transform_request::metadata::TEXT_MIN_LENGTH};
     }
-    if (obj.text.size() > text_transform_request::metadata::TEXT_MAX_LENGTH) {
+    if (katana::utf8_length(obj.text) > text_transform_request::metadata::TEXT_MAX_LENGTH) {
         return validation_error{"text", validation_error_code::string_too_long, text_transform_request::metadata::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
 
+// validate text_transform_response — object, 3 field(s)  ← api.yaml:153
 [[nodiscard]] inline std::optional<validation_error> validate_text_transform_response(const text_transform_response& obj) {
     (void)obj;
     return std::nullopt;

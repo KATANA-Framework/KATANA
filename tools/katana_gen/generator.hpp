@@ -13,6 +13,7 @@ using katana::openapi::document;
 std::string escape_json(std::string_view sv);
 std::string escape_cpp_string(std::string_view sv);
 std::string schema_identifier(const document& doc, const katana::openapi::schema* s);
+std::string schema_banner(const document& doc, const katana::openapi::schema& s);
 std::string to_snake_case(std::string_view id);
 std::string sanitize_identifier(std::string_view name);
 std::string property_member_identifier(std::string_view name);

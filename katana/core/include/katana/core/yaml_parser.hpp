@@ -20,6 +20,10 @@ struct yaml_node {
     std::string scalar;
     std::vector<std::pair<std::string, std::unique_ptr<yaml_node>>> object;
     std::vector<std::unique_ptr<yaml_node>> array;
+    // 1-based source line this node was produced from (0 if unknown). Carried into
+    // the emitted JSON via emit_json's checkpoint map so the OpenAPI loader can map a
+    // schema's byte offset back to its YAML line.
+    size_t source_line = 0;
 
     static yaml_node scalar_node(std::string value) {
         yaml_node n;
@@ -41,7 +45,12 @@ struct yaml_node {
     }
 };
 
-inline void emit_json(const yaml_node& n, std::string& out);
+// Maps a byte offset into the emitted JSON string to the 1-based YAML source line
+// that produced the construct starting there. Built in emit-order, so it is sorted
+// ascending by offset and supports binary search.
+using yaml_line_map = std::vector<std::pair<size_t, size_t>>;
+
+inline void emit_json(const yaml_node& n, std::string& out, yaml_line_map* line_map = nullptr);
 
 inline void emit_scalar(const std::string& v, std::string& out) {
     std::string_view sv = trim_view(v);
@@ -58,7 +67,12 @@ inline void emit_scalar(const std::string& v, std::string& out) {
     out.push_back('\"');
 }
 
-inline void emit_json(const yaml_node& n, std::string& out) {
+inline void emit_json(const yaml_node& n, std::string& out, yaml_line_map* line_map) {
+    // Record where this node's JSON begins so the loader can recover its YAML line
+    // from a byte offset. The offset is the position of the opening '{' / '[' / value.
+    if (line_map != nullptr && n.source_line != 0) {
+        line_map->emplace_back(out.size(), n.source_line);
+    }
     switch (n.k) {
     case yaml_node::kind::scalar:
         emit_scalar(n.scalar, out);
@@ -74,7 +88,7 @@ inline void emit_json(const yaml_node& n, std::string& out) {
             escape_json_string_into(kv.first, out);
             out.push_back('\"');
             out.push_back(':');
-            emit_json(*kv.second, out);
+            emit_json(*kv.second, out, line_map);
         }
         out.push_back('}');
         break;
@@ -85,7 +99,7 @@ inline void emit_json(const yaml_node& n, std::string& out) {
             if (i != 0) {
                 out.push_back(',');
             }
-            emit_json(*n.array[i], out);
+            emit_json(*n.array[i], out, line_map);
         }
         out.push_back(']');
         break;
@@ -109,12 +123,15 @@ inline void set_yaml_error(yaml_diagnostic* diag, size_t line, std::string_view 
 struct yaml_line {
     int indent;
     std::string_view content;
+    size_t line_number; // 1-based physical line in the source text (blanks/comments counted)
 };
 
 inline std::vector<yaml_line> tokenize_yaml(std::string_view text) {
     std::vector<yaml_line> lines;
     size_t pos = 0;
+    size_t phys_line = 0; // physical line counter; blank/comment lines are skipped but still counted
     while (pos < text.size()) {
+        ++phys_line;
         size_t end = text.find('\n', pos);
         if (end == std::string_view::npos) {
             end = text.size();
@@ -137,7 +154,7 @@ inline std::vector<yaml_line> tokenize_yaml(std::string_view text) {
         if (content.empty() || content.front() == '#') {
             continue;
         }
-        lines.push_back({indent, content});
+        lines.push_back({indent, content, phys_line});
     }
     return lines;
 }
@@ -255,7 +272,8 @@ inline yaml_node parse_yaml_value(std::string_view value,
                                   int indent,
                                   yaml_diagnostic* diag,
                                   size_t current_line = 0) {
-    const size_t line_no = current_line ? current_line : (idx + 1);
+    const size_t line_no =
+        current_line ? current_line : (idx < lines.size() ? lines[idx].line_number : 0);
     yaml_node child;
     auto trimmed_val = trim_view(value);
     if (trimmed_val.empty()) {
@@ -294,7 +312,7 @@ inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
             }
 
             std::string_view item = trim_view(content.substr(2));
-            size_t line_no = idx + 1;
+            size_t line_no = lines[idx].line_number;
             ++idx;
 
             if (item.empty()) {
@@ -318,6 +336,7 @@ inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
                 std::string key = normalize_key(item.substr(0, colon_pos));
                 std::string_view val = trim_view(item.substr(colon_pos + 1));
                 yaml_node obj = yaml_node::object_node();
+                obj.source_line = line_no; // array item (e.g. a parameter) is at its '-' line
                 yaml_node parsed_val = parse_yaml_value(val, lines, idx, indent, diag, line_no);
                 obj.object.emplace_back(std::move(key),
                                         std::make_unique<yaml_node>(std::move(parsed_val)));
@@ -343,7 +362,7 @@ inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
             }
             std::string key = normalize_key(content.substr(0, colon_pos));
             std::string_view val = trim_view(content.substr(colon_pos + 1));
-            size_t line_no = idx + 1;
+            size_t line_no = lines[idx].line_number;
             ++idx;
 
             if (node.k != yaml_node::kind::object) {
@@ -352,6 +371,7 @@ inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
             }
 
             yaml_node child = parse_yaml_value(val, lines, idx, indent, diag, line_no);
+            child.source_line = line_no; // the value (e.g. a schema) is defined at its key's line
             if (seen_keys.contains(key)) {
                 set_yaml_error(diag, line_no, std::string("duplicate key '") + key + "'");
                 auto it = std::find_if(node.object.begin(), node.object.end(), [&](const auto& kv) {
@@ -369,8 +389,8 @@ inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
     return node;
 }
 
-inline std::optional<std::string> yaml_to_json(std::string_view text,
-                                               std::string* error = nullptr) {
+inline std::optional<std::string>
+yaml_to_json(std::string_view text, std::string* error = nullptr, yaml_line_map* line_map = nullptr) {
     auto lines = tokenize_yaml(text);
     if (lines.empty()) {
         return std::nullopt;
@@ -385,7 +405,7 @@ inline std::optional<std::string> yaml_to_json(std::string_view text,
         return std::nullopt;
     }
     std::string out;
-    emit_json(root, out);
+    emit_json(root, out, line_map);
     return out;
 }
 

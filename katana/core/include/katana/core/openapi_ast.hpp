@@ -73,6 +73,11 @@ struct schema {
 
     bool required = false;
     bool is_ref = false;
+
+    // 1-based line in the source spec where this schema is defined (0 if unknown,
+    // e.g. when the input was JSON rather than YAML). Used for provenance comments
+    // in generated code so a parser/serializer can be traced back to the spec.
+    size_t source_line = 0;
 };
 
 struct media_type {
@@ -266,7 +271,8 @@ struct document {
     explicit document(monotonic_arena& arena) noexcept
         : arena_(&arena), schemas(arena_allocator<schema>(&arena)),
           paths(arena_allocator<path_item>(&arena)), openapi_version(arena_allocator<char>(&arena)),
-          info_title(arena_allocator<char>(&arena)), info_version(arena_allocator<char>(&arena)) {}
+          info_title(arena_allocator<char>(&arena)), info_version(arena_allocator<char>(&arena)),
+          source_file(arena_allocator<char>(&arena)) {}
 
     document(const document&) = delete;
     document& operator=(const document&) = delete;
@@ -274,7 +280,8 @@ struct document {
     document(document&& other) noexcept
         : arena_(other.arena_), schemas(std::move(other.schemas)), paths(std::move(other.paths)),
           openapi_version(std::move(other.openapi_version)),
-          info_title(std::move(other.info_title)), info_version(std::move(other.info_version)) {}
+          info_title(std::move(other.info_title)), info_version(std::move(other.info_version)),
+          source_file(std::move(other.source_file)) {}
 
     document& operator=(document&& other) noexcept {
         if (this != &other) {
@@ -284,6 +291,7 @@ struct document {
             openapi_version = std::move(other.openapi_version);
             info_title = std::move(other.info_title);
             info_version = std::move(other.info_version);
+            source_file = std::move(other.source_file);
         }
         return *this;
     }
@@ -313,6 +321,9 @@ struct document {
     arena_string<> openapi_version{arena_allocator<char>(nullptr)};
     arena_string<> info_title{arena_allocator<char>(nullptr)};
     arena_string<> info_version{arena_allocator<char>(nullptr)};
+    // Basename of the source spec file (e.g. "api.yaml"); empty when loaded from a
+    // string or JSON. Paired with schema::source_line for generated provenance comments.
+    arena_string<> source_file{arena_allocator<char>(nullptr)};
 };
 
 } // namespace katana::openapi

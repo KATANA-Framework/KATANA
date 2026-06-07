@@ -605,6 +605,9 @@ std::string generate_router_bindings(const document& doc) {
                            "\"missing "
                            "path param "
                         << param.name << "\")); return {}; }\n";
+                    dispatch_functions << "    *p_" << param_ident
+                                       << " = katana::http_utils::percent_decode_view(*p_"
+                                       << param_ident << ", ctx.arena);\n";
                     switch (param.type->kind) {
                     case katana::openapi::schema_kind::integer:
                         dispatch_functions << "    int64_t " << param_ident << " = 0;\n";
@@ -742,6 +745,14 @@ std::string generate_router_bindings(const document& doc) {
                             << ") { out = katana::http::response::error("
                                "katana::problem_details::bad_request(\"missing param "
                             << param.name << "\")); return {}; }\n";
+                    }
+
+                    // Percent-decode query parameter values (headers/cookies are not
+                    // percent-encoded the same way and are left as-is).
+                    if (param.in == katana::openapi::param_location::query) {
+                        dispatch_functions << "    if (p_" << param_ident << ") *p_" << param_ident
+                                           << " = katana::http_utils::percent_decode_view(*p_"
+                                           << param_ident << ", ctx.arena);\n";
                     }
 
                     const bool optional_param = !param.required;
@@ -1253,11 +1264,15 @@ std::string generate_router_bindings(const document& doc) {
         out << "        }\n\n";
     }
 
-    out << "        // Fallback to standard router for:\n";
-    out << "        // - Dynamic routes (with path parameters)\n";
-    out << "        // - Hash collisions\n";
-    out << "        // - Method mismatches\n";
-    out << "        return fallback_router_.dispatch(req, ctx, out);\n";
+    out << "        // Fallback to standard router for dynamic routes (path params), hash\n";
+    out << "        // collisions, and method mismatches. Use dispatch_with_info +\n";
+    out << "        // map_dispatch_error so a 405 keeps its Allow header (plain dispatch()\n";
+    out << "        // drops the allowed-methods mask, violating RFC 7231).\n";
+    out << "        auto fallback_info_ = fallback_router_.dispatch_with_info(req, ctx, out);\n";
+    out << "        if (fallback_info_.has_error) {\n";
+    out << "            katana::http::map_dispatch_error(fallback_info_, out);\n";
+    out << "        }\n";
+    out << "        return {};\n";
     out << "    }\n\n";
 
     out << "    katana::result<katana::http::response> operator()(\n";

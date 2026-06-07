@@ -181,6 +181,7 @@ void generate_dto_for_schema(std::ostream& out,
                              const document& doc,
                              const katana::openapi::schema& s,
                              bool use_pmr,
+                             const std::unordered_set<std::string>& referenced,
                              size_t indent = 0) {
     std::string ind(static_cast<size_t>(indent), ' ');
     auto struct_name = schema_identifier(doc, &s);
@@ -194,13 +195,23 @@ void generate_dto_for_schema(std::ostream& out,
             // They serve no purpose and pollute the generated code
             return;
         }
+        // Drop dead `std::monostate` aliases that nothing references — the `schema_N`
+        // clutter and misleading `*_t = std::monostate` artifacts (e.g. Task_Assignee_t
+        // where the real field is std::optional<User>). Referenced empty objects (used as
+        // an object field whose parse/serialize helper needs the name) are kept.
+        if (alias == "std::monostate" && !referenced.contains(struct_name)) {
+            return;
+        }
         // Add doc comment for type aliases
+        out << ind << "// " << schema_banner(doc, s) << "\n";
         if (!s.description.empty()) {
             out << ind << "/// " << s.description << "\n";
         }
         out << ind << "using " << struct_name << " = " << alias << ";\n\n";
         return;
     }
+
+    out << ind << "// " << schema_banner(doc, s) << "\n";
 
     // Add documentation comment for struct
     if (!s.description.empty()) {
@@ -631,6 +642,52 @@ std::string generate_dtos(const document& doc, bool use_pmr) {
         generate_enum_for_schema(out, doc, schema);
     }
 
+    // Schemas referenced as a parse_/serialize_ target (object properties, array items,
+    // composition members, request/response/param bodies). Used to drop dead
+    // `std::monostate` aliases that nothing actually uses.
+    std::unordered_set<std::string> referenced;
+    auto note = [&](const katana::openapi::schema* sc) {
+        if (sc != nullptr) {
+            referenced.insert(schema_identifier(doc, sc));
+        }
+    };
+    for (const auto& sc : doc.schemas) {
+        for (const auto& prop : sc.properties) {
+            note(prop.type);
+            if (prop.type != nullptr) {
+                note(prop.type->items);
+            }
+        }
+        note(sc.items);
+        for (const auto* m : sc.one_of) {
+            note(m);
+        }
+        for (const auto* m : sc.any_of) {
+            note(m);
+        }
+        for (const auto* m : sc.all_of) {
+            note(m);
+        }
+        note(sc.additional_properties);
+    }
+    for (const auto& path : doc.paths) {
+        for (const auto& op : path.operations) {
+            if (op.body != nullptr) {
+                for (const auto& media : op.body->content) {
+                    note(media.type);
+                }
+            }
+            for (const auto& param : op.parameters) {
+                note(param.type);
+            }
+            for (const auto& resp : op.responses) {
+                for (const auto& media : resp.content) {
+                    note(media.type);
+                }
+            }
+        }
+    }
+
     // Topologically sort schemas so dependencies are defined before dependents
     auto sorted_indices = topological_sort_schemas(doc, use_pmr);
 
@@ -639,7 +696,7 @@ std::string generate_dtos(const document& doc, bool use_pmr) {
     out << "// Data Transfer Objects (DTOs)\n";
     out << "// ============================================================\n\n";
     for (size_t idx : sorted_indices) {
-        generate_dto_for_schema(out, doc, doc.schemas[idx], use_pmr);
+        generate_dto_for_schema(out, doc, doc.schemas[idx], use_pmr, referenced);
     }
 
     return out.str();

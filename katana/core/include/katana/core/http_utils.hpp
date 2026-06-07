@@ -1,5 +1,6 @@
 #pragma once
 
+#include "katana/core/arena.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/media_type_registry.hpp"
 #include "katana/core/problem.hpp"
@@ -40,6 +41,63 @@ struct named_param_target {
     std::string_view name;
     std::optional<std::string_view>* value;
 };
+
+// Percent-decode a query/path parameter value (and `+` → space for query strings). Returns
+// the input unchanged (zero-copy) when there is nothing to decode; otherwise decodes into
+// the request arena (the decoded form is never longer than the input). Without this, a value
+// like `home%20goods` reaches the handler literally, and an encoded integer id (`%31%32`)
+// fails to parse.
+[[nodiscard]] inline std::string_view percent_decode_view(std::string_view raw,
+                                                          katana::monotonic_arena& arena) {
+    bool needs = false;
+    for (char c : raw) {
+        if (c == '%' || c == '+') {
+            needs = true;
+            break;
+        }
+    }
+    if (!needs) {
+        return raw;
+    }
+    char* buf = static_cast<char*>(arena.allocate(raw.size(), 1));
+    if (buf == nullptr) {
+        return raw; // out of arena space: fall back to the raw value
+    }
+    auto hexval = [](char c) -> int {
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        }
+        if (c >= 'a' && c <= 'f') {
+            return c - 'a' + 10;
+        }
+        if (c >= 'A' && c <= 'F') {
+            return c - 'A' + 10;
+        }
+        return -1;
+    };
+    size_t out = 0;
+    for (size_t i = 0; i < raw.size();) {
+        const char c = raw[i];
+        if (c == '+') {
+            buf[out++] = ' ';
+            ++i;
+        } else if (c == '%' && i + 2 < raw.size()) {
+            const int hi = hexval(raw[i + 1]);
+            const int lo = hexval(raw[i + 2]);
+            if (hi >= 0 && lo >= 0) {
+                buf[out++] = static_cast<char>((hi << 4) | lo);
+                i += 3;
+            } else {
+                buf[out++] = c;
+                ++i;
+            }
+        } else {
+            buf[out++] = c;
+            ++i;
+        }
+    }
+    return std::string_view(buf, out);
+}
 
 inline std::optional<std::string_view> query_param(std::string_view uri,
                                                    std::string_view key) noexcept {

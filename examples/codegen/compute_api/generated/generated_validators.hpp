@@ -25,7 +25,6 @@
 #include <string>
 #include <cmath>
 #include <cctype>
-#include <regex>
 #include <unordered_set>
 #include <vector>
 
@@ -44,6 +43,9 @@ using katana::format_validators::is_valid_datetime;
 // Validation Functions
 // ============================================================
 
+[[nodiscard]] inline std::optional<validation_error> validate_compute_sum_request(const compute_sum_request&);
+
+// validate compute_sum_request — array  ← api.yaml:15
 [[nodiscard]] inline std::optional<validation_error> validate_compute_sum_request(const compute_sum_request& arr) {
     if (arr.size() < 1) return validation_error{"", validation_error_code::array_too_small, 1};
     if (arr.size() > 1024) return validation_error{"", validation_error_code::array_too_large, 1024};

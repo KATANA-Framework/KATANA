@@ -190,6 +190,57 @@ std::string schema_identifier(const document& doc, const katana::openapi::schema
     return "Unnamed_t";
 }
 
+std::string schema_banner(const document& doc, const katana::openapi::schema& s) {
+    using katana::openapi::schema_kind;
+    const char* kind = "object";
+    switch (s.kind) {
+    case schema_kind::object:
+        kind = "object";
+        break;
+    case schema_kind::array:
+        kind = "array";
+        break;
+    case schema_kind::string:
+        kind = s.enum_values.empty() ? "string" : "enum";
+        break;
+    case schema_kind::integer:
+        kind = "integer";
+        break;
+    case schema_kind::number:
+        kind = "number";
+        break;
+    case schema_kind::boolean:
+        kind = "boolean";
+        break;
+    case schema_kind::null_type:
+        kind = "null";
+        break;
+    }
+    std::string banner = schema_identifier(doc, &s);
+    banner += " — ";
+    banner += kind;
+    if (!s.parent_context.empty() && !s.field_context.empty()) {
+        banner += ", field ";
+        banner.append(s.parent_context.begin(), s.parent_context.end());
+        banner += '.';
+        banner.append(s.field_context.begin(), s.field_context.end());
+    } else if (s.kind == schema_kind::object && !s.properties.empty()) {
+        banner += ", " + std::to_string(s.properties.size()) + " field(s)";
+    }
+    // Provenance: trace this generated type back to the spec line it came from.
+    if (s.source_line != 0) {
+        banner += "  ← ";
+        if (!doc.source_file.empty()) {
+            banner.append(doc.source_file.begin(), doc.source_file.end());
+        } else {
+            banner += "spec";
+        }
+        banner += ':';
+        banner += std::to_string(s.source_line);
+    }
+    return banner;
+}
+
 std::string to_snake_case(std::string_view id) {
     std::string method_name;
     method_name.reserve(id.size() + 4);
@@ -262,6 +313,76 @@ std::string method_enum_literal(katana::http::method m) {
         return "unknown";
     }
 }
+
+namespace {
+
+// Propagate naming context (parent schema name + field) into inline child schemas —
+// array items, object properties, additionalProperties — so they end up named
+// `<Parent>_<Field>_t` instead of an opaque `schema_N`. The OpenAPI loader already
+// sets field_context for object properties, but NOT for array items, which is why a
+// body like `array<number>` produced a bare `using schema = double;`. Cycle-safe via
+// the visited set; never clobbers a name or context that already exists.
+void propagate_inline_naming_context(document& doc,
+                                     const katana::openapi::schema* s,
+                                     std::string_view parent,
+                                     std::string_view field,
+                                     std::unordered_set<const katana::openapi::schema*>& visited) {
+    if (s == nullptr || !visited.insert(s).second) {
+        return;
+    }
+    // Leave enums alone: they have a dedicated, prettier naming pass (parent minus
+    // _request/_response + field, e.g. text_transform_operation) that only fires when the
+    // enum still has a generic name. Filling its context here would pre-empt that and
+    // rename it to the verbose <Parent>_<Field>_t form, churning stable public names.
+    if (!s->enum_values.empty()) {
+        return;
+    }
+    auto* writable = const_cast<katana::openapi::schema*>(s);
+    // Fill in whichever half of the context is missing. The loader already sets
+    // field_context="item" on array items but leaves parent_context empty (an inline
+    // array has no name at parse time), which left schema_identifier one piece short and
+    // sent the item to the `schema_N` fallback. Set each piece independently so a
+    // half-contexted node is completed rather than skipped.
+    if (s->name.empty()) {
+        if (s->parent_context.empty() && !parent.empty()) {
+            writable->parent_context = katana::arena_string<>(
+                parent.begin(), parent.end(), katana::arena_allocator<char>(doc.arena_));
+        }
+        if (s->field_context.empty() && !field.empty()) {
+            writable->field_context = katana::arena_string<>(
+                field.begin(), field.end(), katana::arena_allocator<char>(doc.arena_));
+        }
+    }
+
+    // The name children should treat as their parent for context purposes.
+    std::string self;
+    if (!s->name.empty()) {
+        self.assign(s->name.begin(), s->name.end());
+    } else if (!s->parent_context.empty() && !s->field_context.empty()) {
+        self.append(s->parent_context.begin(), s->parent_context.end());
+        self.push_back('_');
+        self.append(s->field_context.begin(), s->field_context.end());
+    }
+    if (self.empty()) {
+        return; // no usable parent name; leave any children to the fallback
+    }
+
+    if (s->items != nullptr) {
+        propagate_inline_naming_context(doc, s->items, self, "item", visited);
+    }
+    for (const auto& prop : s->properties) {
+        if (prop.type != nullptr) {
+            propagate_inline_naming_context(
+                doc, prop.type, self,
+                std::string_view(prop.name.data(), prop.name.size()), visited);
+        }
+    }
+    if (s->additional_properties != nullptr) {
+        propagate_inline_naming_context(doc, s->additional_properties, self, "value", visited);
+    }
+}
+
+} // namespace
 
 void ensure_inline_schema_names(document& doc, std::string_view naming_style) {
     std::unordered_set<std::string> used;
@@ -381,6 +502,17 @@ void ensure_inline_schema_names(document& doc, std::string_view naming_style) {
                         return op_base + suffix;
                     });
                 }
+            }
+        }
+    }
+
+    // Propagate naming context into inline children (array items especially) before the
+    // fallback, so nested schemas get `<Parent>_<Field>_t` names rather than `schema_N`.
+    {
+        std::unordered_set<const katana::openapi::schema*> visited;
+        for (auto& s : doc.schemas) {
+            if (!s.name.empty()) {
+                propagate_inline_naming_context(doc, &s, {}, {}, visited);
             }
         }
     }

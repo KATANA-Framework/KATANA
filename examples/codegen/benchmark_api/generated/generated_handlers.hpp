@@ -16,6 +16,7 @@
 #pragma once
 
 #include "katana/core/http.hpp"
+#include "katana/core/problem.hpp"
 #include "katana/core/router.hpp"
 #include "generated_dtos.hpp"
 #include <string_view>
@@ -72,6 +73,159 @@ struct api_handler {
     // GET /health
     // Health check
     virtual katana::result<void> health_check(response& out) = 0;
+
+};
+
+// Optional async handler interface for generated routers.
+// Implement only operations that should own deferred HTTP completion.
+// Returning false falls back to the synchronous api_handler method.
+struct async_api_handler {
+    virtual ~async_api_handler() = default;
+
+    virtual bool compute_sum_async(const SumRequest& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool compute_stats_async(const StatsRequest& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool register_user_async(const RegisterRequest& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool list_items_async(std::optional<int64_t> limit, std::optional<int64_t> offset, std::optional<std::string_view> category, katana::http::async_response_writer out) {
+        (void)limit;
+        (void)offset;
+        (void)category;
+        (void)out;
+        return false;
+    }
+
+    virtual bool create_item_async(std::string_view X_Request_Id, std::optional<std::string_view> session, const CreateItemRequest& body, katana::http::async_response_writer out) {
+        (void)X_Request_Id;
+        (void)session;
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool get_item_async(int64_t id, katana::http::async_response_writer out) {
+        (void)id;
+        (void)out;
+        return false;
+    }
+
+    virtual bool update_item_async(int64_t id, const UpdateItemRequest& body, katana::http::async_response_writer out) {
+        (void)id;
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool delete_item_async(int64_t id, katana::http::async_response_writer out) {
+        (void)id;
+        (void)out;
+        return false;
+    }
+
+    virtual bool echo_async(const EchoRequest& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool health_check_async(katana::http::async_response_writer out) {
+        (void)out;
+        return false;
+    }
+
+};
+
+// Convenience base for async-first services.
+// Override *_async methods only; synchronous fallbacks return 501.
+struct async_api_handler_base : api_handler, async_api_handler {
+    virtual ~async_api_handler_base() = default;
+
+    katana::result<void> compute_sum(const SumRequest& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("compute_sum requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> compute_stats(const StatsRequest& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("compute_stats requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> register_user(const RegisterRequest& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("register_user requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> list_items(std::optional<int64_t> limit, std::optional<int64_t> offset, std::optional<std::string_view> category, response& out) override {
+        (void)limit;
+        (void)offset;
+        (void)category;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("list_items requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> create_item(std::string_view X_Request_Id, std::optional<std::string_view> session, const CreateItemRequest& body, response& out) override {
+        (void)X_Request_Id;
+        (void)session;
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("create_item requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> get_item(int64_t id, response& out) override {
+        (void)id;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("get_item requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> update_item(int64_t id, const UpdateItemRequest& body, response& out) override {
+        (void)id;
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("update_item requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> delete_item(int64_t id, response& out) override {
+        (void)id;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("delete_item requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> echo(const EchoRequest& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("echo requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> health_check(response& out) override {
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("health_check requires an async override or sync implementation"));
+        return {};
+    }
 
 };
 

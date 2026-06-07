@@ -25,7 +25,6 @@
 #include <string>
 #include <cmath>
 #include <cctype>
-#include <regex>
 #include <unordered_set>
 #include <vector>
 
@@ -44,6 +43,9 @@ using katana::format_validators::is_valid_datetime;
 // Validation Functions
 // ============================================================
 
+[[nodiscard]] inline std::optional<validation_error> validate_RegisterUserRequest(const RegisterUserRequest&);
+
+// validate RegisterUserRequest — object, 3 field(s)  ← api.yaml:25
 [[nodiscard]] inline std::optional<validation_error> validate_RegisterUserRequest(const RegisterUserRequest& obj) {
     if (obj.email.empty()) {
         return validation_error{"email", validation_error_code::required_field_missing};
@@ -54,10 +56,10 @@ using katana::format_validators::is_valid_datetime;
     if (obj.password.empty()) {
         return validation_error{"password", validation_error_code::required_field_missing};
     }
-    if (!obj.password.empty() && obj.password.size() < RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH) {
+    if (!obj.password.empty() && katana::utf8_length(obj.password) < RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH) {
         return validation_error{"password", validation_error_code::string_too_short, RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH};
     }
-    if (obj.password.size() > RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH) {
+    if (katana::utf8_length(obj.password) > RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH) {
         return validation_error{"password", validation_error_code::string_too_long, RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH};
     }
     if (obj.age && static_cast<double>((*obj.age)) < RegisterUserRequest::metadata::AGE_MINIMUM) {
