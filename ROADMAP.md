@@ -80,6 +80,11 @@ Remaining:
 You cannot operate a service without these. This is the stage that makes a deployment
 debuggable and safe to run.
 
+**Status: all [P0] items have a base implementation** (config, structured logging + access log,
+metrics, health/readiness, connection timeouts, graceful shutdown). Each entry's *Remaining*
+note lists the follow-on depth (hot reload, histograms, per-route labels, DB deadlines, idle-
+connection close on shutdown, …). The remaining Stage 6 item is [P1] distributed tracing.
+
 - **[P0] Configuration system** — **base done.** `katana::config` merges layered sources in
   precedence order — programmatic defaults < config file (`key = value`, `#` comments) < env
   vars (`from_env("KATANA")` → `KATANA_DB_DSN` maps to `db_dsn`) < `--flags` — into one
