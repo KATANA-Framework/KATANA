@@ -108,8 +108,10 @@ operational blockers.
   served before the router) exposing `katana_http_requests_total` by status class, a
   `katana_http_requests_in_flight` gauge, `katana_http_connection_timeouts_total`, and a
   `katana_http_request_duration_seconds` histogram (the RED "Duration"; latency is also added to
-  the access log as `duration_us`). *Remaining:* per-route labels, connection/pool gauges,
-  reactor/allocator stats, OTLP push.
+  the access log as `duration_us`). Per-route counters (`katana_http_route_requests_total` and
+  `..._route_duration_seconds_sum`) are labelled with the route **template** (`GET /notes/{id}`,
+  not raw ids) so cardinality stays bounded. *Remaining:* connection/pool gauges, reactor/
+  allocator stats, OTLP push.
 - **[P0] Health & readiness** — **done.** Built-in `/healthz` (liveness) and `/readyz`
   (readiness) served before the user router, on by default. `/readyz` returns 503 while the
   server is shutting down or a registered `readiness_check(probe)` reports not-ready (wire it

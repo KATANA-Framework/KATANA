@@ -428,6 +428,13 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                 std::chrono::steady_clock::now() - state.request_start)
                 .count();
         metrics_.observe_duration_micros(duration_micros);
+        if (const int ri = state.current_route_index;
+            ri >= 0 && static_cast<size_t>(ri) < per_route_requests_.size()) {
+            per_route_requests_[static_cast<size_t>(ri)].fetch_add(1, std::memory_order_relaxed);
+            per_route_duration_micros_[static_cast<size_t>(ri)].fetch_add(
+                static_cast<uint64_t>(duration_micros < 0 ? 0 : duration_micros),
+                std::memory_order_relaxed);
+        }
 
         // Correlation id: echo the client's X-Request-Id, or generate one. Reflect it on the
         // response (so the caller can tie its logs to ours) and into the access log.
@@ -701,6 +708,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             ctx.trace = state.current_trace; // visible to the handler for downstream propagation
         }
         dispatch_request(req, ctx, resp);
+        state.current_route_index = ctx.route_index; // for per-route metrics in finalize
 
         if (ctx.is_response_deferred()) {
             state.deferred_response_active = true;
@@ -721,6 +729,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 }
 
 int server::run() {
+    init_per_route_metrics(); // size per-route counters from the router before workers start
     reactor_pool_config config;
     config.reactor_count = static_cast<uint32_t>(worker_count_);
     config.enable_adaptive_balancing = true;

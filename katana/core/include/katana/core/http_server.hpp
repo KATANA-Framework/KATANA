@@ -401,6 +401,7 @@ private:
         out.status = 200;
         out.reason.assign(canonical_reason_phrase(out.status));
         out.body = metrics_.to_prometheus();
+        append_route_metrics(out.body);
         out.set_header("Content-Type", "text/plain; version=0.0.4");
         return true;
     }
@@ -429,6 +430,8 @@ private:
         std::chrono::steady_clock::time_point request_start{};
         // Tracing span for the current request (same lifetime guarantee as request_start).
         tracing::span_context current_trace{};
+        // Matched route index for the current request (-1 if none) — for per-route metrics.
+        int current_route_index = -1;
         deferred_response_slot deferred_ready_response{};
         bool deferred_response_active = false;
         server* owner_server = nullptr;
@@ -533,6 +536,55 @@ private:
 
     // W3C distributed tracing (opt-in via tracing()).
     bool tracing_enabled_ = false;
+
+    // Per-route metrics, sized from the router at run() (index = ctx.route_index). Populated
+    // only when constructed with a router. Atomics are written from worker threads and read by
+    // the /metrics handler.
+    std::vector<std::atomic<uint64_t>> per_route_requests_;
+    std::vector<std::atomic<uint64_t>> per_route_duration_micros_;
+    std::vector<std::string> route_labels_;
+
+    void init_per_route_metrics() {
+        if (router_ == nullptr) {
+            return;
+        }
+        const size_t n = router_->route_count();
+        per_route_requests_ = std::vector<std::atomic<uint64_t>>(n);
+        per_route_duration_micros_ = std::vector<std::atomic<uint64_t>>(n);
+        route_labels_.clear();
+        route_labels_.reserve(n);
+        for (size_t i = 0; i < n; ++i) {
+            route_labels_.push_back(router_->route_label(i));
+        }
+    }
+
+    // Append per-route counters to a /metrics body (no-op when no router/routes).
+    void append_route_metrics(std::string& body) const {
+        if (per_route_requests_.empty()) {
+            return;
+        }
+        body += "# HELP katana_http_route_requests_total Requests handled per route.\n";
+        body += "# TYPE katana_http_route_requests_total counter\n";
+        for (size_t i = 0; i < per_route_requests_.size(); ++i) {
+            body += "katana_http_route_requests_total{route=\"";
+            body += route_labels_[i];
+            body += "\"} ";
+            body += std::to_string(per_route_requests_[i].load(std::memory_order_relaxed));
+            body += '\n';
+        }
+        body += "# HELP katana_http_route_duration_seconds_sum Summed latency per route.\n";
+        body += "# TYPE katana_http_route_duration_seconds_sum counter\n";
+        for (size_t i = 0; i < per_route_duration_micros_.size(); ++i) {
+            const uint64_t us = per_route_duration_micros_[i].load(std::memory_order_relaxed);
+            body += "katana_http_route_duration_seconds_sum{route=\"";
+            body += route_labels_[i];
+            body += "\"} ";
+            body += std::to_string(us / 1'000'000);
+            body += '.';
+            body += server_metrics::format_micros_fraction(us % 1'000'000);
+            body += '\n';
+        }
+    }
 };
 
 } // namespace http

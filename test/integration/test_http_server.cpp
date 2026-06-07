@@ -537,6 +537,35 @@ pid_t spawn_graceful_server(uint16_t port) {
                    .run());
 }
 
+pid_t spawn_route_metrics_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong");
+             return result<void>{};
+         })},
+        {http::method::get,
+         http::path_pattern::from_literal<"/item/{id}">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("item");
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
 pid_t spawn_capped_server(uint16_t port, size_t cap) {
     pid_t pid = ::fork();
     if (pid != 0) {
@@ -1499,4 +1528,61 @@ TEST(HTTPServerTracing, ContinuesInboundTraceAndStartsNewRoot) {
     EXPECT_NE(new_trace, std::string(32, '0'));
     EXPECT_NE(new_trace, in_trace); // a different trace than request (1)
     EXPECT_NE(b2.find(" 0000000000000000"), std::string::npos); // root: parent span all-zero
+}
+
+TEST(HTTPServerRouteMetrics, CountsPerRouteUsingTemplateLabels) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_route_metrics_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    int fd = -1;
+    struct guard {
+        pid_t pid;
+        int* fd;
+        ~guard() {
+            if (fd && *fd >= 0) {
+                ::close(*fd);
+                *fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    } cleanup{server_pid, &fd};
+
+    fd = connect_with_retry(port);
+    ASSERT_GE(fd, 0);
+
+    auto hit = [&](const std::string& path) {
+        send_all(fd, make_get_request(path));
+        ASSERT_EQ(read_responses_slowly(fd, 1, std::chrono::seconds(2)).size(), 1u);
+    };
+    hit("/ping");
+    hit("/ping");
+    hit("/ping");
+    hit("/item/42"); // distinct ids must collapse to the {id} template label
+    hit("/item/777");
+
+    send_all(fd, make_get_request("/metrics"));
+    auto responses = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 1u);
+    const std::string& body = responses[0].body;
+
+    auto route_count = [&](const std::string& label) -> long {
+        const std::string needle =
+            "katana_http_route_requests_total{route=\"" + label + "\"} ";
+        const size_t pos = body.find(needle);
+        EXPECT_NE(pos, std::string::npos);
+        return std::stol(body.substr(pos + needle.size()));
+    };
+
+    EXPECT_EQ(route_count("GET /ping"), 3);
+    EXPECT_EQ(route_count("GET /item/{id}"), 2); // both ids collapsed to one label
+    // No raw-id label leaked (cardinality safety).
+    EXPECT_EQ(body.find("/item/42"), std::string::npos);
+    EXPECT_EQ(body.find("/item/777"), std::string::npos);
 }
