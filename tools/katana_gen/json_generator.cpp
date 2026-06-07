@@ -1203,106 +1203,6 @@ void generate_json_serializer_for_schema(std::ostream& out,
     out << "}\n\n";
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// Array parser: cursor-based overload + string_view wrapper
-// ────────────────────────────────────────────────────────────────────────
-
-void generate_json_array_parser(std::ostream& out,
-                                const document& doc,
-                                const katana::openapi::schema& s,
-                                [[maybe_unused]] bool use_pmr) {
-    auto struct_name = schema_identifier(doc, &s);
-
-    out << "// parse_array " << schema_banner(doc, s) << "\n";
-
-    // Cursor-based overload (primary)
-    out << "[[nodiscard]] inline std::optional<std::vector<" << struct_name << ">> parse_"
-        << struct_name << "_array(katana::serde::json_cursor& cur, monotonic_arena* arena) {\n";
-    out << "    if (!cur.try_array_start()) return std::nullopt;\n\n";
-    out << "    std::vector<" << struct_name << "> result;\n";
-    out << "    while (!cur.eof()) {\n";
-    out << "        cur.skip_ws();\n";
-    out << "        if (cur.try_array_end()) break;\n";
-    out << "        \n";
-    out << "        // Parse object at current cursor position\n";
-    out << "        auto obj = parse_" << struct_name << "(cur, arena);\n";
-    out << "        if (!obj) return std::nullopt;\n";
-    out << "        result.push_back(std::move(*obj));\n";
-    out << "        \n";
-    out << "        cur.try_comma();\n";
-    out << "    }\n";
-    out << "    return result;\n";
-    out << "}\n\n";
-
-    // Inline field wrappers never take a raw JSON string — cursor overload only.
-    if (is_field_wrapper_schema(s)) {
-        return;
-    }
-
-    // String_view overload (thin wrapper)
-    out << "[[nodiscard]] inline std::optional<std::vector<" << struct_name << ">> parse_"
-        << struct_name << "_array(std::string_view json, monotonic_arena* arena) {\n";
-    out << "    katana::serde::json_cursor cur{json.data(), json.data() + json.size()};\n";
-    out << "    return parse_" << struct_name << "_array(cur, arena);\n";
-    out << "}\n\n";
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// Array serializer: serialize_into + thin wrapper
-// ────────────────────────────────────────────────────────────────────────
-
-void generate_json_array_serializer(std::ostream& out,
-                                    const document& doc,
-                                    const katana::openapi::schema& s,
-                                    bool use_pmr) {
-    auto struct_name = schema_identifier(doc, &s);
-
-    out << "// serialize_array " << schema_banner(doc, s) << "\n";
-
-    // serialize_into for std::vector
-    out << "inline void serialize_" << struct_name << "_array_into(const std::vector<"
-        << struct_name << ">& arr, std::string& json) {\n";
-    out << "    json.push_back('[');\n";
-    out << "    for (size_t i = 0; i < arr.size(); ++i) {\n";
-    out << "        if (i > 0) json.push_back(',');\n";
-    out << "        serialize_" << struct_name << "_into(arr[i], json);\n";
-    out << "    }\n";
-    out << "    json.push_back(']');\n";
-    out << "}\n\n";
-
-    const size_t array_item_estimate = compute_value_estimate(doc, &s, 1);
-
-    // thin wrapper for std::vector
-    out << "inline std::string serialize_" << struct_name << "_array(const std::vector<"
-        << struct_name << ">& arr) {\n";
-    out << "    std::string json;\n";
-    out << "    json.reserve(arr.size() * " << array_item_estimate << " + 2);\n";
-    out << "    serialize_" << struct_name << "_array_into(arr, json);\n";
-    out << "    return json;\n";
-    out << "}\n\n";
-
-    if (use_pmr) {
-        // serialize_into for arena_vector
-        out << "inline void serialize_" << struct_name << "_array_into(const arena_vector<"
-            << struct_name << ">& arr, std::string& json) {\n";
-        out << "    json.push_back('[');\n";
-        out << "    for (size_t i = 0; i < arr.size(); ++i) {\n";
-        out << "        if (i > 0) json.push_back(',');\n";
-        out << "        serialize_" << struct_name << "_into(arr[i], json);\n";
-        out << "    }\n";
-        out << "    json.push_back(']');\n";
-        out << "}\n\n";
-
-        // thin wrapper for arena_vector
-        out << "inline std::string serialize_" << struct_name << "_array(const arena_vector<"
-            << struct_name << ">& arr) {\n";
-        out << "    std::string json;\n";
-        out << "    json.reserve(arr.size() * " << array_item_estimate << " + 2);\n";
-        out << "    serialize_" << struct_name << "_array_into(arr, json);\n";
-        out << "    return json;\n";
-        out << "}\n\n";
-    }
-}
 
 } // namespace
 
@@ -1566,51 +1466,6 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
         }
     }
     out << "\n";
-    // Forward declarations: parse_array (string_view overload) — skipped for inline
-    // field wrappers (cursor overload only).
-    for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema) && !is_field_wrapper_schema(schema)) {
-            auto name = schema_identifier(doc, &schema);
-            out << "[[nodiscard]] inline std::optional<std::vector<" << name << ">> parse_" << name
-                << "_array(std::string_view json, monotonic_arena* arena);\n";
-        }
-    }
-    out << "\n";
-    // Forward declarations: parse_array (cursor overload)
-    for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
-            auto name = schema_identifier(doc, &schema);
-            out << "[[nodiscard]] inline std::optional<std::vector<" << name << ">> parse_" << name
-                << "_array(katana::serde::json_cursor& cur, monotonic_arena* arena);\n";
-        }
-    }
-    out << "\n";
-    // Forward declarations: serialize_array_into
-    for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
-            auto name = schema_identifier(doc, &schema);
-            out << "inline void serialize_" << name << "_array_into(const std::vector<" << name
-                << ">& arr, std::string& out);\n";
-            if (use_pmr) {
-                out << "inline void serialize_" << name << "_array_into(const arena_vector<" << name
-                    << ">& arr, std::string& out);\n";
-            }
-        }
-    }
-    out << "\n";
-    // Forward declarations: serialize_array
-    for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
-            auto name = schema_identifier(doc, &schema);
-            out << "inline std::string serialize_" << name << "_array(const std::vector<" << name
-                << ">& arr);\n";
-            if (use_pmr) {
-                out << "inline std::string serialize_" << name << "_array(const arena_vector<"
-                    << name << ">& arr);\n";
-            }
-        }
-    }
-    out << "\n";
 
     // ============================================================
     // JSON Parse Functions
@@ -1640,33 +1495,10 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
         }
     }
 
-    // ============================================================
-    // Array Parse Functions
-    // ============================================================
-    out << "// ============================================================\n";
-    out << "// Array Parse Functions\n";
-    out << "// ============================================================\n\n";
-
-    // Generate array parsers only for non-trivial schemas
-    for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
-            generate_json_array_parser(out, doc, schema, use_pmr);
-        }
-    }
-
-    // ============================================================
-    // Array Serialize Functions
-    // ============================================================
-    out << "// ============================================================\n";
-    out << "// Array Serialize Functions\n";
-    out << "// ============================================================\n\n";
-
-    // Generate array serializers only for non-trivial schemas
-    for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
-            generate_json_array_serializer(out, doc, schema, use_pmr);
-        }
-    }
+    // NB: the per-element-type `parse_<X>_array` / `serialize_<X>_array` family used to be
+    // emitted here but was never called — struct parsers/serializers inline their array
+    // fields, and a top-level array body uses its own array schema's parser/serializer. The
+    // dead family (up to ~6 functions per type) is no longer generated.
 
     return out.str();
 }
