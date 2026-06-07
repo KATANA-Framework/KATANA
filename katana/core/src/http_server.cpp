@@ -421,6 +421,8 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     };
 
     auto finalize_response = [&](const request& req, response& resp) -> bool {
+        metrics_.record_status(resp.status);
+        metrics_.in_flight.fetch_sub(1, std::memory_order_relaxed);
         if (on_request_callback_) {
             on_request_callback_(req, resp);
         }
