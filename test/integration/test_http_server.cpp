@@ -455,6 +455,34 @@ pid_t spawn_contract_policy_server(uint16_t port) {
                    .run());
 }
 
+pid_t spawn_tracing_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    // Echo the request's span context so the test can assert trace propagation through the
+    // server without scraping the (forked) server's log output.
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/trace">(),
+         http::handler_fn([](const http::request&, http::request_context& ctx, http::response& out) {
+             std::string body = ctx.trace.trace_id_hex() + " " + ctx.trace.span_id_hex() + " " +
+                                ctx.trace.parent_span_id_hex();
+             out.assign_text(body);
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .tracing()
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
 pid_t spawn_access_log_server(uint16_t port) {
     pid_t pid = ::fork();
     if (pid != 0) {
@@ -1411,4 +1439,64 @@ TEST(HTTPServerGracefulShutdown, SendsConnectionCloseOnResponsesDuringShutdown) 
     ASSERT_EQ(during.size(), 1u);
     EXPECT_EQ(during[0].body, "pong");
     EXPECT_EQ(during[0].header("Connection"), std::optional<std::string_view>{"close"});
+}
+
+TEST(HTTPServerTracing, ContinuesInboundTraceAndStartsNewRoot) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_tracing_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    int client_fd = -1;
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    } cleanup{server_pid, &client_fd};
+
+    client_fd = connect_with_retry(port);
+    ASSERT_GE(client_fd, 0);
+
+    // (1) Inbound traceparent is continued: same trace id, parent = inbound span, new span id.
+    const std::string in_trace = "4bf92f3577b34da6a3ce929d0e0e4736";
+    const std::string in_span = "00f067aa0ba902b7";
+    send_all(client_fd, "GET /trace HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                        "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\r\n\r\n");
+    auto r1 = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(r1.size(), 1u);
+    // body = "<trace_id> <span_id> <parent_span_id>"
+    std::string b1 = r1[0].body;
+    const size_t s1 = b1.find(' ');
+    const size_t s2 = b1.find(' ', s1 + 1);
+    ASSERT_NE(s1, std::string::npos);
+    ASSERT_NE(s2, std::string::npos);
+    const std::string trace_id = b1.substr(0, s1);
+    const std::string span_id = b1.substr(s1 + 1, s2 - s1 - 1);
+    const std::string parent_id = b1.substr(s2 + 1);
+    EXPECT_EQ(trace_id, in_trace);    // continued
+    EXPECT_EQ(parent_id, in_span);    // inbound span is our parent
+    EXPECT_NE(span_id, in_span);      // fresh span id for this hop
+    EXPECT_EQ(span_id.size(), 16u);
+
+    // (2) No inbound traceparent: a fresh root trace (parent all-zero, valid 128-bit trace id).
+    send_all(client_fd, make_get_request("/trace"));
+    auto r2 = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(r2.size(), 1u);
+    std::string b2 = r2[0].body;
+    const std::string new_trace = b2.substr(0, b2.find(' '));
+    EXPECT_EQ(new_trace.size(), 32u);
+    EXPECT_NE(new_trace, std::string(32, '0'));
+    EXPECT_NE(new_trace, in_trace); // a different trace than request (1)
+    EXPECT_NE(b2.find(" 0000000000000000"), std::string::npos); // root: parent span all-zero
 }
