@@ -9,8 +9,8 @@ generated OpenAPI contracts** at once:
 | `analytics` | `POST /events`, `GET /analytics/summary` | rate-limit + idempotency, cache summary |
 
 Both contracts are generated with `katana_gen --namespace …` into `generated/<contract>/`, so they
-link into one binary with no symbol collisions, and are mounted on one server through a small
-[`composite_dispatcher`](composite_dispatcher.hpp).
+link into one binary with no symbol collisions, and are mounted on one server through the core
+`katana::http::composite_router` (per-route metrics span all contracts via globalised indices).
 
 ## Framework features wired here
 

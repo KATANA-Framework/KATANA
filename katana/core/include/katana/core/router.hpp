@@ -929,6 +929,74 @@ inline response dispatch_or_problem(const router& r, const request& req, request
     return out;
 }
 
+// Serve several independently-generated contracts (each its own `router`) from one server. The
+// first router whose path pattern matches owns the request — including its x-katana policies,
+// which run inside dispatch_with_info. Route indices are globalised (offset by each router's
+// base) so the server's per-route metrics keep working across contracts.
+//
+//   const auto& a = svc_a::make_router(ha);
+//   const auto& b = svc_b::make_router(hb);
+//   katana::http::composite_router all{&a.router(), &b.router()};
+//   server(all)...
+class composite_router {
+public:
+    composite_router(std::initializer_list<const router*> routers) {
+        mounts_.reserve(routers.size());
+        size_t base = 0;
+        for (const router* r : routers) {
+            mounts_.push_back({r, base});
+            base += r->route_count();
+        }
+        total_routes_ = base;
+    }
+
+    result<void> dispatch_to(const request& req, request_context& ctx, response& out) const {
+        for (const auto& m : mounts_) {
+            const auto info = m.table->dispatch_with_info(req, ctx, out);
+            // No error => handler ran; error+path_matched => this router owns it (405/handler
+            // error); error+!path_matched => not found here, try the next contract.
+            if (!info.has_error) {
+                globalize_route_index(ctx, m.base);
+                return {};
+            }
+            if (info.path_matched) {
+                globalize_route_index(ctx, m.base);
+                map_dispatch_error(info, out);
+                return {};
+            }
+        }
+        ctx.route_index = -1;
+        map_route_error(make_error_code(error_code::not_found), out);
+        return {};
+    }
+
+    [[nodiscard]] size_t route_count() const noexcept { return total_routes_; }
+
+    [[nodiscard]] std::string route_label(size_t global_index) const {
+        for (const auto& m : mounts_) {
+            if (global_index < m.base + m.table->route_count()) {
+                return m.table->route_label(global_index - m.base);
+            }
+        }
+        return "unknown";
+    }
+
+private:
+    struct mount {
+        const router* table;
+        size_t base;
+    };
+
+    static void globalize_route_index(request_context& ctx, size_t base) noexcept {
+        if (ctx.route_index >= 0) {
+            ctx.route_index += static_cast<int>(base);
+        }
+    }
+
+    std::vector<mount> mounts_;
+    size_t total_routes_ = 0;
+};
+
 // Helper functor to plug router into existing handler harnesses or server code.
 class router_handler {
 public:

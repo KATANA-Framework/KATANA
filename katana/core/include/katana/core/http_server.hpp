@@ -195,7 +195,19 @@ public:
         : router_(&rt),
           dispatch_callback_([&rt](const request& req, request_context& ctx, response& out) {
               return rt.dispatch(req, ctx, out);
-          }) {}
+          }),
+          route_count_fn_([&rt] { return rt.route_count(); }),
+          route_label_fn_([&rt](size_t i) { return rt.route_label(i); }) {}
+
+    /// Construct server with a composite_router (several contracts on one server). Per-route
+    /// metrics span all contracts via globalised route indices.
+    explicit server(const composite_router& composite)
+        : dispatch_callback_(
+              [&composite](const request& req, request_context& ctx, response& out) {
+                  return composite.dispatch_to(req, ctx, out);
+              }),
+          route_count_fn_([&composite] { return composite.route_count(); }),
+          route_label_fn_([&composite](size_t i) { return composite.route_label(i); }) {}
 
     /// Construct server with a dispatcher that exposes dispatch_to(req, ctx, out)
     template <typename Dispatcher>
@@ -536,6 +548,10 @@ private:
     const router* router_ = nullptr;
     inplace_function<result<void>(const request&, request_context&, response&), 64>
         dispatch_callback_;
+    // Route metadata for per-route metrics, supplied by the router/composite_router constructor
+    // (empty for a bare custom Dispatcher, which then has no per-route labels).
+    std::function<size_t()> route_count_fn_;
+    std::function<std::string(size_t)> route_label_fn_;
     std::string host_ = "0.0.0.0";
     uint16_t port_ = 8080;
     size_t worker_count_ = 1;
@@ -694,16 +710,16 @@ private:
     std::vector<std::string> route_labels_;
 
     void init_per_route_metrics() {
-        if (router_ == nullptr) {
-            return;
+        if (!route_count_fn_ || !route_label_fn_) {
+            return; // dispatcher without route metadata (e.g. a custom Dispatcher type)
         }
-        const size_t n = router_->route_count();
+        const size_t n = route_count_fn_();
         per_route_requests_ = std::vector<std::atomic<uint64_t>>(n);
         per_route_duration_micros_ = std::vector<std::atomic<uint64_t>>(n);
         route_labels_.clear();
         route_labels_.reserve(n);
         for (size_t i = 0; i < n; ++i) {
-            route_labels_.push_back(router_->route_label(i));
+            route_labels_.push_back(route_label_fn_(i));
         }
     }
 
