@@ -602,6 +602,35 @@ pid_t spawn_span_export_server(uint16_t port, const std::string& out_path) {
                    .run());
 }
 
+pid_t spawn_cors_server(uint16_t port, bool allowlist) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong");
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    http::cors_config cfg;
+    if (allowlist) {
+        cfg.allowed_origins = {"https://app.example.com"};
+        cfg.allow_credentials = true;
+    }
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .cors(cfg)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
 pid_t spawn_capped_server(uint16_t port, size_t cap) {
     pid_t pid = ::fork();
     if (pid != 0) {
@@ -1728,4 +1757,76 @@ TEST(HTTPServerTracing, CustomSpanExporterReceivesSpans) {
     EXPECT_NE(contents.find("4bf92f3577b34da6a3ce929d0e0e4736"), std::string::npos);
     EXPECT_NE(contents.find("GET /ping"), std::string::npos);
     EXPECT_NE(contents.find("status=200"), std::string::npos);
+}
+
+namespace {
+struct cors_guard {
+    pid_t pid;
+    int* fd;
+    ~cors_guard() {
+        if (fd && *fd >= 0) { ::close(*fd); *fd = -1; }
+        if (pid > 0) { ::kill(pid, SIGKILL); int s = 0; (void)::waitpid(pid, &s, 0); }
+    }
+};
+} // namespace
+
+TEST(HTTPServerCors, PermissiveReflectsAnyOrigin) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_cors_server(port, /*allowlist=*/false);
+    ASSERT_GT(pid, 0);
+    int fd = -1;
+    cors_guard cleanup{pid, &fd};
+    fd = connect_with_retry(port);
+    ASSERT_GE(fd, 0);
+
+    // Preflight.
+    send_all(fd, "OPTIONS /notes HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                 "Origin: http://localhost:3000\r\nAccess-Control-Request-Method: POST\r\n\r\n");
+    auto pre = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(pre.size(), 1u);
+    EXPECT_EQ(pre[0].status, 204);
+    EXPECT_EQ(pre[0].header("Access-Control-Allow-Origin"), std::optional<std::string_view>{"*"});
+    EXPECT_TRUE(pre[0].header("Access-Control-Allow-Methods").has_value());
+    EXPECT_TRUE(pre[0].header("Access-Control-Max-Age").has_value());
+
+    // Actual request.
+    send_all(fd, "GET /ping HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                 "Origin: http://localhost:3000\r\n\r\n");
+    auto act = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(act.size(), 1u);
+    EXPECT_EQ(act[0].status, 200);
+    EXPECT_EQ(act[0].body, "pong");
+    EXPECT_EQ(act[0].header("Access-Control-Allow-Origin"), std::optional<std::string_view>{"*"});
+}
+
+TEST(HTTPServerCors, AllowlistEchoesAllowedOriginAndRejectsOthers) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_cors_server(port, /*allowlist=*/true);
+    ASSERT_GT(pid, 0);
+    int fd = -1;
+    cors_guard cleanup{pid, &fd};
+    fd = connect_with_retry(port);
+    ASSERT_GE(fd, 0);
+
+    // Allowed origin preflight: echoed origin + credentials + Vary.
+    send_all(fd, "OPTIONS /notes HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                 "Origin: https://app.example.com\r\nAccess-Control-Request-Method: POST\r\n\r\n");
+    auto ok = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(ok.size(), 1u);
+    EXPECT_EQ(ok[0].status, 204);
+    EXPECT_EQ(ok[0].header("Access-Control-Allow-Origin"),
+              std::optional<std::string_view>{"https://app.example.com"});
+    EXPECT_EQ(ok[0].header("Access-Control-Allow-Credentials"),
+              std::optional<std::string_view>{"true"});
+    EXPECT_EQ(ok[0].header("Vary"), std::optional<std::string_view>{"Origin"});
+
+    // Disallowed origin preflight -> 403, no allow-origin header.
+    send_all(fd, "OPTIONS /notes HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                 "Origin: https://evil.example\r\nAccess-Control-Request-Method: POST\r\n\r\n");
+    auto bad = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(bad.size(), 1u);
+    EXPECT_EQ(bad[0].status, 403);
+    EXPECT_FALSE(bad[0].header("Access-Control-Allow-Origin").has_value());
 }

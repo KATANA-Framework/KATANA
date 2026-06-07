@@ -161,6 +161,18 @@ struct server_metrics {
     }
 };
 
+// Cross-Origin Resource Sharing policy. With defaults (allowed_origins empty) any origin is
+// reflected — convenient for a separate SPA/Next.js frontend in dev. For production set an
+// explicit allow-list; with allow_credentials the matched origin is echoed (never "*").
+struct cors_config {
+    std::vector<std::string> allowed_origins{};                         // empty / {"*"} => any
+    std::string allowed_methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+    std::string allowed_headers = "Content-Type, Authorization";        // "*" allowed
+    std::string exposed_headers = "";
+    bool allow_credentials = false;
+    int max_age_seconds = 600;
+};
+
 /// High-level HTTP server abstraction
 ///
 /// Encapsulates reactor pool, listener, connection handling, and lifecycle management.
@@ -335,6 +347,15 @@ public:
         return *this;
     }
 
+    /// Enable CORS. Handles preflight `OPTIONS` (204 + Access-Control-* headers) before routing
+    /// and adds the matching CORS headers to every response for an allowed Origin. Call with no
+    /// args for permissive any-origin defaults (handy for a separate frontend in dev), or pass a
+    /// configured policy for production.
+    server& cors(cors_config config = {}) {
+        cors_ = std::move(config);
+        return *this;
+    }
+
     /// Cap the number of simultaneously-open client connections (across all workers). Accepts
     /// beyond the cap are closed immediately and counted in
     /// `katana_http_connections_rejected_total`. 0 (default) means unlimited.
@@ -358,7 +379,8 @@ private:
         if (auto rid = req.header("x-request-id")) {
             ctx.request_id = *rid; // inbound correlation id, visible to handlers
         }
-        if (try_serve_health(req, out) || try_serve_metrics(req, out)) {
+        if (try_serve_cors_preflight(req, out) || try_serve_health(req, out) ||
+            try_serve_metrics(req, out)) {
             return;
         }
         if (router_) {
@@ -551,6 +573,73 @@ private:
 
     // Max simultaneous connections across all workers (0 = unlimited).
     size_t max_connections_ = 0;
+
+    // CORS policy (opt-in via cors()).
+    std::optional<cors_config> cors_;
+
+    [[nodiscard]] bool cors_origin_allowed(std::string_view origin) const {
+        if (cors_->allowed_origins.empty()) {
+            return true; // any origin
+        }
+        for (const auto& o : cors_->allowed_origins) {
+            if (o == "*" || o == origin) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Add the CORS response headers for an allowed Origin (shared by preflight and actual
+    // responses). With credentials the specific origin is echoed; otherwise "*" may be used.
+    void add_cors_headers(std::string_view origin, response& out) const {
+        const bool any = cors_->allowed_origins.empty() ||
+                         (cors_->allowed_origins.size() == 1 && cors_->allowed_origins[0] == "*");
+        if (any && !cors_->allow_credentials) {
+            out.headers.set_unknown("Access-Control-Allow-Origin", "*");
+        } else {
+            out.headers.set_unknown("Access-Control-Allow-Origin", origin);
+            out.headers.set_unknown("Vary", "Origin");
+        }
+        if (cors_->allow_credentials) {
+            out.headers.set_unknown("Access-Control-Allow-Credentials", "true");
+        }
+        if (!cors_->exposed_headers.empty()) {
+            out.headers.set_unknown("Access-Control-Expose-Headers", cors_->exposed_headers);
+        }
+    }
+
+    // Serve a CORS preflight (OPTIONS with Origin + Access-Control-Request-Method). Returns true
+    // if handled. Disallowed origins get a 403 so the browser surfaces a clear CORS failure.
+    [[nodiscard]] bool try_serve_cors_preflight(const request& req, response& out) const {
+        if (!cors_ || req.http_method != method::options) {
+            return false;
+        }
+        auto origin = req.header("origin");
+        if (!origin || !req.header("access-control-request-method")) {
+            return false; // not a CORS preflight
+        }
+        if (!cors_origin_allowed(*origin)) {
+            out.status = 403;
+            out.reason.assign(canonical_reason_phrase(403));
+            out.body.clear();
+            return true;
+        }
+        add_cors_headers(*origin, out);
+        out.headers.set_unknown("Access-Control-Allow-Methods", cors_->allowed_methods);
+        // Echo the requested headers when configured to allow any, else advertise the allow-list.
+        if (cors_->allowed_headers == "*") {
+            if (auto reqh = req.header("access-control-request-headers")) {
+                out.headers.set_unknown("Access-Control-Allow-Headers", *reqh);
+            }
+        } else {
+            out.headers.set_unknown("Access-Control-Allow-Headers", cors_->allowed_headers);
+        }
+        out.headers.set_unknown("Access-Control-Max-Age", std::to_string(cors_->max_age_seconds));
+        out.status = 204;
+        out.reason.assign(canonical_reason_phrase(204));
+        out.body.clear();
+        return true;
+    }
 
     // W3C distributed tracing (opt-in via tracing()).
     bool tracing_enabled_ = false;

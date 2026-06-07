@@ -216,6 +216,7 @@ int main(int argc, char** argv) {
         .connection_timeout(read_to, read_to, idle_to) // slowloris protection
         .tracing(cfg.get_bool("tracing", false))       // W3C trace context + per-request spans
         .reactor_metrics(cfg.get_bool("reactor_metrics", false)) // worker/reactor gauges
+        .cors() // permissive CORS for a separate frontend (Next.js) in dev
         .readiness_check([&] {
             // Live readiness: a trivial query through the pool confirms the DB is reachable.
             return db_ready.load() && pool_executor.query("readyz_ping", "SELECT 1", {}).has_value();
