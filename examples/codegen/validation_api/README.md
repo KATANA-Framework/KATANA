@@ -1,21 +1,21 @@
 # Validation API (codegen)
 
-Микросервис-вальидатор: POST `/user/register` проверяет email/пароль/age и сразу отвечает `"ok"` без бизнес-логики.
+A validator microservice: POST `/user/register` checks email/password/age and immediately responds `"ok"` without any business logic.
 
-## Что демонстрирует
-- Compile-time DTO + валидаторы (required, nullable, regex/format/email, minLength/maxLength, integer ranges)
+## What it demonstrates
+- Compile-time DTO + validators (required, nullable, regex/format/email, minLength/maxLength, integer ranges)
 - Zero-copy JSON → arena DTO
-- Problem Details (422/400) при нарушении схемы
-- Optional semantics: `age` может отсутствовать или быть `null`
+- Problem Details (422/400) on schema violations
+- Optional semantics: `age` can be absent or `null`
 
-## Сборка и запуск
+## Build and run
 ```bash
 cmake --preset examples
 cmake --build --preset examples --target validation_api
-./build/examples/examples/codegen/validation_api/validation_api  # PORT=8081 по умолчанию
+./build/examples/examples/codegen/validation_api/validation_api  # PORT=8081 by default
 ```
 
-## Пример запроса
+## Example request
 ```bash
 curl -X POST http://localhost:8081/user/register \
   -H 'Content-Type: application/json' \
@@ -23,9 +23,9 @@ curl -X POST http://localhost:8081/user/register \
 # => "ok"
 ```
 
-Неверный email или короткий пароль автоматически дают 400/422 с подробным `detail.path`.
+An invalid email or a short password automatically yields 400/422 with a detailed `detail.path`.
 
-## Нагрузочное тестирование
-Сценарий: смесь валидных/невалидных запросов под 4–8 потоков (5 c прогрев → 5 c нагрузка).
-- Метрики: success_rate, p50/p95/p99 для валидных и для reject-пути
-- Используется в `generate_benchmark_report.py` и docker-бенчмарке
+## Load testing
+Scenario: a mix of valid/invalid requests under 4–8 threads (5 s warmup → 5 s load).
+- Metrics: success_rate, p50/p95/p99 for valid requests and for the reject path
+- Used in `generate_benchmark_report.py` and the docker benchmark

@@ -400,7 +400,11 @@ auto metrics = reactor.get_metrics();
 std::cout << "Tasks: " << metrics.tasks_executed << "\n";
 ```
 
-### Integration Points (Stage 5+)
+### Integration Points (planned)
+
+Prometheus metrics, OpenTelemetry spans, and structured logging are planned, not
+yet implemented. See [ROADMAP.md](ROADMAP.md) for current status. The intended
+shape:
 
 ```cpp
 // Prometheus metrics endpoint
@@ -419,18 +423,19 @@ span.end();
 
 ## Platform Abstraction
 
-### Cross-Platform I/O Backend
+### I/O Backend
+
+The runtime is Linux-only and ships two reactor backends: `epoll` and `io_uring`.
+The backend is selected at construction; both expose the same reactor interface.
 
 ```cpp
-#ifdef __linux__
-    using io_backend = epoll_reactor;
-#elif defined(__APPLE__)
-    using io_backend = kqueue_reactor;
-#elif defined(_WIN32)
-    using io_backend = iocp_reactor;
-#endif
+// epoll backend
+using io_backend = epoll_reactor;
 
-reactor<io_backend> r;  // platform-specific implementation
+// io_uring backend
+using io_backend = io_uring_reactor;
+
+reactor<io_backend> r;  // backend-specific implementation
 ```
 
 ### CPU Topology Detection
@@ -594,10 +599,9 @@ KATANA draws inspiration from:
 - **Rust's tokio**: explicit async boundaries, zero-cost abstractions
 
 Key differences from other frameworks:
-- **No coroutines in Stage 1**: simple synchronous handlers, complexity added later
-- **Zero external dependencies**: only C++23 stdlib and Linux syscalls
+- **Synchronous handlers**: simple synchronous handler model, no coroutines in the core
+- **Minimal dependencies**: C++23 stdlib and Linux syscalls for the runtime; libpq for the PostgreSQL backend
 - **Contract-first**: OpenAPI/SQL generate code, not annotations
-- **Built-in observability**: metrics and tracing from day one
 
 ---
 
@@ -605,5 +609,8 @@ Key differences from other frameworks:
 
 - [README.md](README.md) - Framework overview and quick start
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed architecture design
-- [Stage 1 Roadmap](README.md#этап-1--базовый-runtime) - Current development stage
-- `examples/hello_world_server.cpp` - Working example implementation
+- [ROADMAP.md](ROADMAP.md) - Authoritative status: what works, what's in progress, what's planned
+- [docs/WRITING_AN_APP.md](docs/WRITING_AN_APP.md) - Building a SQL-backed JSON API from scratch
+- [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) - Benchmark numbers
+- [comparisons/http_frameworks/RESULTS_2026-06-07.md](comparisons/http_frameworks/RESULTS_2026-06-07.md) - Cross-framework HTTP comparison
+- `examples/codegen/compute_api/` - Working OpenAPI + SQL codegen example

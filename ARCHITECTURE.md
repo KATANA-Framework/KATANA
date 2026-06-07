@@ -1,49 +1,50 @@
 # KATANA Architecture
 
-Детальное описание архитектуры, принципов проектирования и технических решений фреймворка.
+A detailed description of the framework's architecture, design principles, and technical decisions.
 
 ---
 
-## Цели и принципы
+## Goals and principles
 
-### Производительность по умолчанию
+### Performance by default
 
-Reactor-per-core архитектура без глобальных очередей и локов, минимальные аллокации, zero-copy где возможно.
+Reactor-per-core architecture with no global queues or locks, minimal allocations, zero-copy where possible.
 
-### Безопасность кода
+### Code safety
 
-Строгий RAII, запрет `new`/`delete`, проверки статическим анализом (clang-tidy), sanitizers в CI (ASan/UBSan/TSan).
+Strict RAII, no `new`/`delete`, static analysis checks (clang-tidy), sanitizers in CI (ASan/UBSan/TSan).
 
-### Детерминированная структура проекта
+### Deterministic project structure
 
-API-first подход: OpenAPI и SQL как единственные источники истины, автоматическая кодогенерация.
+API-first approach: OpenAPI and SQL as the single sources of truth, automatic code generation.
 
-### Наблюдаемость
+### Observability
 
-Метрики p50/p95/p99, распределенный трейсинг, структурированные логи с корреляцией trace_id/span_id.
+p50/p95/p99 metrics, distributed tracing, structured logs correlated by trace_id/span_id.
 
-### Расширяемость
+### Extensibility
 
-Слоистая архитектура, плагины, чистые контракты между компонентами, слабые зависимости.
+Layered architecture, plugins, clean contracts between components, loose dependencies.
 
-> Статус: этот документ описывает целевую архитектуру. В текущей кодовой базе есть:
-> - **Core**: epoll/io_uring reactor + reactor_pool, арены/IO-буфера, HTTP/1.1 парсер/ответы, wheel timer, TCP listener/socket
-> - **Router**: path routing с параметрами, middleware chain, content negotiation (415/406)
-> - **OpenAPI**: парсер, $ref resolver, allOf merger, codegen для DTOs/validators/JSON/routes
-> - **Codegen**: katana_gen tool для генерации кода из OpenAPI specs
->
-> Пока не реализованы: SQL codegen, SQL/Redis drivers, distributed tracing, metrics exporter, observability infrastructure
+> Status: this document describes the target architecture. For the authoritative,
+> up-to-date implementation status see [ROADMAP.md](ROADMAP.md). In short, the
+> current codebase has working core (epoll/io_uring reactors + reactor pool,
+> arenas/IO buffers, HTTP/1.1 parser/serializer, wheel timer, TCP helpers),
+> a compile-time router with middleware and a media-type registry
+> (JSON/CBOR/MessagePack), OpenAPI codegen, and SQL-first codegen. Runtime
+> enforcement of `x-katana-*` policies and a Redis client are in progress;
+> OpenTelemetry, Prometheus, and structured logging are planned.
 
 ---
 
-## Дерево репозитория
+## Repository tree
 
 ```
 KATANA/
 ├── cmake/                  # toolchains, presets
 ├── third_party/            # pinned dependencies (if needed)
 ├── tools/
-│   └── codegen/           # generators: OpenAPI→routes, SQL→models/repos
+│   └── katana_gen/        # generators: OpenAPI→routes, SQL→models/repos
 ├── katana/
 │   ├── core/              # runtime core (event loop, scheduler, allocators, time)
 │   ├── net/               # TCP/UDP, TLS, DNS (Asio), connectors/acceptors
@@ -72,210 +73,217 @@ KATANA/
 
 ---
 
-## Внешние зависимости (политика)
+## External dependencies (policy)
 
-### Этапы 1-3: Zero-Dependency Foundation
+### Stages 1-3: Zero-Dependency Foundation
 
-Этапы 1-3 реализуют подход **без внешних зависимостей**, используя только C++23 stdlib и прямые Linux syscalls. Преимущества:
+Stages 1-3 follow a **no external dependencies** approach, using only the C++23 stdlib and direct Linux syscalls. Benefits:
 
-- Полный контроль над производительностью
-- Упрощенная сборка и развертывание
-- Уменьшенная attack surface
-- Быстрая компиляция
+- Full control over performance
+- Simpler builds and deployment
+- Reduced attack surface
+- Fast compilation
 
-**Основная реализация (этапы 1-3):**
-- Собственный epoll-based reactor (без Asio)
-- Собственный HTTP/1.1 парсер (без Boost.Beast)
-- std::pmr для управления памятью
-- std::expected для обработки ошибок
-- Прямые syscalls для I/O
+**Core implementation (stages 1-3):**
+- Custom epoll-based reactor (no Asio)
+- Custom HTTP/1.1 parser (no Boost.Beast)
+- std::pmr for memory management
+- std::expected for error handling
+- Direct syscalls for I/O
 
-### Этап 4+: Выборочные зависимости
+### Stage 4+: Selective dependencies
 
-Внешние зависимости будут добавляться выборочно на поздних этапах:
+External dependencies will be added selectively in later stages:
 
-**Асинхронность и сеть** (этап 7+)
+**Async and networking** (stage 7+)
 
-Опционально: **standalone Asio** / **Boost.Asio**, **Boost.Beast** для HTTP/2, WebSocket
+Optional: **standalone Asio** / **Boost.Asio**, **Boost.Beast** for HTTP/2, WebSocket
 
-**Форматирование и логирование** (этап 5+)
+**Formatting and logging** (stage 5+)
 
 **fmt**, **spdlog**
 
-**Сериализация** (этап 4+)
+**Serialization** (stage 4+)
 
 **nlohmann::json**, **yaml-cpp**, **toml++**
 
-**SQL** (этап 4+)
+**SQL** (stage 4+)
 
 **PostgreSQL** (libpq), **SQLite3**
 
-**Кэш** (этап 4+)
+**Cache** (stage 4+)
 
 **redis-plus-plus**
 
-**Безопасность** (этап 7+)
+**Security** (stage 7+)
 
 **OpenSSL**/**BoringSSL**, **jwt-cpp**
 
-**Наблюдаемость** (этап 5-6)
+**Observability** (stage 5-6)
 
 **OpenTelemetry C++ SDK**, **Prometheus-cpp**
 
-**Тестирование**
+**Testing**
 
 **GoogleTest**, **libFuzzer**/**LLVM** (fuzzing)
 
-**Качество кода**
+**Code quality**
 
 **clang-tidy**, **sanitizers** (ASan/UBSan/TSan/LSan)
 
 ---
 
-## Бенчмарк-харнес
+## Benchmark harness
 
-`benchmark/simple_benchmark.cpp` выполняет контроль качества реактора и HTTP-стека. Харнес полностью переписан под таймбоксированную методику:
+`benchmark/simple_benchmark.cpp` runs quality control for the reactor and HTTP stack. The harness uses a timeboxed methodology:
 
-* Каждый сценарий использует фазу прогрева и фиксированное окно измерений (`steady_clock`), чтобы сравнивать результаты на разных машинах.
-* Клиент читает ответы до конца: парсит заголовки, проверяет `Content-Length`, повторно использует keep-alive и пересоздаёт сокет при любой ошибке.
-* Перцентили вычисляются по отсортированному массиву с линейной интерполяцией, что исключает «ступеньки» p95=p99=p999.
-* Тесты масштабирования (threads и fan-out 32/64/128) выполняются в течение 2–2.5 с, а не по фиксированному числу запросов, поэтому исчезла искусственная просадка на 64 соединениях.
-* Латентность, keep-alive и HTTP-parsing собирают тысячи семплов; агрегатор выводит IQR и количество замеров, а результаты автоматически коммитятся в `BENCHMARK_RESULTS.md`.
-* Прогон 08.11 в 17:00 MSK дал p99=1.09 мс, 8-поточный throughput 7.2k req/s и стабильный хвост (p999=7.40 мс) на локальном стенде.
+* Each scenario uses a warmup phase and a fixed measurement window (`steady_clock`), so results can be compared across machines.
+* The client reads responses to completion: it parses headers, checks `Content-Length`, reuses keep-alive, and recreates the socket on any error.
+* Percentiles are computed from a sorted array with linear interpolation, which avoids the p95=p99=p999 "steps".
+* Scaling tests (threads and fan-out 32/64/128) run for 2-2.5 s rather than a fixed request count, which removed the artificial dip at 64 connections.
+* Latency, keep-alive, and HTTP-parsing collect thousands of samples; the aggregator reports IQR and sample count, and results are committed automatically to `BENCHMARK_RESULTS.md`.
 
-Харнес запускается из `build/benchmark/simple_benchmark`, сервер — `build/hello_world_server`. Скрипт `benchmark.sh` по-прежнему доступен для wrk-профилей.
+Honest, reproducible numbers live in [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) and
+[comparisons/http_frameworks/RESULTS_2026-06-07.md](comparisons/http_frameworks/RESULTS_2026-06-07.md).
+KATANA leads on JSON compute workloads and is competitive with actix-web on a bare
+hello response. The harness runs from `build/benchmark/simple_benchmark`, and the
+server from `build/hello_world_server`. The `benchmark.sh` script is still available
+for wrk profiles.
 
 ---
 
-## Слои (логическая архитектура)
+## Layers (logical architecture)
 
 ### 1. katana/core (Runtime)
 
-**Reactor-per-core**: каждое CPU core получает независимый event loop (собственный epoll-based reactor).
+**Reactor-per-core**: each CPU core gets an independent event loop (epoll- or io_uring-based reactor).
 
-**Complete Isolation**: каждый reactor имеет собственное состояние без shared data — это обеспечивает корректность и отсутствие гонок.
+**Complete Isolation**: each reactor has its own state with no shared data — this guarantees correctness and freedom from races.
 
-**Thread Pinning (Optional)**: опциональная оптимизация производительности для улучшения CPU cache locality и NUMA-aware размещения. Не требуется для корректности работы.
+**Thread Pinning (Optional)**: an optional performance optimization to improve CPU cache locality and NUMA-aware placement. Not required for correctness.
 
-**Scheduler**: планировщик задач, lock-free MPSC очереди для межпоточной коммуникации (если требуется).
+**Scheduler**: task scheduler, lock-free MPSC queues for cross-thread communication (when needed).
 
-**Event Loop**: Edge-triggered epoll, vectored I/O (readv/writev), поддержка EPOLLONESHOT.
+**Event Loop**: edge-triggered epoll and an io_uring reactor, vectored I/O (readv/writev), EPOLLONESHOT support.
 
-**Allocators**: arena-per-request (std::pmr::monotonic_buffer_resource), zero-copy где возможно.
+**Allocators**: arena-per-request (std::pmr::monotonic_buffer_resource), zero-copy where possible.
 
-**Timers/Clock**: монотонные таймеры, wheel-timers (512 слотов, гранулярность 100ms) с плотными хэндлами, поколениями и строгой синхронизацией по `steady_clock`. Коллбэки исполняются только при фактическом продвижении времени, отмена идемпотентна.
-**Timeout API**: единый helper управляет дедлайнами (автосброс, chunk-sleep), хранит state активности на файловых дескрипторах и используется в реакторе/бенчмарках.
+**Timers/Clock**: monotonic timers, wheel-timers (512 slots, 100ms granularity) with dense handles, generations, and strict synchronization against `steady_clock`. Callbacks run only when time actually advances; cancellation is idempotent.
+**Timeout API**: a single helper manages deadlines (auto-reset, chunk-sleep), keeps activity state on file descriptors, and is used in the reactor and benchmarks.
 
-**Safety**: строгий RAII, std::expected для ошибок, запрет сырого `new`/`delete`.
+**Safety**: strict RAII, std::expected for errors, no raw `new`/`delete`.
 
-**Примечание**: Этапы 1-3 используют собственную реализацию. Будущие этапы могут опционально интегрировать Asio/корутины.
+**Note**: stages 1-3 use the custom implementation. Future stages may optionally integrate Asio/coroutines.
 
 ### 2. katana/net
 
-**Connect/Accept**: TCP/TLS, UDP/QUIC (опционально), DNS-resolve.
+**Connect/Accept**: TCP/TLS, UDP/QUIC (optional), DNS resolution.
 
-**Backpressure**: ограничение in-flight запросов, ручки flow-control.
+**Backpressure**: limit on in-flight requests, flow-control handles.
 
-**Zero-copy**: буфера как `asio::const_buffer`/`mutable_buffer`, реюз через пулы.
+**Zero-copy**: buffers as `asio::const_buffer`/`mutable_buffer`, reused through pools.
 
 ### 3. katana/http
 
-**Server**: Собственный HTTP/1.1 парсер с chunked encoding, keep-alive, лимитами безопасности.
+**Server**: custom HTTP/1.1 parser with chunked encoding, keep-alive, and security limits.
 
-**Parser**: Zero-copy парсинг, строгое соответствие RFC 7230, настраиваемые лимиты размеров.
+**Parser**: zero-copy parsing, strict RFC 7230 compliance, configurable size limits.
 
-**Serializer**: Поддержка Content-Length и chunked transfer encoding.
+**Serializer**: support for Content-Length and chunked transfer encoding.
 
 **Error Mapping**: std::expected → Problem Details (RFC 7807).
 
-**Router**: (этап 2+) таблица маршрутов из OpenAPI, статическая диспетчеризация.
+**Router**: compile-time route table, static dispatch, content negotiation (415/406).
 
-**Middleware**: (этап 3+) логирование, аутентификация, rate-limit, CORS, трейсинг.
+**Middleware**: middleware chain (logging, authentication, rate-limit, CORS, tracing).
 
-**HTTP/2**: (этап 7+) через nghttp2 или собственную реализацию.
+**HTTP/2**: (stage 7+) via nghttp2 or a custom implementation.
 
 ### 4. katana/sql
 
-**Drivers**: PostgreSQL/SQLite, неблокирующие операции через worker-pool (per-core connection pools).
+**Drivers**: PostgreSQL via libpq with prepared statements, non-blocking operations via a per-core connection pool.
 
-**Codegen**: `sql/*.sql` → Repo/DTO/RowMapper (compile-time/constexpr генерация где возможно).
+**Codegen**: `sql/*.sql` (`:one`/`:many`/`:exec`) → typed repositories/DTO/RowMapper, including PostgreSQL arrays and bulk UNNEST inserts.
 
-**Transactions**: scoped транзакции (RAII), retry-policy, idempotency keys.
+**Transactions**: scoped transactions (RAII), retry policy, idempotency keys.
 
-**Migrations**: встроенный runner, версионирование, checksum.
+**Migrations**: built-in runner, versioning, checksum.
 
 ### 5. katana/cache
 
-**Redis**: per-core connection pools, TTL-кэш, write-behind/write-through опционально.
+**Redis**: per-core connection pools, TTL cache, write-behind/write-through optional.
 
-**Local Cache**: lock-free LRU/LFU (folly-подобный), шардирование по core.
+**Local Cache**: lock-free LRU/LFU (folly-like), sharded per core.
 
 ### 6. katana/config
 
-**Sources**: файл, env, CLI; merge-стратегия, schema-валидация.
+**Sources**: file, env, CLI; merge strategy, schema validation.
 
-**Hot reload**: сигнал + валидированная пересборка runtime-конфигов.
+**Hot reload**: signal + validated rebuild of runtime configs.
 
 ### 7. katana/tracing + metrics + logging
 
-**Tracing**: OpenTelemetry (spans вокруг handler'ов), propagate trace_id via headers.
+**Tracing**: OpenTelemetry (spans around handlers), propagate trace_id via headers.
 
-**Metrics**: Prometheus endpoint `/metrics`; системные (CPU, RSS), сетевые (accepts, RPS), latency (p50/p95/p99), ошибки по классам.
+**Metrics**: Prometheus endpoint `/metrics`; system (CPU, RSS), network (accepts, RPS), latency (p50/p95/p99), errors by class.
 
-**Logging**: структурный, корреляция по trace_id/span_id, уровни/сэмплинг.
+**Logging**: structured, correlated by trace_id/span_id, levels/sampling.
 
 ### 8. katana/security
 
-**TLS**: контекст, ключи, ciphers, OCSP stapling (при необходимости).
+**TLS**: context, keys, ciphers, OCSP stapling (when needed).
 
-**AuthN/AuthZ**: JWT verify, роли/правила (RBAC/ABAC), политики как middleware.
+**AuthN/AuthZ**: JWT verify, roles/rules (RBAC/ABAC), policies as middleware.
 
 ---
 
-## Кодогенерация (OpenAPI/SQL → код)
+## Code generation (OpenAPI/SQL → code)
 
-### OpenAPI (Реализовано)
+### OpenAPI (Implemented)
 
-**katana_gen** — инструмент для генерации C++ кода из OpenAPI 3.0 спецификаций.
+**katana_gen** — a tool to generate C++ code from OpenAPI 3.0 specifications.
 
-**Поддерживаемые фичи OpenAPI**:
-- Парсинг JSON и YAML спецификаций
-- Разрешение `$ref` ссылок на schemas (`#/components/schemas/...`)
-- Слияние `allOf` композиций с проверкой конфликтов
-- Валидация спецификаций (дубликаты operationId, некорректные HTTP коды)
-- Обнаружение циклических зависимостей в `$ref`
+**Supported OpenAPI features**:
+- Parsing JSON and YAML specifications, including both block and inline flow style
+  (e.g. `- { name: x, in: query, schema: {...} }`). Anchors/tags are not supported,
+  and duplicate keys are an error.
+- Resolving `$ref` references to schemas (`#/components/schemas/...`)
+- Merging `allOf` compositions with conflict checks
+- Spec validation (duplicate operationId, invalid HTTP codes)
+- Detecting circular dependencies in `$ref`
 
-**Генерируемые артефакты**:
+**Generated artifacts**:
 
 1. **DTOs** (`generated_dtos.hpp`):
-   - Структуры для всех schemas с arena allocators (pmr)
-   - Поддержка примитивов: string, integer, number, boolean, array, object
-   - Required/optional поля
+   - Structs for all schemas with arena allocators (pmr)
+   - Support for primitives: string, integer, number, boolean, array, object
+   - Required/optional fields
+   - Enums
 
 2. **Validators** (`generated_validators.hpp`):
-   - Функции `validate_<Schema>()` для каждой схемы
-   - Проверка constraints:
+   - `validate_<Schema>()` functions for each schema
+   - Constraint checks:
      - String: minLength, maxLength, pattern, enum
      - Number: minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf
      - Array: minItems, maxItems, uniqueItems
-   - Возврат `std::optional<ValidationError>` с field + message
+   - Returns `std::optional<ValidationError>` with field + message
 
 3. **JSON Parsers/Serializers** (`generated_json.hpp`):
-   - `parse_<Schema>()` — zero-copy парсинг JSON → DTO
-   - `serialize_<Schema>()` — сериализация DTO → JSON string
-   - Поддержка escape sequences для строк
+   - `parse_<Schema>()` — zero-copy parsing JSON → DTO
+   - `serialize_<Schema>()` — serialize DTO → JSON string
+   - Support for string escape sequences
 
 4. **Route Table** (`generated_routes.hpp`):
-   - Таблица роутов с path, method, operationId
+   - Constexpr route table with path, method, operationId
    - Content negotiation info: consumes (Content-Type), produces (Accept)
-   - Константная таблица для O(1) lookup
+   - Constant table for O(1) lookup
 
 5. **Handlers + Bindings** (`generated_handlers.hpp`, `generated_router_bindings.hpp`):
-   - Типизированные сигнатуры с optional для необязательных параметров
-   - Glue для разбора path/query/header/cookie, Content-Type/Accept negotiation
-   - Парсинг тела запроса по согласованному media type
+   - Typed signatures with optional for non-required parameters
+   - Glue for parsing path/query/header/cookie, Content-Type/Accept negotiation
+   - Typed path/query/body parameter binding by the negotiated media type
 
-**Команда**:
+**Command**:
 
 ```bash
 ./katana_gen openapi -i api/openapi.yaml -o gen/ --emit all
@@ -283,187 +291,196 @@ KATANA/
 ./katana_gen openapi -i api/openapi.yaml -o gen/ --emit router --dump-ast
 ```
 
-**Опции**:
+**Options**:
 - `--emit <targets>`: dto, validator, serdes, router, all
-- `--alloc <type>`: pmr (arena), std (стандартный аллокатор)
+- `--alloc <type>`: pmr (arena), std (standard allocator)
 - `--strict`: fail on any validation error
-- `--dump-ast`: сохранить AST summary в JSON
+- `--dump-ast`: save AST summary to JSON
 
-### SQL (Планируется)
+### SQL (Implemented)
 
-**Генерируем**: модели, маппинг строк, репозитории, типобезопасные параметры.
+SQL-first codegen reads `.sql` files annotated with `:one`/`:many`/`:exec` and
+generates models, row mapping, and type-safe repositories with typed parameters.
+It supports PostgreSQL arrays and bulk inserts via UNNEST. The runtime uses libpq
+with prepared statements, a connection pool, and transactions.
 
-### Границы
+### Boundaries
 
-Весь генерируемый код уходит в выходную директорию (`-o`), **не редактируется вручную**; ручной код — в `src/`.
-
----
-
-## Пайплайн обработки запроса (типовой)
-
-### Этап 1 (текущий)
-
-1. **Accept соединения** → Edge-triggered epoll → регистрация FD с таймаутами
-2. **HTTP parse**: Собственный инкрементальный парсер → объект Request с arena allocation
-3. **Handler**: Синхронный обработчик → генерация Response
-4. **Сериализация ответа**: HTTP/1.1 сериализатор → Vectored I/O запись
-5. **Keep-alive**: Переиспользование соединения или graceful close
-6. **Метрики**: Атомарные счетчики (tasks, events, timers, exceptions)
-
-### Этап 2+ (запланировано)
-
-1. **Accept соединения** → HTTP parse → **Router dispatch** (из OpenAPI)
-2. **Middleware chain**: трейсинг → аутентификация → rate-limit → и т.д.
-3. **Handler** (опционально `co_await`): валидация → бизнес-логика → SQL/Cache вызовы
-4. **Сериализация ответа**, запись в сокет
-5. **Метрики**: p50/p95/p99 гистограммы; **Трейсинг**: OpenTelemetry spans
+All generated code goes to the output directory (`-o`), **not edited by hand**; hand-written code lives in `src/`.
 
 ---
 
-## Стандарты кода и «без unsafe»
+## Request processing pipeline (typical)
+
+### Stage 1 (current)
+
+1. **Accept connection** → edge-triggered epoll → register FD with timeouts
+2. **HTTP parse**: custom incremental parser → Request object with arena allocation
+3. **Handler**: synchronous handler → generate Response
+4. **Response serialization**: HTTP/1.1 serializer → vectored I/O write
+5. **Keep-alive**: reuse the connection or graceful close
+6. **Metrics**: atomic counters (tasks, events, timers, exceptions)
+
+### Stage 2+ (planned)
+
+1. **Accept connection** → HTTP parse → **Router dispatch** (from OpenAPI)
+2. **Middleware chain**: tracing → authentication → rate-limit → etc.
+3. **Handler** (optionally `co_await`): validation → business logic → SQL/Cache calls
+4. **Response serialization**, write to socket
+5. **Metrics**: p50/p95/p99 histograms; **Tracing**: OpenTelemetry spans
+
+---
+
+## Code standards and "no unsafe"
 
 ### RAII only
 
-Ресурсы оборачиваются в типы с детерминированным временем жизни.
+Resources are wrapped in types with deterministic lifetimes.
 
-### Запрет сырого `new`/`delete`
+### No raw `new`/`delete`
 
-Проверка через clang-tidy check + grep в CI.
+Enforced via a clang-tidy check + grep in CI.
 
-### Нулевые указатели
+### Null pointers
 
-`gsl::not_null`, `std::optional`/`tl::optional` вместо сырых nullable-указателей.
+`gsl::not_null`, `std::optional`/`tl::optional` instead of raw nullable pointers.
 
-### Границы
+### Boundaries
 
-`std::span` для буферов/вьюшек, явные `string_view`.
+`std::span` for buffers/views, explicit `string_view`.
 
-### Касты
+### Casts
 
-`narrow`/`narrow_cast` (GSL) вместо C-style cast.
+`narrow`/`narrow_cast` (GSL) instead of C-style casts.
 
-### Конкурентность
+### Concurrency
 
-Никакого «общего» mutable-состояния, шардирование per-core, lock-free структуры — только обоснованно.
+No "shared" mutable state, per-core sharding, lock-free structures — only when justified.
 
-### Исключения
+### Exceptions
 
-В бизнес-слое — `expected`/`Outcome`; в инфраструктуре — допускаются, но обязателен mapping + `noexcept`-гарантии на границах.
+In the business layer — `expected`/`Outcome`; in infrastructure — allowed, but mapping and `noexcept` guarantees at boundaries are mandatory.
 
-### Сборка
+### Build
 
 ```
 -Wall -Wextra -Werror -Wconversion -Wshadow -Wpedantic
 ```
 
-LTO (Link-Time Optimization) в релизе.
+LTO (Link-Time Optimization) in release.
+
+On GCC 15 / CMake 3.31, configure with `-DCMAKE_CXX_SCAN_FOR_MODULES=OFF`: the
+project uses no C++20 modules and CMake's module scanning is broken with that
+toolchain.
 
 ### ABI/visibility
 
-Скрывать символы по умолчанию (`visibility=hidden`), экспорт — явно.
+Hide symbols by default (`visibility=hidden`), export explicitly.
 
 ---
 
-## Память и аллокации
+## Memory and allocations
 
 ### Arena-per-request
 
-Всё, относящееся к запросу, выделяется из арены и освобождается одной операцией.
+Everything tied to a request is allocated from the arena and freed in a single operation.
 
 ### Monotonic allocator
 
-Фиксированные блоки, reset после завершения запроса.
+Fixed blocks, reset after the request completes.
 
 ### std::pmr
 
-Использование `std::pmr::memory_resource` для кастомизации аллокатора.
+Use of `std::pmr::memory_resource` to customize the allocator.
 
-### Режимы
+### Modes
 
-- `arena` (по умолчанию)
-- `std::pmr` с настраиваемой `memory_resource`
-- стандартный `new`/`delete` (флаг `--no-arena` в dev)
-
----
-
-## Конкурентность и изоляция
-
-### Reactor-per-core с полной изоляцией
-
-Каждое ядро CPU получает независимый event loop **без shared state в data-plane между реакторами** (shared остаются только сервисные счётчики для shutdown/выдачи thread id).
-
-**Гарантии изоляции**:
-- Нет глобальных mutable переменных в data-plane; остаются только сервисные shared-счётчики (shutdown, выдача thread id) в control-plane
-- Никаких mutex/locks в critical path
-- Никаких race conditions на состоянии запроса
-- Каждый reactor — самодостаточная единица обработки
-
-### Per-core ресурсы
-
-Соединения к БД, Redis, кэш, arena allocators — всё изолировано per-core:
-- **DB connection pool**: каждый reactor владеет своими соединениями
-- **Cache**: локальный кэш без синхронизации между cores
-- **Arena allocators**: независимые аллокаторы без contention
-
-### Нет handoff между потоками
-
-Запрос обрабатывается от начала до конца на одном ядре — это ключевое архитектурное свойство, обеспечивающее:
-- Отсутствие межпоточных гонок
-- Предсказуемые задержки (нет ожидания на locks)
-- CPU cache locality (L1/L2 остаются горячими)
-
-### Thread pinning — опциональная оптимизация
-
-**Корректность НЕ зависит от pinning**: изоляция реакторов гарантирует отсутствие race conditions независимо от того, мигрирует поток между ядрами или нет.
-
-**Pinning как оптимизация**:
-- Улучшает CPU cache locality (снижает L1/L2 invalidation)
-- Важно для NUMA-систем (multi-socket серверы)
-- Стабилизирует tail latencies (p99/p999)
-
-**Когда использовать**:
-- Production deployments с строгими latency SLA
-- Multi-socket NUMA системы
-- Высоконагруженные сценарии
-
-**Когда не использовать**:
-- Development окружения (`--no-pin` флаг)
-- Платформы без `sched_setaffinity` (macOS, Windows требуют других API)
-- Контейнеризованные окружения (affinity управляется снаружи)
+- `arena` (default)
+- `std::pmr` with a configurable `memory_resource`
+- standard `new`/`delete` (`--no-arena` flag in dev)
 
 ---
 
-## Тестирование
+## Concurrency and isolation
 
-### Unit-тесты
+### Reactor-per-core with full isolation
 
-GoogleTest для компонентов, моки для внешних зависимостей.
+Each CPU core gets an independent event loop **with no shared state in the data-plane between reactors** (only service counters for shutdown/thread-id assignment remain shared).
 
-### Integration-тесты
+**Isolation guarantees**:
+- No global mutable variables in the data-plane; only service shared counters (shutdown, thread-id assignment) remain in the control-plane
+- No mutexes/locks in the critical path
+- No race conditions on request state
+- Each reactor is a self-contained processing unit
 
-Testcontainers (PostgreSQL, Redis), реальные зависимости.
+### Per-core resources
 
-### Property-based тесты
+DB connections, Redis, cache, arena allocators — all isolated per core:
+- **DB connection pool**: each reactor owns its own connections
+- **Cache**: local cache with no synchronization between cores
+- **Arena allocators**: independent allocators with no contention
 
-RapidCheck для валидаторов, сериализаторов.
+### No handoff between threads
+
+A request is processed start to finish on one core — this key architectural property provides:
+- No cross-thread races
+- Predictable latencies (no waiting on locks)
+- CPU cache locality (L1/L2 stay hot)
+
+### Thread pinning — an optional optimization
+
+**Correctness does NOT depend on pinning**: reactor isolation guarantees no race conditions regardless of whether a thread migrates between cores.
+
+**Pinning as an optimization**:
+- Improves CPU cache locality (reduces L1/L2 invalidation)
+- Important for NUMA systems (multi-socket servers)
+- Stabilizes tail latencies (p99/p999)
+
+**When to use**:
+- Production deployments with strict latency SLAs
+- Multi-socket NUMA systems
+- High-load scenarios
+
+**When not to use**:
+- Development environments (`--no-pin` flag)
+- Platforms without `sched_setaffinity` (macOS, Windows require different APIs)
+- Containerized environments (affinity managed externally)
+
+---
+
+## Testing
+
+### Unit tests
+
+GoogleTest for components, mocks for external dependencies.
+
+### Integration tests
+
+Testcontainers (PostgreSQL, Redis), real dependencies.
+
+### Property-based tests
+
+RapidCheck for validators and serializers.
 
 ### Fuzzing
 
-libFuzzer для HTTP-парсера, входных данных.
+libFuzzer for the HTTP parser and input data.
 
-### E2E тесты
+### E2E tests
 
-Автогенерация из OpenAPI, проверка контрактов.
+Auto-generated from OpenAPI, contract checks.
 
-### Performance-budget
+### Performance budget
 
-Регрессия p99 > 10% → fail сборки.
+p99 regression > 10% → build fails.
+
+The current suite (unit, integration, fuzz, conformance) is green.
 
 ---
 
 ## Observability
 
-### Метрики (Prometheus)
+### Metrics (Prometheus)
 
 - HTTP: `http_requests_total`, `http_request_duration_seconds`
 - SQL: `db_query_duration_seconds`, `db_connections_active`
@@ -471,22 +488,22 @@ libFuzzer для HTTP-парсера, входных данных.
 - System: CPU per-core, memory, arena usage
 - Backpressure: `reactor_queue_length`, `reactor_processing_delay`
 
-### Трейсинг (OpenTelemetry)
+### Tracing (OpenTelemetry)
 
-- Span на каждый HTTP-запрос
-- Span на SQL-запросы (с query text)
-- Span на Redis-операции
+- Span per HTTP request
+- Span per SQL query (with query text)
+- Span per Redis operation
 - W3C Trace Context propagation
 
-### Логирование (structured JSON)
+### Logging (structured JSON)
 
-- Формат: timestamp, level, message, trace_id, span_id
-- Контекстные поля: request_id, user_id, endpoint
-- Уровни: DEBUG, INFO, WARN, ERROR
+- Format: timestamp, level, message, trace_id, span_id
+- Context fields: request_id, user_id, endpoint
+- Levels: DEBUG, INFO, WARN, ERROR
 
 ---
 
-## Безопасность
+## Security
 
 ### TLS
 
@@ -494,19 +511,19 @@ BoringSSL/OpenSSL, kTLS offload (Linux), OCSP stapling.
 
 ### JWT
 
-jwt-cpp для валидации токенов.
+jwt-cpp for token validation.
 
 ### RBAC/ABAC
 
-Политики как middleware, декларативное описание прав.
+Policies as middleware, declarative permission definitions.
 
-### Защита от инъекций
+### Injection protection
 
-Только prepared statements, запрет строковых конкатенаций SQL.
+Prepared statements only, no string concatenation for SQL.
 
-### Лимиты
+### Limits
 
-Размер заголовков/body, таймауты, rate limiting.
+Header/body size, timeouts, rate limiting.
 
 ---
 
@@ -514,21 +531,21 @@ jwt-cpp для валидации токенов.
 
 ### Hot-reload
 
-Пересборка только изменённых контроллеров, динамическая загрузка `.so`.
+Rebuild only changed controllers, dynamic loading of `.so`.
 
-### Быстрая сборка
+### Fast builds
 
 clang + lld, ccache, precompiled headers.
 
-### Автоподнятие зависимостей
+### Automatic dependency spin-up
 
-Docker Compose с PostgreSQL, Redis, Prometheus, Grafana, Jaeger.
+Docker Compose with PostgreSQL, Redis, Prometheus, Grafana, Jaeger.
 
-### Моки
+### Mocks
 
-`--mock-db`, `--mock-cache` для разработки без внешних зависимостей.
+`--mock-db`, `--mock-cache` for development without external dependencies.
 
-### Debug режим
+### Debug mode
 
 `--no-arena`, `--no-pin`, AddressSanitizer.
 
@@ -536,26 +553,29 @@ Docker Compose с PostgreSQL, Redis, Prometheus, Grafana, Jaeger.
 
 ## Production
 
-### Профили
+### Profiles
 
 `dev`, `staging`, `prod`, `prod-high-throughput`, `prod-low-latency`
 
-### Настройки
+### Settings
 
-Число реакторов, размеры пулов, TTL кэша, TCP параметры.
+Number of reactors, pool sizes, cache TTL, TCP parameters.
 
 ### Deployment
 
 Dockerfile (multi-stage), Kubernetes manifests, health checks.
 
-### Мониторинг
+### Monitoring
 
-Алерты на p99 degradation, error rate spike, connection pool exhaustion.
+Alerts on p99 degradation, error rate spike, connection pool exhaustion.
 
 ---
 
-## Ссылки
+## Links
 
-- [README.md](README.md) — обзор фреймворка, быстрый старт
-- `/docs/RFCs` — спецификации Core/Codegen/Lint
-- `/docs/Conformance` — тесты на соответствие стандартам
+- [README.md](README.md) — framework overview, quick start
+- [ROADMAP.md](ROADMAP.md) — authoritative implementation status
+- [docs/WRITING_AN_APP.md](docs/WRITING_AN_APP.md) — build-your-own-app guide
+- [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) — reproducible benchmark numbers
+- `/docs/RFCs` — Core/Codegen/Lint specifications
+- `/docs/Conformance` — standards conformance tests
