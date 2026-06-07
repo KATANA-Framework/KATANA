@@ -5,6 +5,7 @@
 #include "katana/core/fd_watch.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/reactor.hpp"
+#include "katana/sql/error.hpp"
 
 #include <libpq-fe.h>
 
@@ -69,7 +70,18 @@ void maybe_debug_log(std::string_view message) {
 }
 
 std::error_code sql_error() {
-    return std::make_error_code(std::errc::io_error);
+    return make_error_code(errc::query_failed);
+}
+
+// Map the SQLSTATE on a failed PGresult to a typed katana::sql error code so callers can
+// distinguish retryable failures (serialization/deadlock) from permanent ones.
+std::error_code sql_error_from_result(PGresult* result) {
+    if (result != nullptr) {
+        if (const char* sqlstate = PQresultErrorField(result, PG_DIAG_SQLSTATE)) {
+            return make_error_code(errc_from_sqlstate(sqlstate));
+        }
+    }
+    return make_error_code(errc::query_failed);
 }
 
 void record_error_message(std::string& target, std::string message) {
@@ -248,8 +260,9 @@ katana::result<const char*> ensure_prepared_impl(PGconn*& connection,
     const auto status = PQresultStatus(result);
     if (status != PGRES_COMMAND_OK) {
         record_error_message(error, PQresultErrorMessage(result));
+        auto sql_ec = sql_error_from_result(result);
         PQclear(result);
-        return std::unexpected(sql_error());
+        return std::unexpected(sql_ec);
     }
 
     PQclear(result);
@@ -273,8 +286,9 @@ katana::result<rows> execute_query_impl(PGconn* connection,
     const auto status = PQresultStatus(result);
     if (status != PGRES_TUPLES_OK) {
         record_error_message(error, PQresultErrorMessage(result));
+        auto sql_ec = sql_error_from_result(result);
         PQclear(result);
-        return std::unexpected(sql_error());
+        return std::unexpected(sql_ec);
     }
 
     auto out_rows = read_rows(result);
@@ -298,8 +312,9 @@ katana::result<exec_result> execute_exec_impl(PGconn* connection,
     const auto status = PQresultStatus(result);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
         record_error_message(error, PQresultErrorMessage(result));
+        auto sql_ec = sql_error_from_result(result);
         PQclear(result);
-        return std::unexpected(sql_error());
+        return std::unexpected(sql_ec);
     }
 
     exec_result out;
@@ -333,8 +348,9 @@ katana::result<void> execute_query_each_impl(PGconn* connection,
     const auto status = PQresultStatus(result);
     if (status != PGRES_TUPLES_OK) {
         record_error_message(error, PQresultErrorMessage(result));
+        auto sql_ec = sql_error_from_result(result);
         PQclear(result);
-        return std::unexpected(sql_error());
+        return std::unexpected(sql_ec);
     }
 
     const int tuple_count = PQntuples(result);
@@ -382,8 +398,9 @@ katana::result<void> run_simple_impl(PGconn*& connection,
     const auto status = PQresultStatus(result);
     if (status != PGRES_COMMAND_OK) {
         record_error_message(error, PQresultErrorMessage(result));
+        auto sql_ec = sql_error_from_result(result);
         PQclear(result);
-        return std::unexpected(sql_error());
+        return std::unexpected(sql_ec);
     }
 
     PQclear(result);
@@ -779,7 +796,8 @@ std::optional<reactor_request_completion> poll_reactor_request_locked(reactor_as
                 if (status != PGRES_TUPLES_OK) {
                     record_error_message(state.last_error,
                                          PQresultErrorMessage(result_holder.get()));
-                    completion.query_result = std::unexpected(sql_error());
+                    completion.query_result =
+                        std::unexpected(sql_error_from_result(result_holder.get()));
                     close_reactor_async_connection(state);
                 } else {
                     completion.query_result = read_rows(result_holder.get());
@@ -789,7 +807,8 @@ std::optional<reactor_request_completion> poll_reactor_request_locked(reactor_as
                 if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
                     record_error_message(state.last_error,
                                          PQresultErrorMessage(result_holder.get()));
-                    completion.exec_result_value = std::unexpected(sql_error());
+                    completion.exec_result_value =
+                        std::unexpected(sql_error_from_result(result_holder.get()));
                     close_reactor_async_connection(state);
                 } else {
                     exec_result out;

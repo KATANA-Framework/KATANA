@@ -562,6 +562,9 @@ inline std::string serialize_text_transform_response_array(const arena_vector<te
 // serialize text_uppercase_request — object, 1 field(s)  ← api.yaml:18
 inline void serialize_text_uppercase_request_into(const text_uppercase_request& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"text\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.text, json);
@@ -581,6 +584,10 @@ inline std::string serialize_text_uppercase_request(const text_uppercase_request
 // serialize text_uppercase_response — object, 1 field(s)  ← api.yaml:31
 inline void serialize_text_uppercase_response_into(const text_uppercase_response& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.result) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"result\":");
     if (obj.result) {
         json.push_back('"');
@@ -588,6 +595,7 @@ inline void serialize_text_uppercase_response_into(const text_uppercase_response
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -604,6 +612,9 @@ inline std::string serialize_text_uppercase_response(const text_uppercase_respon
 // serialize text_lowercase_request — object, 1 field(s)  ← api.yaml:45
 inline void serialize_text_lowercase_request_into(const text_lowercase_request& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"text\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.text, json);
@@ -623,6 +634,10 @@ inline std::string serialize_text_lowercase_request(const text_lowercase_request
 // serialize text_lowercase_response — object, 1 field(s)  ← api.yaml:58
 inline void serialize_text_lowercase_response_into(const text_lowercase_response& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.result) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"result\":");
     if (obj.result) {
         json.push_back('"');
@@ -630,6 +645,7 @@ inline void serialize_text_lowercase_response_into(const text_lowercase_response
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -646,6 +662,9 @@ inline std::string serialize_text_lowercase_response(const text_lowercase_respon
 // serialize text_reverse_request — object, 1 field(s)  ← api.yaml:72
 inline void serialize_text_reverse_request_into(const text_reverse_request& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"text\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.text, json);
@@ -665,6 +684,10 @@ inline std::string serialize_text_reverse_request(const text_reverse_request& ob
 // serialize text_reverse_response — object, 1 field(s)  ← api.yaml:85
 inline void serialize_text_reverse_response_into(const text_reverse_response& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.result) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"result\":");
     if (obj.result) {
         json.push_back('"');
@@ -672,6 +695,7 @@ inline void serialize_text_reverse_response_into(const text_reverse_response& ob
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -688,6 +712,9 @@ inline std::string serialize_text_reverse_response(const text_reverse_response& 
 // serialize text_stats_request — object, 1 field(s)  ← api.yaml:100
 inline void serialize_text_stats_request_into(const text_stats_request& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"text\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.text, json);
@@ -707,6 +734,10 @@ inline std::string serialize_text_stats_request(const text_stats_request& obj) {
 // serialize text_stats_response — object, 3 field(s)  ← api.yaml:112
 inline void serialize_text_stats_response_into(const text_stats_response& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.chars) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"chars\":");
     {
         if (!obj.chars) {
@@ -717,7 +748,11 @@ inline void serialize_text_stats_response_into(const text_stats_response& obj, s
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"words\":");
+    }
+    if (obj.words) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"words\":");
     {
         if (!obj.words) {
             json.append("null");
@@ -727,7 +762,11 @@ inline void serialize_text_stats_response_into(const text_stats_response& obj, s
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"lines\":");
+    }
+    if (obj.lines) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"lines\":");
     {
         if (!obj.lines) {
             json.append("null");
@@ -736,6 +775,7 @@ inline void serialize_text_stats_response_into(const text_stats_response& obj, s
             auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *obj.lines);
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
+    }
     }
     json.push_back('}');
 }
@@ -751,19 +791,28 @@ inline std::string serialize_text_stats_response(const text_stats_response& obj)
 // serialize text_transform_request — object, 3 field(s)  ← api.yaml:134
 inline void serialize_text_transform_request_into(const text_transform_request& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"text\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.text, json);
     json.push_back('"');
-    json.append(",\"operation\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"operation\":");
     json.push_back('"');
     json.append(to_string(obj.operation));
     json.push_back('"');
-    json.append(",\"trim\":");
+    if (obj.trim) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"trim\":");
     if (!obj.trim) {
         json.append("null");
     } else {
         json.append(*obj.trim ? "true" : "false");
+    }
     }
     json.push_back('}');
 }
@@ -796,6 +845,10 @@ inline std::string serialize_text_transform_operation(const text_transform_opera
 // serialize text_transform_response — object, 3 field(s)  ← api.yaml:153
 inline void serialize_text_transform_response_into(const text_transform_response& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.original_length) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"original_length\":");
     {
         if (!obj.original_length) {
@@ -806,7 +859,11 @@ inline void serialize_text_transform_response_into(const text_transform_response
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"result\":");
+    }
+    if (obj.result) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"result\":");
     if (obj.result) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.result, json);
@@ -814,13 +871,18 @@ inline void serialize_text_transform_response_into(const text_transform_response
     } else {
         json.append("null");
     }
-    json.append(",\"operation_applied\":");
+    }
+    if (obj.operation_applied) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"operation_applied\":");
     if (obj.operation_applied) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.operation_applied, json);
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }

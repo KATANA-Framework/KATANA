@@ -1060,17 +1060,25 @@ inline std::string serialize_listTasks_param_status_array(const arena_vector<lis
 // serialize Task — object, 11 field(s)  ← api.yaml:206
 inline void serialize_Task_into(const Task& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"id\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.id);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"title\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"title\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.title, json);
     json.push_back('"');
-    json.append(",\"description\":");
+    if (obj.description) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"description\":");
     if (obj.description) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.description, json);
@@ -1078,17 +1086,25 @@ inline void serialize_Task_into(const Task& obj, std::string& json) {
     } else {
         json.append("null");
     }
-    json.append(",\"status\":");
+    }
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"status\":");
     json.push_back('"');
     json.append(to_string(obj.status));
     json.push_back('"');
-    json.append(",\"priority\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"priority\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.priority);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"tags\":");
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1101,13 +1117,21 @@ inline void serialize_Task_into(const Task& obj, std::string& json) {
     }
     json.push_back(']');
     }
-    json.append(",\"assignee\":");
+    }
+    if (obj.assignee) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"assignee\":");
     if (obj.assignee) {
         serialize_User_into(*obj.assignee, json);
     } else {
         json.append("null");
     }
-    json.append(",\"due_date\":");
+    }
+    if (obj.due_date) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"due_date\":");
     if (obj.due_date) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.due_date, json);
@@ -1115,11 +1139,17 @@ inline void serialize_Task_into(const Task& obj, std::string& json) {
     } else {
         json.append("null");
     }
-    json.append(",\"created_at\":");
+    }
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"created_at\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.created_at, json);
     json.push_back('"');
-    json.append(",\"updated_at\":");
+    if (obj.updated_at) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"updated_at\":");
     if (obj.updated_at) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.updated_at, json);
@@ -1127,11 +1157,16 @@ inline void serialize_Task_into(const Task& obj, std::string& json) {
     } else {
         json.append("null");
     }
-    json.append(",\"metadata\":");
+    }
+    if (obj.metadata) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"metadata\":");
     if (obj.metadata) {
         serialize_Task_Metadata_t_into(*obj.metadata, json);
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -1180,23 +1215,32 @@ inline std::string serialize_Task_Metadata_t(const Task_Metadata_t& obj) {
 // serialize User — object, 3 field(s)  ← api.yaml:258
 inline void serialize_User_into(const User& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"id\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.id);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"email\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"email\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.email, json);
     json.push_back('"');
-    json.append(",\"name\":");
+    if (obj.name) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"name\":");
     if (obj.name) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.name, json);
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -1214,11 +1258,17 @@ inline std::string serialize_User(const User& obj) {
 // serialize CreateTaskRequest — object, 6 field(s)  ← api.yaml:278
 inline void serialize_CreateTaskRequest_into(const CreateTaskRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"title\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.title, json);
     json.push_back('"');
-    json.append(",\"description\":");
+    if (obj.description) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"description\":");
     if (obj.description) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.description, json);
@@ -1226,13 +1276,19 @@ inline void serialize_CreateTaskRequest_into(const CreateTaskRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"priority\":");
+    }
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"priority\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.priority);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"tags\":");
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1245,7 +1301,11 @@ inline void serialize_CreateTaskRequest_into(const CreateTaskRequest& obj, std::
     }
     json.push_back(']');
     }
-    json.append(",\"assignee_id\":");
+    }
+    if (obj.assignee_id) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"assignee_id\":");
     {
         if (!obj.assignee_id) {
             json.append("null");
@@ -1255,13 +1315,18 @@ inline void serialize_CreateTaskRequest_into(const CreateTaskRequest& obj, std::
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"due_date\":");
+    }
+    if (obj.due_date) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"due_date\":");
     if (obj.due_date) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.due_date, json);
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -1281,6 +1346,10 @@ inline std::string serialize_CreateTaskRequest(const CreateTaskRequest& obj) {
 // serialize UpdateTaskRequest — object, 7 field(s)  ← api.yaml:313
 inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.title) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"title\":");
     if (obj.title) {
         json.push_back('"');
@@ -1289,7 +1358,11 @@ inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"description\":");
+    }
+    if (obj.description) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"description\":");
     if (obj.description) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.description, json);
@@ -1297,7 +1370,11 @@ inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"status\":");
+    }
+    if (obj.status) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"status\":");
     if (obj.status) {
         json.push_back('"');
         json.append(to_string(*obj.status));
@@ -1305,7 +1382,11 @@ inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"priority\":");
+    }
+    if (obj.priority) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"priority\":");
     {
         if (!obj.priority) {
             json.append("null");
@@ -1315,7 +1396,11 @@ inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"tags\":");
+    }
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1328,7 +1413,11 @@ inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::
     }
     json.push_back(']');
     }
-    json.append(",\"assignee_id\":");
+    }
+    if (obj.assignee_id) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"assignee_id\":");
     {
         if (!obj.assignee_id) {
             json.append("null");
@@ -1338,13 +1427,18 @@ inline void serialize_UpdateTaskRequest_into(const UpdateTaskRequest& obj, std::
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"due_date\":");
+    }
+    if (obj.due_date) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"due_date\":");
     if (obj.due_date) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.due_date, json);
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -1380,6 +1474,9 @@ inline std::string serialize_UpdateTaskRequest_Status_t(const UpdateTaskRequest_
 // serialize BatchCreateRequest — object, 1 field(s)  ← api.yaml:348
 inline void serialize_BatchCreateRequest_into(const BatchCreateRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"tasks\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.tasks.size(); ++i) {
@@ -1402,6 +1499,9 @@ inline std::string serialize_BatchCreateRequest(const BatchCreateRequest& obj) {
 // serialize BatchCreateResponse — object, 2 field(s)  ← api.yaml:360
 inline void serialize_BatchCreateResponse_into(const BatchCreateResponse& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"created\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.created.size(); ++i) {
@@ -1409,7 +1509,9 @@ inline void serialize_BatchCreateResponse_into(const BatchCreateResponse& obj, s
         serialize_Task_into(obj.created[i], json);
     }
     json.push_back(']');
-    json.append(",\"failed\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"failed\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.failed.size(); ++i) {
         if (i > 0) json.push_back(',');
@@ -1432,13 +1534,18 @@ inline std::string serialize_BatchCreateResponse(const BatchCreateResponse& obj)
 // serialize BatchCreateResponse_Item_t_1 — object, field BatchCreateResponse.item  ← api.yaml:372
 inline void serialize_BatchCreateResponse_Item_t_1_into(const BatchCreateResponse_Item_t_1& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"index\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.index);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"error\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"error\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.error, json);
     json.push_back('"');
@@ -1457,6 +1564,10 @@ inline std::string serialize_BatchCreateResponse_Item_t_1(const BatchCreateRespo
 // serialize SearchRequest — object, 8 field(s)  ← api.yaml:383
 inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.title_contains) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"title_contains\":");
     if (obj.title_contains) {
         json.push_back('"');
@@ -1465,7 +1576,11 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
     } else {
         json.append("null");
     }
-    json.append(",\"statuses\":");
+    }
+    if (obj.statuses) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"statuses\":");
     if (!obj.statuses) {
         json.append("null");
     } else {
@@ -1478,7 +1593,11 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
     }
     json.push_back(']');
     }
-    json.append(",\"min_priority\":");
+    }
+    if (obj.min_priority) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"min_priority\":");
     {
         if (!obj.min_priority) {
             json.append("null");
@@ -1488,7 +1607,11 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"max_priority\":");
+    }
+    if (obj.max_priority) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"max_priority\":");
     {
         if (!obj.max_priority) {
             json.append("null");
@@ -1498,7 +1621,11 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"tags\":");
+    }
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1511,7 +1638,11 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
     }
     json.push_back(']');
     }
-    json.append(",\"created_after\":");
+    }
+    if (obj.created_after) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"created_after\":");
     if (obj.created_after) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.created_after, json);
@@ -1519,7 +1650,11 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
     } else {
         json.append("null");
     }
-    json.append(",\"created_before\":");
+    }
+    if (obj.created_before) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"created_before\":");
     if (obj.created_before) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.created_before, json);
@@ -1527,11 +1662,16 @@ inline void serialize_SearchRequest_into(const SearchRequest& obj, std::string& 
     } else {
         json.append("null");
     }
-    json.append(",\"has_assignee\":");
+    }
+    if (obj.has_assignee) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"has_assignee\":");
     if (!obj.has_assignee) {
         json.append("null");
     } else {
         json.append(*obj.has_assignee ? "true" : "false");
+    }
     }
     json.push_back('}');
 }
@@ -1568,6 +1708,9 @@ inline std::string serialize_SearchRequest_Item_t(const SearchRequest_Item_t& ob
 // serialize TaskList — object, 3 field(s)  ← api.yaml:420
 inline void serialize_TaskList_into(const TaskList& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"tasks\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.tasks.size(); ++i) {
@@ -1575,17 +1718,23 @@ inline void serialize_TaskList_into(const TaskList& obj, std::string& json) {
         serialize_Task_into(obj.tasks[i], json);
     }
     json.push_back(']');
-    json.append(",\"total\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"total\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.total);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"has_more\":");
+    if (obj.has_more) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"has_more\":");
     if (!obj.has_more) {
         json.append("null");
     } else {
         json.append(*obj.has_more ? "true" : "false");
+    }
     }
     json.push_back('}');
 }
@@ -1602,15 +1751,23 @@ inline std::string serialize_TaskList(const TaskList& obj) {
 // serialize HealthResponse — object, 4 field(s)  ← api.yaml:436
 inline void serialize_HealthResponse_into(const HealthResponse& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"status\":");
     json.push_back('"');
     json.append(to_string(obj.status));
     json.push_back('"');
-    json.append(",\"timestamp\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"timestamp\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.timestamp, json);
     json.push_back('"');
-    json.append(",\"uptime_seconds\":");
+    if (obj.uptime_seconds) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"uptime_seconds\":");
     {
         if (!obj.uptime_seconds) {
             json.append("null");
@@ -1620,7 +1777,11 @@ inline void serialize_HealthResponse_into(const HealthResponse& obj, std::string
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"total_requests\":");
+    }
+    if (obj.total_requests) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"total_requests\":");
     {
         if (!obj.total_requests) {
             json.append("null");
@@ -1629,6 +1790,7 @@ inline void serialize_HealthResponse_into(const HealthResponse& obj, std::string
             auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *obj.total_requests);
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
+    }
     }
     json.push_back('}');
 }
@@ -1661,21 +1823,31 @@ inline std::string serialize_HealthResponse_Status_t(const HealthResponse_Status
 // serialize ProblemDetails — object, 5 field(s)  ← api.yaml:455
 inline void serialize_ProblemDetails_into(const ProblemDetails& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"type\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.type, json);
     json.push_back('"');
-    json.append(",\"title\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"title\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.title, json);
     json.push_back('"');
-    json.append(",\"status\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"status\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.status);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"detail\":");
+    if (obj.detail) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"detail\":");
     if (obj.detail) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.detail, json);
@@ -1683,13 +1855,18 @@ inline void serialize_ProblemDetails_into(const ProblemDetails& obj, std::string
     } else {
         json.append("null");
     }
-    json.append(",\"instance\":");
+    }
+    if (obj.instance) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"instance\":");
     if (obj.instance) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.instance, json);
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }

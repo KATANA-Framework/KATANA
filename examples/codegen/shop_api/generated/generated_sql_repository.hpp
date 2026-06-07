@@ -33,9 +33,16 @@ public:
     }
 
     bool bulk_insert_order_items_async(const std::vector<int64_t>& p1, const std::vector<int64_t>& p2, const std::vector<int64_t>& p3, const std::vector<double>& p4, bulk_insert_order_items_async_handler handler) const {
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr || !handler) {
+        if (!handler) {
             return false;
+        }
+        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
+        if (async_executor == nullptr) {
+            // No async executor: run synchronously and deliver the result inline
+            // so the completion always fires (returning false here would hang a
+            // deferred response).
+            handler(bulk_insert_order_items(p1, p2, p3, p4));
+            return true;
         }
         katana::sql::parameters params;
         params.reserve(4);
@@ -66,9 +73,16 @@ public:
     }
 
     bool category_stats_async(category_stats_async_handler handler) const {
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr || !handler) {
+        if (!handler) {
             return false;
+        }
+        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
+        if (async_executor == nullptr) {
+            // No async executor: run synchronously and deliver the result inline
+            // so the completion always fires (returning false here would hang a
+            // deferred response).
+            handler(category_stats());
+            return true;
         }
         katana::sql::parameters params;
         params.reserve(0);
@@ -122,9 +136,16 @@ public:
     }
 
     bool create_order_async(int64_t p1, std::string_view p2, create_order_async_handler handler) const {
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr || !handler) {
+        if (!handler) {
             return false;
+        }
+        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
+        if (async_executor == nullptr) {
+            // No async executor: run synchronously and deliver the result inline
+            // so the completion always fires (returning false here would hang a
+            // deferred response).
+            handler(create_order(p1, p2));
+            return true;
         }
         katana::sql::parameters params;
         params.reserve(2);
@@ -176,9 +197,16 @@ public:
     }
 
     bool customer_revenue_ranked_async(std::string_view p1, int64_t p2, int64_t p3, customer_revenue_ranked_async_handler handler) const {
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr || !handler) {
+        if (!handler) {
             return false;
+        }
+        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
+        if (async_executor == nullptr) {
+            // No async executor: run synchronously and deliver the result inline
+            // so the completion always fires (returning false here would hang a
+            // deferred response).
+            handler(customer_revenue_ranked(p1, p2, p3));
+            return true;
         }
         katana::sql::parameters params;
         params.reserve(3);
@@ -234,9 +262,16 @@ public:
     }
 
     bool order_detail_async(int64_t p1, order_detail_async_handler handler) const {
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr || !handler) {
+        if (!handler) {
             return false;
+        }
+        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
+        if (async_executor == nullptr) {
+            // No async executor: run synchronously and deliver the result inline
+            // so the completion always fires (returning false here would hang a
+            // deferred response).
+            handler(order_detail(p1));
+            return true;
         }
         katana::sql::parameters params;
         params.reserve(1);
@@ -285,9 +320,16 @@ public:
     }
 
     bool top_products_by_category_async(int64_t p1, top_products_by_category_async_handler handler) const {
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr || !handler) {
+        if (!handler) {
             return false;
+        }
+        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
+        if (async_executor == nullptr) {
+            // No async executor: run synchronously and deliver the result inline
+            // so the completion always fires (returning false here would hang a
+            // deferred response).
+            handler(top_products_by_category(p1));
+            return true;
         }
         katana::sql::parameters params;
         params.reserve(1);
