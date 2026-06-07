@@ -13,7 +13,7 @@
 
 namespace katana::http {
 
-class in_memory_idempotency_executor final : public route_policy_executor {
+class idempotency_executor final : public route_policy_executor {
 public:
     using clock = policy_clock;
 
@@ -29,9 +29,9 @@ public:
         idempotency_store* store = nullptr;
     };
 
-    in_memory_idempotency_executor() : in_memory_idempotency_executor(options{}) {}
+    idempotency_executor() : idempotency_executor(options{}) {}
 
-    explicit in_memory_idempotency_executor(options opts)
+    explicit idempotency_executor(options opts)
         : owned_store_(idempotency_store_options{opts.cleanup_interval}),
           store_(opts.store != nullptr ? *opts.store : static_cast<idempotency_store&>(owned_store_)),
           options_(std::move(opts)) {}
@@ -152,5 +152,8 @@ private:
     idempotency_store& store_;
     options options_;
 };
+
+// Back-compat alias: the executor is store-agnostic; 'in_memory_idempotency_executor' kept for existing callers.
+using in_memory_idempotency_executor = idempotency_executor;
 
 } // namespace katana::http

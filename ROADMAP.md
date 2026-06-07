@@ -35,7 +35,7 @@ exists" through "what makes it operable in production" to "breadth".
 
 ---
 
-## Stage 5 — Runtime policy layer + Redis (mostly done)
+## Stage 5 — Runtime policy layer + Redis (done; async Redis client optional)
 
 Turning the declarative `x-katana-*` spec annotations into runtime behaviour, with both
 in-memory and Redis-backed storage.
@@ -56,13 +56,22 @@ Done:
   "Caching and rate limiting" section of `docs/WRITING_AN_APP.md`.)
 - Unit tests for the Redis client, policy stores, and the router policy path
 
+Done (continued):
+- **In-process L1 cache in front of Redis** (`tiered_response_cache_store`). A response-cache
+  HIT is now served from L1 with no Redis round-trip; on an L1 miss it reads Redis (L2) and
+  promotes the entry. `redis_contract_policy_executor` wires it automatically via the
+  `l1_cache_ttl` option (default 1s; set to 0 to go straight to Redis). L1 entries are capped
+  to that TTL, so a cross-instance invalidation goes stale elsewhere for at most that long.
+- **Neutral executor naming** — the policy executors are now `response_cache_executor` /
+  `idempotency_executor` / `rate_limit_executor` (store-agnostic), with the old
+  `in_memory_*_executor` names kept as back-compat aliases.
+
 Remaining:
-- **[P1] Async / pipelined Redis.** Even with the pool, a cached/rate-limited route still
-  does one synchronous Redis round-trip per request (~4x slower than a no-policy route).
-  Pipelining or an async Redis client, and/or an in-process L1 cache in front of Redis,
-  would close most of that gap.
-- **[P2] Neutral executor naming** — the executors are still `in_memory_*_executor` even
-  when backed by a Redis store.
+- **[P1/P2] Async / pipelined Redis client.** Rate-limit and idempotency still do one
+  synchronous Redis round-trip per request (they need the shared counter/lock, so L1 doesn't
+  apply). A non-blocking, reactor-integrated Redis client (like the PostgreSQL async path) or
+  command pipelining would close that remaining gap. The cache-HIT round-trip is already
+  removed by the L1 tier above.
 
 ---
 
