@@ -649,11 +649,11 @@ result<parser::state> parser::parse_available() {
     if (state_ != state::body && state_ != state::chunk_data) {
         if ((header_end_pos_ == 0 && buffer_size_ > MAX_HEADER_SIZE) ||
             (header_end_pos_ != 0 && header_end_pos_ > MAX_HEADER_SIZE)) {
-            return std::unexpected(make_error_code(error_code::invalid_fd));
+            return std::unexpected(make_error_code(error_code::header_fields_too_large));
         }
 
     } else if (buffer_size_ > MAX_HEADER_SIZE + MAX_BODY_SIZE) {
-        return std::unexpected(make_error_code(error_code::invalid_fd));
+        return std::unexpected(make_error_code(error_code::payload_too_large));
     }
 
     while (state_ != state::complete) {
@@ -745,9 +745,11 @@ result<parser::state> parser::parse_headers_state() {
                 unsigned long long val = 0;
                 auto [ptr, ec] =
                     std::from_chars(cl_view.data(), cl_view.data() + cl_view.size(), val);
-                if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() || val > SIZE_MAX ||
-                    val > MAX_BODY_SIZE) {
+                if (ec != std::errc() || ptr != cl_view.data() + cl_view.size() || val > SIZE_MAX) {
                     return std::unexpected(make_error_code(error_code::invalid_fd));
+                }
+                if (val > MAX_BODY_SIZE) {
+                    return std::unexpected(make_error_code(error_code::payload_too_large));
                 }
                 content_length_ = static_cast<size_t>(val);
                 return state::body;
@@ -851,7 +853,7 @@ result<parser::state> parser::parse_chunk_size_state() {
         return std::unexpected(make_error_code(error_code::invalid_fd));
     }
     if (chunk_val > SIZE_MAX || chunk_val > MAX_BODY_SIZE) {
-        return std::unexpected(make_error_code(error_code::invalid_fd));
+        return std::unexpected(make_error_code(error_code::payload_too_large));
     }
     current_chunk_size_ = static_cast<size_t>(chunk_val);
 
@@ -861,7 +863,7 @@ result<parser::state> parser::parse_chunk_size_state() {
 
     if (current_chunk_size_ > MAX_BODY_SIZE ||
         chunked_body_size_ > MAX_BODY_SIZE - current_chunk_size_) {
-        return std::unexpected(make_error_code(error_code::invalid_fd));
+        return std::unexpected(make_error_code(error_code::payload_too_large));
     }
 
     return state::chunk_data;
@@ -928,7 +930,7 @@ result<void> parser::process_request_line(std::string_view line) {
 
     auto uri = line.substr(uri_start, uri_end - uri_start);
     if (uri.size() > MAX_URI_LENGTH) {
-        return std::unexpected(make_error_code(error_code::invalid_fd));
+        return std::unexpected(make_error_code(error_code::uri_too_long));
     }
 
     if (contains_invalid_uri_char(uri)) {
@@ -947,7 +949,7 @@ result<void> parser::process_request_line(std::string_view line) {
 
 result<void> parser::process_header_line(std::string_view line) {
     if (header_count_ >= MAX_HEADER_COUNT) {
-        return std::unexpected(make_error_code(error_code::invalid_fd));
+        return std::unexpected(make_error_code(error_code::header_fields_too_large));
     }
 
     auto colon = line.find(':');

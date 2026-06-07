@@ -35,6 +35,9 @@ struct problem_details {
     static problem_details conflict(std::string_view detail = "");
     static problem_details unprocessable_entity(std::string_view detail = "");
     static problem_details too_many_requests(std::string_view detail = "");
+    static problem_details uri_too_long(std::string_view detail = "");                  // 414
+    static problem_details request_header_fields_too_large(std::string_view detail = ""); // 431
+    static problem_details content_too_large(std::string_view detail = "");             // 413
     static problem_details internal_server_error(std::string_view detail = "");
     static problem_details service_unavailable(std::string_view detail = "");
 };

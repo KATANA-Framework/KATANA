@@ -1591,3 +1591,52 @@ TEST(HTTPServerRouteMetrics, CountsPerRouteUsingTemplateLabels) {
     EXPECT_EQ(body.find("/item/42"), std::string::npos);
     EXPECT_EQ(body.find("/item/777"), std::string::npos);
 }
+
+TEST(HTTPServerSizeLimits, ReturnsStatusForOversizedUriAndHeaders) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_route_metrics_server(port); // has /ping
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        ~guard() {
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    } cleanup{server_pid};
+
+    // (1) URI longer than MAX_URI_LENGTH (2048) -> 414 URI Too Long.
+    {
+        int fd = connect_with_retry(port);
+        ASSERT_GE(fd, 0);
+        std::string req = "GET /";
+        req.append(3000, 'a');
+        req += " HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n";
+        send_all(fd, req);
+        auto r = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+        ::close(fd);
+        ASSERT_EQ(r.size(), 1u);
+        EXPECT_EQ(r[0].status, 414);
+    }
+
+    // (2) More than MAX_HEADER_COUNT (100) header lines -> 431.
+    {
+        int fd = connect_with_retry(port);
+        ASSERT_GE(fd, 0);
+        std::string req = "GET /ping HTTP/1.1\r\nHost: x\r\nConnection: close\r\n";
+        for (int i = 0; i < 200; ++i) {
+            req += "X-Pad-" + std::to_string(i) + ": v\r\n";
+        }
+        req += "\r\n";
+        send_all(fd, req);
+        auto r = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+        ::close(fd);
+        ASSERT_EQ(r.size(), 1u);
+        EXPECT_EQ(r[0].status, 431);
+    }
+}
