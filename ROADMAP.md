@@ -80,12 +80,16 @@ Remaining:
 You cannot operate a service without these. This is the stage that makes a deployment
 debuggable and safe to run.
 
-**Status: every Stage 6 item — all [P0] plus the [P1] distributed tracing — has a base
-implementation** (config, structured logging + access log, metrics incl. duration histogram,
-health/readiness, connection timeouts + max-connections, graceful shutdown, W3C tracing). Each
-entry's *Remaining* note lists the follow-on depth (config hot reload/secrets, per-route metric
-labels, DB deadlines into libpq, OTLP export, handler-side log helper, …) — refinements, not
-operational blockers.
+**Status: COMPLETE.** Every Stage 6 item — all [P0] plus the [P1] distributed tracing — is
+implemented and tested: layered config with hot-reload + `*_FILE` secrets; structured logging
+with access log, 1-in-N sampling and a correlation/trace-aware handler helper; metrics with a
+duration histogram, per-route (template-labelled) counters, connection and reactor gauges;
+health/readiness; connection read/write/idle timeouts, a max-connections cap, and a DB
+statement-timeout; graceful shutdown that stops accepting, drains, and sends `Connection: close`;
+oversized requests answered with 413/431/414; and W3C distributed tracing with `tracestate`
+passthrough and a pluggable span exporter (the OTLP/Zipkin seam). The only deliberately-deferred
+piece is a *bundled* OTLP wire exporter — it would pull in gRPC/protobuf, so the framework ships
+the exporter hook instead and leaves the transport to the application.
 
 - **[P0] Configuration system** — **base done.** `katana::config` merges layered sources in
   precedence order — programmatic defaults < config file (`key = value`, `#` comments) < env
