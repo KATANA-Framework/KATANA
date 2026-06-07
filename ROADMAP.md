@@ -105,8 +105,13 @@ debuggable and safe to run.
 - **[P0] Timeouts & deadlines** — connect/read/write/handler/DB timeouts; a request deadline
   that propagates into the database; header/body/URI size limits; max connections;
   slowloris protection.
-- **[P0] Complete graceful shutdown** — on SIGTERM stop accepting, drain in-flight requests
-  within a deadline, close the pool, exit. (Partly present; finish and test it.)
+- **[P0] Complete graceful shutdown** — **base done.** On SIGTERM each reactor deregisters +
+  closes its listener fd (stops accepting), then the existing drain loop — now seeing only live
+  connections, not the listeners — lets in-flight requests finish and exits as soon as they
+  drain, rather than always waiting the full deadline; the deadline remains a hard cap that
+  force-closes stragglers. Covered by an integration test (exits well under an 8s deadline on
+  SIGTERM) and verified on the demo. *Remaining:* proactively close idle keep-alive connections
+  on shutdown (today they're held until they go idle-closed or the deadline).
 - **[P1] Distributed tracing** — OpenTelemetry/OTLP, span propagation through the async path
   and into DB calls.
 

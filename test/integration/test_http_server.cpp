@@ -484,6 +484,31 @@ pid_t spawn_access_log_server(uint16_t port) {
                    .run());
 }
 
+pid_t spawn_graceful_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong");
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    // Deliberately large drain deadline: a correct graceful shutdown that stops accepting and
+    // drains idle connections should exit almost immediately, NOT wait this long.
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(2)
+                   .graceful_shutdown(std::chrono::seconds(8))
+                   .run());
+}
+
 int connect_with_retry(uint16_t port) {
     for (int attempt = 0; attempt < 200; ++attempt) {
         int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -1052,4 +1077,60 @@ TEST(HTTPServerAccessLog, GeneratesRequestIdWhenClientOmitsIt) {
     ASSERT_TRUE(rid.has_value());
     EXPECT_EQ(rid->size(), 16u);
     EXPECT_EQ(rid->find_first_not_of("0123456789abcdef"), std::string_view::npos);
+}
+
+TEST(HTTPServerGracefulShutdown, StopsAcceptingAndDrainsPromptlyOnSigterm) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_graceful_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    bool reaped = false;
+    struct guard {
+        pid_t pid;
+        bool* reaped;
+        ~guard() {
+            if (!*reaped && pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    } cleanup{server_pid, &reaped};
+
+    // Confirm the server is serving, then close our connection (Connection: close) so no
+    // in-flight or idle keep-alive connection remains at shutdown time.
+    {
+        int fd = connect_with_retry(port);
+        ASSERT_GE(fd, 0);
+        send_all(fd,
+                 "GET /ping HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+        auto responses = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+        ASSERT_EQ(responses.size(), 1u);
+        EXPECT_EQ(responses[0].body, "pong");
+        ::close(fd);
+    }
+
+    // Ask for graceful shutdown. The drain deadline is 8s; a correct shutdown closes the
+    // listeners and exits within a small fraction of that.
+    const auto sent_at = std::chrono::steady_clock::now();
+    ASSERT_EQ(::kill(server_pid, SIGTERM), 0);
+
+    int status = 0;
+    for (int i = 0; i < 300; ++i) { // up to ~3s
+        pid_t r = ::waitpid(server_pid, &status, WNOHANG);
+        if (r == server_pid) {
+            reaped = true;
+            break;
+        }
+        ASSERT_EQ(r, 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    const auto elapsed = std::chrono::steady_clock::now() - sent_at;
+
+    ASSERT_TRUE(reaped); // server must exit within 3s of SIGTERM (else drain is stuck)
+    EXPECT_TRUE(WIFEXITED(status)); // clean exit, not killed
+    // Must be well under the 8s deadline — proves prompt drain, not deadline force-close.
+    EXPECT_LT(elapsed, std::chrono::seconds(3));
 }
