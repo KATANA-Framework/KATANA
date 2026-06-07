@@ -126,6 +126,17 @@ result<void> epoll_reactor::run() {
 
         if (graceful_shutdown_.load(std::memory_order_relaxed)) {
             auto now = loop_now;
+            // Once, on entering graceful shutdown: stop accepting by deregistering + closing
+            // the listener fds. With them gone, the drain check below sees only live
+            // connections and can exit as soon as they finish, before the deadline.
+            if (!graceful_listeners_closed_) {
+                graceful_listeners_closed_ = true;
+                for (int32_t listener_fd : shutdown_close_fds_) {
+                    (void)unregister_fd(listener_fd); // ignore if already gone
+                    close(listener_fd);
+                }
+                shutdown_close_fds_.clear();
+            }
             bool has_active_fds = false;
             for (const auto& state : fd_states_) {
                 if (state.callback) {
@@ -191,6 +202,12 @@ void epoll_reactor::graceful_stop(std::chrono::milliseconds timeout) {
     do {
         ret = write(wakeup_fd_, &val, sizeof(val));
     } while (ret < 0 && errno == EINTR);
+}
+
+void epoll_reactor::close_fd_on_graceful_shutdown(int32_t fd) {
+    if (fd >= 0) {
+        shutdown_close_fds_.push_back(fd);
+    }
 }
 
 result<void> epoll_reactor::register_fd(int32_t fd, event_type events, event_callback callback) {

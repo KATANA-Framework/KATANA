@@ -150,6 +150,10 @@ public:
                 close(listener_fd);
                 return res;
             }
+
+            // Close this listener when graceful shutdown begins so the reactor stops accepting
+            // and can drain its connections to exit before the deadline.
+            r.close_fd_on_graceful_shutdown(listener_fd);
         }
         return {};
     }

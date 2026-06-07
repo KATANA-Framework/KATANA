@@ -51,6 +51,11 @@ public:
     void stop();
     void graceful_stop(std::chrono::milliseconds timeout);
 
+    // Register a listener fd to be deregistered + closed when graceful shutdown begins. This
+    // stops new accepts and lets the reactor drain in-flight connections and exit before the
+    // deadline (instead of always waiting the full timeout because the listener stays open).
+    void close_fd_on_graceful_shutdown(int32_t fd);
+
     result<void> register_fd(int32_t fd, event_type events, event_callback callback);
 
     result<void> register_fd_with_timeout(int32_t fd,
@@ -123,6 +128,10 @@ private:
     std::atomic<bool> running_;
     std::atomic<bool> graceful_shutdown_;
     std::chrono::steady_clock::time_point graceful_shutdown_deadline_;
+    // Listener fds to deregister+close once when graceful shutdown begins (set before the
+    // worker thread starts; consumed on the reactor thread).
+    std::vector<int32_t> shutdown_close_fds_;
+    bool graceful_listeners_closed_ = false;
 
     std::vector<fd_state> fd_states_;
     ring_buffer_queue<task_fn> pending_tasks_;
