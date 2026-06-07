@@ -84,8 +84,10 @@ debuggable and safe to run.
   clear errors, secrets handling, reload without full restart. (Today it's ad-hoc env vars.)
 - **[P0] Structured logging** — JSON logs, levels, a request-scoped correlation/trace id,
   access logs, sampling.
-- **[P0] Metrics** — Prometheus `/metrics` (or OTLP push): request rate/errors/duration
-  histograms per route, connection and pool gauges, reactor and allocator stats.
+- **[P0] Metrics** — **base done.** Built-in Prometheus `/metrics` endpoint (on by default,
+  served before the router) exposing `katana_http_requests_total` by status class and a
+  `katana_http_requests_in_flight` gauge. *Remaining:* per-route labels + request-duration
+  histograms, connection/pool gauges, reactor/allocator stats, OTLP push.
 - **[P0] Health & readiness** — **done.** Built-in `/healthz` (liveness) and `/readyz`
   (readiness) served before the user router, on by default. `/readyz` returns 503 while the
   server is shutting down or a registered `readiness_check(probe)` reports not-ready (wire it

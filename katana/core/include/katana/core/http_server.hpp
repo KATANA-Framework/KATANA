@@ -9,6 +9,7 @@
 #include "katana/core/tcp_listener.hpp"
 #include "katana/core/tcp_socket.hpp"
 
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <functional>
@@ -26,6 +27,55 @@ namespace detail {
 constexpr size_t HTTP_SERVER_RESPONSE_BUFFER_CAPACITY = 8192;
 constexpr size_t HTTP_SERVER_ARENA_CAPACITY = 8192;
 } // namespace detail
+
+// Lightweight server-level RED metrics, exported in Prometheus text format via /metrics.
+// Counters are by response status class; in_flight is a gauge of requests being processed.
+struct server_metrics {
+    std::atomic<uint64_t> requests_2xx{0};
+    std::atomic<uint64_t> requests_3xx{0};
+    std::atomic<uint64_t> requests_4xx{0};
+    std::atomic<uint64_t> requests_5xx{0};
+    std::atomic<int64_t> in_flight{0};
+
+    void record_status(int32_t status) noexcept {
+        if (status >= 500) {
+            requests_5xx.fetch_add(1, std::memory_order_relaxed);
+        } else if (status >= 400) {
+            requests_4xx.fetch_add(1, std::memory_order_relaxed);
+        } else if (status >= 300) {
+            requests_3xx.fetch_add(1, std::memory_order_relaxed);
+        } else if (status >= 200) {
+            requests_2xx.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+
+    [[nodiscard]] std::string to_prometheus() const {
+        auto line = [](std::string& s, std::string_view metric, std::string_view labels,
+                       uint64_t v) {
+            s += metric;
+            s += labels;
+            s += ' ';
+            s += std::to_string(v);
+            s += '\n';
+        };
+        std::string out;
+        out += "# HELP katana_http_requests_total Total HTTP responses by status class.\n";
+        out += "# TYPE katana_http_requests_total counter\n";
+        line(out, "katana_http_requests_total", "{status=\"2xx\"}",
+             requests_2xx.load(std::memory_order_relaxed));
+        line(out, "katana_http_requests_total", "{status=\"3xx\"}",
+             requests_3xx.load(std::memory_order_relaxed));
+        line(out, "katana_http_requests_total", "{status=\"4xx\"}",
+             requests_4xx.load(std::memory_order_relaxed));
+        line(out, "katana_http_requests_total", "{status=\"5xx\"}",
+             requests_5xx.load(std::memory_order_relaxed));
+        out += "# HELP katana_http_requests_in_flight HTTP requests currently being served.\n";
+        out += "# TYPE katana_http_requests_in_flight gauge\n";
+        const int64_t live = in_flight.load(std::memory_order_relaxed);
+        line(out, "katana_http_requests_in_flight", "", static_cast<uint64_t>(live < 0 ? 0 : live));
+        return out;
+    }
+};
 
 /// High-level HTTP server abstraction
 ///
@@ -143,6 +193,21 @@ public:
         return *this;
     }
 
+    /// Enable or disable the built-in Prometheus `/metrics` endpoint (on by default).
+    server& metrics_endpoint(bool enable) {
+        metrics_enabled_ = enable;
+        return *this;
+    }
+
+    /// Override the metrics path (default `/metrics`).
+    server& metrics_path(std::string path) {
+        metrics_path_ = std::move(path);
+        return *this;
+    }
+
+    /// Access the live server metrics registry (e.g. for tests or custom export).
+    [[nodiscard]] server_metrics& metrics() noexcept { return metrics_; }
+
     /// Run the server (blocking)
     /// Returns 0 on success, non-zero on error
     int run();
@@ -151,7 +216,8 @@ private:
     enum class flush_result : uint8_t { complete, blocked, error };
 
     void dispatch_request(const request& req, request_context& ctx, response& out) const {
-        if (try_serve_health(req, out)) {
+        metrics_.in_flight.fetch_add(1, std::memory_order_relaxed);
+        if (try_serve_health(req, out) || try_serve_metrics(req, out)) {
             return;
         }
         if (router_) {
@@ -193,6 +259,25 @@ private:
         out.body += state;
         out.body += "\"}";
         out.set_header("Content-Type", "application/json");
+        return true;
+    }
+
+    // Serve the built-in Prometheus /metrics endpoint.
+    [[nodiscard]] bool try_serve_metrics(const request& req, response& out) const {
+        if (!metrics_enabled_ || req.http_method != method::get) {
+            return false;
+        }
+        std::string_view path = req.uri;
+        if (auto pos = path.find_first_of("?#"); pos != std::string_view::npos) {
+            path = path.substr(0, pos);
+        }
+        if (path != metrics_path_) {
+            return false;
+        }
+        out.status = 200;
+        out.reason.assign(canonical_reason_phrase(out.status));
+        out.body = metrics_.to_prometheus();
+        out.set_header("Content-Type", "text/plain; version=0.0.4");
         return true;
     }
 
@@ -287,6 +372,12 @@ private:
     std::string health_path_ = "/healthz";
     std::string ready_path_ = "/readyz";
     std::function<bool()> readiness_probe_;
+
+    // Built-in Prometheus metrics endpoint. mutable so the const dispatch path can update
+    // the in-flight gauge.
+    bool metrics_enabled_ = true;
+    std::string metrics_path_ = "/metrics";
+    mutable server_metrics metrics_;
 };
 
 } // namespace http
