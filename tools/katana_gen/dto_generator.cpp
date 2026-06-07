@@ -135,9 +135,12 @@ std::string cpp_type_from_schema(const document& doc,
         }
         return wrap(use_pmr ? "arena_vector<std::string>" : "std::vector<std::string>");
     case schema_kind::object:
-        // Empty objects (including free-form additionalProperties) are represented as monostate
-        // to avoid self-referential aliases like "using X = X;".
         if (s->properties.empty()) {
+            // Free-form object (can hold arbitrary JSON) → store the raw JSON text so the
+            // data survives the round-trip. An explicitly-closed empty object stays monostate.
+            if (is_free_form_object(s)) {
+                return wrap(use_pmr ? "arena_string<>" : "std::string");
+            }
             return wrap("std::monostate");
         }
         return wrap(schema_identifier(doc, s));
@@ -199,7 +202,8 @@ void generate_dto_for_schema(std::ostream& out,
         // clutter and misleading `*_t = std::monostate` artifacts (e.g. Task_Assignee_t
         // where the real field is std::optional<User>). Referenced empty objects (used as
         // an object field whose parse/serialize helper needs the name) are kept.
-        if (alias == "std::monostate" && !referenced.contains(struct_name)) {
+        if (!referenced.contains(struct_name) &&
+            (alias == "std::monostate" || is_free_form_object(&s))) {
             return;
         }
         // Add doc comment for type aliases

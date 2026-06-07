@@ -190,6 +190,15 @@ std::string schema_identifier(const document& doc, const katana::openapi::schema
     return "Unnamed_t";
 }
 
+bool is_free_form_object(const katana::openapi::schema* s) {
+    // A `{type: object}` with no declared properties that still allows arbitrary content.
+    // Such fields (e.g. a free-form `metadata`) carry real JSON, so they are stored as the
+    // raw JSON text rather than the data-less std::monostate. An object explicitly closed
+    // with `additionalProperties: false` is a genuinely empty object and stays monostate.
+    return s != nullptr && s->kind == katana::openapi::schema_kind::object &&
+           s->properties.empty() && s->enum_values.empty() && s->additional_properties_allowed;
+}
+
 std::string schema_banner(const document& doc, const katana::openapi::schema& s) {
     using katana::openapi::schema_kind;
     const char* kind = "object";
