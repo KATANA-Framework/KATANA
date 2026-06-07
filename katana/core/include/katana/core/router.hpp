@@ -4,6 +4,7 @@
 #include "function_ref.hpp"
 #include "http.hpp"
 #include "inplace_function.hpp"
+#include "log.hpp"
 #include "problem.hpp"
 #include "result.hpp"
 #include "tracing.hpp"
@@ -394,6 +395,24 @@ struct request_context {
     [[nodiscard]] bool can_apply_route_policy() const noexcept {
         return policy_executor != nullptr && route_policy != nullptr && !route_policy->empty();
     }
+
+    // Start a structured log line already tagged with this request's correlation id and trace
+    // id (when present), so handler logs join the access log and spans automatically:
+    //   ctx.log_info("charged card").field("amount", cents);
+    log::event log(log::level level, std::string_view message) const {
+        log::event event(level, message);
+        if (!request_id.empty()) {
+            event.field("request_id", request_id);
+        }
+        if (trace.valid()) {
+            event.field("trace_id", trace.trace_id_hex());
+        }
+        return event;
+    }
+    log::event log_debug(std::string_view m) const { return log(log::level::debug, m); }
+    log::event log_info(std::string_view m) const { return log(log::level::info, m); }
+    log::event log_warn(std::string_view m) const { return log(log::level::warn, m); }
+    log::event log_error(std::string_view m) const { return log(log::level::error, m); }
 
     bool schedule(scheduled_task task) const {
         if (task_scheduler == nullptr) {

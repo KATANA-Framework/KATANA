@@ -1097,3 +1097,56 @@ TEST(RequestContext, ShareDeferredResponseReturnsInvalidWithoutFactory) {
     EXPECT_FALSE(static_cast<bool>(deferred));
     EXPECT_FALSE(ctx.is_response_deferred());
 }
+
+namespace {
+
+// Capture katana::log output produced while running `body`.
+template <typename Fn> std::string capture_log(Fn&& body) {
+    std::FILE* f = std::tmpfile();
+    katana::log::set_sink(f);
+    katana::log::set_min_level(katana::log::level::debug);
+    std::forward<Fn>(body)();
+    std::fflush(f);
+    std::rewind(f);
+    std::string out;
+    char buf[2048];
+    size_t n = 0;
+    while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) {
+        out.append(buf, n);
+    }
+    std::fclose(f);
+    katana::log::set_sink(stderr);
+    return out;
+}
+
+} // namespace
+
+TEST(RequestContextLog, TagsHandlerLogsWithCorrelationAndTrace) {
+    monotonic_arena arena;
+    request_context ctx{arena};
+    ctx.request_id = "req-abc";
+    ctx.trace = katana::tracing::start_server_span(
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+
+    const std::string out = capture_log([&] {
+        ctx.log_info("charged card").field("amount", 1299);
+    });
+
+    EXPECT_NE(out.find("\"msg\":\"charged card\""), std::string::npos);
+    EXPECT_NE(out.find("\"request_id\":\"req-abc\""), std::string::npos);
+    EXPECT_NE(out.find("\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\""), std::string::npos);
+    EXPECT_NE(out.find("\"amount\":1299"), std::string::npos);
+}
+
+TEST(RequestContextLog, OmitsTraceWhenNotTraced) {
+    monotonic_arena arena;
+    request_context ctx{arena};
+    ctx.request_id = "req-xyz";
+    // No trace set -> trace.valid() is false.
+
+    const std::string out = capture_log([&] { ctx.log_warn("retrying"); });
+
+    EXPECT_NE(out.find("\"level\":\"warn\""), std::string::npos);
+    EXPECT_NE(out.find("\"request_id\":\"req-xyz\""), std::string::npos);
+    EXPECT_EQ(out.find("trace_id"), std::string::npos);
+}
