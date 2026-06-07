@@ -26,6 +26,7 @@ reactor_pool::reactor_pool(const reactor_pool_config& config) : config_(config) 
                                                       config_.max_pending_tasks);
 #endif
         ctx->core_id = i;
+        ctx->reactor->set_metrics_enabled(config_.enable_metrics);
         reactors_.push_back(std::move(ctx));
     }
 }

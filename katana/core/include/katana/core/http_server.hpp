@@ -309,6 +309,15 @@ public:
         return *this;
     }
 
+    /// Expose reactor/worker gauges at `/metrics` (worker count plus aggregated per-event
+    /// reactor counters: tasks, fd events, timeouts, exceptions). The reactor already collects
+    /// these; this only controls whether they appear in the scrape. The worker-count gauge is
+    /// always emitted. Off by default.
+    server& reactor_metrics(bool enable = true) {
+        expose_reactor_metrics_ = enable;
+        return *this;
+    }
+
     /// Enable W3C distributed tracing. Each request continues an inbound `traceparent` (or
     /// starts a new trace) into `request_context::trace`; a span is emitted per sampled request
     /// (via `katana::log`, msg `"span"`) with trace/span/parent ids, name, status and duration.
@@ -402,6 +411,7 @@ private:
         out.reason.assign(canonical_reason_phrase(out.status));
         out.body = metrics_.to_prometheus();
         append_route_metrics(out.body);
+        append_reactor_metrics(out.body);
         out.set_header("Content-Type", "text/plain; version=0.0.4");
         return true;
     }
@@ -536,6 +546,47 @@ private:
 
     // W3C distributed tracing (opt-in via tracing()).
     bool tracing_enabled_ = false;
+
+    // Reactor/worker gauges at /metrics (opt-in via reactor_metrics()). pool_ points at the
+    // run()-local pool while the server is serving (cleared before run() returns).
+    bool expose_reactor_metrics_ = false;
+    reactor_pool* pool_ = nullptr;
+
+    // Append reactor/worker gauges to a /metrics body (only when enabled and serving).
+    void append_reactor_metrics(std::string& body) const {
+        body += "# HELP katana_http_workers Configured worker (reactor) threads.\n";
+        body += "# TYPE katana_http_workers gauge\n";
+        body += "katana_http_workers ";
+        body += std::to_string(worker_count_);
+        body += '\n';
+        if (!expose_reactor_metrics_ || pool_ == nullptr) {
+            return;
+        }
+        const auto m = pool_->aggregate_metrics();
+        const auto gauge = [&](std::string_view name, std::string_view help, uint64_t v) {
+            body += "# HELP ";
+            body += name;
+            body += ' ';
+            body += help;
+            body += "\n# TYPE ";
+            body += name;
+            body += " counter\n";
+            body += name;
+            body += ' ';
+            body += std::to_string(v);
+            body += '\n';
+        };
+        gauge("katana_reactor_tasks_executed_total", "Tasks executed across reactors.",
+              m.tasks_executed);
+        gauge("katana_reactor_fd_events_total", "FD events processed across reactors.",
+              m.fd_events_processed);
+        gauge("katana_reactor_fd_timeouts_total", "FD timeouts fired across reactors.",
+              m.fd_timeouts);
+        gauge("katana_reactor_tasks_rejected_total", "Tasks rejected (backpressure).",
+              m.tasks_rejected);
+        gauge("katana_reactor_exceptions_total", "Exceptions caught in reactor callbacks.",
+              m.exceptions_caught);
+    }
 
     // Per-route metrics, sized from the router at run() (index = ctx.route_index). Populated
     // only when constructed with a router. Atomics are written from worker threads and read by

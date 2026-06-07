@@ -78,6 +78,9 @@ public:
 
     const reactor_metrics& metrics() const noexcept { return metrics_; }
 
+    // Enable/disable per-event metric counters (off by default to keep the hot path cheap).
+    void set_metrics_enabled(bool enabled) noexcept { metrics_enabled_ = enabled; }
+
     [[nodiscard]] uint64_t get_load_score() const noexcept;
 
 private:
@@ -143,6 +146,7 @@ private:
     alignas(64) std::atomic<uint32_t> pending_count_{0};
     exception_handler exception_handler_;
     reactor_metrics metrics_;
+    bool metrics_enabled_{false};
 
     fd_wheel_timer wheel_timer_;
 

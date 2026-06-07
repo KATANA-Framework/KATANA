@@ -77,6 +77,9 @@ public:
 
     const reactor_metrics& metrics() const noexcept { return metrics_; }
 
+    // Enable/disable per-event metric counters (off by default to keep the hot path cheap).
+    void set_metrics_enabled(bool enabled) noexcept { metrics_enabled_ = enabled; }
+
     [[nodiscard]] uint64_t get_load_score() const noexcept;
 
 private:
