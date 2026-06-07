@@ -12,6 +12,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstring>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <netinet/in.h>
 #include <optional>
@@ -563,6 +564,40 @@ pid_t spawn_route_metrics_server(uint16_t port) {
     std::_Exit(http::server(r)
                    .listen(port)
                    .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
+pid_t spawn_span_export_server(uint16_t port, const std::string& out_path) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong");
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .tracing()
+                   .span_exporter([out_path](const katana::tracing::span_record& s) {
+                       // A custom exporter: write one line per span so the test can read it back.
+                       std::FILE* f = std::fopen(out_path.c_str(), "a");
+                       if (f != nullptr) {
+                           std::fprintf(f, "%s %s status=%d dur=%lld\n", s.span.trace_id_hex().c_str(),
+                                        std::string(s.name).c_str(), s.status,
+                                        static_cast<long long>(s.duration_micros));
+                           std::fclose(f);
+                       }
+                   })
                    .graceful_shutdown(std::chrono::milliseconds(100))
                    .run());
 }
@@ -1639,4 +1674,58 @@ TEST(HTTPServerSizeLimits, ReturnsStatusForOversizedUriAndHeaders) {
         ASSERT_EQ(r.size(), 1u);
         EXPECT_EQ(r[0].status, 431);
     }
+}
+
+TEST(HTTPServerTracing, CustomSpanExporterReceivesSpans) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const std::string out_path =
+        "/tmp/katana_span_export_" + std::to_string(port) + ".txt";
+    ::unlink(out_path.c_str());
+
+    const pid_t server_pid = spawn_span_export_server(port, out_path);
+    ASSERT_GT(server_pid, 0);
+
+    int client_fd = -1;
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+        std::string path;
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+            ::unlink(path.c_str());
+        }
+    } cleanup{server_pid, &client_fd, out_path};
+
+    client_fd = connect_with_retry(port);
+    ASSERT_GE(client_fd, 0);
+    send_all(client_fd, "GET /ping HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                        "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\r\n\r\n");
+    ASSERT_EQ(read_responses_slowly(client_fd, 1, std::chrono::seconds(2)).size(), 1u);
+
+    // Give the exporter a moment to flush, then read the file it wrote.
+    std::string contents;
+    for (int i = 0; i < 100; ++i) {
+        std::ifstream in(out_path);
+        if (in) {
+            std::getline(in, contents);
+        }
+        if (!contents.empty()) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    ASSERT_FALSE(contents.empty());
+    EXPECT_NE(contents.find("4bf92f3577b34da6a3ce929d0e0e4736"), std::string::npos);
+    EXPECT_NE(contents.find("GET /ping"), std::string::npos);
+    EXPECT_NE(contents.find("status=200"), std::string::npos);
 }

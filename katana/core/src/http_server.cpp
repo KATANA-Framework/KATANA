@@ -469,18 +469,24 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             }
         }
 
-        // Emit a span for sampled traced requests (the access log is separate/optional).
+        // Emit a span for sampled traced requests. A custom exporter (e.g. OTLP) replaces the
+        // default `katana::log` span line.
         if (traced && state.current_trace.sampled) {
             std::string span_name(method_to_string(req.http_method));
             span_name += ' ';
             span_name.append(req.uri.data(), req.uri.size());
-            katana::log::info("span")
-                .field("trace_id", state.current_trace.trace_id_hex())
-                .field("span_id", state.current_trace.span_id_hex())
-                .field("parent_span_id", state.current_trace.parent_span_id_hex())
-                .field("name", span_name)
-                .field("status", static_cast<int64_t>(resp.status))
-                .field("duration_us", duration_micros);
+            if (span_exporter_) {
+                span_exporter_(tracing::span_record{state.current_trace, span_name, resp.status,
+                                                    duration_micros});
+            } else {
+                katana::log::info("span")
+                    .field("trace_id", state.current_trace.trace_id_hex())
+                    .field("span_id", state.current_trace.span_id_hex())
+                    .field("parent_span_id", state.current_trace.parent_span_id_hex())
+                    .field("name", span_name)
+                    .field("status", static_cast<int64_t>(resp.status))
+                    .field("duration_us", duration_micros);
+            }
         }
 
         if (on_request_callback_) {
