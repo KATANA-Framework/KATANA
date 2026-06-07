@@ -16,6 +16,7 @@
 #pragma once
 
 #include "katana/core/http.hpp"
+#include "katana/core/problem.hpp"
 #include "katana/core/router.hpp"
 #include "generated_dtos.hpp"
 #include <string_view>
@@ -64,6 +65,131 @@ struct api_handler {
     // GET /health
     // Health check endpoint
     virtual katana::result<void> health_check(response& out) = 0;
+
+};
+
+// Optional async handler interface for generated routers.
+// Implement only operations that should own deferred HTTP completion.
+// Returning false falls back to the synchronous api_handler method.
+struct async_api_handler {
+    virtual ~async_api_handler() = default;
+
+    virtual bool list_tasks_async(std::optional<std::string_view> status, std::optional<int64_t> priority, std::optional<int64_t> limit, std::optional<int64_t> offset, katana::http::async_response_writer out) {
+        (void)status;
+        (void)priority;
+        (void)limit;
+        (void)offset;
+        (void)out;
+        return false;
+    }
+
+    virtual bool create_task_async(const CreateTaskRequest& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool get_task_async(int64_t id, katana::http::async_response_writer out) {
+        (void)id;
+        (void)out;
+        return false;
+    }
+
+    virtual bool update_task_async(int64_t id, const UpdateTaskRequest& body, katana::http::async_response_writer out) {
+        (void)id;
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool delete_task_async(int64_t id, katana::http::async_response_writer out) {
+        (void)id;
+        (void)out;
+        return false;
+    }
+
+    virtual bool batch_create_tasks_async(const BatchCreateRequest& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool search_tasks_async(const SearchRequest& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool health_check_async(katana::http::async_response_writer out) {
+        (void)out;
+        return false;
+    }
+
+};
+
+// Convenience base for async-first services.
+// Override *_async methods only; synchronous fallbacks return 501.
+struct async_api_handler_base : api_handler, async_api_handler {
+    virtual ~async_api_handler_base() = default;
+
+    katana::result<void> list_tasks(std::optional<std::string_view> status, std::optional<int64_t> priority, std::optional<int64_t> limit, std::optional<int64_t> offset, response& out) override {
+        (void)status;
+        (void)priority;
+        (void)limit;
+        (void)offset;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("list_tasks requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> create_task(const CreateTaskRequest& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("create_task requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> get_task(int64_t id, response& out) override {
+        (void)id;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("get_task requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> update_task(int64_t id, const UpdateTaskRequest& body, response& out) override {
+        (void)id;
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("update_task requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> delete_task(int64_t id, response& out) override {
+        (void)id;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("delete_task requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> batch_create_tasks(const BatchCreateRequest& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("batch_create_tasks requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> search_tasks(const SearchRequest& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("search_tasks requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> health_check(response& out) override {
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("health_check requires an async override or sync implementation"));
+        return {};
+    }
 
 };
 

@@ -303,6 +303,16 @@ inline yaml_node parse_yaml_block(const std::vector<yaml_line>& lines,
                 continue;
             }
 
+            // Flow-style sequence item, e.g. `- { name: q1, in: query, schema: {...} }`
+            // or `- [a, b]`. Without this the `{`/`[` body would be mis-split on its
+            // first ':' as a block mapping, silently corrupting the item (e.g. an
+            // OpenAPI parameter losing its `schema`, hence its type).
+            if (item.front() == '{' || item.front() == '[') {
+                node.array.push_back(
+                    std::make_unique<yaml_node>(parse_inline_value(item, diag, line_no)));
+                continue;
+            }
+
             auto colon_pos = item.find(':');
             if (colon_pos != std::string_view::npos) {
                 std::string key = normalize_key(item.substr(0, colon_pos));

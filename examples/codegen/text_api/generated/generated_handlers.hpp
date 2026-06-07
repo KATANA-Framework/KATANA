@@ -16,6 +16,7 @@
 #pragma once
 
 #include "katana/core/http.hpp"
+#include "katana/core/problem.hpp"
 #include "katana/core/router.hpp"
 #include "generated_dtos.hpp"
 #include <string_view>
@@ -52,6 +53,86 @@ struct api_handler {
     // POST /text/transform
     // Apply multiple transformations
     virtual katana::result<void> text_transform(const text_transform_request& body, response& out) = 0;
+
+};
+
+// Optional async handler interface for generated routers.
+// Implement only operations that should own deferred HTTP completion.
+// Returning false falls back to the synchronous api_handler method.
+struct async_api_handler {
+    virtual ~async_api_handler() = default;
+
+    virtual bool text_uppercase_async(const text_uppercase_request& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool text_lowercase_async(const text_lowercase_request& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool text_reverse_async(const text_reverse_request& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool text_stats_async(const text_stats_request& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool text_transform_async(const text_transform_request& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+};
+
+// Convenience base for async-first services.
+// Override *_async methods only; synchronous fallbacks return 501.
+struct async_api_handler_base : api_handler, async_api_handler {
+    virtual ~async_api_handler_base() = default;
+
+    katana::result<void> text_uppercase(const text_uppercase_request& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("text_uppercase requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> text_lowercase(const text_lowercase_request& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("text_lowercase requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> text_reverse(const text_reverse_request& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("text_reverse requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> text_stats(const text_stats_request& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("text_stats requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> text_transform(const text_transform_request& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("text_transform requires an async override or sync implementation"));
+        return {};
+    }
 
 };
 

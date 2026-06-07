@@ -350,7 +350,50 @@ std::optional<std::string> extract_projection_segment(std::string_view sql,
     const std::string lower = to_lower_ascii(sql);
     const std::string start = to_lower_ascii(start_keyword);
     const std::string end = to_lower_ascii(end_keyword);
-    const auto start_pos = lower.find(start);
+
+    // Find a keyword as a whole word at parenthesis depth 0 (skipping anything
+    // nested in parens, e.g. the inner SELECT/FROM of a `WITH cte AS (...)` clause
+    // or a FROM-subquery). This makes the FINAL/top-level SELECT ... FROM the one
+    // whose projection columns are extracted, not a CTE's inner SELECT.
+    const auto find_keyword_depth0 = [&lower](const std::string& kw,
+                                              std::size_t from) -> std::size_t {
+        int paren_depth = 0;
+        bool in_single_quote = false;
+        for (std::size_t pos = from; pos < lower.size(); ++pos) {
+            const char current = lower[pos];
+            if (current == '\'' && (pos == 0 || lower[pos - 1] != '\\')) {
+                in_single_quote = !in_single_quote;
+            }
+            if (in_single_quote) {
+                continue;
+            }
+            if (current == '(') {
+                ++paren_depth;
+                continue;
+            }
+            if (current == ')' && paren_depth > 0) {
+                --paren_depth;
+                continue;
+            }
+            if (paren_depth != 0) {
+                continue;
+            }
+            if (pos + kw.size() > lower.size() || lower.compare(pos, kw.size(), kw) != 0) {
+                continue;
+            }
+            const bool before_ok =
+                pos == 0 || !std::isalnum(static_cast<unsigned char>(lower[pos - 1]));
+            const bool after_ok =
+                pos + kw.size() >= lower.size() ||
+                !std::isalnum(static_cast<unsigned char>(lower[pos + kw.size()]));
+            if (before_ok && after_ok) {
+                return pos;
+            }
+        }
+        return std::string::npos;
+    };
+
+    const auto start_pos = find_keyword_depth0(start, 0);
     if (start_pos == std::string::npos) {
         return std::nullopt;
     }
@@ -358,40 +401,11 @@ std::optional<std::string> extract_projection_segment(std::string_view sql,
     if (end.empty()) {
         return trim_copy(sql.substr(body_start));
     }
-
-    int paren_depth = 0;
-    bool in_single_quote = false;
-    for (std::size_t pos = body_start; pos < lower.size(); ++pos) {
-        const char current = lower[pos];
-        if (current == '\'' && (pos == 0 || lower[pos - 1] != '\\')) {
-            in_single_quote = !in_single_quote;
-        }
-        if (in_single_quote) {
-            continue;
-        }
-        if (current == '(') {
-            ++paren_depth;
-            continue;
-        }
-        if (current == ')' && paren_depth > 0) {
-            --paren_depth;
-            continue;
-        }
-        if (paren_depth != 0) {
-            continue;
-        }
-        if (pos + end.size() > lower.size() || lower.compare(pos, end.size(), end) != 0) {
-            continue;
-        }
-        const bool before_ok =
-            pos == 0 || !std::isalnum(static_cast<unsigned char>(lower[pos - 1]));
-        const bool after_ok = pos + end.size() >= lower.size() ||
-                              !std::isalnum(static_cast<unsigned char>(lower[pos + end.size()]));
-        if (before_ok && after_ok) {
-            return trim_copy(sql.substr(body_start, pos - body_start));
-        }
+    const auto end_pos = find_keyword_depth0(end, body_start);
+    if (end_pos == std::string::npos) {
+        return trim_copy(sql.substr(body_start));
     }
-    return trim_copy(sql.substr(body_start));
+    return trim_copy(sql.substr(body_start, end_pos - body_start));
 }
 
 std::vector<sql_parameter> parse_parameters(std::string_view sql) {

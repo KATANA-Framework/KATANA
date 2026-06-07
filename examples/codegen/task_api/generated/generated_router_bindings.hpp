@@ -106,6 +106,18 @@ inline katana::result<void> dispatch_list_tasks(const katana::http::request& req
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->list_tasks_async(status, priority, limit, offset, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.list_tasks(status, priority, limit, offset, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -142,6 +154,18 @@ inline katana::result<void> dispatch_create_task(const katana::http::request& re
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->create_task_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.create_task(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -169,6 +193,18 @@ inline katana::result<void> dispatch_get_task(const katana::http::request& req, 
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->get_task_async(id, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.get_task(id, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -212,6 +248,18 @@ inline katana::result<void> dispatch_update_task(const katana::http::request& re
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->update_task_async(id, *parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.update_task(id, *parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -239,6 +287,18 @@ inline katana::result<void> dispatch_delete_task(const katana::http::request& re
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->delete_task_async(id, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.delete_task(id, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -275,6 +335,18 @@ inline katana::result<void> dispatch_batch_create_tasks(const katana::http::requ
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->batch_create_tasks_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.batch_create_tasks(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -311,6 +383,18 @@ inline katana::result<void> dispatch_search_tasks(const katana::http::request& r
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->search_tasks_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.search_tasks(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -331,6 +415,18 @@ inline katana::result<void> dispatch_health_check(const katana::http::request& r
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->health_check_async(async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.health_check(out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());

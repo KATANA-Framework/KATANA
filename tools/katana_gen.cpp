@@ -67,6 +67,8 @@ std::string error_message(const std::error_code& ec) {
 }
 
 int run_openapi(const options& opts) {
+    // In --json mode keep stdout pure JSON; informational logs go to stderr.
+    std::ostream& log = opts.json_output ? std::cerr : std::cout;
     if (opts.input.empty()) {
         std::cerr << "[openapi] input spec is required\n";
         return 1;
@@ -87,7 +89,7 @@ int run_openapi(const options& opts) {
     }
 
     if (opts.verbose) {
-        std::cout << "[verbose] Loading OpenAPI spec: " << opts.input << "\n";
+        log << "[verbose] Loading OpenAPI spec: " << opts.input << "\n";
     }
 
     katana::monotonic_arena arena;
@@ -103,15 +105,15 @@ int run_openapi(const options& opts) {
     document& doc = *loaded;
 
     if (opts.verbose) {
-        std::cout << "[verbose] Loaded: version=" << doc.openapi_version
+        log << "[verbose] Loaded: version=" << doc.openapi_version
                   << ", schemas=" << doc.schemas.size() << ", paths=" << doc.paths.size() << "\n";
-        std::cout << "[verbose] Assigning schema names (style: " << opts.inline_naming << ")...\n";
+        log << "[verbose] Assigning schema names (style: " << opts.inline_naming << ")...\n";
     }
 
     ensure_inline_schema_names(doc, opts.inline_naming);
 
     if (opts.verbose) {
-        std::cout << "[verbose] Schema naming complete\n";
+        log << "[verbose] Schema naming complete\n";
     }
 
     if (opts.json_output) {
@@ -119,7 +121,7 @@ int run_openapi(const options& opts) {
     }
 
     if (opts.check_only) {
-        std::cout << "[check] OK: version=" << doc.openapi_version
+        log << "[check] OK: version=" << doc.openapi_version
                   << ", schemas=" << doc.schemas.size() << ", paths=" << doc.paths.size() << "\n";
         return 0;
     }
@@ -141,7 +143,7 @@ int run_openapi(const options& opts) {
 
     if (emit_dto) {
         if (opts.verbose) {
-            std::cout << "[verbose] Generating DTOs (" << doc.schemas.size() << " schemas)...\n";
+            log << "[verbose] Generating DTOs (" << doc.schemas.size() << " schemas)...\n";
         }
         auto dto_code = with_layer(generate_dtos(doc, use_pmr));
         auto dto_path = opts.output / "generated_dtos.hpp";
@@ -151,16 +153,16 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << dto_code;
-        std::cout << "[codegen] DTOs written to " << dto_path;
+        log << "[codegen] DTOs written to " << dto_path;
         if (opts.verbose) {
-            std::cout << " (" << dto_code.size() << " bytes)";
+            log << " (" << dto_code.size() << " bytes)";
         }
-        std::cout << "\n";
+        log << "\n";
     }
 
     if (emit_validator) {
         if (opts.verbose) {
-            std::cout << "[verbose] Generating validators...\n";
+            log << "[verbose] Generating validators...\n";
         }
         auto validator_code = with_layer(generate_validators(doc));
         auto validator_path = opts.output / "generated_validators.hpp";
@@ -170,16 +172,16 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << validator_code;
-        std::cout << "[codegen] Validators written to " << validator_path;
+        log << "[codegen] Validators written to " << validator_path;
         if (opts.verbose) {
-            std::cout << " (" << validator_code.size() << " bytes)";
+            log << " (" << validator_code.size() << " bytes)";
         }
-        std::cout << "\n";
+        log << "\n";
     }
 
     if (emit_serdes) {
         if (opts.verbose) {
-            std::cout << "[verbose] Generating JSON parsers and serializers...\n";
+            log << "[verbose] Generating JSON parsers and serializers...\n";
         }
         auto json_code = with_layer(generate_json_parsers(doc, use_pmr));
         auto json_path = opts.output / "generated_json.hpp";
@@ -189,16 +191,16 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << json_code;
-        std::cout << "[codegen] JSON parsers written to " << json_path;
+        log << "[codegen] JSON parsers written to " << json_path;
         if (opts.verbose) {
-            std::cout << " (" << json_code.size() << " bytes)";
+            log << " (" << json_code.size() << " bytes)";
         }
-        std::cout << "\n";
+        log << "\n";
     }
 
     if (emit_router) {
         if (opts.verbose) {
-            std::cout << "[verbose] Generating route table (" << doc.paths.size() << " paths)...\n";
+            log << "[verbose] Generating route table (" << doc.paths.size() << " paths)...\n";
         }
         auto router_code = with_layer(generate_router_table(doc));
         auto router_path = opts.output / "generated_routes.hpp";
@@ -208,11 +210,11 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << router_code;
-        std::cout << "[codegen] Route table written to " << router_path;
+        log << "[codegen] Route table written to " << router_path;
         if (opts.verbose) {
-            std::cout << " (" << router_code.size() << " bytes)";
+            log << " (" << router_code.size() << " bytes)";
         }
-        std::cout << "\n";
+        log << "\n";
     }
 
     if (emit_handler) {
@@ -221,7 +223,7 @@ int run_openapi(const options& opts) {
             for (const auto& p : doc.paths) {
                 op_count += p.operations.size();
             }
-            std::cout << "[verbose] Generating handler interfaces (" << op_count
+            log << "[verbose] Generating handler interfaces (" << op_count
                       << " operations)...\n";
         }
         auto handler_code = with_layer(generate_handler_interfaces(doc));
@@ -232,16 +234,16 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << handler_code;
-        std::cout << "[codegen] Handler interfaces written to " << handler_path;
+        log << "[codegen] Handler interfaces written to " << handler_path;
         if (opts.verbose) {
-            std::cout << " (" << handler_code.size() << " bytes)";
+            log << " (" << handler_code.size() << " bytes)";
         }
-        std::cout << "\n";
+        log << "\n";
     }
 
     if (emit_bindings) {
         if (opts.verbose) {
-            std::cout << "[verbose] Generating router bindings (glue code)...\n";
+            log << "[verbose] Generating router bindings (glue code)...\n";
         }
         auto bindings_code = with_layer(generate_router_bindings(doc));
         auto bindings_path = opts.output / "generated_router_bindings.hpp";
@@ -251,11 +253,11 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << bindings_code;
-        std::cout << "[codegen] Router bindings written to " << bindings_path;
+        log << "[codegen] Router bindings written to " << bindings_path;
         if (opts.verbose) {
-            std::cout << " (" << bindings_code.size() << " bytes)";
+            log << " (" << bindings_code.size() << " bytes)";
         }
-        std::cout << "\n";
+        log << "\n";
     }
 
     {
@@ -268,11 +270,11 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << package_code;
-        std::cout << "[codegen] OpenAPI package written to " << package_path;
+        log << "[codegen] OpenAPI package written to " << package_path;
         if (opts.verbose) {
-            std::cout << " (" << package_code.size() << " bytes)";
+            log << " (" << package_code.size() << " bytes)";
         }
-        std::cout << "\n";
+        log << "\n";
     }
 
     if (opts.dump_ast) {
@@ -284,15 +286,17 @@ int run_openapi(const options& opts) {
             return 1;
         }
         out << json;
-        std::cout << "[openapi] AST summary written to " << out_path << "\n";
+        log << "[openapi] AST summary written to " << out_path << "\n";
     }
 
-    std::cout << "[openapi] OK: version=" << doc.openapi_version
+    log << "[openapi] OK: version=" << doc.openapi_version
               << ", schemas=" << doc.schemas.size() << ", paths=" << doc.paths.size() << "\n";
     return 0;
 }
 
 int run_sql(const options& opts) {
+    // In --json mode keep stdout pure JSON; informational logs go to stderr.
+    std::ostream& log = opts.json_output ? std::cerr : std::cout;
     if (opts.input.empty()) {
         std::cerr << "[sql] input directory is required\n";
         return 1;
@@ -331,11 +335,11 @@ int run_sql(const options& opts) {
             return 1;
         }
         out << ast_json;
-        std::cout << "[sql] AST summary written to " << ast_path << "\n";
+        log << "[sql] AST summary written to " << ast_path << "\n";
     }
 
     if (opts.check_only) {
-        std::cout << "[check] OK: queries=" << catalog->queries.size() << "\n";
+        log << "[check] OK: queries=" << catalog->queries.size() << "\n";
         return 0;
     }
 
@@ -352,7 +356,7 @@ int run_sql(const options& opts) {
             return 1;
         }
         out << models_code;
-        std::cout << "[codegen] SQL models written to " << models_path << "\n";
+        log << "[codegen] SQL models written to " << models_path << "\n";
     }
 
     if (emit_repository) {
@@ -364,7 +368,7 @@ int run_sql(const options& opts) {
             return 1;
         }
         out << repository_code;
-        std::cout << "[codegen] SQL repository written to " << repository_path << "\n";
+        log << "[codegen] SQL repository written to " << repository_path << "\n";
     }
 
     {
@@ -376,10 +380,10 @@ int run_sql(const options& opts) {
             return 1;
         }
         out << package_code;
-        std::cout << "[codegen] SQL package written to " << package_path << "\n";
+        log << "[codegen] SQL package written to " << package_path << "\n";
     }
 
-    std::cout << "[sql] OK: queries=" << catalog->queries.size() << "\n";
+    log << "[sql] OK: queries=" << catalog->queries.size() << "\n";
     return 0;
 }
 
