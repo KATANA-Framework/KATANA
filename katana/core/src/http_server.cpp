@@ -448,14 +448,32 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             (access_log_sample_every_ <= 1 ||
              access_log_counter_.fetch_add(1, std::memory_order_relaxed) % access_log_sample_every_ ==
                  0);
+        const bool traced = tracing_enabled_ && state.current_trace.valid();
         if (log_this_request) {
-            katana::log::info("http_request")
-                .field("method", method_to_string(req.http_method))
+            auto entry = katana::log::info("http_request");
+            entry.field("method", method_to_string(req.http_method))
                 .field("path", req.uri)
                 .field("status", static_cast<int64_t>(resp.status))
                 .field("bytes", static_cast<int64_t>(resp.body.size()))
                 .field("duration_us", duration_micros)
                 .field("request_id", request_id);
+            if (traced) {
+                entry.field("trace_id", state.current_trace.trace_id_hex());
+            }
+        }
+
+        // Emit a span for sampled traced requests (the access log is separate/optional).
+        if (traced && state.current_trace.sampled) {
+            std::string span_name(method_to_string(req.http_method));
+            span_name += ' ';
+            span_name.append(req.uri.data(), req.uri.size());
+            katana::log::info("span")
+                .field("trace_id", state.current_trace.trace_id_hex())
+                .field("span_id", state.current_trace.span_id_hex())
+                .field("parent_span_id", state.current_trace.parent_span_id_hex())
+                .field("name", span_name)
+                .field("status", static_cast<int64_t>(resp.status))
+                .field("duration_us", duration_micros);
         }
 
         if (on_request_callback_) {
@@ -678,6 +696,10 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         ctx.deferred_response_factory = &server::make_deferred_response_handle;
         response resp{&state.arena};
         state.request_start = std::chrono::steady_clock::now();
+        if (tracing_enabled_) {
+            state.current_trace = tracing::start_server_span(req.header("traceparent"));
+            ctx.trace = state.current_trace; // visible to the handler for downstream propagation
+        }
         dispatch_request(req, ctx, resp);
 
         if (ctx.is_response_deferred()) {

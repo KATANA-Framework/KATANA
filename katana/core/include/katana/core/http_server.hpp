@@ -309,6 +309,15 @@ public:
         return *this;
     }
 
+    /// Enable W3C distributed tracing. Each request continues an inbound `traceparent` (or
+    /// starts a new trace) into `request_context::trace`; a span is emitted per sampled request
+    /// (via `katana::log`, msg `"span"`) with trace/span/parent ids, name, status and duration.
+    /// Off by default.
+    server& tracing(bool enable = true) {
+        tracing_enabled_ = enable;
+        return *this;
+    }
+
     /// Cap the number of simultaneously-open client connections (across all workers). Accepts
     /// beyond the cap are closed immediately and counted in
     /// `katana_http_connections_rejected_total`. 0 (default) means unlimited.
@@ -418,6 +427,8 @@ private:
         // Safe across the deferred path: a connection stops reading new requests until its
         // deferred response completes, so this is never overwritten mid-flight.
         std::chrono::steady_clock::time_point request_start{};
+        // Tracing span for the current request (same lifetime guarantee as request_start).
+        tracing::span_context current_trace{};
         deferred_response_slot deferred_ready_response{};
         bool deferred_response_active = false;
         server* owner_server = nullptr;
@@ -519,6 +530,9 @@ private:
 
     // Max simultaneous connections across all workers (0 = unlimited).
     size_t max_connections_ = 0;
+
+    // W3C distributed tracing (opt-in via tracing()).
+    bool tracing_enabled_ = false;
 };
 
 } // namespace http

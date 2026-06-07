@@ -6,6 +6,7 @@
 #include "inplace_function.hpp"
 #include "problem.hpp"
 #include "result.hpp"
+#include "tracing.hpp"
 
 #include <algorithm>
 #include <array>
@@ -377,6 +378,9 @@ struct request_context {
     // The server echoes this — or a generated id when absent — back on the response and in
     // the access log, so handler logs can be tied to a single request.
     std::string_view request_id{};
+    // Distributed-tracing span for this request (W3C Trace Context). Populated by the server
+    // when tracing is enabled; handlers read `trace.to_traceparent()` to propagate downstream.
+    tracing::span_context trace{};
     const route_policy_view* route_policy = nullptr;
     route_policy_executor* policy_executor = nullptr;
     void* task_scheduler_user = nullptr;

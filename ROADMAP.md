@@ -80,10 +80,12 @@ Remaining:
 You cannot operate a service without these. This is the stage that makes a deployment
 debuggable and safe to run.
 
-**Status: all [P0] items have a base implementation** (config, structured logging + access log,
-metrics, health/readiness, connection timeouts, graceful shutdown). Each entry's *Remaining*
-note lists the follow-on depth (hot reload, histograms, per-route labels, DB deadlines, idle-
-connection close on shutdown, …). The remaining Stage 6 item is [P1] distributed tracing.
+**Status: every Stage 6 item — all [P0] plus the [P1] distributed tracing — has a base
+implementation** (config, structured logging + access log, metrics incl. duration histogram,
+health/readiness, connection timeouts + max-connections, graceful shutdown, W3C tracing). Each
+entry's *Remaining* note lists the follow-on depth (config hot reload/secrets, per-route metric
+labels, DB deadlines into libpq, OTLP export, handler-side log helper, …) — refinements, not
+operational blockers.
 
 - **[P0] Configuration system** — **base done.** `katana::config` merges layered sources in
   precedence order — programmatic defaults < config file (`key = value`, `#` comments) < env
@@ -132,8 +134,14 @@ connection close on shutdown, …). The remaining Stage 6 item is [P1] distribut
   `Connection: close` during shutdown) and verified on the demo. *Remaining:* proactively close
   fully-idle keep-alive connections that send nothing during shutdown (today they're bounded by
   the drain deadline, or `connection_timeout` if set).
-- **[P1] Distributed tracing** — OpenTelemetry/OTLP, span propagation through the async path
-  and into DB calls.
+- **[P1] Distributed tracing** — **base done.** W3C Trace Context (`katana::tracing`): the server
+  parses an inbound `traceparent` and continues the trace (new span id, inbound span as parent)
+  or starts a fresh root, exposed to handlers via `request_context::trace` (with
+  `to_traceparent()` for downstream propagation). Per sampled request it emits a span (via
+  `katana::log`, msg `"span"`: trace/span/parent ids, name, status, duration) and adds `trace_id`
+  to the access log. Opt-in via `server.tracing()`. *Remaining:* OTLP/gRPC exporter to a
+  collector, automatic propagation into the SQL layer (sqlcommenter / span per query),
+  `tracestate` passthrough.
 
 ---
 
