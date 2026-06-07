@@ -424,12 +424,37 @@ void generate_dto_for_schema(std::ostream& out,
 
 void generate_enum_for_schema(std::ostream& out,
                               const document& doc,
-                              const katana::openapi::schema& s) {
+                              const katana::openapi::schema& s,
+                              std::unordered_map<std::string, std::string>& canonical_by_signature) {
     if (s.kind != katana::openapi::schema_kind::string || s.enum_values.empty()) {
         return;
     }
 
     auto enum_name = schema_identifier(doc, &s);
+    const auto identifiers = enum_value_identifiers(s);
+
+    // Deduplicate structurally-identical enums: the first schema with a given ordered
+    // (identifier, value) set defines the real enum; later duplicates become a type alias
+    // to it (plus a forwarding from_string). This collapses the 4 identical Status enums
+    // into one and lets fields that share a vocabulary compare without a cast.
+    std::string signature;
+    for (size_t i = 0; i < s.enum_values.size(); ++i) {
+        signature += identifiers[i];
+        signature += '=';
+        signature.append(s.enum_values[i].begin(), s.enum_values[i].end());
+        signature += ';';
+    }
+    if (auto it = canonical_by_signature.find(signature);
+        it != canonical_by_signature.end() && it->second != enum_name) {
+        const std::string& canon = it->second;
+        out << "/// Alias of " << canon << "_enum (identical value set)\n";
+        out << "using " << enum_name << "_enum = " << canon << "_enum;\n";
+        out << "inline std::optional<" << enum_name << "_enum> " << enum_name
+            << "_enum_from_string(std::string_view s) { return " << canon
+            << "_enum_from_string(s); }\n\n";
+        return;
+    }
+    canonical_by_signature.emplace(signature, enum_name);
 
     // Add documentation comment if description is available
     if (!s.description.empty()) {
@@ -437,8 +462,6 @@ void generate_enum_for_schema(std::ostream& out,
     } else {
         out << "/// Enum with " << s.enum_values.size() << " possible values\n";
     }
-
-    const auto identifiers = enum_value_identifiers(s);
 
     out << "enum class " << enum_name << "_enum {\n";
     for (size_t i = 0; i < s.enum_values.size(); ++i) {
@@ -638,8 +661,9 @@ std::string generate_dtos(const document& doc, bool use_pmr) {
     out << "// ============================================================\n";
     out << "// Enum Types\n";
     out << "// ============================================================\n\n";
+    std::unordered_map<std::string, std::string> canonical_enum_by_signature;
     for (const auto& schema : doc.schemas) {
-        generate_enum_for_schema(out, doc, schema);
+        generate_enum_for_schema(out, doc, schema, canonical_enum_by_signature);
     }
 
     // Schemas referenced as a parse_/serialize_ target (object properties, array items,

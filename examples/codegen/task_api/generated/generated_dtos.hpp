@@ -57,57 +57,13 @@ inline std::optional<Task_Status_t_enum> Task_Status_t_enum_from_string(std::str
     return std::nullopt;
 }
 
-/// Enum with 4 possible values
-enum class UpdateTaskRequest_Status_t_enum {
-    pending,
-    in_progress,
-    completed,
-    cancelled
-};
+/// Alias of Task_Status_t_enum (identical value set)
+using UpdateTaskRequest_Status_t_enum = Task_Status_t_enum;
+inline std::optional<UpdateTaskRequest_Status_t_enum> UpdateTaskRequest_Status_t_enum_from_string(std::string_view s) { return Task_Status_t_enum_from_string(s); }
 
-inline std::string_view to_string(UpdateTaskRequest_Status_t_enum e) {
-    switch (e) {
-    case UpdateTaskRequest_Status_t_enum::pending: return "pending";
-    case UpdateTaskRequest_Status_t_enum::in_progress: return "in_progress";
-    case UpdateTaskRequest_Status_t_enum::completed: return "completed";
-    case UpdateTaskRequest_Status_t_enum::cancelled: return "cancelled";
-    }
-    return "";
-}
-
-inline std::optional<UpdateTaskRequest_Status_t_enum> UpdateTaskRequest_Status_t_enum_from_string(std::string_view s) {
-    if (s == "pending") return UpdateTaskRequest_Status_t_enum::pending;
-    if (s == "in_progress") return UpdateTaskRequest_Status_t_enum::in_progress;
-    if (s == "completed") return UpdateTaskRequest_Status_t_enum::completed;
-    if (s == "cancelled") return UpdateTaskRequest_Status_t_enum::cancelled;
-    return std::nullopt;
-}
-
-/// Enum with 4 possible values
-enum class SearchRequest_Item_t_enum {
-    pending,
-    in_progress,
-    completed,
-    cancelled
-};
-
-inline std::string_view to_string(SearchRequest_Item_t_enum e) {
-    switch (e) {
-    case SearchRequest_Item_t_enum::pending: return "pending";
-    case SearchRequest_Item_t_enum::in_progress: return "in_progress";
-    case SearchRequest_Item_t_enum::completed: return "completed";
-    case SearchRequest_Item_t_enum::cancelled: return "cancelled";
-    }
-    return "";
-}
-
-inline std::optional<SearchRequest_Item_t_enum> SearchRequest_Item_t_enum_from_string(std::string_view s) {
-    if (s == "pending") return SearchRequest_Item_t_enum::pending;
-    if (s == "in_progress") return SearchRequest_Item_t_enum::in_progress;
-    if (s == "completed") return SearchRequest_Item_t_enum::completed;
-    if (s == "cancelled") return SearchRequest_Item_t_enum::cancelled;
-    return std::nullopt;
-}
+/// Alias of Task_Status_t_enum (identical value set)
+using SearchRequest_Item_t_enum = Task_Status_t_enum;
+inline std::optional<SearchRequest_Item_t_enum> SearchRequest_Item_t_enum_from_string(std::string_view s) { return Task_Status_t_enum_from_string(s); }
 
 /// Enum with 3 possible values
 enum class HealthResponse_Status_t_enum {
@@ -132,31 +88,9 @@ inline std::optional<HealthResponse_Status_t_enum> HealthResponse_Status_t_enum_
     return std::nullopt;
 }
 
-/// Enum with 4 possible values
-enum class listTasks_param_status_enum {
-    pending,
-    in_progress,
-    completed,
-    cancelled
-};
-
-inline std::string_view to_string(listTasks_param_status_enum e) {
-    switch (e) {
-    case listTasks_param_status_enum::pending: return "pending";
-    case listTasks_param_status_enum::in_progress: return "in_progress";
-    case listTasks_param_status_enum::completed: return "completed";
-    case listTasks_param_status_enum::cancelled: return "cancelled";
-    }
-    return "";
-}
-
-inline std::optional<listTasks_param_status_enum> listTasks_param_status_enum_from_string(std::string_view s) {
-    if (s == "pending") return listTasks_param_status_enum::pending;
-    if (s == "in_progress") return listTasks_param_status_enum::in_progress;
-    if (s == "completed") return listTasks_param_status_enum::completed;
-    if (s == "cancelled") return listTasks_param_status_enum::cancelled;
-    return std::nullopt;
-}
+/// Alias of Task_Status_t_enum (identical value set)
+using listTasks_param_status_enum = Task_Status_t_enum;
+inline std::optional<listTasks_param_status_enum> listTasks_param_status_enum_from_string(std::string_view s) { return Task_Status_t_enum_from_string(s); }
 
 // ============================================================
 // Data Transfer Objects (DTOs)

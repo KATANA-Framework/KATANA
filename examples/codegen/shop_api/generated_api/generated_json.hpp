@@ -721,31 +721,44 @@ inline std::string serialize_CreateOrderResponse_array(const arena_vector<Create
 // serialize CustomerRevenue — object, 6 field(s)  ← api.yaml:94
 inline void serialize_CustomerRevenue_into(const CustomerRevenue& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"customer_id\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.customer_id);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"name\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"name\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.name, json);
     json.push_back('"');
-    json.append(",\"country\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"country\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.country, json);
     json.push_back('"');
-    json.append(",\"revenue\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"revenue\":");
     {
         katana::serde::append_json_double(json, obj.revenue);
     }
-    json.append(",\"order_count\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"order_count\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.order_count);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"revenue_rank\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"revenue_rank\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.revenue_rank);
@@ -767,6 +780,9 @@ inline std::string serialize_CustomerRevenue(const CustomerRevenue& obj) {
 // serialize CustomerRevenueList — object, 1 field(s)  ← api.yaml:104
 inline void serialize_CustomerRevenueList_into(const CustomerRevenueList& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"items\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.items.size(); ++i) {
@@ -789,31 +805,44 @@ inline std::string serialize_CustomerRevenueList(const CustomerRevenueList& obj)
 // serialize TopProduct — object, 6 field(s)  ← api.yaml:109
 inline void serialize_TopProduct_into(const TopProduct& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"product_id\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.product_id);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"name\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"name\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.name, json);
     json.push_back('"');
-    json.append(",\"category\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"category\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.category, json);
     json.push_back('"');
-    json.append(",\"units_sold\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"units_sold\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.units_sold);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"revenue\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"revenue\":");
     {
         katana::serde::append_json_double(json, obj.revenue);
     }
-    json.append(",\"category_rank\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"category_rank\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.category_rank);
@@ -835,6 +864,9 @@ inline std::string serialize_TopProduct(const TopProduct& obj) {
 // serialize TopProductList — object, 1 field(s)  ← api.yaml:119
 inline void serialize_TopProductList_into(const TopProductList& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"items\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.items.size(); ++i) {
@@ -857,31 +889,44 @@ inline std::string serialize_TopProductList(const TopProductList& obj) {
 // serialize CategoryStat — object, 6 field(s)  ← api.yaml:124
 inline void serialize_CategoryStat_into(const CategoryStat& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"category\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.category, json);
     json.push_back('"');
-    json.append(",\"product_count\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"product_count\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.product_count);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"avg_price\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"avg_price\":");
     {
         katana::serde::append_json_double(json, obj.avg_price);
     }
-    json.append(",\"total_stock\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"total_stock\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.total_stock);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"min_price\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"min_price\":");
     {
         katana::serde::append_json_double(json, obj.min_price);
     }
-    json.append(",\"max_price\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"max_price\":");
     {
         katana::serde::append_json_double(json, obj.max_price);
     }
@@ -900,6 +945,9 @@ inline std::string serialize_CategoryStat(const CategoryStat& obj) {
 // serialize CategoryStatList — object, 1 field(s)  ← api.yaml:134
 inline void serialize_CategoryStatList_into(const CategoryStatList& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"items\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.items.size(); ++i) {
@@ -922,37 +970,52 @@ inline std::string serialize_CategoryStatList(const CategoryStatList& obj) {
 // serialize OrderDetail — object, 7 field(s)  ← api.yaml:139
 inline void serialize_OrderDetail_into(const OrderDetail& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"order_id\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.order_id);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"status\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"status\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.status, json);
     json.push_back('"');
-    json.append(",\"customer_name\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"customer_name\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.customer_name, json);
     json.push_back('"');
-    json.append(",\"country\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"country\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.country, json);
     json.push_back('"');
-    json.append(",\"line_count\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"line_count\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.line_count);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"total_qty\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"total_qty\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.total_qty);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"total_amount\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"total_amount\":");
     {
         katana::serde::append_json_double(json, obj.total_amount);
     }
@@ -973,13 +1036,18 @@ inline std::string serialize_OrderDetail(const OrderDetail& obj) {
 // serialize CreateOrderRequest — object, 2 field(s)  ← api.yaml:150
 inline void serialize_CreateOrderRequest_into(const CreateOrderRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"customer_id\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.customer_id);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"status\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"status\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.status, json);
     json.push_back('"');
@@ -998,6 +1066,9 @@ inline std::string serialize_CreateOrderRequest(const CreateOrderRequest& obj) {
 // serialize CreateOrderResponse — object, 1 field(s)  ← api.yaml:156
 inline void serialize_CreateOrderResponse_into(const CreateOrderResponse& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"id\":");
     {
         char buf[32];

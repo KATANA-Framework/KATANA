@@ -135,15 +135,23 @@ inline std::string serialize_register_user_response_array(const arena_vector<reg
 // serialize RegisterUserRequest — object, 3 field(s)  ← api.yaml:25
 inline void serialize_RegisterUserRequest_into(const RegisterUserRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"email\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.email, json);
     json.push_back('"');
-    json.append(",\"password\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"password\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.password, json);
     json.push_back('"');
-    json.append(",\"age\":");
+    if (obj.age) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"age\":");
     {
         if (!obj.age) {
             json.append("null");
@@ -152,6 +160,7 @@ inline void serialize_RegisterUserRequest_into(const RegisterUserRequest& obj, s
             auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *obj.age);
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
+    }
     }
     json.push_back('}');
 }

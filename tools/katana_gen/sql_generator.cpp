@@ -189,10 +189,24 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
             out << ", ";
         }
         out << query.name << "_async_handler handler) const {\n";
+        out << "        if (!handler) {\n";
+        out << "            return false;\n";
+        out << "        }\n";
         out << "        auto* async_executor = "
                "dynamic_cast<katana::sql::async_executor*>(&executor_);\n";
-        out << "        if (async_executor == nullptr || !handler) {\n";
-        out << "            return false;\n";
+        out << "        if (async_executor == nullptr) {\n";
+        out << "            // No async executor: run synchronously and deliver the result inline\n";
+        out << "            // so the completion always fires (returning false here would hang a\n";
+        out << "            // deferred response).\n";
+        out << "            handler(" << query.name << "(";
+        for (std::size_t i = 0; i < query.parameters.size(); ++i) {
+            if (i != 0) {
+                out << ", ";
+            }
+            out << "p" << query.parameters[i].index;
+        }
+        out << "));\n";
+        out << "            return true;\n";
         out << "        }\n";
         out << "        katana::sql::parameters params;\n";
         out << "        params.reserve(" << query.parameters.size() << ");\n";

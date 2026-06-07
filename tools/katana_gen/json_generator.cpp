@@ -945,16 +945,21 @@ void generate_json_serializer_for_schema(std::ostream& out,
     size_t reserve_est = compute_reserve_estimate(doc, s);
     out << "    json.push_back('{');\n";
 
-    bool first_field = true;
+    out << "    bool first_field_ = true;\n";
     for (const auto& prop : s.properties) {
         const auto member_name = property_member_identifier(prop.name);
         const auto prop_key = escape_cpp_string(prop.name);
-        if (first_field) {
-            out << "    json.append(\"\\\"" << prop_key << "\\\":\");\n";
-            first_field = false;
-        } else {
-            out << "    json.append(\",\\\"" << prop_key << "\\\":\");\n";
+        // Optional (non-required) fields are OMITTED entirely when absent — `null` is only a
+        // valid value for a nullable field, so a missing non-required field must not appear.
+        // Required fields are always emitted (a required+nullable one emits null when empty).
+        // Runtime comma tracking is needed because any field may be skipped.
+        const bool omittable = !prop.required;
+        if (omittable) {
+            out << "    if (obj." << member_name << ") {\n";
         }
+        out << "    if (!first_field_) json.push_back(',');\n";
+        out << "    first_field_ = false;\n";
+        out << "    json.append(\"\\\"" << prop_key << "\\\":\");\n";
 
         if (prop.type) {
             using katana::openapi::schema_kind;
@@ -1146,6 +1151,9 @@ void generate_json_serializer_for_schema(std::ostream& out,
                     break;
                 }
             }
+        }
+        if (omittable) {
+            out << "    }\n";
         }
     }
 

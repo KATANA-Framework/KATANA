@@ -1161,6 +1161,9 @@ inline std::string serialize_health_check_response_array(const arena_vector<heal
 // serialize SumRequest — object, 1 field(s)  ← api.yaml:221
 inline void serialize_SumRequest_into(const SumRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"values\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.values.size(); ++i) {
@@ -1183,11 +1186,16 @@ inline std::string serialize_SumRequest(const SumRequest& obj) {
 // serialize SumResponse — object, 2 field(s)  ← api.yaml:233
 inline void serialize_SumResponse_into(const SumResponse& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"result\":");
     {
         katana::serde::append_json_double(json, obj.result);
     }
-    json.append(",\"count\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"count\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.count);
@@ -1207,6 +1215,9 @@ inline std::string serialize_SumResponse(const SumResponse& obj) {
 // serialize StatsRequest — object, 2 field(s)  ← api.yaml:243
 inline void serialize_StatsRequest_into(const StatsRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"values\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.values.size(); ++i) {
@@ -1214,11 +1225,15 @@ inline void serialize_StatsRequest_into(const StatsRequest& obj, std::string& js
         katana::serde::append_json_double(json, obj.values[i]);
     }
     json.push_back(']');
-    json.append(",\"include_median\":");
+    if (obj.include_median) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"include_median\":");
     if (!obj.include_median) {
         json.append("null");
     } else {
         json.append(*obj.include_median ? "true" : "false");
+    }
     }
     json.push_back('}');
 }
@@ -1235,6 +1250,10 @@ inline std::string serialize_StatsRequest(const StatsRequest& obj) {
 // serialize StatsResponse — object, 6 field(s)  ← api.yaml:257
 inline void serialize_StatsResponse_into(const StatsResponse& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.min) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"min\":");
     {
         if (!obj.min) {
@@ -1243,7 +1262,11 @@ inline void serialize_StatsResponse_into(const StatsResponse& obj, std::string& 
         katana::serde::append_json_double(json, *obj.min);
         }
     }
-    json.append(",\"max\":");
+    }
+    if (obj.max) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"max\":");
     {
         if (!obj.max) {
             json.append("null");
@@ -1251,7 +1274,11 @@ inline void serialize_StatsResponse_into(const StatsResponse& obj, std::string& 
         katana::serde::append_json_double(json, *obj.max);
         }
     }
-    json.append(",\"mean\":");
+    }
+    if (obj.mean) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"mean\":");
     {
         if (!obj.mean) {
             json.append("null");
@@ -1259,7 +1286,11 @@ inline void serialize_StatsResponse_into(const StatsResponse& obj, std::string& 
         katana::serde::append_json_double(json, *obj.mean);
         }
     }
-    json.append(",\"sum\":");
+    }
+    if (obj.sum) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"sum\":");
     {
         if (!obj.sum) {
             json.append("null");
@@ -1267,7 +1298,11 @@ inline void serialize_StatsResponse_into(const StatsResponse& obj, std::string& 
         katana::serde::append_json_double(json, *obj.sum);
         }
     }
-    json.append(",\"count\":");
+    }
+    if (obj.count) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"count\":");
     {
         if (!obj.count) {
             json.append("null");
@@ -1277,13 +1312,18 @@ inline void serialize_StatsResponse_into(const StatsResponse& obj, std::string& 
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"median\":");
+    }
+    if (obj.median) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"median\":");
     {
         if (!obj.median) {
             json.append("null");
         } else {
         katana::serde::append_json_double(json, *obj.median);
         }
+    }
     }
     json.push_back('}');
 }
@@ -1299,19 +1339,29 @@ inline std::string serialize_StatsResponse(const StatsResponse& obj) {
 // serialize RegisterRequest — object, 6 field(s)  ← api.yaml:279
 inline void serialize_RegisterRequest_into(const RegisterRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"username\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.username, json);
     json.push_back('"');
-    json.append(",\"email\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"email\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.email, json);
     json.push_back('"');
-    json.append(",\"password\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"password\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.password, json);
     json.push_back('"');
-    json.append(",\"age\":");
+    if (obj.age) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"age\":");
     {
         if (!obj.age) {
             json.append("null");
@@ -1321,7 +1371,11 @@ inline void serialize_RegisterRequest_into(const RegisterRequest& obj, std::stri
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"role\":");
+    }
+    if (obj.role) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"role\":");
     if (obj.role) {
         json.push_back('"');
         json.append(to_string(*obj.role));
@@ -1329,7 +1383,11 @@ inline void serialize_RegisterRequest_into(const RegisterRequest& obj, std::stri
     } else {
         json.append("null");
     }
-    json.append(",\"tags\":");
+    }
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1341,6 +1399,7 @@ inline void serialize_RegisterRequest_into(const RegisterRequest& obj, std::stri
         json.push_back('"');
     }
     json.push_back(']');
+    }
     }
     json.push_back('}');
 }
@@ -1376,23 +1435,34 @@ inline std::string serialize_UserRole(const UserRole& obj) {
 // serialize UserResponse — object, 5 field(s)  ← api.yaml:312
 inline void serialize_UserResponse_into(const UserResponse& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"id\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.id, json);
     json.push_back('"');
-    json.append(",\"username\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"username\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.username, json);
     json.push_back('"');
-    json.append(",\"email\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"email\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.email, json);
     json.push_back('"');
-    json.append(",\"role\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"role\":");
     json.push_back('"');
     json.append(to_string(obj.role));
     json.push_back('"');
-    json.append(",\"created_at\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"created_at\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.created_at, json);
     json.push_back('"');
@@ -1430,17 +1500,25 @@ inline std::string serialize_ItemCategory(const ItemCategory& obj) {
 // serialize Item — object, 8 field(s)  ← api.yaml:334
 inline void serialize_Item_into(const Item& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"id\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.id);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"name\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"name\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.name, json);
     json.push_back('"');
-    json.append(",\"description\":");
+    if (obj.description) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"description\":");
     if (obj.description) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.description, json);
@@ -1448,11 +1526,17 @@ inline void serialize_Item_into(const Item& obj, std::string& json) {
     } else {
         json.append("null");
     }
-    json.append(",\"price\":");
+    }
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"price\":");
     {
         katana::serde::append_json_double(json, obj.price);
     }
-    json.append(",\"stock\":");
+    if (obj.stock) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"stock\":");
     {
         if (!obj.stock) {
             json.append("null");
@@ -1462,11 +1546,17 @@ inline void serialize_Item_into(const Item& obj, std::string& json) {
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"category\":");
+    }
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"category\":");
     json.push_back('"');
     json.append(to_string(obj.category));
     json.push_back('"');
-    json.append(",\"tags\":");
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1479,11 +1569,16 @@ inline void serialize_Item_into(const Item& obj, std::string& json) {
     }
     json.push_back(']');
     }
-    json.append(",\"metadata\":");
+    }
+    if (obj.metadata) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"metadata\":");
     if (obj.metadata) {
         serialize_ItemMetadata_into(*obj.metadata, json);
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -1502,6 +1597,10 @@ inline std::string serialize_Item(const Item& obj) {
 // serialize ItemMetadata — object, 4 field(s)  ← api.yaml:360
 inline void serialize_ItemMetadata_into(const ItemMetadata& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.weight_kg) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"weight_kg\":");
     {
         if (!obj.weight_kg) {
@@ -1510,7 +1609,11 @@ inline void serialize_ItemMetadata_into(const ItemMetadata& obj, std::string& js
         katana::serde::append_json_double(json, *obj.weight_kg);
         }
     }
-    json.append(",\"dimensions\":");
+    }
+    if (obj.dimensions) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"dimensions\":");
     if (obj.dimensions) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.dimensions, json);
@@ -1518,7 +1621,11 @@ inline void serialize_ItemMetadata_into(const ItemMetadata& obj, std::string& js
     } else {
         json.append("null");
     }
-    json.append(",\"manufacturer\":");
+    }
+    if (obj.manufacturer) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"manufacturer\":");
     if (obj.manufacturer) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.manufacturer, json);
@@ -1526,13 +1633,18 @@ inline void serialize_ItemMetadata_into(const ItemMetadata& obj, std::string& js
     } else {
         json.append("null");
     }
-    json.append(",\"sku\":");
+    }
+    if (obj.sku) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"sku\":");
     if (obj.sku) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.sku, json);
         json.push_back('"');
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -1551,11 +1663,17 @@ inline std::string serialize_ItemMetadata(const ItemMetadata& obj) {
 // serialize CreateItemRequest — object, 7 field(s)  ← api.yaml:373
 inline void serialize_CreateItemRequest_into(const CreateItemRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"name\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.name, json);
     json.push_back('"');
-    json.append(",\"description\":");
+    if (obj.description) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"description\":");
     if (obj.description) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.description, json);
@@ -1563,11 +1681,17 @@ inline void serialize_CreateItemRequest_into(const CreateItemRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"price\":");
+    }
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"price\":");
     {
         katana::serde::append_json_double(json, obj.price);
     }
-    json.append(",\"stock\":");
+    if (obj.stock) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"stock\":");
     {
         if (!obj.stock) {
             json.append("null");
@@ -1577,11 +1701,17 @@ inline void serialize_CreateItemRequest_into(const CreateItemRequest& obj, std::
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"category\":");
+    }
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"category\":");
     json.push_back('"');
     json.append(to_string(obj.category));
     json.push_back('"');
-    json.append(",\"tags\":");
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1594,11 +1724,16 @@ inline void serialize_CreateItemRequest_into(const CreateItemRequest& obj, std::
     }
     json.push_back(']');
     }
-    json.append(",\"metadata\":");
+    }
+    if (obj.metadata) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"metadata\":");
     if (obj.metadata) {
         serialize_ItemMetadata_into(*obj.metadata, json);
     } else {
         json.append("null");
+    }
     }
     json.push_back('}');
 }
@@ -1617,6 +1752,10 @@ inline std::string serialize_CreateItemRequest(const CreateItemRequest& obj) {
 // serialize UpdateItemRequest — object, 6 field(s)  ← api.yaml:405
 inline void serialize_UpdateItemRequest_into(const UpdateItemRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.name) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"name\":");
     if (obj.name) {
         json.push_back('"');
@@ -1625,7 +1764,11 @@ inline void serialize_UpdateItemRequest_into(const UpdateItemRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"description\":");
+    }
+    if (obj.description) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"description\":");
     if (obj.description) {
         json.push_back('"');
         katana::serde::escape_json_string_into(*obj.description, json);
@@ -1633,7 +1776,11 @@ inline void serialize_UpdateItemRequest_into(const UpdateItemRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"price\":");
+    }
+    if (obj.price) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"price\":");
     {
         if (!obj.price) {
             json.append("null");
@@ -1641,7 +1788,11 @@ inline void serialize_UpdateItemRequest_into(const UpdateItemRequest& obj, std::
         katana::serde::append_json_double(json, *obj.price);
         }
     }
-    json.append(",\"stock\":");
+    }
+    if (obj.stock) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"stock\":");
     {
         if (!obj.stock) {
             json.append("null");
@@ -1651,7 +1802,11 @@ inline void serialize_UpdateItemRequest_into(const UpdateItemRequest& obj, std::
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"category\":");
+    }
+    if (obj.category) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"category\":");
     if (obj.category) {
         json.push_back('"');
         json.append(to_string(*obj.category));
@@ -1659,7 +1814,11 @@ inline void serialize_UpdateItemRequest_into(const UpdateItemRequest& obj, std::
     } else {
         json.append("null");
     }
-    json.append(",\"tags\":");
+    }
+    if (obj.tags) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"tags\":");
     if (!obj.tags) {
         json.append("null");
     } else {
@@ -1671,6 +1830,7 @@ inline void serialize_UpdateItemRequest_into(const UpdateItemRequest& obj, std::
         json.push_back('"');
     }
     json.push_back(']');
+    }
     }
     json.push_back('}');
 }
@@ -1689,6 +1849,9 @@ inline std::string serialize_UpdateItemRequest(const UpdateItemRequest& obj) {
 // serialize ItemList — object, 4 field(s)  ← api.yaml:431
 inline void serialize_ItemList_into(const ItemList& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"items\":");
     json.push_back('[');
     for (size_t i = 0; i < obj.items.size(); ++i) {
@@ -1696,13 +1859,18 @@ inline void serialize_ItemList_into(const ItemList& obj, std::string& json) {
         serialize_Item_into(obj.items[i], json);
     }
     json.push_back(']');
-    json.append(",\"total\":");
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"total\":");
     {
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), obj.total);
         json.append(buf, static_cast<size_t>(ptr - buf));
     }
-    json.append(",\"limit\":");
+    if (obj.limit) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"limit\":");
     {
         if (!obj.limit) {
             json.append("null");
@@ -1712,7 +1880,11 @@ inline void serialize_ItemList_into(const ItemList& obj, std::string& json) {
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"offset\":");
+    }
+    if (obj.offset) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"offset\":");
     {
         if (!obj.offset) {
             json.append("null");
@@ -1721,6 +1893,7 @@ inline void serialize_ItemList_into(const ItemList& obj, std::string& json) {
             auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *obj.offset);
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
+    }
     }
     json.push_back('}');
 }
@@ -1737,11 +1910,17 @@ inline std::string serialize_ItemList(const ItemList& obj) {
 // serialize EchoRequest — object, 3 field(s)  ← api.yaml:448
 inline void serialize_EchoRequest_into(const EchoRequest& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"message\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.message, json);
     json.push_back('"');
-    json.append(",\"repeat\":");
+    if (obj.repeat) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"repeat\":");
     {
         if (!obj.repeat) {
             json.append("null");
@@ -1751,11 +1930,16 @@ inline void serialize_EchoRequest_into(const EchoRequest& obj, std::string& json
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
     }
-    json.append(",\"uppercase\":");
+    }
+    if (obj.uppercase) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"uppercase\":");
     if (!obj.uppercase) {
         json.append("null");
     } else {
         json.append(*obj.uppercase ? "true" : "false");
+    }
     }
     json.push_back('}');
 }
@@ -1772,11 +1956,17 @@ inline std::string serialize_EchoRequest(const EchoRequest& obj) {
 // serialize EchoResponse — object, 2 field(s)  ← api.yaml:462
 inline void serialize_EchoResponse_into(const EchoResponse& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"message\":");
     json.push_back('"');
     katana::serde::escape_json_string_into(obj.message, json);
     json.push_back('"');
-    json.append(",\"length\":");
+    if (obj.length) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"length\":");
     {
         if (!obj.length) {
             json.append("null");
@@ -1785,6 +1975,7 @@ inline void serialize_EchoResponse_into(const EchoResponse& obj, std::string& js
             auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *obj.length);
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
+    }
     }
     json.push_back('}');
 }
@@ -1801,6 +1992,10 @@ inline std::string serialize_EchoResponse(const EchoResponse& obj) {
 // serialize health_check_response — object, 2 field(s)  ← api.yaml:209
 inline void serialize_health_check_response_into(const health_check_response& obj, std::string& json) {
     json.push_back('{');
+    bool first_field_ = true;
+    if (obj.status) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
     json.append("\"status\":");
     if (obj.status) {
         json.push_back('"');
@@ -1809,7 +2004,11 @@ inline void serialize_health_check_response_into(const health_check_response& ob
     } else {
         json.append("null");
     }
-    json.append(",\"uptime_ms\":");
+    }
+    if (obj.uptime_ms) {
+    if (!first_field_) json.push_back(',');
+    first_field_ = false;
+    json.append("\"uptime_ms\":");
     {
         if (!obj.uptime_ms) {
             json.append("null");
@@ -1818,6 +2017,7 @@ inline void serialize_health_check_response_into(const health_check_response& ob
             auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *obj.uptime_ms);
             json.append(buf, static_cast<size_t>(ptr - buf));
         }
+    }
     }
     json.push_back('}');
 }
