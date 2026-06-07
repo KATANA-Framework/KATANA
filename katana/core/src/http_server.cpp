@@ -458,8 +458,12 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         }
 
         auto connection_header = req.headers.get(http::field::connection);
+        // During graceful shutdown, stop reusing connections: tell the client this is the last
+        // response on the connection so kept-alive clients drain as their in-flight request
+        // completes instead of holding the connection open to the deadline.
         bool close_connection =
-            connection_header && (*connection_header == "close" || *connection_header == "Close");
+            shutdown_manager::instance().is_shutdown_requested() ||
+            (connection_header && (*connection_header == "close" || *connection_header == "Close"));
 
         if (!resp.headers.contains(http::field::connection)) {
             resp.headers.set_known_borrowed(http::field::connection,

@@ -1367,3 +1367,48 @@ TEST(HTTPServerMaxConnections, RefusesConnectionsBeyondTheCap) {
     ASSERT_NE(ap, std::string::npos);
     EXPECT_EQ(std::stoi(body.substr(ap + act.size())), 2);
 }
+
+TEST(HTTPServerGracefulShutdown, SendsConnectionCloseOnResponsesDuringShutdown) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_graceful_server(port); // 8s drain deadline
+    ASSERT_GT(server_pid, 0);
+
+    int client_fd = -1;
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    } cleanup{server_pid, &client_fd};
+
+    client_fd = connect_with_retry(port);
+    ASSERT_GE(client_fd, 0);
+
+    // Before shutdown: a keep-alive request is not force-closed.
+    send_all(client_fd, make_get_request("/ping"));
+    auto before = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(before.size(), 1u);
+    EXPECT_NE(before[0].header("Connection"), std::optional<std::string_view>{"close"});
+
+    // Trigger graceful shutdown and let it register.
+    ASSERT_EQ(::kill(server_pid, SIGTERM), 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    // A request during shutdown is served but the response asks the client to close.
+    send_all(client_fd, make_get_request("/ping"));
+    auto during = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(during.size(), 1u);
+    EXPECT_EQ(during[0].body, "pong");
+    EXPECT_EQ(during[0].header("Connection"), std::optional<std::string_view>{"close"});
+}

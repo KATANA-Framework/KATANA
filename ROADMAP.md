@@ -125,9 +125,12 @@ connection close on shutdown, …). The remaining Stage 6 item is [P1] distribut
   closes its listener fd (stops accepting), then the existing drain loop — now seeing only live
   connections, not the listeners — lets in-flight requests finish and exits as soon as they
   drain, rather than always waiting the full deadline; the deadline remains a hard cap that
-  force-closes stragglers. Covered by an integration test (exits well under an 8s deadline on
-  SIGTERM) and verified on the demo. *Remaining:* proactively close idle keep-alive connections
-  on shutdown (today they're held until they go idle-closed or the deadline).
+  force-closes stragglers. During shutdown every response also carries `Connection: close`, so
+  kept-alive clients stop reusing the connection and drain as their in-flight request finishes.
+  Covered by integration tests (exits well under an 8s deadline on SIGTERM; responses carry
+  `Connection: close` during shutdown) and verified on the demo. *Remaining:* proactively close
+  fully-idle keep-alive connections that send nothing during shutdown (today they're bounded by
+  the drain deadline, or `connection_timeout` if set).
 - **[P1] Distributed tracing** — OpenTelemetry/OTLP, span propagation through the async path
   and into DB calls.
 
