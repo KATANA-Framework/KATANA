@@ -16,6 +16,7 @@
 #include "generated/generated_sql_repository.hpp"
 #include "generated/generated_validators.hpp"
 
+#include "katana/core/config.hpp"
 #include "katana/core/contract_policies.hpp"
 #include "katana/core/datetime.hpp"
 #include "katana/core/http_server.hpp"
@@ -144,20 +145,43 @@ private:
     sqlgen::generated_repository& repo_;
 };
 
-uint16_t env_u16(const char* name, uint16_t fallback) {
-    if (const char* v = std::getenv(name)) {
-        return static_cast<uint16_t>(std::atoi(v));
-    }
-    return fallback;
-}
-
 } // namespace
 
-int main() {
-    const char* dsn = std::getenv("PG_DSN");
-    const std::string conn = dsn ? dsn : "postgresql://katana@127.0.0.1:5433/katana";
-    const uint16_t port = env_u16("PORT", 8090);
-    const size_t workers = env_u16("WORKERS", 4);
+int main(int argc, char** argv) {
+    // Layered config: built-in defaults < optional file (NOTES_CONFIG) < env (KATANA_*) <
+    // --flags. So `KATANA_PORT=9000 ./notes --workers 8` or `./notes --pg-dsn ...` all work,
+    // with one key space (pg_dsn / port / workers / access_log).
+    katana::config::config cfg;
+    cfg.defaults({{"pg_dsn", "postgresql://katana@127.0.0.1:5433/katana"},
+                  {"port", "8090"},
+                  {"workers", "4"},
+                  {"access_log", "true"}});
+    if (const char* file = std::getenv("NOTES_CONFIG")) {
+        cfg.from_file(file);
+    }
+    cfg.from_env("KATANA").from_args(argc, argv);
+
+    // Back-compat: the original demo used PG_DSN/PORT/WORKERS without the KATANA_ prefix.
+    if (const char* dsn = std::getenv("PG_DSN")) {
+        cfg.set("pg_dsn", dsn);
+    }
+    if (const char* p = std::getenv("PORT")) {
+        cfg.set("port", p);
+    }
+    if (const char* w = std::getenv("WORKERS")) {
+        cfg.set("workers", w);
+    }
+
+    if (auto problems = cfg.validate({"pg_dsn"}); !problems.empty()) {
+        for (const auto& msg : problems) {
+            std::cerr << "config: " << msg << "\n";
+        }
+        return 2;
+    }
+
+    const std::string conn(cfg.get_or("pg_dsn", ""));
+    const uint16_t port = cfg.get_u16("port", 8090);
+    const size_t workers = static_cast<size_t>(cfg.get_int("workers", 4));
 
     katana::sql::postgres_pool pool({.postgres = {.connection_string = conn},
                                      .executor_count = workers,
@@ -178,7 +202,7 @@ int main() {
     const auto& router = generated::make_router(handler);
     server(router)
         .policy_executor(policies)
-        .access_log() // structured JSON access log + X-Request-Id correlation
+        .access_log(cfg.get_bool("access_log", true)) // JSON access log + X-Request-Id correlation
         .readiness_check([&] {
             // Live readiness: a trivial query through the pool confirms the DB is reachable.
             return db_ready.load() && pool_executor.query("readyz_ping", "SELECT 1", {}).has_value();
