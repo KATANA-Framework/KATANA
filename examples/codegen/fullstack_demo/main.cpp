@@ -178,6 +178,7 @@ int main() {
     const auto& router = generated::make_router(handler);
     server(router)
         .policy_executor(policies)
+        .access_log() // structured JSON access log + X-Request-Id correlation
         .readiness_check([&] {
             // Live readiness: a trivial query through the pool confirms the DB is reachable.
             return db_ready.load() && pool_executor.query("readyz_ping", "SELECT 1", {}).has_value();

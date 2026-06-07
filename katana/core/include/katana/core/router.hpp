@@ -373,6 +373,10 @@ struct request_context {
 
     monotonic_arena& arena;
     path_params params{};
+    // Inbound correlation id (the client's `X-Request-Id` header), empty if none was sent.
+    // The server echoes this — or a generated id when absent — back on the response and in
+    // the access log, so handler logs can be tied to a single request.
+    std::string_view request_id{};
     const route_policy_view* route_policy = nullptr;
     route_policy_executor* policy_executor = nullptr;
     void* task_scheduler_user = nullptr;

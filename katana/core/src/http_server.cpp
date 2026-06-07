@@ -423,6 +423,30 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     auto finalize_response = [&](const request& req, response& resp) -> bool {
         metrics_.record_status(resp.status);
         metrics_.in_flight.fetch_sub(1, std::memory_order_relaxed);
+
+        // Correlation id: echo the client's X-Request-Id, or generate one. Reflect it on the
+        // response (so the caller can tie its logs to ours) and into the access log.
+        std::string generated_request_id;
+        std::string_view request_id;
+        if (auto inbound = req.header("x-request-id")) {
+            request_id = *inbound;
+        } else {
+            generated_request_id = detail::generate_request_id();
+            request_id = generated_request_id;
+        }
+        if (!resp.headers.contains("X-Request-Id")) {
+            resp.headers.set_unknown("X-Request-Id", request_id); // copies; safe past this scope
+        }
+
+        if (access_log_enabled_) {
+            katana::log::info("http_request")
+                .field("method", method_to_string(req.http_method))
+                .field("path", req.uri)
+                .field("status", static_cast<int64_t>(resp.status))
+                .field("bytes", static_cast<int64_t>(resp.body.size()))
+                .field("request_id", request_id);
+        }
+
         if (on_request_callback_) {
             on_request_callback_(req, resp);
         }

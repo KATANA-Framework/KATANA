@@ -3,6 +3,7 @@
 #include "katana/core/arena.hpp"
 #include "katana/core/fd_watch.hpp"
 #include "katana/core/http.hpp"
+#include "katana/core/log.hpp"
 #include "katana/core/reactor_pool.hpp"
 #include "katana/core/router.hpp"
 #include "katana/core/shutdown.hpp"
@@ -26,6 +27,19 @@ namespace http {
 namespace detail {
 constexpr size_t HTTP_SERVER_RESPONSE_BUFFER_CAPACITY = 8192;
 constexpr size_t HTTP_SERVER_ARENA_CAPACITY = 8192;
+
+// Generate a process-unique correlation id (16 lowercase hex chars from a monotonic counter).
+// Used when a request arrives without an `X-Request-Id` header.
+inline std::string generate_request_id() {
+    static std::atomic<uint64_t> counter{0};
+    const uint64_t n = counter.fetch_add(1, std::memory_order_relaxed);
+    static constexpr char hex[] = "0123456789abcdef";
+    char out[16];
+    for (int i = 15; i >= 0; --i) {
+        out[i] = hex[(n >> ((15 - i) * 4)) & 0xF];
+    }
+    return std::string(out, 16);
+}
 } // namespace detail
 
 // Lightweight server-level RED metrics, exported in Prometheus text format via /metrics.
@@ -205,6 +219,14 @@ public:
         return *this;
     }
 
+    /// Enable the built-in structured access log: one JSON line per request (method, path,
+    /// status, response bytes, correlation id) emitted via `katana::log` at info level. Off by
+    /// default — it logs every request, so opt in explicitly.
+    server& access_log(bool enable = true) {
+        access_log_enabled_ = enable;
+        return *this;
+    }
+
     /// Access the live server metrics registry (e.g. for tests or custom export).
     [[nodiscard]] server_metrics& metrics() noexcept { return metrics_; }
 
@@ -217,6 +239,9 @@ private:
 
     void dispatch_request(const request& req, request_context& ctx, response& out) const {
         metrics_.in_flight.fetch_add(1, std::memory_order_relaxed);
+        if (auto rid = req.header("x-request-id")) {
+            ctx.request_id = *rid; // inbound correlation id, visible to handlers
+        }
         if (try_serve_health(req, out) || try_serve_metrics(req, out)) {
             return;
         }
@@ -378,6 +403,9 @@ private:
     bool metrics_enabled_ = true;
     std::string metrics_path_ = "/metrics";
     mutable server_metrics metrics_;
+
+    // Built-in structured access log (opt-in via access_log()).
+    bool access_log_enabled_ = false;
 };
 
 } // namespace http

@@ -148,7 +148,7 @@ bool try_extract_response(std::string& buffer, parsed_response& out) {
             content_length = static_cast<size_t>(
                 std::stoul(std::string(line.substr(content_length_prefix.size()))));
             found_content_length = true;
-            break;
+            // keep scanning so headers after Content-Length (e.g. X-Request-Id) are captured
         }
         scan_pos = line_end + 2;
     }
@@ -451,6 +451,35 @@ pid_t spawn_contract_policy_server(uint16_t port) {
                    .listen(port)
                    .workers(1)
                    .policy_executor(executor)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
+pid_t spawn_access_log_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    // The handler echoes the inbound correlation id it sees in the request context, so the
+    // test can confirm handlers observe the client's X-Request-Id.
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn(
+             [](const http::request&, http::request_context& ctx, http::response& out) {
+                 out.assign_text(std::string("ctx-id=") + std::string(ctx.request_id));
+                 return result<void>{};
+             }),
+         {},
+         nullptr},
+    };
+
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .access_log()
                    .graceful_shutdown(std::chrono::milliseconds(100))
                    .run());
 }
@@ -943,4 +972,84 @@ TEST(HTTPServerPolicies, InMemoryContractPolicyExecutorAppliesCanonicalPoliciesO
     EXPECT_EQ(responses[3].header("Idempotency-Replayed"),
               std::optional<std::string_view>{"true"});
     EXPECT_EQ(responses[4].status, 429);
+}
+
+TEST(HTTPServerAccessLog, EchoesClientRequestIdToResponseAndHandler) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_access_log_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    send_all(client_fd,
+             "GET /ping HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: keep-alive\r\n"
+             "X-Request-Id: client-xyz-42\r\n\r\n");
+
+    auto responses = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_EQ(responses[0].status, 200);
+    // Response carries the client's correlation id back...
+    EXPECT_EQ(responses[0].header("X-Request-Id"),
+              std::optional<std::string_view>{"client-xyz-42"});
+    // ...and the handler observed the same id via request_context.
+    EXPECT_EQ(responses[0].body, "ctx-id=client-xyz-42");
+}
+
+TEST(HTTPServerAccessLog, GeneratesRequestIdWhenClientOmitsIt) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_access_log_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    send_all(client_fd, make_get_request("/ping"));
+
+    auto responses = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_EQ(responses[0].status, 200);
+    // The server synthesizes a 16-hex correlation id and reflects it on the response.
+    auto rid = responses[0].header("X-Request-Id");
+    ASSERT_TRUE(rid.has_value());
+    EXPECT_EQ(rid->size(), 16u);
+    EXPECT_EQ(rid->find_first_not_of("0123456789abcdef"), std::string_view::npos);
 }
