@@ -509,6 +509,33 @@ pid_t spawn_graceful_server(uint16_t port) {
                    .run());
 }
 
+pid_t spawn_timeout_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong");
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   // Short read/write windows so a stalled (slowloris-style) client is dropped.
+                   .connection_timeout(std::chrono::milliseconds(300),
+                                       std::chrono::milliseconds(300),
+                                       std::chrono::seconds(2))
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
 int connect_with_retry(uint16_t port) {
     for (int attempt = 0; attempt < 200; ++attempt) {
         int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -1133,4 +1160,75 @@ TEST(HTTPServerGracefulShutdown, StopsAcceptingAndDrainsPromptlyOnSigterm) {
     EXPECT_TRUE(WIFEXITED(status)); // clean exit, not killed
     // Must be well under the 8s deadline — proves prompt drain, not deadline force-close.
     EXPECT_LT(elapsed, std::chrono::seconds(3));
+}
+
+TEST(HTTPServerConnectionTimeout, ClosesStalledPartialRequestAndCountsIt) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_timeout_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    int client_fd = -1;
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    } cleanup{server_pid, &client_fd};
+
+    client_fd = connect_with_retry(port);
+    ASSERT_GE(client_fd, 0);
+
+    // Send a partial request (no terminating blank line) and then stall.
+    send_all(client_fd, "GET /ping HTTP/1.1\r\nHost: 127.0.0.1\r\n");
+
+    // The server should close the connection once the 300ms read timeout elapses. Detect the
+    // peer close (recv returns 0) within a generous bound.
+    const auto start = std::chrono::steady_clock::now();
+    bool closed = false;
+    char buf[256];
+    for (int i = 0; i < 200; ++i) { // up to ~2s
+        pollfd pfd{client_fd, POLLIN, 0};
+        if (::poll(&pfd, 1, 20) > 0) {
+            ssize_t n = ::recv(client_fd, buf, sizeof(buf), 0);
+            if (n == 0) { // orderly close by the server
+                closed = true;
+                break;
+            }
+            if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+                closed = true; // RST etc. also counts as dropped
+                break;
+            }
+        }
+    }
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    ASSERT_TRUE(closed); // stalled connection must be dropped, not held open
+    EXPECT_GE(elapsed, std::chrono::milliseconds(150)); // it was the timeout, not an instant reject
+    EXPECT_LT(elapsed, std::chrono::milliseconds(1800));
+
+    // The drop is reflected in the connection-timeout metric (queried over a fresh connection).
+    int metrics_fd = connect_with_retry(port);
+    ASSERT_GE(metrics_fd, 0);
+    send_all(metrics_fd, make_get_request("/metrics"));
+    auto responses = read_responses_slowly(metrics_fd, 1, std::chrono::seconds(2));
+    ::close(metrics_fd);
+    ASSERT_EQ(responses.size(), 1u);
+    const std::string& body = responses[0].body;
+    // Match the data line (newline-anchored), not the "# HELP/# TYPE" comment lines that also
+    // contain the metric name.
+    const std::string needle = "\nkatana_http_connection_timeouts_total ";
+    const size_t pos = body.find(needle);
+    ASSERT_NE(pos, std::string::npos);
+    const int count = std::stoi(body.substr(pos + needle.size()));
+    EXPECT_GE(count, 1);
 }

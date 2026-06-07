@@ -638,6 +638,12 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                 return;
             }
 
+            // Progress was made: push the idle/read timeout forward so an actively-fed
+            // connection isn't closed mid-request (no-op when timeouts are disabled).
+            if (state.watch) {
+                state.watch->refresh_timeout();
+            }
+
             parse_result = state.http_parser.commit_input(read_result->size());
             if (!parse_result) {
                 close_with_parse_error();
@@ -700,10 +706,24 @@ int server::run() {
             auto state = std::make_shared<connection_state>(tcp_socket(fd));
             auto state_ptr = state.get();
 
-            state->watch = std::make_unique<fd_watch>(
-                r, fd, state->watch_events, [this, state, state_ptr, &r](event_type) {
-                    handle_connection(*state_ptr, r);
-                });
+            auto on_event = [this, state, state_ptr, &r](event_type ev) {
+                if (has_flag(ev, event_type::timeout)) {
+                    // The reactor closes the fd right after this returns; detach it from the
+                    // connection's tcp_socket so it isn't closed twice.
+                    (void)state_ptr->socket.release();
+                    metrics_.connection_timeouts.fetch_add(1, std::memory_order_relaxed);
+                    return;
+                }
+                handle_connection(*state_ptr, r);
+            };
+
+            if (connection_timeout_) {
+                state->watch = std::make_unique<fd_watch>(r, fd, state->watch_events,
+                                                          std::move(on_event), *connection_timeout_);
+            } else {
+                state->watch =
+                    std::make_unique<fd_watch>(r, fd, state->watch_events, std::move(on_event));
+            }
         }
     };
 

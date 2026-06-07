@@ -50,6 +50,7 @@ struct server_metrics {
     std::atomic<uint64_t> requests_4xx{0};
     std::atomic<uint64_t> requests_5xx{0};
     std::atomic<int64_t> in_flight{0};
+    std::atomic<uint64_t> connection_timeouts{0};
 
     void record_status(int32_t status) noexcept {
         if (status >= 500) {
@@ -87,6 +88,11 @@ struct server_metrics {
         out += "# TYPE katana_http_requests_in_flight gauge\n";
         const int64_t live = in_flight.load(std::memory_order_relaxed);
         line(out, "katana_http_requests_in_flight", "", static_cast<uint64_t>(live < 0 ? 0 : live));
+        out += "# HELP katana_http_connection_timeouts_total Connections closed by an idle/read "
+               "timeout.\n";
+        out += "# TYPE katana_http_connection_timeouts_total counter\n";
+        line(out, "katana_http_connection_timeouts_total", "",
+             connection_timeouts.load(std::memory_order_relaxed));
         return out;
     }
 };
@@ -224,6 +230,17 @@ public:
     /// default — it logs every request, so opt in explicitly.
     server& access_log(bool enable = true) {
         access_log_enabled_ = enable;
+        return *this;
+    }
+
+    /// Enable per-connection idle/read/write timeouts (slowloris protection). A connection that
+    /// sees no progress within the relevant window is closed by the reactor. Off by default;
+    /// `read`/`write` bound a single read/write that stalls, `idle` bounds time between
+    /// requests on a kept-alive connection. Pass values; call without args for sane defaults.
+    server& connection_timeout(std::chrono::milliseconds read = std::chrono::seconds(30),
+                               std::chrono::milliseconds write = std::chrono::seconds(30),
+                               std::chrono::milliseconds idle = std::chrono::seconds(60)) {
+        connection_timeout_ = timeout_config{read, write, idle};
         return *this;
     }
 
@@ -406,6 +423,10 @@ private:
 
     // Built-in structured access log (opt-in via access_log()).
     bool access_log_enabled_ = false;
+
+    // Per-connection idle/read/write timeouts (opt-in via connection_timeout()). When unset,
+    // connections are registered without a timeout (legacy behavior).
+    std::optional<timeout_config> connection_timeout_;
 };
 
 } // namespace http

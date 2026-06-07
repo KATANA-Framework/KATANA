@@ -155,7 +155,9 @@ int main(int argc, char** argv) {
     cfg.defaults({{"pg_dsn", "postgresql://katana@127.0.0.1:5433/katana"},
                   {"port", "8090"},
                   {"workers", "4"},
-                  {"access_log", "true"}});
+                  {"access_log", "true"},
+                  {"conn_read_timeout_ms", "15000"},
+                  {"conn_idle_timeout_ms", "30000"}});
     if (const char* file = std::getenv("NOTES_CONFIG")) {
         cfg.from_file(file);
     }
@@ -200,9 +202,13 @@ int main(int argc, char** argv) {
     std::atomic<bool> db_ready{true};
 
     const auto& router = generated::make_router(handler);
+    const auto read_to = std::chrono::milliseconds(cfg.get_int("conn_read_timeout_ms", 15000));
+    const auto idle_to = std::chrono::milliseconds(cfg.get_int("conn_idle_timeout_ms", 30000));
+
     server(router)
         .policy_executor(policies)
         .access_log(cfg.get_bool("access_log", true)) // JSON access log + X-Request-Id correlation
+        .connection_timeout(read_to, read_to, idle_to) // slowloris protection
         .readiness_check([&] {
             // Live readiness: a trivial query through the pool confirms the DB is reachable.
             return db_ready.load() && pool_executor.query("readyz_ping", "SELECT 1", {}).has_value();

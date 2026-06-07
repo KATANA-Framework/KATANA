@@ -343,7 +343,11 @@ TEST_F(ReactorTest, RefreshFdTimeout) {
     auto elapsed = std::chrono::steady_clock::now() - start;
 
     EXPECT_TRUE(timed_out);
-    EXPECT_GE(elapsed, std::chrono::milliseconds(350));
+    // Three refreshes land at ~50/150/250ms; with a 1000ms idle window the timeout must fire
+    // ~1250ms after start, NOT at 1000ms. A loose lower bound would pass even if refreshes were
+    // ignored (the prior unit-mismatch bug), so assert the refresh genuinely extended the window.
+    EXPECT_GE(elapsed, std::chrono::milliseconds(1150));
+    EXPECT_LT(elapsed, std::chrono::milliseconds(1700));
 
     close(pipefd[0]);
     close(pipefd[1]);
