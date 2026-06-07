@@ -10,6 +10,7 @@
 #include "katana/core/tcp_listener.hpp"
 #include "katana/core/tcp_socket.hpp"
 
+#include <array>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -52,6 +53,32 @@ struct server_metrics {
     std::atomic<int64_t> in_flight{0};
     std::atomic<uint64_t> connection_timeouts{0};
 
+    // Request-duration histogram (Prometheus). Bucket upper bounds in microseconds, with the
+    // matching `le` labels in seconds. Buckets are cumulative-on-read (observe increments every
+    // bucket whose bound is >= the sample).
+    static constexpr std::array<int64_t, 14> duration_bounds_micros{
+        500,    1000,    2500,    5000,    10000,   25000,    50000,
+        100000, 250000,  500000,  1000000, 2500000, 5000000,  10000000};
+    static constexpr std::array<std::string_view, 14> duration_bound_labels{
+        "0.0005", "0.001", "0.0025", "0.005", "0.01", "0.025", "0.05",
+        "0.1",    "0.25",  "0.5",    "1",     "2.5",  "5",      "10"};
+    std::array<std::atomic<uint64_t>, 14> duration_buckets{};
+    std::atomic<uint64_t> duration_count{0};
+    std::atomic<uint64_t> duration_sum_micros{0};
+
+    void observe_duration_micros(int64_t micros) noexcept {
+        if (micros < 0) {
+            micros = 0;
+        }
+        for (size_t i = 0; i < duration_bounds_micros.size(); ++i) {
+            if (micros <= duration_bounds_micros[i]) {
+                duration_buckets[i].fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+        duration_count.fetch_add(1, std::memory_order_relaxed);
+        duration_sum_micros.fetch_add(static_cast<uint64_t>(micros), std::memory_order_relaxed);
+    }
+
     void record_status(int32_t status) noexcept {
         if (status >= 500) {
             requests_5xx.fetch_add(1, std::memory_order_relaxed);
@@ -62,6 +89,12 @@ struct server_metrics {
         } else if (status >= 200) {
             requests_2xx.fetch_add(1, std::memory_order_relaxed);
         }
+    }
+
+    // Render the sub-second part of a microsecond count as a zero-padded 6-digit fraction.
+    [[nodiscard]] static std::string format_micros_fraction(uint64_t micros_remainder) {
+        std::string digits = std::to_string(micros_remainder);
+        return std::string(6 - digits.size(), '0') + digits;
     }
 
     [[nodiscard]] std::string to_prometheus() const {
@@ -93,6 +126,26 @@ struct server_metrics {
         out += "# TYPE katana_http_connection_timeouts_total counter\n";
         line(out, "katana_http_connection_timeouts_total", "",
              connection_timeouts.load(std::memory_order_relaxed));
+
+        const uint64_t dur_count = duration_count.load(std::memory_order_relaxed);
+        out += "# HELP katana_http_request_duration_seconds Request handling latency.\n";
+        out += "# TYPE katana_http_request_duration_seconds histogram\n";
+        for (size_t i = 0; i < duration_bound_labels.size(); ++i) {
+            std::string labels = "{le=\"";
+            labels += duration_bound_labels[i];
+            labels += "\"}";
+            line(out, "katana_http_request_duration_seconds_bucket", labels,
+                 duration_buckets[i].load(std::memory_order_relaxed));
+        }
+        line(out, "katana_http_request_duration_seconds_bucket", "{le=\"+Inf\"}", dur_count);
+        // _sum is in seconds; format from the integer microsecond accumulator.
+        const uint64_t sum_micros = duration_sum_micros.load(std::memory_order_relaxed);
+        out += "katana_http_request_duration_seconds_sum ";
+        out += std::to_string(sum_micros / 1'000'000);
+        out += '.';
+        out += format_micros_fraction(sum_micros % 1'000'000);
+        out += '\n';
+        line(out, "katana_http_request_duration_seconds_count", "", dur_count);
         return out;
     }
 };
@@ -341,6 +394,10 @@ private:
         bool queued_close_requested = false;
         size_t queued_response_completed_requests = 0;
         event_type watch_events = event_type::readable;
+        // When the current request began dispatch — read back in finalize to record latency.
+        // Safe across the deferred path: a connection stops reading new requests until its
+        // deferred response completes, so this is never overwritten mid-flight.
+        std::chrono::steady_clock::time_point request_start{};
         deferred_response_slot deferred_ready_response{};
         bool deferred_response_active = false;
         server* owner_server = nullptr;

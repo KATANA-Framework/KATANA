@@ -100,9 +100,11 @@ connection close on shutdown, …). The remaining Stage 6 item is [P1] distribut
   the response, and exposed to handlers via `request_context::request_id`. *Remaining:* log
   sampling, per-request handler-side log helper bound to the correlation id.
 - **[P0] Metrics** — **base done.** Built-in Prometheus `/metrics` endpoint (on by default,
-  served before the router) exposing `katana_http_requests_total` by status class and a
-  `katana_http_requests_in_flight` gauge. *Remaining:* per-route labels + request-duration
-  histograms, connection/pool gauges, reactor/allocator stats, OTLP push.
+  served before the router) exposing `katana_http_requests_total` by status class, a
+  `katana_http_requests_in_flight` gauge, `katana_http_connection_timeouts_total`, and a
+  `katana_http_request_duration_seconds` histogram (the RED "Duration"; latency is also added to
+  the access log as `duration_us`). *Remaining:* per-route labels, connection/pool gauges,
+  reactor/allocator stats, OTLP push.
 - **[P0] Health & readiness** — **done.** Built-in `/healthz` (liveness) and `/readyz`
   (readiness) served before the user router, on by default. `/readyz` returns 503 while the
   server is shutting down or a registered `readiness_check(probe)` reports not-ready (wire it

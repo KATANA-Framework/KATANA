@@ -423,6 +423,11 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     auto finalize_response = [&](const request& req, response& resp) -> bool {
         metrics_.record_status(resp.status);
         metrics_.in_flight.fetch_sub(1, std::memory_order_relaxed);
+        const int64_t duration_micros =
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - state.request_start)
+                .count();
+        metrics_.observe_duration_micros(duration_micros);
 
         // Correlation id: echo the client's X-Request-Id, or generate one. Reflect it on the
         // response (so the caller can tie its logs to ours) and into the access log.
@@ -444,6 +449,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                 .field("path", req.uri)
                 .field("status", static_cast<int64_t>(resp.status))
                 .field("bytes", static_cast<int64_t>(resp.body.size()))
+                .field("duration_us", duration_micros)
                 .field("request_id", request_id);
         }
 
@@ -662,6 +668,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         ctx.deferred_response_user = &state;
         ctx.deferred_response_factory = &server::make_deferred_response_handle;
         response resp{&state.arena};
+        state.request_start = std::chrono::steady_clock::now();
         dispatch_request(req, ctx, resp);
 
         if (ctx.is_response_deferred()) {
