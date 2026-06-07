@@ -423,6 +423,13 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     auto finalize_response = [&](const request& req, response& resp) -> bool {
         metrics_.record_status(resp.status);
         metrics_.in_flight.fetch_sub(1, std::memory_order_relaxed);
+
+        // CORS headers for actual (non-preflight) responses from an allowed Origin.
+        if (cors_) {
+            if (auto origin = req.header("origin"); origin && cors_origin_allowed(*origin)) {
+                add_cors_headers(*origin, resp);
+            }
+        }
         const int64_t duration_micros =
             std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - state.request_start)
