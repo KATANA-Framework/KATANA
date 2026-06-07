@@ -1,11 +1,26 @@
 cmake_minimum_required(VERSION 3.20...4.2)
 project(katana VERSION 0.1.0 LANGUAGES CXX)
 
+# Are we the top-level project, or pulled in via add_subdirectory() as a git submodule?
+# (PROJECT_IS_TOP_LEVEL exists from CMake 3.21; provide a fallback for 3.20.)
+if(DEFINED PROJECT_IS_TOP_LEVEL)
+    set(KATANA_IS_TOP_LEVEL ${PROJECT_IS_TOP_LEVEL})
+elseif(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(KATANA_IS_TOP_LEVEL ON)
+else()
+    set(KATANA_IS_TOP_LEVEL OFF)
+endif()
+
 include(CheckIPOSupported)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# KATANA uses no C++20 modules; disable the (GCC/Ninja) module dependency scan that C++23 would
+# otherwise turn on — it breaks in some toolchain environments and buys us nothing.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -146,10 +161,17 @@ if(POSTGRES_LIBS)
     target_link_libraries(katana_core PUBLIC ${POSTGRES_LIBS})
 endif()
 
-option(ENABLE_TESTING "Enable testing" ON)
+# Namespaced alias for consumers: target_link_libraries(app PRIVATE katana::core)
+if(NOT TARGET katana::core)
+    add_library(katana::core ALIAS katana_core)
+endif()
+
+# Tests/examples build by default only when KATANA is the top-level project; a submodule gets
+# just the library + tools unless the parent opts in.
+option(ENABLE_TESTING "Enable testing" ${KATANA_IS_TOP_LEVEL})
 option(ENABLE_BENCHMARKS "Enable benchmarks" OFF)
 option(ENABLE_FUZZING "Enable fuzzing" OFF)
-option(ENABLE_EXAMPLES "Enable examples" OFF)
+option(ENABLE_EXAMPLES "Enable examples" ${KATANA_IS_TOP_LEVEL})
 option(ENABLE_TOOLS "Enable CLI/tools" ON)
 
 if(ENABLE_TESTING)
@@ -215,4 +237,10 @@ if(ENABLE_TOOLS)
     target_link_libraries(katana_gen katana_core)
     target_compile_features(katana_gen PRIVATE cxx_std_20)
     target_compile_options(katana_gen PRIVATE -Wall -Wextra -Werror -Wpedantic)
+    if(NOT TARGET katana::gen)
+        add_executable(katana::gen ALIAS katana_gen)
+    endif()
+    # Codegen helper functions (katana_add_openapi / katana_add_sql) for consumers — only useful
+    # when the generator is built.
+    include(KatanaCodegen)
 endif()
