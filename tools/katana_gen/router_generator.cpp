@@ -185,7 +185,8 @@ static std::string generate_route_policy_initializer(const katana::openapi::path
     return out.str();
 }
 
-std::string generate_router_table(const document& doc) {
+std::string generate_router_table(const document& doc, const std::string& ns) {
+    const std::string router_ns = ns.empty() ? "generated" : ns;
     std::ostringstream out;
     out << "#pragma once\n\n";
     out << "#include \"katana/core/http.hpp\"\n";
@@ -194,7 +195,7 @@ std::string generate_router_table(const document& doc) {
     out << "#include <array>\n";
     out << "#include <span>\n";
     out << "#include <string_view>\n\n";
-    out << "namespace generated {\n\n";
+    out << "namespace " << router_ns << " {\n\n";
     out << "using katana::http_utils::content_type_info;\n\n";
     out << "struct route_entry {\n";
     out << "    std::string_view path;\n";
@@ -336,11 +337,12 @@ std::string generate_router_table(const document& doc) {
     out << "// Compile-time validations\n";
     out << "static_assert(route_count > 0, \"At least one route must be defined\");\n";
 
-    out << "} // namespace generated\n";
+    out << "} // namespace " << router_ns << "\n";
     return out.str();
 }
 
-std::string generate_router_bindings(const document& doc) {
+std::string generate_router_bindings(const document& doc, const std::string& ns) {
+    const std::string router_ns = ns.empty() ? "generated" : ns;
     std::ostringstream out;
     out << "// Auto-generated router bindings from OpenAPI specification\n";
     out << "// \n";
@@ -381,7 +383,7 @@ std::string generate_router_bindings(const document& doc) {
     out << "#include <string_view>\n";
     out << "#include <utility>\n";
     out << "\n";
-    out << "namespace generated {\n\n";
+    out << "namespace " << router_ns << " {\n\n";
 
     // Import framework utilities instead of generating them inline
     out << "using katana::http_utils::query_param;\n";
@@ -1401,11 +1403,12 @@ std::string generate_router_bindings(const document& doc) {
     out << "        .run();\n";
     out << "}\n\n";
 
-    out << "} // namespace generated\n";
+    out << "} // namespace " << router_ns << "\n";
     return out.str();
 }
 
-std::string generate_handler_interfaces(const document& doc) {
+std::string generate_handler_interfaces(const document& doc, const std::string& ns) {
+    const std::string router_ns = ns.empty() ? "generated" : ns;
     std::ostringstream out;
     out << "// Auto-generated handler interfaces from OpenAPI specification\n";
     out << "// \n";
@@ -1432,7 +1435,7 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "using katana::http::request;\n";
     out << "using katana::http::response;\n";
     out << "using katana::http::request_context;\n\n";
-    out << "namespace generated {\n\n";
+    out << "namespace " << router_ns << " {\n\n";
 
     // Generate handler interface class
     out << "// Base handler interface for all API operations\n";
@@ -1935,7 +1938,7 @@ std::string generate_handler_interfaces(const document& doc) {
     out << "//   - katana::http::arena()  - Get arena allocator for zero-copy strings\n";
     out << "//\n";
 
-    out << "} // namespace generated\n";
+    out << "} // namespace " << router_ns << "\n";
     return out.str();
 }
 

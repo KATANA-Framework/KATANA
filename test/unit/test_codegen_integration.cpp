@@ -794,3 +794,67 @@ paths:
     EXPECT_EQ(bindings.find("static Handler handler_instance"), std::string::npos);
     EXPECT_EQ(bindings.find("static katana::http::router router_instance"), std::string::npos);
 }
+
+TEST_F(CodegenIntegrationTest, NamespaceFlagWrapsAllSymbolsForMultiContract) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Users API
+  version: 1.0.0
+paths:
+  /users/{id}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+components:
+  schemas:
+    User:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+)";
+    create_openapi_spec("users.yaml", spec);
+    ASSERT_TRUE(run_codegen("users.yaml", "all", "--namespace svc_users"));
+
+    // DTOs: wrapped in the namespace, with includes kept OUTSIDE it (before the open brace).
+    auto dtos = read_generated_file("generated_dtos.hpp");
+    ASSERT_FALSE(dtos.empty());
+    const size_t ns_open = dtos.find("namespace svc_users {");
+    ASSERT_NE(ns_open, std::string::npos);
+    EXPECT_NE(dtos.find("}  // namespace svc_users"), std::string::npos);
+    const size_t struct_pos = dtos.find("struct User");
+    EXPECT_NE(struct_pos, std::string::npos);
+    EXPECT_GT(struct_pos, ns_open); // the DTO is inside the namespace
+    // Every #include sits before the namespace opens (so <optional> etc. aren't svc_users::std).
+    size_t scan = 0;
+    while (true) {
+        const size_t inc = dtos.find("#include", scan);
+        if (inc == std::string::npos) {
+            break;
+        }
+        EXPECT_LT(inc, ns_open);
+        scan = inc + 1;
+    }
+
+    // Router bindings use the chosen namespace instead of the hardcoded `generated`.
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
+    ASSERT_FALSE(bindings.empty());
+    EXPECT_NE(bindings.find("namespace svc_users {"), std::string::npos);
+    EXPECT_EQ(bindings.find("namespace generated {"), std::string::npos);
+}

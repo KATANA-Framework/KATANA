@@ -25,11 +25,18 @@ void ensure_inline_schema_names(document& doc, std::string_view naming_style);
 
 std::string dump_ast_summary(const document& doc);
 
-std::string generate_dtos(const document& doc, bool use_pmr);
-std::string generate_json_parsers(const document& doc, bool use_pmr);
-std::string generate_validators(const document& doc);
-std::string generate_router_table(const document& doc);
-std::string generate_handler_interfaces(const document& doc);
-std::string generate_router_bindings(const document& doc);
+// Wrap a generated file's body in `namespace ns { ... }`, inserted after the leading
+// comment/#pragma/#include preamble so includes stay at global scope. No-op when ns is empty.
+std::string inject_namespace(std::string content, const std::string& ns);
+
+// `ns` (when non-empty) places all generated symbols in that namespace so multiple OpenAPI
+// contracts can be linked into one binary without colliding. Empty preserves the legacy layout
+// (DTOs/JSON/validators at global scope, router under `namespace generated`).
+std::string generate_dtos(const document& doc, bool use_pmr, const std::string& ns = "");
+std::string generate_json_parsers(const document& doc, bool use_pmr, const std::string& ns = "");
+std::string generate_validators(const document& doc, const std::string& ns = "");
+std::string generate_router_table(const document& doc, const std::string& ns = "");
+std::string generate_handler_interfaces(const document& doc, const std::string& ns = "");
+std::string generate_router_bindings(const document& doc, const std::string& ns = "");
 
 } // namespace katana_gen

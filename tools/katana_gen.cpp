@@ -145,7 +145,7 @@ int run_openapi(const options& opts) {
         if (opts.verbose) {
             log << "[verbose] Generating DTOs (" << doc.schemas.size() << " schemas)...\n";
         }
-        auto dto_code = with_layer(generate_dtos(doc, use_pmr));
+        auto dto_code = with_layer(generate_dtos(doc, use_pmr, opts.ns));
         auto dto_path = opts.output / "generated_dtos.hpp";
         std::ofstream out(dto_path, std::ios::binary);
         if (!out) {
@@ -164,7 +164,7 @@ int run_openapi(const options& opts) {
         if (opts.verbose) {
             log << "[verbose] Generating validators...\n";
         }
-        auto validator_code = with_layer(generate_validators(doc));
+        auto validator_code = with_layer(generate_validators(doc, opts.ns));
         auto validator_path = opts.output / "generated_validators.hpp";
         std::ofstream out(validator_path, std::ios::binary);
         if (!out) {
@@ -183,7 +183,7 @@ int run_openapi(const options& opts) {
         if (opts.verbose) {
             log << "[verbose] Generating JSON parsers and serializers...\n";
         }
-        auto json_code = with_layer(generate_json_parsers(doc, use_pmr));
+        auto json_code = with_layer(generate_json_parsers(doc, use_pmr, opts.ns));
         auto json_path = opts.output / "generated_json.hpp";
         std::ofstream out(json_path, std::ios::binary);
         if (!out) {
@@ -202,7 +202,7 @@ int run_openapi(const options& opts) {
         if (opts.verbose) {
             log << "[verbose] Generating route table (" << doc.paths.size() << " paths)...\n";
         }
-        auto router_code = with_layer(generate_router_table(doc));
+        auto router_code = with_layer(generate_router_table(doc, opts.ns));
         auto router_path = opts.output / "generated_routes.hpp";
         std::ofstream out(router_path, std::ios::binary);
         if (!out) {
@@ -226,7 +226,7 @@ int run_openapi(const options& opts) {
             log << "[verbose] Generating handler interfaces (" << op_count
                       << " operations)...\n";
         }
-        auto handler_code = with_layer(generate_handler_interfaces(doc));
+        auto handler_code = with_layer(generate_handler_interfaces(doc, opts.ns));
         auto handler_path = opts.output / "generated_handlers.hpp";
         std::ofstream out(handler_path, std::ios::binary);
         if (!out) {
@@ -245,7 +245,7 @@ int run_openapi(const options& opts) {
         if (opts.verbose) {
             log << "[verbose] Generating router bindings (glue code)...\n";
         }
-        auto bindings_code = with_layer(generate_router_bindings(doc));
+        auto bindings_code = with_layer(generate_router_bindings(doc, opts.ns));
         auto bindings_path = opts.output / "generated_router_bindings.hpp";
         std::ofstream out(bindings_path, std::ios::binary);
         if (!out) {
