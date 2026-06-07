@@ -191,8 +191,10 @@ std::string response::serialize() const {
 void response::serialize_into(std::string& out) const {
     if (chunked) {
         out = serialize_chunked();
-        ::katana::detail::syscall_metrics_registry::instance().note_response_serialize(
-            out.size(), 0, out.capacity());
+        if (::katana::detail::g_syscall_metrics_active) [[unlikely]] {
+            ::katana::detail::syscall_metrics_registry::instance().note_response_serialize(
+                out.size(), 0, out.capacity());
+        }
         return;
     }
 
@@ -251,8 +253,10 @@ void response::serialize_into(std::string& out) const {
 
     out.append(CRLF);
     out.append(body);
-    ::katana::detail::syscall_metrics_registry::instance().note_response_serialize(
-        out.size(), old_capacity, out.capacity());
+    if (::katana::detail::g_syscall_metrics_active) [[unlikely]] {
+        ::katana::detail::syscall_metrics_registry::instance().note_response_serialize(
+            out.size(), old_capacity, out.capacity());
+    }
 }
 
 void response::serialize_head_into(std::string& out) const {
@@ -695,15 +699,9 @@ result<parser::state> parser::parse_request_line_state() {
 
     if (found) {
         size_t pos = static_cast<size_t>(found - buffer_);
-        for (size_t i = parse_pos_; i <= pos; ++i) {
-            unsigned char c = static_cast<unsigned char>(buffer_[i]);
-            if (c == '\0' || c >= 0x80) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-            if (c == '\n' && (i == 0 || buffer_[i - 1] != '\r')) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-        }
+        // Byte legality (NUL / high-bit / bare-LF) is already validated up to
+        // `validated_bytes_` (>= this line's CRLF) by the bulk scan in
+        // parse_available(); re-checking per line would walk the same bytes twice.
 
         std::string_view line(buffer_ + parse_pos_, pos - parse_pos_);
         parse_pos_ = pos + 2;
@@ -724,15 +722,8 @@ result<parser::state> parser::parse_headers_state() {
 
     if (found) {
         size_t pos = static_cast<size_t>(found - buffer_);
-        for (size_t i = parse_pos_; i <= pos; ++i) {
-            unsigned char c = static_cast<unsigned char>(buffer_[i]);
-            if (c == '\0' || c >= 0x80) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-            if (c == '\n' && (i == 0 || buffer_[i - 1] != '\r')) {
-                return std::unexpected(make_error_code(error_code::invalid_fd));
-            }
-        }
+        // Byte legality already enforced by the bulk scan in parse_available()
+        // up to validated_bytes_ (>= pos); avoid a redundant per-line re-scan.
 
         std::string_view line(buffer_ + parse_pos_, pos - parse_pos_);
         parse_pos_ = pos + 2;
@@ -1029,29 +1020,26 @@ result<void> parser::process_header_line(std::string_view line) {
 
 void parser::compact_buffer() {
     if (parse_pos_ >= buffer_size_) {
-        ::katana::detail::syscall_metrics_registry::instance().note_parser_compact(0);
+        if (::katana::detail::g_syscall_metrics_active) [[unlikely]] {
+            ::katana::detail::syscall_metrics_registry::instance().note_parser_compact(0);
+        }
         buffer_size_ = 0;
         parse_pos_ = 0;
         validated_bytes_ = 0;
         header_end_pos_ = 0;
         crlf_scan_pos_ = 0;
-        crlf_pairs_ = 0;
     } else if (parse_pos_ > COMPACT_THRESHOLD / 2) {
         const size_t consumed = parse_pos_;
         const size_t moved = buffer_size_ - consumed;
         std::memmove(buffer_, buffer_ + consumed, buffer_size_ - consumed);
-        ::katana::detail::syscall_metrics_registry::instance().note_parser_compact(moved);
+        if (::katana::detail::g_syscall_metrics_active) [[unlikely]] {
+            ::katana::detail::syscall_metrics_registry::instance().note_parser_compact(moved);
+        }
         buffer_size_ -= consumed;
         parse_pos_ = 0;
         validated_bytes_ = (validated_bytes_ > consumed) ? (validated_bytes_ - consumed) : 0;
         header_end_pos_ = (header_end_pos_ > consumed) ? (header_end_pos_ - consumed) : 0;
         crlf_scan_pos_ = (crlf_scan_pos_ > consumed) ? (crlf_scan_pos_ - consumed) : 0;
-        crlf_pairs_ = 0;
-        for (size_t i = 0; i + 1 < crlf_scan_pos_; ++i) {
-            if (buffer_[i] == '\r' && buffer_[i + 1] == '\n') {
-                ++crlf_pairs_;
-            }
-        }
     }
 }
 
@@ -1078,8 +1066,10 @@ bool parser::reserve_buffer(size_t capacity) noexcept {
     buffer_owner_ = std::move(new_buffer);
     buffer_ = buffer_owner_.get();
     buffer_capacity_ = capacity;
-    ::katana::detail::syscall_metrics_registry::instance().note_parser_reserve(
-        old_capacity, capacity, copied_bytes);
+    if (::katana::detail::g_syscall_metrics_active) [[unlikely]] {
+        ::katana::detail::syscall_metrics_registry::instance().note_parser_reserve(
+            old_capacity, capacity, copied_bytes);
+    }
     return true;
 }
 
@@ -1141,7 +1131,6 @@ void parser::reset_message_state(monotonic_arena* arena) noexcept {
     validated_bytes_ = 0;
     header_end_pos_ = 0;
     crlf_scan_pos_ = 0;
-    crlf_pairs_ = 0;
     is_chunked_ = false;
 }
 

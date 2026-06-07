@@ -320,8 +320,10 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     };
 
     auto note_completed_requests = [&](size_t& completed_requests) {
-        for (size_t i = 0; i < completed_requests; ++i) {
-            ::katana::detail::syscall_metrics_registry::instance().note_completed_request();
+        if (::katana::detail::g_syscall_metrics_active) [[unlikely]] {
+            for (size_t i = 0; i < completed_requests; ++i) {
+                ::katana::detail::syscall_metrics_registry::instance().note_completed_request();
+            }
         }
         completed_requests = 0;
     };

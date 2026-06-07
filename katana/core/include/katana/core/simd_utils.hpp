@@ -110,6 +110,87 @@ inline const char* find_crlf_avx2(const char* data, size_t len) noexcept {
 
     return find_crlf_scalar(data + i, len - i);
 }
+
+// Hot path for small/L1-resident buffers (HTTP headers are sub-KB). Avoids the
+// dead `len>=4096` prefetch branch of find_crlf_avx2, force-inlines into callers,
+// and processes 64B/iter as two INDEPENDENT compare chains whose masks are merged
+// into one 64-bit word so there is a single branch per 64B instead of two. That
+// breaks the per-iteration movemask->test->branch serialization that caps the
+// 32B-at-a-time loop, letting Zen3's dual 256-bit load ports + vector ALUs run
+// the two chains in parallel.
+[[gnu::always_inline, gnu::hot]] inline const char*
+find_crlf_avx2_hot(const char* __restrict data, size_t len) noexcept {
+    if (len < 2) {
+        return nullptr;
+    }
+
+    const __m256i cr = _mm256_set1_epi8('\r');
+    const __m256i lf = _mm256_set1_epi8('\n');
+    size_t i = 0;
+
+    // 128B/iter: four independent compare chains. The common (no-match) path uses
+    // a single `vptest` (testz) on the OR of all four match vectors instead of a
+    // per-block movemask -> the expensive vec->GPR movemask is deferred to the rare
+    // hit, where we recompute the two relevant 64-bit masks to locate the byte.
+    for (; i + 129 <= len; i += 128) {
+        __m256i c0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i));
+        __m256i n0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 1));
+        __m256i c1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 32));
+        __m256i n1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 33));
+        __m256i c2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 64));
+        __m256i n2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 65));
+        __m256i c3 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 96));
+        __m256i n3 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 97));
+
+        __m256i m0 = _mm256_and_si256(_mm256_cmpeq_epi8(c0, cr), _mm256_cmpeq_epi8(n0, lf));
+        __m256i m1 = _mm256_and_si256(_mm256_cmpeq_epi8(c1, cr), _mm256_cmpeq_epi8(n1, lf));
+        __m256i m2 = _mm256_and_si256(_mm256_cmpeq_epi8(c2, cr), _mm256_cmpeq_epi8(n2, lf));
+        __m256i m3 = _mm256_and_si256(_mm256_cmpeq_epi8(c3, cr), _mm256_cmpeq_epi8(n3, lf));
+
+        __m256i any = _mm256_or_si256(_mm256_or_si256(m0, m1), _mm256_or_si256(m2, m3));
+        if (!_mm256_testz_si256(any, any)) {
+            auto locate = [](int lo, int hi) -> size_t {
+                uint64_t mask = static_cast<uint64_t>(static_cast<uint32_t>(lo)) |
+                                (static_cast<uint64_t>(static_cast<uint32_t>(hi)) << 32);
+                return static_cast<size_t>(__builtin_ctzll(mask));
+            };
+            int b0 = _mm256_movemask_epi8(m0);
+            int b1 = _mm256_movemask_epi8(m1);
+            if ((b0 | b1) != 0) {
+                return data + i + locate(b0, b1);
+            }
+            int b2 = _mm256_movemask_epi8(m2);
+            int b3 = _mm256_movemask_epi8(m3);
+            return data + i + 64 + locate(b2, b3);
+        }
+    }
+    // 64B tail
+    for (; i + 65 <= len; i += 64) {
+        __m256i c0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i));
+        __m256i n0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 1));
+        __m256i c1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 32));
+        __m256i n1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 33));
+        __m256i m0 = _mm256_and_si256(_mm256_cmpeq_epi8(c0, cr), _mm256_cmpeq_epi8(n0, lf));
+        __m256i m1 = _mm256_and_si256(_mm256_cmpeq_epi8(c1, cr), _mm256_cmpeq_epi8(n1, lf));
+        uint64_t mask = static_cast<uint64_t>(static_cast<uint32_t>(_mm256_movemask_epi8(m0))) |
+                        (static_cast<uint64_t>(static_cast<uint32_t>(_mm256_movemask_epi8(m1)))
+                         << 32);
+        if (mask != 0) {
+            return data + i + static_cast<size_t>(__builtin_ctzll(mask));
+        }
+    }
+    // 32B tail
+    for (; i + 33 <= len; i += 32) {
+        __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i));
+        __m256i next_chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i + 1));
+        unsigned mask = static_cast<unsigned>(_mm256_movemask_epi8(
+            _mm256_and_si256(_mm256_cmpeq_epi8(chunk, cr), _mm256_cmpeq_epi8(next_chunk, lf))));
+        if (mask != 0U) {
+            return data + i + static_cast<size_t>(__builtin_ctz(mask));
+        }
+    }
+    return find_crlf_scalar(data + i, len - i);
+}
 #endif
 
 #ifdef KATANA_HAS_SSE2
@@ -237,8 +318,13 @@ inline const char* find_crlf_neon(const char* data, size_t len) noexcept {
 }
 #endif
 
-inline const char* find_crlf(const char* data, size_t len) noexcept {
+[[gnu::always_inline]] inline const char* find_crlf(const char* data, size_t len) noexcept {
 #ifdef KATANA_HAS_AVX2
+    // Sub-16K buffers (HTTP headers, parser lines) take the force-inlined hot path;
+    // only large scans use the prefetch-heavy streaming variant.
+    if (len < 16384) {
+        return find_crlf_avx2_hot(data, len);
+    }
     return find_crlf_avx2(data, len);
 #elif defined(KATANA_HAS_NEON)
     return find_crlf_neon(data, len);

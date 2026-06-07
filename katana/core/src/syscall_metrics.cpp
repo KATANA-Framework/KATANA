@@ -202,13 +202,17 @@ syscall_metrics_snapshot& operator+=(syscall_metrics_snapshot& lhs,
     return lhs;
 }
 
+// Initialized once at static-init from the env var. Source of truth for the
+// hot-path gate AND the registry's enabled_ (constructed lazily, always later).
+bool g_syscall_metrics_active = getenv_bool("KATANA_SYSCALL_METRICS", false);
+
 syscall_metrics_registry& syscall_metrics_registry::instance() noexcept {
     static syscall_metrics_registry registry;
     return registry;
 }
 
 syscall_metrics_registry::syscall_metrics_registry() noexcept
-    : enabled_(getenv_bool("KATANA_SYSCALL_METRICS", false)),
+    : enabled_(g_syscall_metrics_active),
       interval_ms_(getenv_u32("KATANA_SYSCALL_METRICS_INTERVAL_MS", 250)) {}
 
 syscall_metrics_registry::~syscall_metrics_registry() {

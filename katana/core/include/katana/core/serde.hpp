@@ -279,11 +279,15 @@ inline std::optional<int64_t> parse_int64(json_cursor& cur) noexcept {
     if (static_cast<unsigned char>(*p - '0') > 9u)
         return std::nullopt;
     uint64_t val = 0;
-    // Unrolled digit accumulation (handles up to 18 digits safely without overflow)
+    // Digit accumulation with exact uint64 overflow detection. Without this guard a
+    // long run of digits (e.g. 20+) wraps `val` around and the int64 range checks
+    // below would then validate a garbage value instead of rejecting the input.
     do {
         unsigned int d = static_cast<unsigned char>(*p - '0');
         if (d > 9u)
             break;
+        if (val > (UINT64_MAX - d) / 10u)
+            return std::nullopt;
         val = val * 10u + d;
         ++p;
     } while (p < cur.end);
