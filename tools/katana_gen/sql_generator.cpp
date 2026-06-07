@@ -64,14 +64,15 @@ std::string repository_return_type(const sql_query& query) {
 
 } // namespace
 
-std::string generate_sql_models(const sql_catalog& catalog) {
+std::string generate_sql_models(const sql_catalog& catalog, const std::string& ns) {
+    const std::string sql_ns = ns.empty() ? "generated" : ns;
     std::ostringstream out;
     out << "#pragma once\n\n";
     out << "#include <cstdint>\n";
     out << "#include <optional>\n";
     out << "#include <string>\n\n";
     out << "#include <vector>\n\n";
-    out << "namespace katana::sql::generated {\n\n";
+    out << "namespace katana::sql::" << sql_ns << " {\n\n";
     for (const auto& query : catalog.queries) {
         if (query.columns.empty()) {
             continue;
@@ -82,11 +83,12 @@ std::string generate_sql_models(const sql_catalog& catalog) {
         }
         out << "};\n\n";
     }
-    out << "} // namespace katana::sql::generated\n";
+    out << "} // namespace katana::sql::" << sql_ns << "\n";
     return out.str();
 }
 
-std::string generate_sql_repository(const sql_catalog& catalog) {
+std::string generate_sql_repository(const sql_catalog& catalog, const std::string& ns) {
+    const std::string sql_ns = ns.empty() ? "generated" : ns;
     std::ostringstream out;
     out << "#pragma once\n\n";
     out << "#include \"generated_sql_models.hpp\"\n";
@@ -95,7 +97,7 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
     out << "#include <string_view>\n";
     out << "#include <utility>\n";
     out << "#include <vector>\n\n";
-    out << "namespace katana::sql::generated {\n\n";
+    out << "namespace katana::sql::" << sql_ns << " {\n\n";
     out << "class generated_repository {\n";
     out << "public:\n";
     for (const auto& query : catalog.queries) {
@@ -306,7 +308,7 @@ std::string generate_sql_repository(const sql_catalog& catalog) {
     }
 
     out << "};\n\n";
-    out << "} // namespace katana::sql::generated\n";
+    out << "} // namespace katana::sql::" << sql_ns << "\n";
     return out.str();
 }
 

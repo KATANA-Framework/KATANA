@@ -348,7 +348,7 @@ int run_sql(const options& opts) {
         opts.emit == "all" || opts.emit.find("repository") != std::string::npos;
 
     if (emit_models) {
-        auto models_code = generate_sql_models(*catalog);
+        auto models_code = generate_sql_models(*catalog, opts.ns);
         auto models_path = opts.output / "generated_sql_models.hpp";
         std::ofstream out(models_path, std::ios::binary);
         if (!out) {
@@ -360,7 +360,7 @@ int run_sql(const options& opts) {
     }
 
     if (emit_repository) {
-        auto repository_code = generate_sql_repository(*catalog);
+        auto repository_code = generate_sql_repository(*catalog, opts.ns);
         auto repository_path = opts.output / "generated_sql_repository.hpp";
         std::ofstream out(repository_path, std::ios::binary);
         if (!out) {
