@@ -97,8 +97,9 @@ connection close on shutdown, …). The remaining Stage 6 item is [P1] distribut
   thread-safe, with a configurable min level and sink. The server has an opt-in built-in
   access log (`server.access_log()`) that logs method/path/status/bytes/correlation-id per
   request, plus `X-Request-Id` correlation — echoed from the client or generated, reflected on
-  the response, and exposed to handlers via `request_context::request_id`. *Remaining:* log
-  sampling, per-request handler-side log helper bound to the correlation id.
+  the response, and exposed to handlers via `request_context::request_id`. The access log
+  supports 1-in-N sampling (`access_log(enable, sample_every)`) for high-volume services.
+  *Remaining:* a per-request handler-side log helper that auto-binds the correlation id.
 - **[P0] Metrics** — **base done.** Built-in Prometheus `/metrics` endpoint (on by default,
   served before the router) exposing `katana_http_requests_total` by status class, a
   `katana_http_requests_in_flight` gauge, `katana_http_connection_timeouts_total`, and a

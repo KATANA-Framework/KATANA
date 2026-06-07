@@ -207,7 +207,8 @@ int main(int argc, char** argv) {
 
     server(router)
         .policy_executor(policies)
-        .access_log(cfg.get_bool("access_log", true)) // JSON access log + X-Request-Id correlation
+        .access_log(cfg.get_bool("access_log", true),
+                    static_cast<uint32_t>(cfg.get_int("access_log_sample", 1))) // 1-in-N sampling
         .connection_timeout(read_to, read_to, idle_to) // slowloris protection
         .readiness_check([&] {
             // Live readiness: a trivial query through the pool confirms the DB is reachable.
