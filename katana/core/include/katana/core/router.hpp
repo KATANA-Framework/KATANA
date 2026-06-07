@@ -382,6 +382,9 @@ struct request_context {
     // Distributed-tracing span for this request (W3C Trace Context). Populated by the server
     // when tracing is enabled; handlers read `trace.to_traceparent()` to propagate downstream.
     tracing::span_context trace{};
+    // Index of the matched route in the router (set by dispatch), or -1 if none matched. Used
+    // for per-route metric labels without re-parsing the path.
+    int route_index = -1;
     const route_policy_view* route_policy = nullptr;
     route_policy_executor* policy_executor = nullptr;
     void* task_scheduler_user = nullptr;
@@ -449,6 +452,23 @@ struct path_pattern {
     size_t segment_count{0};
     size_t param_count{0};
     size_t literal_count{0};
+
+    // Reconstruct the route template (e.g. "/notes/{id}") for use as a low-cardinality metric
+    // label or span name. Parameters are rendered as "{name}".
+    [[nodiscard]] std::string to_template() const {
+        std::string out;
+        for (size_t i = 0; i < segment_count; ++i) {
+            out += '/';
+            if (segments[i].kind == segment_kind::parameter) {
+                out += '{';
+                out.append(segments[i].value.data(), segments[i].value.size());
+                out += '}';
+            } else {
+                out.append(segments[i].value.data(), segments[i].value.size());
+            }
+        }
+        return out.empty() ? std::string("/") : out;
+    }
 
     template <fixed_string Str> static consteval path_pattern from_literal() {
         path_pattern pattern{};
@@ -723,6 +743,19 @@ class router {
 public:
     explicit router(std::span<const route_entry> routes) : routes_(routes) {}
 
+    [[nodiscard]] size_t route_count() const noexcept { return routes_.size(); }
+
+    // "METHOD /template" label for route `index` (e.g. "GET /notes/{id}"), for per-route metrics.
+    [[nodiscard]] std::string route_label(size_t index) const {
+        if (index >= routes_.size()) {
+            return "unknown";
+        }
+        std::string out(http::method_to_string(routes_[index].method));
+        out += ' ';
+        out += routes_[index].pattern.to_template();
+        return out;
+    }
+
     dispatch_result
     dispatch_with_info(const request& req, request_context& ctx, response& out) const {
         ctx.params.reset();
@@ -777,6 +810,7 @@ public:
         if (best_route) {
             // ctx.params is already filled in the match loop above (R3); apply the
             // route's x-katana policy chain before the handler runs.
+            ctx.route_index = static_cast<int>(best_route - routes_.data());
             ctx.route_policy = best_route->policy;
             auto policy_result = apply_route_policy_executor(req, ctx, out);
             if (!policy_result) {
