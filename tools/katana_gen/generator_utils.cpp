@@ -11,6 +11,42 @@
 
 namespace katana_gen {
 
+std::string inject_namespace(std::string content, const std::string& ns) {
+    if (ns.empty()) {
+        return content;
+    }
+    // Insertion point: after the leading run of comment / blank / #pragma / #include lines, so
+    // includes and the pragma stay at global scope and everything else lands inside the namespace.
+    size_t pos = 0;
+    size_t insert_at = 0;
+    while (pos < content.size()) {
+        const size_t eol = content.find('\n', pos);
+        const size_t line_end = (eol == std::string::npos) ? content.size() : eol + 1;
+        std::string_view line(content.data() + pos, line_end - pos);
+        std::string_view trimmed = line;
+        while (!trimmed.empty() &&
+               std::isspace(static_cast<unsigned char>(trimmed.front())) != 0) {
+            trimmed.remove_prefix(1);
+        }
+        // Preamble = blank / comment / preprocessor directive (so #include and #pragma stay at
+        // global scope) and top-level `using katana::x;` import declarations (which import a name,
+        // no '='). A `using Foo = ...;` alias DOES contain '=' and is a real declaration that
+        // must live inside the namespace, so it ends the preamble.
+        const bool is_using_import =
+            trimmed.starts_with("using ") && trimmed.find('=') == std::string_view::npos;
+        const bool preamble = trimmed.empty() || trimmed.starts_with("//") ||
+                              trimmed.starts_with("#") || is_using_import;
+        if (!preamble) {
+            break; // first real code line
+        }
+        insert_at = line_end;
+        pos = line_end;
+    }
+    content.insert(insert_at, "\nnamespace " + ns + " {\n\n");
+    content += "\n}  // namespace " + ns + "\n";
+    return content;
+}
+
 namespace {
 
 bool is_cpp_keyword(std::string_view name) {

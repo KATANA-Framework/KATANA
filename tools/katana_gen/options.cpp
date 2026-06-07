@@ -105,6 +105,11 @@ options parse_args(int argc, char** argv) {
                 print_usage();
             }
             opts.inline_naming = argv[++i];
+        } else if (arg == "-n" || arg == "--namespace") {
+            if (i + 1 >= argc) {
+                print_usage();
+            }
+            opts.ns = argv[++i];
         } else if (arg == "--check") {
             opts.check_only = true;
         } else if (arg == "-v" || arg == "--verbose") {

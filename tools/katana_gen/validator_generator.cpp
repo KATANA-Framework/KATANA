@@ -573,7 +573,7 @@ void generate_validator_for_schema(std::ostream& out,
 
 } // namespace
 
-std::string generate_validators(const document& doc) {
+std::string generate_validators(const document& doc, const std::string& ns) {
     std::ostringstream out;
     out << "// Auto-generated validators from OpenAPI specification\n";
     out << "//\n";
@@ -660,7 +660,7 @@ std::string generate_validators(const document& doc) {
         generate_validator_for_schema(out, doc, schema);
     }
 
-    return out.str();
+    return inject_namespace(out.str(), ns);
 }
 
 } // namespace katana_gen

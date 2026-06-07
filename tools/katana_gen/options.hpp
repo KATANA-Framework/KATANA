@@ -13,6 +13,7 @@ struct options {
     std::string layer = "flat";              // flat,layered
     std::string allocator = "pmr";           // pmr,std
     std::string inline_naming = "operation"; // operation,flat
+    std::string ns;                          // wrap all generated symbols in this namespace
     bool strict = false;
     bool dump_ast = false;
     bool json_output = false;

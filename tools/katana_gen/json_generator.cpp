@@ -1314,7 +1314,7 @@ void collect_json_referenced_names(const document& doc, std::unordered_set<std::
 
 } // namespace
 
-std::string generate_json_parsers(const document& doc, bool use_pmr) {
+std::string generate_json_parsers(const document& doc, bool use_pmr, const std::string& ns) {
     std::ostringstream out;
 
     // Schemas reachable as a parse_/serialize_ call target. Used to drop dead,
@@ -1500,7 +1500,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     // fields, and a top-level array body uses its own array schema's parser/serializer. The
     // dead family (up to ~6 functions per type) is no longer generated.
 
-    return out.str();
+    return inject_namespace(out.str(), ns);
 }
 
 } // namespace katana_gen

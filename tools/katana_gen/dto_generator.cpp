@@ -628,7 +628,7 @@ std::vector<size_t> topological_sort_schemas(const document& doc, bool use_pmr) 
 
 } // namespace
 
-std::string generate_dtos(const document& doc, bool use_pmr) {
+std::string generate_dtos(const document& doc, bool use_pmr, const std::string& ns) {
     std::ostringstream out;
     out << "// Auto-generated DTOs (Data Transfer Objects) from OpenAPI specification\n";
     out << "//\n";
@@ -727,7 +727,7 @@ std::string generate_dtos(const document& doc, bool use_pmr) {
         generate_dto_for_schema(out, doc, doc.schemas[idx], use_pmr, referenced);
     }
 
-    return out.str();
+    return inject_namespace(out.str(), ns);
 }
 
 } // namespace katana_gen
