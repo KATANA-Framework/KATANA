@@ -1232,3 +1232,37 @@ TEST(HTTPServerConnectionTimeout, ClosesStalledPartialRequestAndCountsIt) {
     const int count = std::stoi(body.substr(pos + needle.size()));
     EXPECT_GE(count, 1);
 }
+
+TEST(ServerMetricsHistogram, ObservesDurationsIntoCumulativeBuckets) {
+    http::server_metrics m;
+    // Samples (microseconds): 200us, 800us, 3ms, 40ms.
+    m.observe_duration_micros(200);
+    m.observe_duration_micros(800);
+    m.observe_duration_micros(3000);
+    m.observe_duration_micros(40000);
+
+    const std::string out = m.to_prometheus();
+
+    auto bucket = [&](const char* le) -> long {
+        const std::string needle =
+            std::string("katana_http_request_duration_seconds_bucket{le=\"") + le + "\"} ";
+        const size_t pos = out.find(needle);
+        EXPECT_NE(pos, std::string::npos);
+        return std::stol(out.substr(pos + needle.size()));
+    };
+
+    // Cumulative: le counts everything <= bound.
+    EXPECT_EQ(bucket("0.0005"), 1); // only 200us
+    EXPECT_EQ(bucket("0.001"), 2);  // 200us, 800us
+    EXPECT_EQ(bucket("0.005"), 3);  // + 3ms
+    EXPECT_EQ(bucket("0.05"), 4);   // + 40ms
+    EXPECT_EQ(bucket("+Inf"), 4);
+
+    const size_t cpos = out.find("katana_http_request_duration_seconds_count ");
+    ASSERT_NE(cpos, std::string::npos);
+    EXPECT_EQ(std::stol(out.substr(
+                  cpos + std::strlen("katana_http_request_duration_seconds_count "))),
+              4);
+    // Sum = 0.2 + 0.8 + 3 + 40 = 44.0ms = 0.044000s
+    EXPECT_NE(out.find("katana_http_request_duration_seconds_sum 0.044000"), std::string::npos);
+}
