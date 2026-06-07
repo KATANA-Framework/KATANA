@@ -145,9 +145,10 @@ operational blockers.
   or starts a fresh root, exposed to handlers via `request_context::trace` (with
   `to_traceparent()` for downstream propagation). Per sampled request it emits a span (via
   `katana::log`, msg `"span"`: trace/span/parent ids, name, status, duration) and adds `trace_id`
-  to the access log. Opt-in via `server.tracing()`. *Remaining:* OTLP/gRPC exporter to a
-  collector, automatic propagation into the SQL layer (sqlcommenter / span per query),
-  `tracestate` passthrough.
+  to the access log. Opt-in via `server.tracing()`. Inbound `tracestate` is carried verbatim on
+  `request_context::trace.tracestate` for downstream propagation. *Remaining:* OTLP exporter to a
+  collector (see the pluggable exporter below), automatic propagation into the SQL layer
+  (sqlcommenter / span per query).
 
 ---
 

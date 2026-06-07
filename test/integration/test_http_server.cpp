@@ -468,7 +468,8 @@ pid_t spawn_tracing_server(uint16_t port) {
          http::path_pattern::from_literal<"/trace">(),
          http::handler_fn([](const http::request&, http::request_context& ctx, http::response& out) {
              std::string body = ctx.trace.trace_id_hex() + " " + ctx.trace.span_id_hex() + " " +
-                                ctx.trace.parent_span_id_hex();
+                                ctx.trace.parent_span_id_hex() + " ts=" +
+                                std::string(ctx.trace.tracestate);
              out.assign_text(body);
              return result<void>{};
          })},
@@ -1501,18 +1502,22 @@ TEST(HTTPServerTracing, ContinuesInboundTraceAndStartsNewRoot) {
     const std::string in_trace = "4bf92f3577b34da6a3ce929d0e0e4736";
     const std::string in_span = "00f067aa0ba902b7";
     send_all(client_fd, "GET /trace HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
-                        "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\r\n\r\n");
+                        "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\r\n"
+                        "tracestate: vendor1=abc,vendor2=def\r\n\r\n");
     auto r1 = read_responses_slowly(client_fd, 1, std::chrono::seconds(2));
     ASSERT_EQ(r1.size(), 1u);
-    // body = "<trace_id> <span_id> <parent_span_id>"
+    // tracestate is carried through verbatim for downstream propagation.
+    EXPECT_NE(r1[0].body.find("ts=vendor1=abc,vendor2=def"), std::string::npos);
+    // body = "<trace_id> <span_id> <parent_span_id> ts=<tracestate>"
     std::string b1 = r1[0].body;
     const size_t s1 = b1.find(' ');
     const size_t s2 = b1.find(' ', s1 + 1);
     ASSERT_NE(s1, std::string::npos);
     ASSERT_NE(s2, std::string::npos);
+    const size_t s3 = b1.find(' ', s2 + 1);
     const std::string trace_id = b1.substr(0, s1);
     const std::string span_id = b1.substr(s1 + 1, s2 - s1 - 1);
-    const std::string parent_id = b1.substr(s2 + 1);
+    const std::string parent_id = b1.substr(s2 + 1, s3 - s2 - 1);
     EXPECT_EQ(trace_id, in_trace);    // continued
     EXPECT_EQ(parent_id, in_span);    // inbound span is our parent
     EXPECT_NE(span_id, in_span);      // fresh span id for this hop
