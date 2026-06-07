@@ -102,9 +102,14 @@ debuggable and safe to run.
   (readiness) served before the user router, on by default. `/readyz` returns 503 while the
   server is shutting down or a registered `readiness_check(probe)` reports not-ready (wire it
   to the DB pool / dependencies); paths are configurable and the endpoints can be disabled.
-- **[P0] Timeouts & deadlines** — connect/read/write/handler/DB timeouts; a request deadline
-  that propagates into the database; header/body/URI size limits; max connections;
-  slowloris protection.
+- **[P0] Timeouts & deadlines** — **base done.** Opt-in per-connection read/write/idle timeouts
+  via `server.connection_timeout(read, write, idle)`: a connection that makes no progress within
+  the window is closed by the reactor (slowloris protection), surfaced as
+  `katana_http_connection_timeouts_total`. Activity refreshes the timer so actively-fed
+  connections survive (verified under load: 0 timeouts, 0 errors at ~305K req/s). This also
+  fixed a latent unit bug in the reactor's timeout comparison (nanoseconds vs milliseconds) that
+  made any timed fd fire almost immediately and ignore refreshes. *Remaining:* handler/DB
+  deadlines that propagate into libpq; header/body/URI size limits; max-connections cap.
 - **[P0] Complete graceful shutdown** — **base done.** On SIGTERM each reactor deregisters +
   closes its listener fd (stops accepting), then the existing drain loop — now seeing only live
   connections, not the listeners — lets in-flight requests finish and exits as soon as they

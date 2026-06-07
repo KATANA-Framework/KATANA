@@ -607,11 +607,12 @@ void epoll_reactor::handle_fd_timeout(int32_t fd) {
     }
 
     const auto now = std::chrono::steady_clock::now();
-    const auto elapsed_ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(now - entry_state.last_activity)
-            .count();
+    // Use type-safe chrono arithmetic: timeout_interval is milliseconds, the elapsed time is in
+    // steady_clock ticks (nanoseconds). Comparing the raw counts would mix units and fire the
+    // timeout almost immediately.
+    const auto elapsed = now - entry_state.last_activity;
 
-    if (elapsed_ns >= entry_state.timeout_interval.count()) {
+    if (elapsed >= entry_state.timeout_interval) {
         if (metrics_enabled_) {
             metrics_.fd_timeouts.fetch_add(1, std::memory_order_relaxed);
         }
@@ -632,9 +633,14 @@ void epoll_reactor::handle_fd_timeout(int32_t fd) {
         return;
     }
 
-    const auto remaining_ns = entry_state.timeout_interval.count() - elapsed_ns;
-    entry_state.timeout_id = wheel_timer_.add(std::chrono::milliseconds(remaining_ns / 1'000'000),
-                                              [this, fd]() { handle_fd_timeout(fd); });
+    // Activity arrived since the timer was armed: reschedule for the remaining window.
+    auto remaining =
+        std::chrono::duration_cast<std::chrono::milliseconds>(entry_state.timeout_interval - elapsed);
+    if (remaining <= std::chrono::milliseconds{0}) {
+        remaining = std::chrono::milliseconds{1};
+    }
+    entry_state.timeout_id =
+        wheel_timer_.add(remaining, [this, fd]() { handle_fd_timeout(fd); });
 }
 
 void epoll_reactor::cancel_fd_timeout(fd_state& state) {
