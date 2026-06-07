@@ -1,0 +1,54 @@
+openapi: 3.0.0
+info: { title: Pulse Analytics API, version: 1.0.0 }
+paths:
+  /events:
+    post:
+      operationId: ingest_event
+      summary: Ingest an analytics event (rate-limited + idempotent)
+      x-katana-rate-limit: "200/second"
+      x-katana-idempotency: "true"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IngestEventRequest' }
+      responses:
+        '202':
+          description: accepted
+          content: { application/json: { schema: { $ref: '#/components/schemas/IngestEventResponse' } } }
+  /analytics/summary:
+    get:
+      operationId: event_summary
+      summary: Per-kind event counts (cached)
+      x-katana-cache: "5s"
+      responses:
+        '200':
+          description: ok
+          content: { application/json: { schema: { $ref: '#/components/schemas/EventSummary' } } }
+components:
+  schemas:
+    IngestEventRequest:
+      type: object
+      required: [kind]
+      properties:
+        kind:       { type: string, minLength: 1, maxLength: 64 }
+        product_id: { type: integer, format: int64, minimum: 1 }
+        props:      { type: object }   # free-form -> raw JSON
+    IngestEventResponse:
+      type: object
+      required: [id, kind]
+      properties:
+        id:   { type: integer, format: int64 }
+        kind: { type: string }
+    EventCount:
+      type: object
+      required: [kind, count]
+      properties:
+        kind:  { type: string }
+        count: { type: integer, format: int64 }
+    EventSummary:
+      type: object
+      required: [kinds, total]
+      properties:
+        kinds: { type: array, items: { $ref: '#/components/schemas/EventCount' } }
+        total: { type: integer, format: int64 }

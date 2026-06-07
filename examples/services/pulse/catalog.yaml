@@ -1,0 +1,63 @@
+openapi: 3.0.0
+info: { title: Pulse Catalog API, version: 1.0.0 }
+paths:
+  /products:
+    post:
+      operationId: create_product
+      summary: Create a product (rate-limited writes)
+      x-katana-rate-limit: "50/second"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProductRequest' }
+      responses:
+        '201':
+          description: created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Product' } } }
+    get:
+      operationId: list_products
+      summary: List products (cached)
+      x-katana-cache: "10s"
+      parameters:
+        - { name: limit,  in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0 } }
+      responses:
+        '200':
+          description: ok
+          content: { application/json: { schema: { $ref: '#/components/schemas/ProductList' } } }
+  /products/{id}:
+    get:
+      operationId: get_product
+      summary: Get a product by id
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+      responses:
+        '200':
+          description: ok
+          content: { application/json: { schema: { $ref: '#/components/schemas/Product' } } }
+        '404': { description: not found }
+components:
+  schemas:
+    CreateProductRequest:
+      type: object
+      required: [sku, name, price_cents]
+      properties:
+        sku:         { type: string, minLength: 1, maxLength: 64 }
+        name:        { type: string, minLength: 1, maxLength: 200 }
+        price_cents: { type: integer, format: int64, minimum: 0 }
+    Product:
+      type: object
+      required: [id, sku, name, price_cents, created_at]
+      properties:
+        id:          { type: integer, format: int64 }
+        sku:         { type: string }
+        name:        { type: string }
+        price_cents: { type: integer, format: int64 }
+        created_at:  { type: string, format: date-time }
+    ProductList:
+      type: object
+      required: [products, count]
+      properties:
+        products: { type: array, items: { $ref: '#/components/schemas/Product' } }
+        count:    { type: integer, format: int64 }
