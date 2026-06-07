@@ -141,17 +141,17 @@ using katana::format_validators::is_valid_datetime;
 
 // validate CreateOrderRequest — object, 2 field(s)  ← api.yaml:150
 [[nodiscard]] inline std::optional<validation_error> validate_CreateOrderRequest(const CreateOrderRequest& obj) {
-    if (static_cast<double>(obj.customer_id) < CreateOrderRequest::metadata::CUSTOMER_ID_MINIMUM) {
-        return validation_error{"customer_id", validation_error_code::value_too_small, CreateOrderRequest::metadata::CUSTOMER_ID_MINIMUM};
+    if (static_cast<double>(obj.customer_id) < CreateOrderRequest::field_constraints::CUSTOMER_ID_MINIMUM) {
+        return validation_error{"customer_id", validation_error_code::value_too_small, CreateOrderRequest::field_constraints::CUSTOMER_ID_MINIMUM};
     }
     if (obj.status.empty()) {
         return validation_error{"status", validation_error_code::required_field_missing};
     }
-    if (!obj.status.empty() && katana::utf8_length(obj.status) < CreateOrderRequest::metadata::STATUS_MIN_LENGTH) {
-        return validation_error{"status", validation_error_code::string_too_short, CreateOrderRequest::metadata::STATUS_MIN_LENGTH};
+    if (!obj.status.empty() && katana::utf8_length(obj.status) < CreateOrderRequest::field_constraints::STATUS_MIN_LENGTH) {
+        return validation_error{"status", validation_error_code::string_too_short, CreateOrderRequest::field_constraints::STATUS_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.status) > CreateOrderRequest::metadata::STATUS_MAX_LENGTH) {
-        return validation_error{"status", validation_error_code::string_too_long, CreateOrderRequest::metadata::STATUS_MAX_LENGTH};
+    if (katana::utf8_length(obj.status) > CreateOrderRequest::field_constraints::STATUS_MAX_LENGTH) {
+        return validation_error{"status", validation_error_code::string_too_long, CreateOrderRequest::field_constraints::STATUS_MAX_LENGTH};
     }
     return std::nullopt;
 }

@@ -236,7 +236,7 @@ void generate_dto_for_schema(std::ostream& out,
 
     // Generate compile-time metadata for validation constraints
     out << ind << "    // Compile-time metadata for validation\n";
-    out << ind << "    struct metadata {\n";
+    out << ind << "    struct field_constraints {\n";
 
     for (const auto& prop : s.properties) {
         if (!prop.type)
@@ -318,8 +318,8 @@ void generate_dto_for_schema(std::ostream& out,
         // String constraint assertions
         if (prop.type->kind == katana::openapi::schema_kind::string) {
             if (prop.type->min_length && prop.type->max_length) {
-                out << ind << "    static_assert(metadata::" << prop_name_upper
-                    << "_MIN_LENGTH <= metadata::" << prop_name_upper << "_MAX_LENGTH, \""
+                out << ind << "    static_assert(field_constraints::" << prop_name_upper
+                    << "_MIN_LENGTH <= field_constraints::" << prop_name_upper << "_MAX_LENGTH, \""
                     << prop.name << ": min_length must be <= max_length\");\n";
             }
         }
@@ -328,8 +328,8 @@ void generate_dto_for_schema(std::ostream& out,
         if (prop.type->kind == katana::openapi::schema_kind::integer ||
             prop.type->kind == katana::openapi::schema_kind::number) {
             if (prop.type->minimum && prop.type->maximum) {
-                out << ind << "    static_assert(metadata::" << prop_name_upper
-                    << "_MINIMUM <= metadata::" << prop_name_upper << "_MAXIMUM, \"" << prop.name
+                out << ind << "    static_assert(field_constraints::" << prop_name_upper
+                    << "_MINIMUM <= field_constraints::" << prop_name_upper << "_MAXIMUM, \"" << prop.name
                     << ": minimum must be <= maximum\");\n";
             }
         }
@@ -337,8 +337,8 @@ void generate_dto_for_schema(std::ostream& out,
         // Array constraint assertions
         if (prop.type->kind == katana::openapi::schema_kind::array) {
             if (prop.type->min_items && prop.type->max_items) {
-                out << ind << "    static_assert(metadata::" << prop_name_upper
-                    << "_MIN_ITEMS <= metadata::" << prop_name_upper << "_MAX_ITEMS, \""
+                out << ind << "    static_assert(field_constraints::" << prop_name_upper
+                    << "_MIN_ITEMS <= field_constraints::" << prop_name_upper << "_MAX_ITEMS, \""
                     << prop.name << ": min_items must be <= max_items\");\n";
             }
         }

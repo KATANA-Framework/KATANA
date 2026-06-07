@@ -94,13 +94,13 @@ inline std::optional<ItemCategory_enum> ItemCategory_enum_from_string(std::strin
 /// Data type with 1 fields
 struct SumRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool VALUES_REQUIRED = true;
         static constexpr size_t VALUES_MIN_ITEMS = 1;
         static constexpr size_t VALUES_MAX_ITEMS = 10000;
     };
 
-    static_assert(metadata::VALUES_MIN_ITEMS <= metadata::VALUES_MAX_ITEMS, "values: min_items must be <= max_items");
+    static_assert(field_constraints::VALUES_MIN_ITEMS <= field_constraints::VALUES_MAX_ITEMS, "values: min_items must be <= max_items");
 
     explicit SumRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -120,7 +120,7 @@ using SumRequest_Item_t = double;
 /// Data type with 2 fields
 struct SumResponse {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool RESULT_REQUIRED = true;
         static constexpr bool COUNT_REQUIRED = true;
     };
@@ -144,14 +144,14 @@ using SumResponse_Count_t = int64_t;
 /// Data type with 2 fields
 struct StatsRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool VALUES_REQUIRED = true;
         static constexpr size_t VALUES_MIN_ITEMS = 1;
         static constexpr size_t VALUES_MAX_ITEMS = 10000;
         static constexpr bool INCLUDE_MEDIAN_REQUIRED = false;
     };
 
-    static_assert(metadata::VALUES_MIN_ITEMS <= metadata::VALUES_MAX_ITEMS, "values: min_items must be <= max_items");
+    static_assert(field_constraints::VALUES_MIN_ITEMS <= field_constraints::VALUES_MAX_ITEMS, "values: min_items must be <= max_items");
 
     explicit StatsRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -176,7 +176,7 @@ using StatsRequest_Include_median_t = bool;
 /// Data type with 6 fields
 struct StatsResponse {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool MIN_REQUIRED = false;
         static constexpr bool MAX_REQUIRED = false;
         static constexpr bool MEAN_REQUIRED = false;
@@ -226,7 +226,7 @@ using StatsResponse_Median_t = double;
 /// Data type with 6 fields
 struct RegisterRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool USERNAME_REQUIRED = true;
         static constexpr size_t USERNAME_MIN_LENGTH = 3;
         static constexpr size_t USERNAME_MAX_LENGTH = 32;
@@ -244,9 +244,9 @@ struct RegisterRequest {
         static constexpr bool TAGS_UNIQUE_ITEMS = true;
     };
 
-    static_assert(metadata::USERNAME_MIN_LENGTH <= metadata::USERNAME_MAX_LENGTH, "username: min_length must be <= max_length");
-    static_assert(metadata::PASSWORD_MIN_LENGTH <= metadata::PASSWORD_MAX_LENGTH, "password: min_length must be <= max_length");
-    static_assert(metadata::AGE_MINIMUM <= metadata::AGE_MAXIMUM, "age: minimum must be <= maximum");
+    static_assert(field_constraints::USERNAME_MIN_LENGTH <= field_constraints::USERNAME_MAX_LENGTH, "username: min_length must be <= max_length");
+    static_assert(field_constraints::PASSWORD_MIN_LENGTH <= field_constraints::PASSWORD_MAX_LENGTH, "password: min_length must be <= max_length");
+    static_assert(field_constraints::AGE_MINIMUM <= field_constraints::AGE_MAXIMUM, "age: minimum must be <= maximum");
 
     explicit RegisterRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -291,7 +291,7 @@ using UserRole = UserRole_enum;
 /// Data type with 5 fields
 struct UserResponse {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ID_REQUIRED = true;
         static constexpr bool USERNAME_REQUIRED = true;
         static constexpr bool EMAIL_REQUIRED = true;
@@ -355,7 +355,7 @@ using Item_Item_t = arena_string<>;
 /// Data type with 4 fields
 struct ItemMetadata {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool WEIGHT_KG_REQUIRED = false;
         static constexpr bool DIMENSIONS_REQUIRED = false;
         static constexpr bool MANUFACTURER_REQUIRED = false;
@@ -411,7 +411,7 @@ using CreateItemRequest_Item_t = arena_string<>;
 /// Data type with 6 fields
 struct UpdateItemRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool NAME_REQUIRED = false;
         static constexpr size_t NAME_MIN_LENGTH = 1;
         static constexpr size_t NAME_MAX_LENGTH = 200;
@@ -426,7 +426,7 @@ struct UpdateItemRequest {
         static constexpr size_t TAGS_MAX_ITEMS = 20;
     };
 
-    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
+    static_assert(field_constraints::NAME_MIN_LENGTH <= field_constraints::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
 
     explicit UpdateItemRequest(monotonic_arena* arena = nullptr)
         : arena_(arena) {}
@@ -477,7 +477,7 @@ using ItemList_Offset_t = int64_t;
 /// Data type with 3 fields
 struct EchoRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool MESSAGE_REQUIRED = true;
         static constexpr size_t MESSAGE_MAX_LENGTH = 4096;
         static constexpr bool REPEAT_REQUIRED = false;
@@ -486,7 +486,7 @@ struct EchoRequest {
         static constexpr bool UPPERCASE_REQUIRED = false;
     };
 
-    static_assert(metadata::REPEAT_MINIMUM <= metadata::REPEAT_MAXIMUM, "repeat: minimum must be <= maximum");
+    static_assert(field_constraints::REPEAT_MINIMUM <= field_constraints::REPEAT_MAXIMUM, "repeat: minimum must be <= maximum");
 
     explicit EchoRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -513,7 +513,7 @@ using EchoRequest_Uppercase_t = bool;
 /// Data type with 2 fields
 struct EchoResponse {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool MESSAGE_REQUIRED = true;
         static constexpr bool LENGTH_REQUIRED = false;
     };
@@ -560,7 +560,7 @@ using delete_item_param_id = int64_t;
 /// Response body type with 2 fields
 struct health_check_response {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool STATUS_REQUIRED = false;
         static constexpr bool UPTIME_MS_REQUIRED = false;
     };
@@ -586,7 +586,7 @@ using health_check_response_Uptime_ms_t = int64_t;
 /// Data type with 8 fields
 struct Item {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ID_REQUIRED = true;
         static constexpr bool NAME_REQUIRED = true;
         static constexpr bool DESCRIPTION_REQUIRED = false;
@@ -621,7 +621,7 @@ struct Item {
 /// Data type with 7 fields
 struct CreateItemRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool NAME_REQUIRED = true;
         static constexpr size_t NAME_MIN_LENGTH = 1;
         static constexpr size_t NAME_MAX_LENGTH = 200;
@@ -639,8 +639,8 @@ struct CreateItemRequest {
         static constexpr bool METADATA_REQUIRED = false;
     };
 
-    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
-    static_assert(metadata::STOCK_MINIMUM <= metadata::STOCK_MAXIMUM, "stock: minimum must be <= maximum");
+    static_assert(field_constraints::NAME_MIN_LENGTH <= field_constraints::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
+    static_assert(field_constraints::STOCK_MINIMUM <= field_constraints::STOCK_MAXIMUM, "stock: minimum must be <= maximum");
 
     explicit CreateItemRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -664,7 +664,7 @@ struct CreateItemRequest {
 /// Data type with 4 fields
 struct ItemList {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ITEMS_REQUIRED = true;
         static constexpr bool TOTAL_REQUIRED = true;
         static constexpr bool LIMIT_REQUIRED = false;

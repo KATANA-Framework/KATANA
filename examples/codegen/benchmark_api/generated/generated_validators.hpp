@@ -71,11 +71,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.values.empty()) {
         return validation_error{"values", validation_error_code::required_field_missing};
     }
-    if (!obj.values.empty() && obj.values.size() < SumRequest::metadata::VALUES_MIN_ITEMS) {
-        return validation_error{"values", validation_error_code::array_too_small, SumRequest::metadata::VALUES_MIN_ITEMS};
+    if (!obj.values.empty() && obj.values.size() < SumRequest::field_constraints::VALUES_MIN_ITEMS) {
+        return validation_error{"values", validation_error_code::array_too_small, SumRequest::field_constraints::VALUES_MIN_ITEMS};
     }
-    if (obj.values.size() > SumRequest::metadata::VALUES_MAX_ITEMS) {
-        return validation_error{"values", validation_error_code::array_too_large, SumRequest::metadata::VALUES_MAX_ITEMS};
+    if (obj.values.size() > SumRequest::field_constraints::VALUES_MAX_ITEMS) {
+        return validation_error{"values", validation_error_code::array_too_large, SumRequest::field_constraints::VALUES_MAX_ITEMS};
     }
     return std::nullopt;
 }
@@ -98,11 +98,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.values.empty()) {
         return validation_error{"values", validation_error_code::required_field_missing};
     }
-    if (!obj.values.empty() && obj.values.size() < StatsRequest::metadata::VALUES_MIN_ITEMS) {
-        return validation_error{"values", validation_error_code::array_too_small, StatsRequest::metadata::VALUES_MIN_ITEMS};
+    if (!obj.values.empty() && obj.values.size() < StatsRequest::field_constraints::VALUES_MIN_ITEMS) {
+        return validation_error{"values", validation_error_code::array_too_small, StatsRequest::field_constraints::VALUES_MIN_ITEMS};
     }
-    if (obj.values.size() > StatsRequest::metadata::VALUES_MAX_ITEMS) {
-        return validation_error{"values", validation_error_code::array_too_large, StatsRequest::metadata::VALUES_MAX_ITEMS};
+    if (obj.values.size() > StatsRequest::field_constraints::VALUES_MAX_ITEMS) {
+        return validation_error{"values", validation_error_code::array_too_large, StatsRequest::field_constraints::VALUES_MAX_ITEMS};
     }
     return std::nullopt;
 }
@@ -125,11 +125,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.username.empty()) {
         return validation_error{"username", validation_error_code::required_field_missing};
     }
-    if (!obj.username.empty() && katana::utf8_length(obj.username) < RegisterRequest::metadata::USERNAME_MIN_LENGTH) {
-        return validation_error{"username", validation_error_code::string_too_short, RegisterRequest::metadata::USERNAME_MIN_LENGTH};
+    if (!obj.username.empty() && katana::utf8_length(obj.username) < RegisterRequest::field_constraints::USERNAME_MIN_LENGTH) {
+        return validation_error{"username", validation_error_code::string_too_short, RegisterRequest::field_constraints::USERNAME_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.username) > RegisterRequest::metadata::USERNAME_MAX_LENGTH) {
-        return validation_error{"username", validation_error_code::string_too_long, RegisterRequest::metadata::USERNAME_MAX_LENGTH};
+    if (katana::utf8_length(obj.username) > RegisterRequest::field_constraints::USERNAME_MAX_LENGTH) {
+        return validation_error{"username", validation_error_code::string_too_long, RegisterRequest::field_constraints::USERNAME_MAX_LENGTH};
     }
     if (!obj.username.empty()) {
         const auto& pv_ = obj.username;
@@ -150,20 +150,20 @@ using katana::format_validators::is_valid_datetime;
     if (obj.password.empty()) {
         return validation_error{"password", validation_error_code::required_field_missing};
     }
-    if (!obj.password.empty() && katana::utf8_length(obj.password) < RegisterRequest::metadata::PASSWORD_MIN_LENGTH) {
-        return validation_error{"password", validation_error_code::string_too_short, RegisterRequest::metadata::PASSWORD_MIN_LENGTH};
+    if (!obj.password.empty() && katana::utf8_length(obj.password) < RegisterRequest::field_constraints::PASSWORD_MIN_LENGTH) {
+        return validation_error{"password", validation_error_code::string_too_short, RegisterRequest::field_constraints::PASSWORD_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.password) > RegisterRequest::metadata::PASSWORD_MAX_LENGTH) {
-        return validation_error{"password", validation_error_code::string_too_long, RegisterRequest::metadata::PASSWORD_MAX_LENGTH};
+    if (katana::utf8_length(obj.password) > RegisterRequest::field_constraints::PASSWORD_MAX_LENGTH) {
+        return validation_error{"password", validation_error_code::string_too_long, RegisterRequest::field_constraints::PASSWORD_MAX_LENGTH};
     }
-    if (obj.age && static_cast<double>((*obj.age)) < RegisterRequest::metadata::AGE_MINIMUM) {
-        return validation_error{"age", validation_error_code::value_too_small, RegisterRequest::metadata::AGE_MINIMUM};
+    if (obj.age && static_cast<double>((*obj.age)) < RegisterRequest::field_constraints::AGE_MINIMUM) {
+        return validation_error{"age", validation_error_code::value_too_small, RegisterRequest::field_constraints::AGE_MINIMUM};
     }
-    if (obj.age && static_cast<double>((*obj.age)) > RegisterRequest::metadata::AGE_MAXIMUM) {
-        return validation_error{"age", validation_error_code::value_too_large, RegisterRequest::metadata::AGE_MAXIMUM};
+    if (obj.age && static_cast<double>((*obj.age)) > RegisterRequest::field_constraints::AGE_MAXIMUM) {
+        return validation_error{"age", validation_error_code::value_too_large, RegisterRequest::field_constraints::AGE_MAXIMUM};
     }
-    if (obj.tags && obj.tags->size() > RegisterRequest::metadata::TAGS_MAX_ITEMS) {
-        return validation_error{"tags", validation_error_code::array_too_large, RegisterRequest::metadata::TAGS_MAX_ITEMS};
+    if (obj.tags && obj.tags->size() > RegisterRequest::field_constraints::TAGS_MAX_ITEMS) {
+        return validation_error{"tags", validation_error_code::array_too_large, RegisterRequest::field_constraints::TAGS_MAX_ITEMS};
     }
     {
         if (!obj.tags) {
@@ -263,29 +263,29 @@ using katana::format_validators::is_valid_datetime;
     if (obj.name.empty()) {
         return validation_error{"name", validation_error_code::required_field_missing};
     }
-    if (!obj.name.empty() && katana::utf8_length(obj.name) < CreateItemRequest::metadata::NAME_MIN_LENGTH) {
-        return validation_error{"name", validation_error_code::string_too_short, CreateItemRequest::metadata::NAME_MIN_LENGTH};
+    if (!obj.name.empty() && katana::utf8_length(obj.name) < CreateItemRequest::field_constraints::NAME_MIN_LENGTH) {
+        return validation_error{"name", validation_error_code::string_too_short, CreateItemRequest::field_constraints::NAME_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.name) > CreateItemRequest::metadata::NAME_MAX_LENGTH) {
-        return validation_error{"name", validation_error_code::string_too_long, CreateItemRequest::metadata::NAME_MAX_LENGTH};
+    if (katana::utf8_length(obj.name) > CreateItemRequest::field_constraints::NAME_MAX_LENGTH) {
+        return validation_error{"name", validation_error_code::string_too_long, CreateItemRequest::field_constraints::NAME_MAX_LENGTH};
     }
-    if (obj.description && katana::utf8_length((*obj.description)) > CreateItemRequest::metadata::DESCRIPTION_MAX_LENGTH) {
-        return validation_error{"description", validation_error_code::string_too_long, CreateItemRequest::metadata::DESCRIPTION_MAX_LENGTH};
+    if (obj.description && katana::utf8_length((*obj.description)) > CreateItemRequest::field_constraints::DESCRIPTION_MAX_LENGTH) {
+        return validation_error{"description", validation_error_code::string_too_long, CreateItemRequest::field_constraints::DESCRIPTION_MAX_LENGTH};
     }
-    if (static_cast<double>(obj.price) < CreateItemRequest::metadata::PRICE_MINIMUM) {
-        return validation_error{"price", validation_error_code::value_too_small, CreateItemRequest::metadata::PRICE_MINIMUM};
+    if (static_cast<double>(obj.price) < CreateItemRequest::field_constraints::PRICE_MINIMUM) {
+        return validation_error{"price", validation_error_code::value_too_small, CreateItemRequest::field_constraints::PRICE_MINIMUM};
     }
-    if (static_cast<double>(obj.price) >= CreateItemRequest::metadata::PRICE_EXCLUSIVE_MAXIMUM) {
-        return validation_error{"price", validation_error_code::value_above_exclusive_maximum, CreateItemRequest::metadata::PRICE_EXCLUSIVE_MAXIMUM};
+    if (static_cast<double>(obj.price) >= CreateItemRequest::field_constraints::PRICE_EXCLUSIVE_MAXIMUM) {
+        return validation_error{"price", validation_error_code::value_above_exclusive_maximum, CreateItemRequest::field_constraints::PRICE_EXCLUSIVE_MAXIMUM};
     }
-    if (obj.stock && static_cast<double>((*obj.stock)) < CreateItemRequest::metadata::STOCK_MINIMUM) {
-        return validation_error{"stock", validation_error_code::value_too_small, CreateItemRequest::metadata::STOCK_MINIMUM};
+    if (obj.stock && static_cast<double>((*obj.stock)) < CreateItemRequest::field_constraints::STOCK_MINIMUM) {
+        return validation_error{"stock", validation_error_code::value_too_small, CreateItemRequest::field_constraints::STOCK_MINIMUM};
     }
-    if (obj.stock && static_cast<double>((*obj.stock)) > CreateItemRequest::metadata::STOCK_MAXIMUM) {
-        return validation_error{"stock", validation_error_code::value_too_large, CreateItemRequest::metadata::STOCK_MAXIMUM};
+    if (obj.stock && static_cast<double>((*obj.stock)) > CreateItemRequest::field_constraints::STOCK_MAXIMUM) {
+        return validation_error{"stock", validation_error_code::value_too_large, CreateItemRequest::field_constraints::STOCK_MAXIMUM};
     }
-    if (obj.tags && obj.tags->size() > CreateItemRequest::metadata::TAGS_MAX_ITEMS) {
-        return validation_error{"tags", validation_error_code::array_too_large, CreateItemRequest::metadata::TAGS_MAX_ITEMS};
+    if (obj.tags && obj.tags->size() > CreateItemRequest::field_constraints::TAGS_MAX_ITEMS) {
+        return validation_error{"tags", validation_error_code::array_too_large, CreateItemRequest::field_constraints::TAGS_MAX_ITEMS};
     }
     if (obj.metadata) { if (auto e_ = validate_ItemMetadata(*obj.metadata)) return e_; }
     return std::nullopt;
@@ -299,23 +299,23 @@ using katana::format_validators::is_valid_datetime;
 
 // validate UpdateItemRequest — object, 6 field(s)  ← api.yaml:405
 [[nodiscard]] inline std::optional<validation_error> validate_UpdateItemRequest(const UpdateItemRequest& obj) {
-    if (obj.name && !obj.name->empty() && katana::utf8_length((*obj.name)) < UpdateItemRequest::metadata::NAME_MIN_LENGTH) {
-        return validation_error{"name", validation_error_code::string_too_short, UpdateItemRequest::metadata::NAME_MIN_LENGTH};
+    if (obj.name && !obj.name->empty() && katana::utf8_length((*obj.name)) < UpdateItemRequest::field_constraints::NAME_MIN_LENGTH) {
+        return validation_error{"name", validation_error_code::string_too_short, UpdateItemRequest::field_constraints::NAME_MIN_LENGTH};
     }
-    if (obj.name && katana::utf8_length((*obj.name)) > UpdateItemRequest::metadata::NAME_MAX_LENGTH) {
-        return validation_error{"name", validation_error_code::string_too_long, UpdateItemRequest::metadata::NAME_MAX_LENGTH};
+    if (obj.name && katana::utf8_length((*obj.name)) > UpdateItemRequest::field_constraints::NAME_MAX_LENGTH) {
+        return validation_error{"name", validation_error_code::string_too_long, UpdateItemRequest::field_constraints::NAME_MAX_LENGTH};
     }
-    if (obj.description && katana::utf8_length((*obj.description)) > UpdateItemRequest::metadata::DESCRIPTION_MAX_LENGTH) {
-        return validation_error{"description", validation_error_code::string_too_long, UpdateItemRequest::metadata::DESCRIPTION_MAX_LENGTH};
+    if (obj.description && katana::utf8_length((*obj.description)) > UpdateItemRequest::field_constraints::DESCRIPTION_MAX_LENGTH) {
+        return validation_error{"description", validation_error_code::string_too_long, UpdateItemRequest::field_constraints::DESCRIPTION_MAX_LENGTH};
     }
-    if (obj.price && static_cast<double>((*obj.price)) < UpdateItemRequest::metadata::PRICE_MINIMUM) {
-        return validation_error{"price", validation_error_code::value_too_small, UpdateItemRequest::metadata::PRICE_MINIMUM};
+    if (obj.price && static_cast<double>((*obj.price)) < UpdateItemRequest::field_constraints::PRICE_MINIMUM) {
+        return validation_error{"price", validation_error_code::value_too_small, UpdateItemRequest::field_constraints::PRICE_MINIMUM};
     }
-    if (obj.stock && static_cast<double>((*obj.stock)) < UpdateItemRequest::metadata::STOCK_MINIMUM) {
-        return validation_error{"stock", validation_error_code::value_too_small, UpdateItemRequest::metadata::STOCK_MINIMUM};
+    if (obj.stock && static_cast<double>((*obj.stock)) < UpdateItemRequest::field_constraints::STOCK_MINIMUM) {
+        return validation_error{"stock", validation_error_code::value_too_small, UpdateItemRequest::field_constraints::STOCK_MINIMUM};
     }
-    if (obj.tags && obj.tags->size() > UpdateItemRequest::metadata::TAGS_MAX_ITEMS) {
-        return validation_error{"tags", validation_error_code::array_too_large, UpdateItemRequest::metadata::TAGS_MAX_ITEMS};
+    if (obj.tags && obj.tags->size() > UpdateItemRequest::field_constraints::TAGS_MAX_ITEMS) {
+        return validation_error{"tags", validation_error_code::array_too_large, UpdateItemRequest::field_constraints::TAGS_MAX_ITEMS};
     }
     return std::nullopt;
 }
@@ -344,14 +344,14 @@ using katana::format_validators::is_valid_datetime;
     if (obj.message.empty()) {
         return validation_error{"message", validation_error_code::required_field_missing};
     }
-    if (katana::utf8_length(obj.message) > EchoRequest::metadata::MESSAGE_MAX_LENGTH) {
-        return validation_error{"message", validation_error_code::string_too_long, EchoRequest::metadata::MESSAGE_MAX_LENGTH};
+    if (katana::utf8_length(obj.message) > EchoRequest::field_constraints::MESSAGE_MAX_LENGTH) {
+        return validation_error{"message", validation_error_code::string_too_long, EchoRequest::field_constraints::MESSAGE_MAX_LENGTH};
     }
-    if (obj.repeat && static_cast<double>((*obj.repeat)) < EchoRequest::metadata::REPEAT_MINIMUM) {
-        return validation_error{"repeat", validation_error_code::value_too_small, EchoRequest::metadata::REPEAT_MINIMUM};
+    if (obj.repeat && static_cast<double>((*obj.repeat)) < EchoRequest::field_constraints::REPEAT_MINIMUM) {
+        return validation_error{"repeat", validation_error_code::value_too_small, EchoRequest::field_constraints::REPEAT_MINIMUM};
     }
-    if (obj.repeat && static_cast<double>((*obj.repeat)) > EchoRequest::metadata::REPEAT_MAXIMUM) {
-        return validation_error{"repeat", validation_error_code::value_too_large, EchoRequest::metadata::REPEAT_MAXIMUM};
+    if (obj.repeat && static_cast<double>((*obj.repeat)) > EchoRequest::field_constraints::REPEAT_MAXIMUM) {
+        return validation_error{"repeat", validation_error_code::value_too_large, EchoRequest::field_constraints::REPEAT_MAXIMUM};
     }
     return std::nullopt;
 }

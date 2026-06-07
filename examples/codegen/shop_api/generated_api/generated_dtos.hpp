@@ -39,7 +39,7 @@ using katana::monotonic_arena;
 /// Data type with 6 fields
 struct CustomerRevenue {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool CUSTOMER_ID_REQUIRED = true;
         static constexpr bool NAME_REQUIRED = true;
         static constexpr bool COUNTRY_REQUIRED = true;
@@ -85,7 +85,7 @@ using CustomerRevenue_Revenue_rank_t = int64_t;
 /// Data type with 6 fields
 struct TopProduct {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool PRODUCT_ID_REQUIRED = true;
         static constexpr bool NAME_REQUIRED = true;
         static constexpr bool CATEGORY_REQUIRED = true;
@@ -131,7 +131,7 @@ using TopProduct_Category_rank_t = int64_t;
 /// Data type with 6 fields
 struct CategoryStat {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool CATEGORY_REQUIRED = true;
         static constexpr bool PRODUCT_COUNT_REQUIRED = true;
         static constexpr bool AVG_PRICE_REQUIRED = true;
@@ -176,7 +176,7 @@ using CategoryStat_Max_price_t = double;
 /// Data type with 7 fields
 struct OrderDetail {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ORDER_ID_REQUIRED = true;
         static constexpr bool STATUS_REQUIRED = true;
         static constexpr bool CUSTOMER_NAME_REQUIRED = true;
@@ -228,7 +228,7 @@ using OrderDetail_Total_amount_t = double;
 /// Data type with 2 fields
 struct CreateOrderRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool CUSTOMER_ID_REQUIRED = true;
         static constexpr double CUSTOMER_ID_MINIMUM = 1;
         static constexpr bool STATUS_REQUIRED = true;
@@ -236,7 +236,7 @@ struct CreateOrderRequest {
         static constexpr size_t STATUS_MAX_LENGTH = 32;
     };
 
-    static_assert(metadata::STATUS_MIN_LENGTH <= metadata::STATUS_MAX_LENGTH, "status: min_length must be <= max_length");
+    static_assert(field_constraints::STATUS_MIN_LENGTH <= field_constraints::STATUS_MAX_LENGTH, "status: min_length must be <= max_length");
 
     explicit CreateOrderRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -257,7 +257,7 @@ using CreateOrderRequest_Status_t = arena_string<>;
 /// Data type with 1 fields
 struct CreateOrderResponse {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ID_REQUIRED = true;
     };
 
@@ -291,7 +291,7 @@ using order_detail_param_id = int64_t;
 /// Data type with 1 fields
 struct CustomerRevenueList {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ITEMS_REQUIRED = true;
     };
 
@@ -311,7 +311,7 @@ using CustomerRevenueList_Items_t = arena_vector<CustomerRevenue>;
 /// Data type with 1 fields
 struct TopProductList {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ITEMS_REQUIRED = true;
     };
 
@@ -331,7 +331,7 @@ using TopProductList_Items_t = arena_vector<TopProduct>;
 /// Data type with 1 fields
 struct CategoryStatList {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ITEMS_REQUIRED = true;
     };
 

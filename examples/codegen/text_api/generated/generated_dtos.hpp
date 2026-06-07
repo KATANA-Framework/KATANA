@@ -65,13 +65,13 @@ inline std::optional<text_transform_operation_enum> text_transform_operation_enu
 /// Request body type with 1 fields
 struct text_uppercase_request {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TEXT_REQUIRED = true;
         static constexpr size_t TEXT_MIN_LENGTH = 1;
         static constexpr size_t TEXT_MAX_LENGTH = 10000;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(field_constraints::TEXT_MIN_LENGTH <= field_constraints::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
 
     explicit text_uppercase_request(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -88,7 +88,7 @@ using text_uppercase_request_Text_t = arena_string<>;
 /// Response body type with 1 fields
 struct text_uppercase_response {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool RESULT_REQUIRED = false;
     };
 
@@ -108,13 +108,13 @@ using text_uppercase_response_Result_t = arena_string<>;
 /// Request body type with 1 fields
 struct text_lowercase_request {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TEXT_REQUIRED = true;
         static constexpr size_t TEXT_MIN_LENGTH = 1;
         static constexpr size_t TEXT_MAX_LENGTH = 10000;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(field_constraints::TEXT_MIN_LENGTH <= field_constraints::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
 
     explicit text_lowercase_request(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -131,7 +131,7 @@ using text_lowercase_request_Text_t = arena_string<>;
 /// Response body type with 1 fields
 struct text_lowercase_response {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool RESULT_REQUIRED = false;
     };
 
@@ -151,13 +151,13 @@ using text_lowercase_response_Result_t = arena_string<>;
 /// Request body type with 1 fields
 struct text_reverse_request {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TEXT_REQUIRED = true;
         static constexpr size_t TEXT_MIN_LENGTH = 1;
         static constexpr size_t TEXT_MAX_LENGTH = 10000;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(field_constraints::TEXT_MIN_LENGTH <= field_constraints::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
 
     explicit text_reverse_request(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -174,7 +174,7 @@ using text_reverse_request_Text_t = arena_string<>;
 /// Response body type with 1 fields
 struct text_reverse_response {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool RESULT_REQUIRED = false;
     };
 
@@ -194,7 +194,7 @@ using text_reverse_response_Result_t = arena_string<>;
 /// Request body type with 1 fields
 struct text_stats_request {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TEXT_REQUIRED = true;
         static constexpr size_t TEXT_MAX_LENGTH = 100000;
     };
@@ -215,7 +215,7 @@ using text_stats_request_Text_t = arena_string<>;
 /// Response body type with 3 fields
 struct text_stats_response {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool CHARS_REQUIRED = false;
         static constexpr bool WORDS_REQUIRED = false;
         static constexpr bool LINES_REQUIRED = false;
@@ -247,7 +247,7 @@ using text_stats_response_Lines_t = int64_t;
 /// Request body type with 3 fields
 struct text_transform_request {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TEXT_REQUIRED = true;
         static constexpr size_t TEXT_MIN_LENGTH = 1;
         static constexpr size_t TEXT_MAX_LENGTH = 10000;
@@ -255,7 +255,7 @@ struct text_transform_request {
         static constexpr bool TRIM_REQUIRED = false;
     };
 
-    static_assert(metadata::TEXT_MIN_LENGTH <= metadata::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
+    static_assert(field_constraints::TEXT_MIN_LENGTH <= field_constraints::TEXT_MAX_LENGTH, "text: min_length must be <= max_length");
 
     explicit text_transform_request(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -281,7 +281,7 @@ using text_transform_request_Trim_t = bool;
 /// Response body type with 3 fields
 struct text_transform_response {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ORIGINAL_LENGTH_REQUIRED = false;
         static constexpr bool RESULT_REQUIRED = false;
         static constexpr bool OPERATION_APPLIED_REQUIRED = false;

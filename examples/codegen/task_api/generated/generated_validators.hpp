@@ -66,29 +66,29 @@ using katana::format_validators::is_valid_datetime;
 
 // validate Task — object, 11 field(s)  ← api.yaml:206
 [[nodiscard]] inline std::optional<validation_error> validate_Task(const Task& obj) {
-    if (static_cast<double>(obj.id) < Task::metadata::ID_MINIMUM) {
-        return validation_error{"id", validation_error_code::value_too_small, Task::metadata::ID_MINIMUM};
+    if (static_cast<double>(obj.id) < Task::field_constraints::ID_MINIMUM) {
+        return validation_error{"id", validation_error_code::value_too_small, Task::field_constraints::ID_MINIMUM};
     }
     if (obj.title.empty()) {
         return validation_error{"title", validation_error_code::required_field_missing};
     }
-    if (!obj.title.empty() && katana::utf8_length(obj.title) < Task::metadata::TITLE_MIN_LENGTH) {
-        return validation_error{"title", validation_error_code::string_too_short, Task::metadata::TITLE_MIN_LENGTH};
+    if (!obj.title.empty() && katana::utf8_length(obj.title) < Task::field_constraints::TITLE_MIN_LENGTH) {
+        return validation_error{"title", validation_error_code::string_too_short, Task::field_constraints::TITLE_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.title) > Task::metadata::TITLE_MAX_LENGTH) {
-        return validation_error{"title", validation_error_code::string_too_long, Task::metadata::TITLE_MAX_LENGTH};
+    if (katana::utf8_length(obj.title) > Task::field_constraints::TITLE_MAX_LENGTH) {
+        return validation_error{"title", validation_error_code::string_too_long, Task::field_constraints::TITLE_MAX_LENGTH};
     }
-    if (obj.description && katana::utf8_length((*obj.description)) > Task::metadata::DESCRIPTION_MAX_LENGTH) {
-        return validation_error{"description", validation_error_code::string_too_long, Task::metadata::DESCRIPTION_MAX_LENGTH};
+    if (obj.description && katana::utf8_length((*obj.description)) > Task::field_constraints::DESCRIPTION_MAX_LENGTH) {
+        return validation_error{"description", validation_error_code::string_too_long, Task::field_constraints::DESCRIPTION_MAX_LENGTH};
     }
-    if (static_cast<double>(obj.priority) < Task::metadata::PRIORITY_MINIMUM) {
-        return validation_error{"priority", validation_error_code::value_too_small, Task::metadata::PRIORITY_MINIMUM};
+    if (static_cast<double>(obj.priority) < Task::field_constraints::PRIORITY_MINIMUM) {
+        return validation_error{"priority", validation_error_code::value_too_small, Task::field_constraints::PRIORITY_MINIMUM};
     }
-    if (static_cast<double>(obj.priority) > Task::metadata::PRIORITY_MAXIMUM) {
-        return validation_error{"priority", validation_error_code::value_too_large, Task::metadata::PRIORITY_MAXIMUM};
+    if (static_cast<double>(obj.priority) > Task::field_constraints::PRIORITY_MAXIMUM) {
+        return validation_error{"priority", validation_error_code::value_too_large, Task::field_constraints::PRIORITY_MAXIMUM};
     }
-    if (obj.tags && obj.tags->size() > Task::metadata::TAGS_MAX_ITEMS) {
-        return validation_error{"tags", validation_error_code::array_too_large, Task::metadata::TAGS_MAX_ITEMS};
+    if (obj.tags && obj.tags->size() > Task::field_constraints::TAGS_MAX_ITEMS) {
+        return validation_error{"tags", validation_error_code::array_too_large, Task::field_constraints::TAGS_MAX_ITEMS};
     }
     {
         if (!obj.tags) {
@@ -154,26 +154,26 @@ using katana::format_validators::is_valid_datetime;
 
 // validate User — object, 3 field(s)  ← api.yaml:258
 [[nodiscard]] inline std::optional<validation_error> validate_User(const User& obj) {
-    if (static_cast<double>(obj.id) < User::metadata::ID_MINIMUM) {
-        return validation_error{"id", validation_error_code::value_too_small, User::metadata::ID_MINIMUM};
+    if (static_cast<double>(obj.id) < User::field_constraints::ID_MINIMUM) {
+        return validation_error{"id", validation_error_code::value_too_small, User::field_constraints::ID_MINIMUM};
     }
     if (obj.email.empty()) {
         return validation_error{"email", validation_error_code::required_field_missing};
     }
-    if (!obj.email.empty() && katana::utf8_length(obj.email) < User::metadata::EMAIL_MIN_LENGTH) {
-        return validation_error{"email", validation_error_code::string_too_short, User::metadata::EMAIL_MIN_LENGTH};
+    if (!obj.email.empty() && katana::utf8_length(obj.email) < User::field_constraints::EMAIL_MIN_LENGTH) {
+        return validation_error{"email", validation_error_code::string_too_short, User::field_constraints::EMAIL_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.email) > User::metadata::EMAIL_MAX_LENGTH) {
-        return validation_error{"email", validation_error_code::string_too_long, User::metadata::EMAIL_MAX_LENGTH};
+    if (katana::utf8_length(obj.email) > User::field_constraints::EMAIL_MAX_LENGTH) {
+        return validation_error{"email", validation_error_code::string_too_long, User::field_constraints::EMAIL_MAX_LENGTH};
     }
     if (!obj.email.empty() && !is_valid_email(obj.email)) {
         return validation_error{"email", validation_error_code::invalid_email_format};
     }
-    if (obj.name && !obj.name->empty() && katana::utf8_length((*obj.name)) < User::metadata::NAME_MIN_LENGTH) {
-        return validation_error{"name", validation_error_code::string_too_short, User::metadata::NAME_MIN_LENGTH};
+    if (obj.name && !obj.name->empty() && katana::utf8_length((*obj.name)) < User::field_constraints::NAME_MIN_LENGTH) {
+        return validation_error{"name", validation_error_code::string_too_short, User::field_constraints::NAME_MIN_LENGTH};
     }
-    if (obj.name && katana::utf8_length((*obj.name)) > User::metadata::NAME_MAX_LENGTH) {
-        return validation_error{"name", validation_error_code::string_too_long, User::metadata::NAME_MAX_LENGTH};
+    if (obj.name && katana::utf8_length((*obj.name)) > User::field_constraints::NAME_MAX_LENGTH) {
+        return validation_error{"name", validation_error_code::string_too_long, User::field_constraints::NAME_MAX_LENGTH};
     }
     return std::nullopt;
 }
@@ -183,23 +183,23 @@ using katana::format_validators::is_valid_datetime;
     if (obj.title.empty()) {
         return validation_error{"title", validation_error_code::required_field_missing};
     }
-    if (!obj.title.empty() && katana::utf8_length(obj.title) < CreateTaskRequest::metadata::TITLE_MIN_LENGTH) {
-        return validation_error{"title", validation_error_code::string_too_short, CreateTaskRequest::metadata::TITLE_MIN_LENGTH};
+    if (!obj.title.empty() && katana::utf8_length(obj.title) < CreateTaskRequest::field_constraints::TITLE_MIN_LENGTH) {
+        return validation_error{"title", validation_error_code::string_too_short, CreateTaskRequest::field_constraints::TITLE_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.title) > CreateTaskRequest::metadata::TITLE_MAX_LENGTH) {
-        return validation_error{"title", validation_error_code::string_too_long, CreateTaskRequest::metadata::TITLE_MAX_LENGTH};
+    if (katana::utf8_length(obj.title) > CreateTaskRequest::field_constraints::TITLE_MAX_LENGTH) {
+        return validation_error{"title", validation_error_code::string_too_long, CreateTaskRequest::field_constraints::TITLE_MAX_LENGTH};
     }
-    if (obj.description && katana::utf8_length((*obj.description)) > CreateTaskRequest::metadata::DESCRIPTION_MAX_LENGTH) {
-        return validation_error{"description", validation_error_code::string_too_long, CreateTaskRequest::metadata::DESCRIPTION_MAX_LENGTH};
+    if (obj.description && katana::utf8_length((*obj.description)) > CreateTaskRequest::field_constraints::DESCRIPTION_MAX_LENGTH) {
+        return validation_error{"description", validation_error_code::string_too_long, CreateTaskRequest::field_constraints::DESCRIPTION_MAX_LENGTH};
     }
-    if (static_cast<double>(obj.priority) < CreateTaskRequest::metadata::PRIORITY_MINIMUM) {
-        return validation_error{"priority", validation_error_code::value_too_small, CreateTaskRequest::metadata::PRIORITY_MINIMUM};
+    if (static_cast<double>(obj.priority) < CreateTaskRequest::field_constraints::PRIORITY_MINIMUM) {
+        return validation_error{"priority", validation_error_code::value_too_small, CreateTaskRequest::field_constraints::PRIORITY_MINIMUM};
     }
-    if (static_cast<double>(obj.priority) > CreateTaskRequest::metadata::PRIORITY_MAXIMUM) {
-        return validation_error{"priority", validation_error_code::value_too_large, CreateTaskRequest::metadata::PRIORITY_MAXIMUM};
+    if (static_cast<double>(obj.priority) > CreateTaskRequest::field_constraints::PRIORITY_MAXIMUM) {
+        return validation_error{"priority", validation_error_code::value_too_large, CreateTaskRequest::field_constraints::PRIORITY_MAXIMUM};
     }
-    if (obj.tags && obj.tags->size() > CreateTaskRequest::metadata::TAGS_MAX_ITEMS) {
-        return validation_error{"tags", validation_error_code::array_too_large, CreateTaskRequest::metadata::TAGS_MAX_ITEMS};
+    if (obj.tags && obj.tags->size() > CreateTaskRequest::field_constraints::TAGS_MAX_ITEMS) {
+        return validation_error{"tags", validation_error_code::array_too_large, CreateTaskRequest::field_constraints::TAGS_MAX_ITEMS};
     }
     {
         if (!obj.tags) {
@@ -223,8 +223,8 @@ using katana::format_validators::is_valid_datetime;
         }
         }
     }
-    if (obj.assignee_id && static_cast<double>((*obj.assignee_id)) < CreateTaskRequest::metadata::ASSIGNEE_ID_MINIMUM) {
-        return validation_error{"assignee_id", validation_error_code::value_too_small, CreateTaskRequest::metadata::ASSIGNEE_ID_MINIMUM};
+    if (obj.assignee_id && static_cast<double>((*obj.assignee_id)) < CreateTaskRequest::field_constraints::ASSIGNEE_ID_MINIMUM) {
+        return validation_error{"assignee_id", validation_error_code::value_too_small, CreateTaskRequest::field_constraints::ASSIGNEE_ID_MINIMUM};
     }
     if (obj.due_date && !obj.due_date->empty() && !is_valid_datetime((*obj.due_date))) {
         return validation_error{"due_date", validation_error_code::invalid_datetime_format};
@@ -258,23 +258,23 @@ using katana::format_validators::is_valid_datetime;
 
 // validate UpdateTaskRequest — object, 7 field(s)  ← api.yaml:313
 [[nodiscard]] inline std::optional<validation_error> validate_UpdateTaskRequest(const UpdateTaskRequest& obj) {
-    if (obj.title && !obj.title->empty() && katana::utf8_length((*obj.title)) < UpdateTaskRequest::metadata::TITLE_MIN_LENGTH) {
-        return validation_error{"title", validation_error_code::string_too_short, UpdateTaskRequest::metadata::TITLE_MIN_LENGTH};
+    if (obj.title && !obj.title->empty() && katana::utf8_length((*obj.title)) < UpdateTaskRequest::field_constraints::TITLE_MIN_LENGTH) {
+        return validation_error{"title", validation_error_code::string_too_short, UpdateTaskRequest::field_constraints::TITLE_MIN_LENGTH};
     }
-    if (obj.title && katana::utf8_length((*obj.title)) > UpdateTaskRequest::metadata::TITLE_MAX_LENGTH) {
-        return validation_error{"title", validation_error_code::string_too_long, UpdateTaskRequest::metadata::TITLE_MAX_LENGTH};
+    if (obj.title && katana::utf8_length((*obj.title)) > UpdateTaskRequest::field_constraints::TITLE_MAX_LENGTH) {
+        return validation_error{"title", validation_error_code::string_too_long, UpdateTaskRequest::field_constraints::TITLE_MAX_LENGTH};
     }
-    if (obj.description && katana::utf8_length((*obj.description)) > UpdateTaskRequest::metadata::DESCRIPTION_MAX_LENGTH) {
-        return validation_error{"description", validation_error_code::string_too_long, UpdateTaskRequest::metadata::DESCRIPTION_MAX_LENGTH};
+    if (obj.description && katana::utf8_length((*obj.description)) > UpdateTaskRequest::field_constraints::DESCRIPTION_MAX_LENGTH) {
+        return validation_error{"description", validation_error_code::string_too_long, UpdateTaskRequest::field_constraints::DESCRIPTION_MAX_LENGTH};
     }
-    if (obj.priority && static_cast<double>((*obj.priority)) < UpdateTaskRequest::metadata::PRIORITY_MINIMUM) {
-        return validation_error{"priority", validation_error_code::value_too_small, UpdateTaskRequest::metadata::PRIORITY_MINIMUM};
+    if (obj.priority && static_cast<double>((*obj.priority)) < UpdateTaskRequest::field_constraints::PRIORITY_MINIMUM) {
+        return validation_error{"priority", validation_error_code::value_too_small, UpdateTaskRequest::field_constraints::PRIORITY_MINIMUM};
     }
-    if (obj.priority && static_cast<double>((*obj.priority)) > UpdateTaskRequest::metadata::PRIORITY_MAXIMUM) {
-        return validation_error{"priority", validation_error_code::value_too_large, UpdateTaskRequest::metadata::PRIORITY_MAXIMUM};
+    if (obj.priority && static_cast<double>((*obj.priority)) > UpdateTaskRequest::field_constraints::PRIORITY_MAXIMUM) {
+        return validation_error{"priority", validation_error_code::value_too_large, UpdateTaskRequest::field_constraints::PRIORITY_MAXIMUM};
     }
-    if (obj.tags && obj.tags->size() > UpdateTaskRequest::metadata::TAGS_MAX_ITEMS) {
-        return validation_error{"tags", validation_error_code::array_too_large, UpdateTaskRequest::metadata::TAGS_MAX_ITEMS};
+    if (obj.tags && obj.tags->size() > UpdateTaskRequest::field_constraints::TAGS_MAX_ITEMS) {
+        return validation_error{"tags", validation_error_code::array_too_large, UpdateTaskRequest::field_constraints::TAGS_MAX_ITEMS};
     }
     {
         if (!obj.tags) {
@@ -298,8 +298,8 @@ using katana::format_validators::is_valid_datetime;
         }
         }
     }
-    if (obj.assignee_id && static_cast<double>((*obj.assignee_id)) < UpdateTaskRequest::metadata::ASSIGNEE_ID_MINIMUM) {
-        return validation_error{"assignee_id", validation_error_code::value_too_small, UpdateTaskRequest::metadata::ASSIGNEE_ID_MINIMUM};
+    if (obj.assignee_id && static_cast<double>((*obj.assignee_id)) < UpdateTaskRequest::field_constraints::ASSIGNEE_ID_MINIMUM) {
+        return validation_error{"assignee_id", validation_error_code::value_too_small, UpdateTaskRequest::field_constraints::ASSIGNEE_ID_MINIMUM};
     }
     if (obj.due_date && !obj.due_date->empty() && !is_valid_datetime((*obj.due_date))) {
         return validation_error{"due_date", validation_error_code::invalid_datetime_format};
@@ -336,11 +336,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.tasks.empty()) {
         return validation_error{"tasks", validation_error_code::required_field_missing};
     }
-    if (!obj.tasks.empty() && obj.tasks.size() < BatchCreateRequest::metadata::TASKS_MIN_ITEMS) {
-        return validation_error{"tasks", validation_error_code::array_too_small, BatchCreateRequest::metadata::TASKS_MIN_ITEMS};
+    if (!obj.tasks.empty() && obj.tasks.size() < BatchCreateRequest::field_constraints::TASKS_MIN_ITEMS) {
+        return validation_error{"tasks", validation_error_code::array_too_small, BatchCreateRequest::field_constraints::TASKS_MIN_ITEMS};
     }
-    if (obj.tasks.size() > BatchCreateRequest::metadata::TASKS_MAX_ITEMS) {
-        return validation_error{"tasks", validation_error_code::array_too_large, BatchCreateRequest::metadata::TASKS_MAX_ITEMS};
+    if (obj.tasks.size() > BatchCreateRequest::field_constraints::TASKS_MAX_ITEMS) {
+        return validation_error{"tasks", validation_error_code::array_too_large, BatchCreateRequest::field_constraints::TASKS_MAX_ITEMS};
     }
     for (const auto& it_ : obj.tasks) { if (auto e_ = validate_CreateTaskRequest(it_)) return e_; }
     return std::nullopt;
@@ -383,17 +383,17 @@ using katana::format_validators::is_valid_datetime;
 
 // validate SearchRequest — object, 8 field(s)  ← api.yaml:383
 [[nodiscard]] inline std::optional<validation_error> validate_SearchRequest(const SearchRequest& obj) {
-    if (obj.title_contains && !obj.title_contains->empty() && katana::utf8_length((*obj.title_contains)) < SearchRequest::metadata::TITLE_CONTAINS_MIN_LENGTH) {
-        return validation_error{"title_contains", validation_error_code::string_too_short, SearchRequest::metadata::TITLE_CONTAINS_MIN_LENGTH};
+    if (obj.title_contains && !obj.title_contains->empty() && katana::utf8_length((*obj.title_contains)) < SearchRequest::field_constraints::TITLE_CONTAINS_MIN_LENGTH) {
+        return validation_error{"title_contains", validation_error_code::string_too_short, SearchRequest::field_constraints::TITLE_CONTAINS_MIN_LENGTH};
     }
-    if (obj.title_contains && katana::utf8_length((*obj.title_contains)) > SearchRequest::metadata::TITLE_CONTAINS_MAX_LENGTH) {
-        return validation_error{"title_contains", validation_error_code::string_too_long, SearchRequest::metadata::TITLE_CONTAINS_MAX_LENGTH};
+    if (obj.title_contains && katana::utf8_length((*obj.title_contains)) > SearchRequest::field_constraints::TITLE_CONTAINS_MAX_LENGTH) {
+        return validation_error{"title_contains", validation_error_code::string_too_long, SearchRequest::field_constraints::TITLE_CONTAINS_MAX_LENGTH};
     }
-    if (obj.statuses && !obj.statuses->empty() && obj.statuses->size() < SearchRequest::metadata::STATUSES_MIN_ITEMS) {
-        return validation_error{"statuses", validation_error_code::array_too_small, SearchRequest::metadata::STATUSES_MIN_ITEMS};
+    if (obj.statuses && !obj.statuses->empty() && obj.statuses->size() < SearchRequest::field_constraints::STATUSES_MIN_ITEMS) {
+        return validation_error{"statuses", validation_error_code::array_too_small, SearchRequest::field_constraints::STATUSES_MIN_ITEMS};
     }
-    if (obj.statuses && obj.statuses->size() > SearchRequest::metadata::STATUSES_MAX_ITEMS) {
-        return validation_error{"statuses", validation_error_code::array_too_large, SearchRequest::metadata::STATUSES_MAX_ITEMS};
+    if (obj.statuses && obj.statuses->size() > SearchRequest::field_constraints::STATUSES_MAX_ITEMS) {
+        return validation_error{"statuses", validation_error_code::array_too_large, SearchRequest::field_constraints::STATUSES_MAX_ITEMS};
     }
     {
         if (!obj.statuses) {
@@ -417,20 +417,20 @@ using katana::format_validators::is_valid_datetime;
         }
         }
     }
-    if (obj.min_priority && static_cast<double>((*obj.min_priority)) < SearchRequest::metadata::MIN_PRIORITY_MINIMUM) {
-        return validation_error{"min_priority", validation_error_code::value_too_small, SearchRequest::metadata::MIN_PRIORITY_MINIMUM};
+    if (obj.min_priority && static_cast<double>((*obj.min_priority)) < SearchRequest::field_constraints::MIN_PRIORITY_MINIMUM) {
+        return validation_error{"min_priority", validation_error_code::value_too_small, SearchRequest::field_constraints::MIN_PRIORITY_MINIMUM};
     }
-    if (obj.min_priority && static_cast<double>((*obj.min_priority)) > SearchRequest::metadata::MIN_PRIORITY_MAXIMUM) {
-        return validation_error{"min_priority", validation_error_code::value_too_large, SearchRequest::metadata::MIN_PRIORITY_MAXIMUM};
+    if (obj.min_priority && static_cast<double>((*obj.min_priority)) > SearchRequest::field_constraints::MIN_PRIORITY_MAXIMUM) {
+        return validation_error{"min_priority", validation_error_code::value_too_large, SearchRequest::field_constraints::MIN_PRIORITY_MAXIMUM};
     }
-    if (obj.max_priority && static_cast<double>((*obj.max_priority)) < SearchRequest::metadata::MAX_PRIORITY_MINIMUM) {
-        return validation_error{"max_priority", validation_error_code::value_too_small, SearchRequest::metadata::MAX_PRIORITY_MINIMUM};
+    if (obj.max_priority && static_cast<double>((*obj.max_priority)) < SearchRequest::field_constraints::MAX_PRIORITY_MINIMUM) {
+        return validation_error{"max_priority", validation_error_code::value_too_small, SearchRequest::field_constraints::MAX_PRIORITY_MINIMUM};
     }
-    if (obj.max_priority && static_cast<double>((*obj.max_priority)) > SearchRequest::metadata::MAX_PRIORITY_MAXIMUM) {
-        return validation_error{"max_priority", validation_error_code::value_too_large, SearchRequest::metadata::MAX_PRIORITY_MAXIMUM};
+    if (obj.max_priority && static_cast<double>((*obj.max_priority)) > SearchRequest::field_constraints::MAX_PRIORITY_MAXIMUM) {
+        return validation_error{"max_priority", validation_error_code::value_too_large, SearchRequest::field_constraints::MAX_PRIORITY_MAXIMUM};
     }
-    if (obj.tags && obj.tags->size() > SearchRequest::metadata::TAGS_MAX_ITEMS) {
-        return validation_error{"tags", validation_error_code::array_too_large, SearchRequest::metadata::TAGS_MAX_ITEMS};
+    if (obj.tags && obj.tags->size() > SearchRequest::field_constraints::TAGS_MAX_ITEMS) {
+        return validation_error{"tags", validation_error_code::array_too_large, SearchRequest::field_constraints::TAGS_MAX_ITEMS};
     }
     if (obj.created_after && !obj.created_after->empty() && !is_valid_datetime((*obj.created_after))) {
         return validation_error{"created_after", validation_error_code::invalid_datetime_format};
@@ -474,8 +474,8 @@ using katana::format_validators::is_valid_datetime;
 
 // validate TaskList — object, 3 field(s)  ← api.yaml:420
 [[nodiscard]] inline std::optional<validation_error> validate_TaskList(const TaskList& obj) {
-    if (static_cast<double>(obj.total) < TaskList::metadata::TOTAL_MINIMUM) {
-        return validation_error{"total", validation_error_code::value_too_small, TaskList::metadata::TOTAL_MINIMUM};
+    if (static_cast<double>(obj.total) < TaskList::field_constraints::TOTAL_MINIMUM) {
+        return validation_error{"total", validation_error_code::value_too_small, TaskList::field_constraints::TOTAL_MINIMUM};
     }
     for (const auto& it_ : obj.tasks) { if (auto e_ = validate_Task(it_)) return e_; }
     return std::nullopt;
@@ -495,11 +495,11 @@ using katana::format_validators::is_valid_datetime;
     if (!obj.timestamp.empty() && !is_valid_datetime(obj.timestamp)) {
         return validation_error{"timestamp", validation_error_code::invalid_datetime_format};
     }
-    if (obj.uptime_seconds && static_cast<double>((*obj.uptime_seconds)) < HealthResponse::metadata::UPTIME_SECONDS_MINIMUM) {
-        return validation_error{"uptime_seconds", validation_error_code::value_too_small, HealthResponse::metadata::UPTIME_SECONDS_MINIMUM};
+    if (obj.uptime_seconds && static_cast<double>((*obj.uptime_seconds)) < HealthResponse::field_constraints::UPTIME_SECONDS_MINIMUM) {
+        return validation_error{"uptime_seconds", validation_error_code::value_too_small, HealthResponse::field_constraints::UPTIME_SECONDS_MINIMUM};
     }
-    if (obj.total_requests && static_cast<double>((*obj.total_requests)) < HealthResponse::metadata::TOTAL_REQUESTS_MINIMUM) {
-        return validation_error{"total_requests", validation_error_code::value_too_small, HealthResponse::metadata::TOTAL_REQUESTS_MINIMUM};
+    if (obj.total_requests && static_cast<double>((*obj.total_requests)) < HealthResponse::field_constraints::TOTAL_REQUESTS_MINIMUM) {
+        return validation_error{"total_requests", validation_error_code::value_too_small, HealthResponse::field_constraints::TOTAL_REQUESTS_MINIMUM};
     }
     return std::nullopt;
 }

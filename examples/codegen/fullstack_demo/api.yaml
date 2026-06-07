@@ -1,0 +1,71 @@
+openapi: 3.0.0
+info: { title: Fullstack Demo (Notes), version: 1.0.0 }
+paths:
+  /notes:
+    post:
+      operationId: create_note
+      summary: Create a note
+      x-katana-rate-limit: "100/second"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateNoteRequest' }
+      responses:
+        '201':
+          description: created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Note' } } }
+    get:
+      operationId: list_notes
+      summary: List notes (cached)
+      x-katana-cache: "5s"
+      parameters:
+        - { name: priority, in: query, required: false, schema: { $ref: '#/components/schemas/Priority' } }
+        - { name: limit,    in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: offset,   in: query, required: false, schema: { type: integer, minimum: 0 } }
+      responses:
+        '200':
+          description: ok
+          content: { application/json: { schema: { $ref: '#/components/schemas/NoteList' } } }
+  /notes/{id}:
+    get:
+      operationId: get_note
+      summary: Get a note by id
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+      responses:
+        '200':
+          description: ok
+          content: { application/json: { schema: { $ref: '#/components/schemas/Note' } } }
+        '404': { description: not found }
+components:
+  schemas:
+    Priority:
+      type: string
+      enum: [low, medium, high]
+    CreateNoteRequest:
+      type: object
+      required: [title, body, priority, due_date]
+      properties:
+        title:    { type: string, minLength: 1, maxLength: 200 }
+        body:     { type: string, minLength: 1 }
+        priority: { $ref: '#/components/schemas/Priority' }
+        metadata: { type: object }            # free-form -> raw JSON
+        due_date: { type: string, format: date-time }
+    Note:
+      type: object
+      required: [id, title, body, priority, created_at]
+      properties:
+        id:         { type: integer, format: int64 }
+        title:      { type: string }
+        body:       { type: string }
+        priority:   { $ref: '#/components/schemas/Priority' }
+        metadata:   { type: object }
+        due_date:   { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    NoteList:
+      type: object
+      required: [notes, count]
+      properties:
+        notes: { type: array, items: { $ref: '#/components/schemas/Note' } }
+        count: { type: integer, format: int64 }

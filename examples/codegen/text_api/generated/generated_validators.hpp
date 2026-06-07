@@ -59,11 +59,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_uppercase_request::metadata::TEXT_MIN_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_short, text_uppercase_request::metadata::TEXT_MIN_LENGTH};
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_uppercase_request::field_constraints::TEXT_MIN_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_short, text_uppercase_request::field_constraints::TEXT_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.text) > text_uppercase_request::metadata::TEXT_MAX_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_long, text_uppercase_request::metadata::TEXT_MAX_LENGTH};
+    if (katana::utf8_length(obj.text) > text_uppercase_request::field_constraints::TEXT_MAX_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_long, text_uppercase_request::field_constraints::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
@@ -79,11 +79,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_lowercase_request::metadata::TEXT_MIN_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_short, text_lowercase_request::metadata::TEXT_MIN_LENGTH};
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_lowercase_request::field_constraints::TEXT_MIN_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_short, text_lowercase_request::field_constraints::TEXT_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.text) > text_lowercase_request::metadata::TEXT_MAX_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_long, text_lowercase_request::metadata::TEXT_MAX_LENGTH};
+    if (katana::utf8_length(obj.text) > text_lowercase_request::field_constraints::TEXT_MAX_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_long, text_lowercase_request::field_constraints::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
@@ -99,11 +99,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_reverse_request::metadata::TEXT_MIN_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_short, text_reverse_request::metadata::TEXT_MIN_LENGTH};
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_reverse_request::field_constraints::TEXT_MIN_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_short, text_reverse_request::field_constraints::TEXT_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.text) > text_reverse_request::metadata::TEXT_MAX_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_long, text_reverse_request::metadata::TEXT_MAX_LENGTH};
+    if (katana::utf8_length(obj.text) > text_reverse_request::field_constraints::TEXT_MAX_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_long, text_reverse_request::field_constraints::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
@@ -119,8 +119,8 @@ using katana::format_validators::is_valid_datetime;
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (katana::utf8_length(obj.text) > text_stats_request::metadata::TEXT_MAX_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_long, text_stats_request::metadata::TEXT_MAX_LENGTH};
+    if (katana::utf8_length(obj.text) > text_stats_request::field_constraints::TEXT_MAX_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_long, text_stats_request::field_constraints::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }
@@ -136,11 +136,11 @@ using katana::format_validators::is_valid_datetime;
     if (obj.text.empty()) {
         return validation_error{"text", validation_error_code::required_field_missing};
     }
-    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_transform_request::metadata::TEXT_MIN_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_short, text_transform_request::metadata::TEXT_MIN_LENGTH};
+    if (!obj.text.empty() && katana::utf8_length(obj.text) < text_transform_request::field_constraints::TEXT_MIN_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_short, text_transform_request::field_constraints::TEXT_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.text) > text_transform_request::metadata::TEXT_MAX_LENGTH) {
-        return validation_error{"text", validation_error_code::string_too_long, text_transform_request::metadata::TEXT_MAX_LENGTH};
+    if (katana::utf8_length(obj.text) > text_transform_request::field_constraints::TEXT_MAX_LENGTH) {
+        return validation_error{"text", validation_error_code::string_too_long, text_transform_request::field_constraints::TEXT_MAX_LENGTH};
     }
     return std::nullopt;
 }

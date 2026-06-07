@@ -154,6 +154,29 @@ inline std::vector<yaml_line> tokenize_yaml(std::string_view text) {
         if (content.empty() || content.front() == '#') {
             continue;
         }
+        // Strip a trailing inline comment: a '#' that is preceded by whitespace and is not
+        // inside a quoted string. Without this, `metadata: { type: object }  # note` would
+        // carry the comment into the flow value and silently drop the property.
+        {
+            bool in_single = false;
+            bool in_double = false;
+            for (size_t i = 0; i < content.size(); ++i) {
+                const char c = content[i];
+                if (c == '\'' && !in_double) {
+                    in_single = !in_single;
+                } else if (c == '\"' && !in_single) {
+                    in_double = !in_double;
+                } else if (c == '#' && !in_single && !in_double && i > 0 &&
+                           (content[i - 1] == ' ' || content[i - 1] == '\t')) {
+                    content = content.substr(0, i);
+                    break;
+                }
+            }
+            content = trim_view(content);
+            if (content.empty()) {
+                continue;
+            }
+        }
         lines.push_back({indent, content, phys_line});
     }
     return lines;
