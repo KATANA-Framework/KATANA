@@ -238,6 +238,51 @@ c++ -O3 -std=c++23 -march=native -DKATANA_HAS_LIBPQ -DKATANA_USE_EPOLL \
     my_server.cpp build/<preset>/libkatana_core.a -lpq -pthread -o my_server
 ```
 
+## Caching and rate limiting (policies)
+
+You can mark routes for response caching, rate limiting, or idempotency right in the
+OpenAPI spec with `x-katana-*` annotations on an operation:
+
+```yaml
+  /products/top:
+    get:
+      operationId: top_products
+      x-katana-cache: true            # cache the response
+      x-katana-rate-limit: "1000/second"
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/TopProductList' } } } }
+```
+
+The generator attaches these to the route. At runtime they do nothing until you give the
+server a policy executor. For a single instance, the in-memory one is enough:
+
+```cpp
+#include "katana/core/contract_policies.hpp"
+
+in_memory_contract_policy_executor policies;
+server(router).policy_executor(policies).listen(port).run();
+```
+
+To share cache / rate-limit / idempotency state across several instances, back it with
+Redis. Use a pool so each worker thread gets its own connection (parallel and
+thread-safe) — a single shared connection would serialize every request on one
+round-trip and is not safe across threads:
+
+```cpp
+#include "katana/core/contract_policies.hpp"
+
+redis_pool pool(workers, redis_sync_client::options{.host = "127.0.0.1", .port = 6379});
+if (auto c = pool.connect_all(); !c) { /* handle error */ }
+
+redis_contract_policy_executor policies(pool);   // owns the Redis-backed stores
+server(router).policy_executor(policies).listen(port).workers(workers).run();
+```
+
+A cached route returns `X-Katana-Cache: HIT` on a hit and skips the handler. Note that a
+cache hit or rate-limit check still does one synchronous Redis round-trip per request, so
+a Redis-backed route is slower than one with no policy — size the pool to your worker
+count and keep policies on the routes that need them.
+
 ## Things worth knowing
 
 - Every selected column must have a `::type AS name` cast. If you forget it, the

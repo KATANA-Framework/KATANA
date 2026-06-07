@@ -35,24 +35,34 @@ exists" through "what makes it operable in production" to "breadth".
 
 ---
 
-## Stage 5 — Runtime policy layer + Redis (in progress)
+## Stage 5 — Runtime policy layer + Redis (mostly done)
 
 Turning the declarative `x-katana-*` spec annotations into runtime behaviour, with both
-in-memory and Redis-backed storage. This is the stage currently in flight (the code is
-written but set aside on a side branch).
+in-memory and Redis-backed storage.
 
-- Runtime enforcement of `x-katana-*` policies:
-  - response **caching** (`x-katana-cache`)
+Done:
+- Runtime enforcement of `x-katana-*` policies, with the executor chain wired into the
+  server's request path (it's a no-op when a route has no policy, so it doesn't slow the
+  hot path):
+  - response **caching** (`x-katana-cache`) — a hit returns `X-Katana-Cache: HIT` and skips
+    the handler
   - **rate limiting** (`x-katana-rate-limit`)
   - **idempotency** (`x-katana-idempotency`)
-  - contract policy executor chain wired into the server's request path
-- **Redis client** (connection, pooling, commands)
-- **Redis-backed policy stores** (so cache/rate-limit/idempotency state is shared across
-  instances), alongside the in-memory stores
-- Unit tests for the Redis client and the policy stores
+- **Redis client** + **Redis-backed policy stores** (so cache/rate-limit/idempotency state
+  is shared across instances), alongside the in-memory stores
+- **Per-reactor Redis pool** (`redis_pool`) so each worker uses its own connection — a single
+  shared connection both serialized every request on one round-trip and raced the RESP
+  stream. One-line wiring via `redis_contract_policy_executor(pool)`. (See the
+  "Caching and rate limiting" section of `docs/WRITING_AN_APP.md`.)
+- Unit tests for the Redis client, policy stores, and the router policy path
 
-Done when: a route annotated with `x-katana-rate-limit`/`-cache`/`-idempotency` is actually
-enforced at runtime, backed by either in-memory or Redis storage, with tests.
+Remaining:
+- **[P1] Async / pipelined Redis.** Even with the pool, a cached/rate-limited route still
+  does one synchronous Redis round-trip per request (~4x slower than a no-policy route).
+  Pipelining or an async Redis client, and/or an in-process L1 cache in front of Redis,
+  would close most of that gap.
+- **[P2] Neutral executor naming** — the executors are still `in_memory_*_executor` even
+  when backed by a Redis store.
 
 ---
 
