@@ -85,7 +85,9 @@ void* monotonic_arena::allocate(size_t bytes, size_t alignment) noexcept {
         return nullptr;
     }
 
-    detail::syscall_metrics_registry::instance().note_arena_allocate(bytes);
+    if (detail::g_syscall_metrics_active) [[unlikely]] {
+        detail::syscall_metrics_registry::instance().note_arena_allocate(bytes);
+    }
 
     if (alignment == 0 || (alignment & (alignment - 1)) != 0 || alignment > MAX_ALIGNMENT) {
         return nullptr;
@@ -158,7 +160,9 @@ bool monotonic_arena::allocate_new_block(size_t min_size) noexcept {
         return false;
     }
 
-    detail::syscall_metrics_registry::instance().note_arena_new_block(min_size);
+    if (detail::g_syscall_metrics_active) [[unlikely]] {
+        detail::syscall_metrics_registry::instance().note_arena_new_block(min_size);
+    }
     blocks_[num_blocks_] = block(min_size);
     if (!blocks_[num_blocks_].data) {
         return false;

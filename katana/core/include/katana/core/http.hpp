@@ -175,7 +175,7 @@ public:
           content_length_(other.content_length_), current_chunk_size_(other.current_chunk_size_),
           header_count_(other.header_count_), validated_bytes_(other.validated_bytes_),
           header_end_pos_(other.header_end_pos_), crlf_scan_pos_(other.crlf_scan_pos_),
-          crlf_pairs_(other.crlf_pairs_), is_chunked_(other.is_chunked_) {
+          is_chunked_(other.is_chunked_) {
         other.buffer_ = nullptr;
         other.buffer_size_ = 0;
         other.buffer_capacity_ = 0;
@@ -191,7 +191,6 @@ public:
         other.validated_bytes_ = 0;
         other.header_end_pos_ = 0;
         other.crlf_scan_pos_ = 0;
-        other.crlf_pairs_ = 0;
         other.is_chunked_ = false;
     }
 
@@ -219,7 +218,6 @@ public:
         validated_bytes_ = other.validated_bytes_;
         header_end_pos_ = other.header_end_pos_;
         crlf_scan_pos_ = other.crlf_scan_pos_;
-        crlf_pairs_ = other.crlf_pairs_;
         is_chunked_ = other.is_chunked_;
 
         other.buffer_ = nullptr;
@@ -237,7 +235,6 @@ public:
         other.validated_bytes_ = 0;
         other.header_end_pos_ = 0;
         other.crlf_scan_pos_ = 0;
-        other.crlf_pairs_ = 0;
         other.is_chunked_ = false;
 
         return *this;
@@ -314,7 +311,6 @@ private:
     size_t validated_bytes_ = 0;
     size_t header_end_pos_ = 0;
     size_t crlf_scan_pos_ = 0;
-    size_t crlf_pairs_ = 0;
     bool is_chunked_ = false;
 
     static constexpr size_t INITIAL_BUFFER_CAPACITY = 16UL * 1024UL;

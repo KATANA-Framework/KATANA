@@ -113,11 +113,11 @@ std::optional<validation_error> parse_integer_field(serde::json_cursor& cur,
                                                     T& obj,
                                                     monotonic_arena*,
                                                     const field_descriptor<T>& desc) {
-    auto v = katana::serde::parse_size(cur);
+    auto v = katana::serde::parse_int64(cur);
     if (!v) {
         return validation_error{desc.json_name, validation_error_code::invalid_type};
     }
-    int64_t value = static_cast<int64_t>(*v);
+    int64_t value = *v;
     const double dv = static_cast<double>(value);
     if (desc.num.exclusive_minimum) {
         if (dv <= desc.num.minimum) {
@@ -261,7 +261,7 @@ std::optional<validation_error> parse_integer_array(serde::json_cursor& cur,
     auto& target = offset_ref<Vector>(&obj, desc.offset);
     auto parse_elem = [&](std::string_view sv) -> std::optional<validation_error> {
         serde::json_cursor item_cur{sv.data(), sv.data() + sv.size()};
-        auto val = katana::serde::parse_size(item_cur);
+        auto val = katana::serde::parse_int64(item_cur);
         if (!val) {
             return validation_error{desc.json_name, validation_error_code::invalid_type};
         }

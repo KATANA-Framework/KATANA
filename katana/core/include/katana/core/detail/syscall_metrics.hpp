@@ -5,6 +5,13 @@
 
 namespace katana::detail {
 
+// Hot-path gate: true iff syscall metrics are enabled (initialized once from
+// KATANA_SYSCALL_METRICS, mirrors registry::enabled_). Lets the arena/parser/
+// serialize hot paths skip the singleton + cross-TU note_* call when metrics are
+// off, which is the default. Reading a single global bool is branch-predictable
+// and inlinable, unlike instance().note_*() which never inlines across the TU.
+extern bool g_syscall_metrics_active;
+
 struct syscall_metrics_snapshot {
     uint64_t recv_calls = 0;
     uint64_t recv_would_block = 0;

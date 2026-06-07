@@ -555,7 +555,6 @@ public:
         std::span<const std::string_view> path_segments(split.parts.data(), split.count);
 
         const route_entry* best_route = nullptr;
-        path_params best_params;
         int best_score = -1;
         bool path_matched = false;
         uint32_t allowed_methods_mask = 0;
@@ -586,13 +585,15 @@ public:
             if (!best_route || score > best_score) {
                 best_route = &entry;
                 best_score = score;
-                best_params = candidate_params;
+                // Copy straight into ctx.params (the winner's params), skipping the
+                // extra best_params -> ctx.params copy. The highest-score match runs
+                // last to win, exactly as before.
+                ctx.params = candidate_params;
             }
         }
 
         // If we found a matching route, return immediately
         if (best_route) {
-            ctx.params = best_params;
             auto route_result = best_route->middleware.run(req, ctx, best_route->handler, out);
             if (!route_result) {
                 return dispatch_result{route_result.error(), true, true, 0};
