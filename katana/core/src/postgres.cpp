@@ -1048,8 +1048,33 @@ struct postgres_executor::impl {
     std::shared_ptr<reactor_async_state> reactor_async = std::make_shared<reactor_async_state>();
 };
 
+namespace {
+// Fold a server-side statement_timeout into the libpq connection string so it applies to every
+// connection (sync and async paths alike). URI DSNs get an `options` query param; keyword/value
+// DSNs get an `options='...'` keyword.
+std::string with_statement_timeout(std::string conn, int statement_timeout_ms) {
+    if (statement_timeout_ms <= 0) {
+        return conn;
+    }
+    const std::string ms = std::to_string(statement_timeout_ms);
+    if (conn.find("://") != std::string::npos) { // URI form
+        conn += (conn.find('?') == std::string::npos) ? '?' : '&';
+        conn += "options=-c%20statement_timeout%3D" + ms; // "-c statement_timeout=<ms>" encoded
+    } else { // keyword/value form
+        if (!conn.empty()) {
+            conn += ' ';
+        }
+        conn += "options='-c statement_timeout=" + ms + "'";
+    }
+    return conn;
+}
+} // namespace
+
 postgres_executor::postgres_executor(postgres_config config)
-    : config_(std::move(config)), impl_(new impl()) {}
+    : config_(std::move(config)), impl_(new impl()) {
+    config_.connection_string =
+        with_statement_timeout(std::move(config_.connection_string), config_.statement_timeout_ms);
+}
 
 postgres_executor::~postgres_executor() {
     disconnect();
