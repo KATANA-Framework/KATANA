@@ -96,3 +96,50 @@ TEST(Config, ValidateReportsMissingRequiredAndLoadErrors) {
 }
 
 } // namespace
+
+TEST(Config, ReloadReappliesSourcesInOrder) {
+    const std::string path = std::string(std::tmpnam(nullptr)) + ".conf";
+    auto write = [&](const char* c) { std::ofstream f(path); f << c; };
+    write("port = 7000\nworkers = 2\n");
+
+    const char* argv[] = {"prog", "--port=9000"};
+    config cfg;
+    cfg.defaults({{"port", "8080"}, {"workers", "4"}}).from_file(path).from_args(2, argv);
+
+    EXPECT_EQ(cfg.get_u16("port", 0), 9000); // flag beats file
+    EXPECT_EQ(cfg.get_int("workers", 0), 2);  // from file
+
+    // Change the file and reload: file value updates, flag still wins for port.
+    write("port = 7777\nworkers = 8\n");
+    cfg.reload();
+    EXPECT_EQ(cfg.get_u16("port", 0), 9000);
+    EXPECT_EQ(cfg.get_int("workers", 0), 8);
+
+    std::remove(path.c_str());
+}
+
+TEST(Config, ResolvesFileSecretsAndPicksUpRotation) {
+    const std::string secret_path = std::string(std::tmpnam(nullptr)) + ".secret";
+    auto write_secret = [&](const char* c) { std::ofstream f(secret_path); f << c; };
+    write_secret("s3cr3t\n"); // trailing newline must be trimmed
+
+    ::setenv("CFGT_DB_PASSWORD_FILE", secret_path.c_str(), 1);
+    config cfg;
+    cfg.from_env("CFGT").resolve_file_secrets();
+
+    EXPECT_EQ(cfg.get_or("db_password", ""), "s3cr3t");
+    EXPECT_TRUE(cfg.contains("db_password_file"));
+
+    // An explicit base value is not overridden by the secret file.
+    config cfg2;
+    cfg2.set("db_password", "explicit").from_env("CFGT").resolve_file_secrets();
+    EXPECT_EQ(cfg2.get_or("db_password", ""), "explicit");
+
+    // Rotation is picked up on reload.
+    write_secret("rotated\n");
+    cfg.reload();
+    EXPECT_EQ(cfg.get_or("db_password", ""), "rotated");
+
+    ::unsetenv("CFGT_DB_PASSWORD_FILE");
+    std::remove(secret_path.c_str());
+}

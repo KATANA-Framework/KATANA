@@ -21,6 +21,8 @@
 #include <cctype>
 #include <cstdint>
 #include <fstream>
+#include <functional>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <string>
@@ -65,18 +67,24 @@ inline std::string_view unquote(std::string_view s) {
 
 class config {
 public:
-    // Seed programmatic defaults (lowest precedence). Does not overwrite values already set by
-    // a higher-precedence source applied earlier — but in practice call this first.
+    // Seed programmatic defaults (lowest precedence). Call this first.
     config& defaults(std::initializer_list<std::pair<std::string_view, std::string_view>> kv) {
+        std::vector<std::pair<std::string, std::string>> owned;
+        owned.reserve(kv.size());
         for (const auto& [k, v] : kv) {
-            values_[detail::normalize_key(k)] = std::string(v);
+            owned.emplace_back(std::string(k), std::string(v));
         }
+        apply_defaults(owned);
+        record([owned](config& c) { c.apply_defaults(owned); });
         return *this;
     }
 
     // Set/override a single value programmatically.
     config& set(std::string_view key, std::string_view value) {
-        values_[detail::normalize_key(key)] = std::string(value);
+        std::string k(key);
+        std::string v(value);
+        apply_set(k, v);
+        record([k, v](config& c) { c.apply_set(k, v); });
         return *this;
     }
 
@@ -84,34 +92,9 @@ public:
     // lines are ignored; values may be quoted. A missing file is recorded as a load error but
     // does not throw — call `errors()` to inspect. Existing keys are overwritten.
     config& from_file(std::string_view path) {
-        std::ifstream in{std::string(path)};
-        if (!in) {
-            load_errors_.push_back("config file not readable: " + std::string(path));
-            return *this;
-        }
-        std::string line;
-        size_t line_no = 0;
-        while (std::getline(in, line)) {
-            ++line_no;
-            std::string_view view = detail::trim(line);
-            if (view.empty() || view.front() == '#') {
-                continue;
-            }
-            const size_t eq = view.find('=');
-            if (eq == std::string_view::npos) {
-                load_errors_.push_back("config file " + std::string(path) + ":" +
-                                       std::to_string(line_no) + ": expected key = value");
-                continue;
-            }
-            const std::string_view key = detail::trim(view.substr(0, eq));
-            const std::string_view value = detail::unquote(detail::trim(view.substr(eq + 1)));
-            if (key.empty()) {
-                load_errors_.push_back("config file " + std::string(path) + ":" +
-                                       std::to_string(line_no) + ": empty key");
-                continue;
-            }
-            values_[detail::normalize_key(key)] = std::string(value);
-        }
+        std::string p(path);
+        apply_file(p);
+        record([p](config& c) { c.apply_file(p); });
         return *this;
     }
 
@@ -119,27 +102,9 @@ public:
     // imported and the prefix (plus its underscore) is stripped: KATANA_DB_DSN -> db_dsn. With
     // an empty prefix every variable is imported, lowercased.
     config& from_env(std::string_view prefix = "") {
-        std::string want;
-        if (!prefix.empty()) {
-            want = std::string(prefix);
-            want.push_back('_');
-        }
-        for (char** env = environ; env != nullptr && *env != nullptr; ++env) {
-            std::string_view entry(*env);
-            const size_t eq = entry.find('=');
-            if (eq == std::string_view::npos) {
-                continue;
-            }
-            std::string_view name = entry.substr(0, eq);
-            const std::string_view value = entry.substr(eq + 1);
-            if (!want.empty()) {
-                if (name.size() <= want.size() || name.substr(0, want.size()) != want) {
-                    continue;
-                }
-                name.remove_prefix(want.size());
-            }
-            values_[detail::normalize_key(name)] = std::string(value);
-        }
+        std::string p(prefix);
+        apply_env(p);
+        record([p](config& c) { c.apply_env(p); });
         return *this;
     }
 
@@ -150,27 +115,36 @@ public:
     // value). Config-driven services take no positionals, so this is unambiguous in practice;
     // when in doubt use the explicit `--flag=true` form.
     config& from_args(int argc, const char* const* argv) {
-        for (int i = 1; i < argc; ++i) {
-            std::string_view arg(argv[i]);
-            if (!arg.starts_with("--")) {
-                continue;
-            }
-            arg.remove_prefix(2);
-            if (arg.empty()) {
-                continue; // bare "--" terminator
-            }
-            const size_t eq = arg.find('=');
-            if (eq != std::string_view::npos) {
-                values_[detail::normalize_key(arg.substr(0, eq))] = std::string(arg.substr(eq + 1));
-                continue;
-            }
-            // `--key value` if the next arg isn't itself a flag, else a bare boolean flag.
-            if (i + 1 < argc && !std::string_view(argv[i + 1]).starts_with("--")) {
-                values_[detail::normalize_key(arg)] = std::string(argv[++i]);
-            } else {
-                values_[detail::normalize_key(arg)] = "true";
-            }
+        std::vector<std::string> owned;
+        owned.reserve(static_cast<size_t>(argc < 0 ? 0 : argc));
+        for (int i = 0; i < argc; ++i) {
+            owned.emplace_back(argv[i] != nullptr ? argv[i] : "");
         }
+        apply_args(owned);
+        record([owned](config& c) { c.apply_args(owned); });
+        return *this;
+    }
+
+    // Docker/k8s "_FILE" secrets convention: for any key `X_FILE`/`x_file`, read the referenced
+    // file and set `x` to its (newline-trimmed) contents, unless `x` is already set. Keeps
+    // secrets out of the env/args/config-file values. Re-resolved on reload().
+    config& resolve_file_secrets() {
+        apply_file_secrets();
+        record([](config& c) { c.apply_file_secrets(); });
+        return *this;
+    }
+
+    // Re-apply every recorded source in order (defaults < file < env < flags < secrets), so a
+    // changed config file / rotated secret / new env is picked up without a restart. Wire this
+    // to SIGHUP or a file watcher. Returns *this.
+    config& reload() {
+        values_.clear();
+        load_errors_.clear();
+        recording_ = false;
+        for (const auto& source : sources_) {
+            source(*this);
+        }
+        recording_ = true;
         return *this;
     }
 
@@ -244,6 +218,127 @@ public:
     }
 
 private:
+    void record(std::function<void(config&)> action) {
+        if (recording_) {
+            sources_.push_back(std::move(action));
+        }
+    }
+
+    void apply_defaults(const std::vector<std::pair<std::string, std::string>>& kv) {
+        for (const auto& [k, v] : kv) {
+            values_[detail::normalize_key(k)] = v;
+        }
+    }
+
+    void apply_set(const std::string& key, const std::string& value) {
+        values_[detail::normalize_key(key)] = value;
+    }
+
+    void apply_file(const std::string& path) {
+        std::ifstream in{path};
+        if (!in) {
+            load_errors_.push_back("config file not readable: " + path);
+            return;
+        }
+        std::string line;
+        size_t line_no = 0;
+        while (std::getline(in, line)) {
+            ++line_no;
+            std::string_view view = detail::trim(line);
+            if (view.empty() || view.front() == '#') {
+                continue;
+            }
+            const size_t eq = view.find('=');
+            if (eq == std::string_view::npos) {
+                load_errors_.push_back("config file " + path + ":" + std::to_string(line_no) +
+                                       ": expected key = value");
+                continue;
+            }
+            const std::string_view key = detail::trim(view.substr(0, eq));
+            const std::string_view value = detail::unquote(detail::trim(view.substr(eq + 1)));
+            if (key.empty()) {
+                load_errors_.push_back("config file " + path + ":" + std::to_string(line_no) +
+                                       ": empty key");
+                continue;
+            }
+            values_[detail::normalize_key(key)] = std::string(value);
+        }
+    }
+
+    void apply_env(const std::string& prefix) {
+        std::string want;
+        if (!prefix.empty()) {
+            want = prefix;
+            want.push_back('_');
+        }
+        for (char** env = environ; env != nullptr && *env != nullptr; ++env) {
+            std::string_view entry(*env);
+            const size_t eq = entry.find('=');
+            if (eq == std::string_view::npos) {
+                continue;
+            }
+            std::string_view name = entry.substr(0, eq);
+            const std::string_view value = entry.substr(eq + 1);
+            if (!want.empty()) {
+                if (name.size() <= want.size() || name.substr(0, want.size()) != want) {
+                    continue;
+                }
+                name.remove_prefix(want.size());
+            }
+            values_[detail::normalize_key(name)] = std::string(value);
+        }
+    }
+
+    void apply_args(const std::vector<std::string>& argv) {
+        for (size_t i = 1; i < argv.size(); ++i) {
+            std::string_view arg(argv[i]);
+            if (!arg.starts_with("--")) {
+                continue;
+            }
+            arg.remove_prefix(2);
+            if (arg.empty()) {
+                continue;
+            }
+            const size_t eq = arg.find('=');
+            if (eq != std::string_view::npos) {
+                values_[detail::normalize_key(arg.substr(0, eq))] = std::string(arg.substr(eq + 1));
+                continue;
+            }
+            if (i + 1 < argv.size() && !std::string_view(argv[i + 1]).starts_with("--")) {
+                values_[detail::normalize_key(arg)] = argv[++i];
+            } else {
+                values_[detail::normalize_key(arg)] = "true";
+            }
+        }
+    }
+
+    void apply_file_secrets() {
+        std::vector<std::pair<std::string, std::string>> resolved;
+        for (const auto& [key, path] : values_) {
+            if (key.size() <= 5 || !key.ends_with("_file")) {
+                continue;
+            }
+            const std::string base = key.substr(0, key.size() - 5);
+            if (values_.find(base) != values_.end()) {
+                continue; // an explicit base value wins
+            }
+            std::ifstream in{path};
+            if (!in) {
+                load_errors_.push_back("secret file not readable for " + key + ": " + path);
+                continue;
+            }
+            std::string content((std::istreambuf_iterator<char>(in)),
+                                std::istreambuf_iterator<char>());
+            while (!content.empty() && (content.back() == '\n' || content.back() == '\r')) {
+                content.pop_back();
+            }
+            resolved.emplace_back(base, std::move(content));
+        }
+        for (auto& [base, value] : resolved) {
+            values_[base] = std::move(value);
+        }
+    }
+
     [[nodiscard]] std::optional<int64_t> parse_int(std::string_view key) const {
         auto v = get(key);
         if (!v) {
@@ -277,6 +372,10 @@ private:
 
     std::map<std::string, std::string, std::less<>> values_;
     std::vector<std::string> load_errors_;
+    // Recorded source operations, replayed in order by reload(). recording_ is cleared during a
+    // replay so the apply_* helpers don't re-record themselves.
+    std::vector<std::function<void(config&)>> sources_;
+    bool recording_ = true;
 };
 
 } // namespace katana::config
