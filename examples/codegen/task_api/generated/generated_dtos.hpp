@@ -133,7 +133,7 @@ using Task_Metadata_t = arena_string<>;
 /// Data type with 3 fields
 struct User {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ID_REQUIRED = true;
         static constexpr double ID_MINIMUM = 1;
         static constexpr bool EMAIL_REQUIRED = true;
@@ -144,8 +144,8 @@ struct User {
         static constexpr size_t NAME_MAX_LENGTH = 100;
     };
 
-    static_assert(metadata::EMAIL_MIN_LENGTH <= metadata::EMAIL_MAX_LENGTH, "email: min_length must be <= max_length");
-    static_assert(metadata::NAME_MIN_LENGTH <= metadata::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
+    static_assert(field_constraints::EMAIL_MIN_LENGTH <= field_constraints::EMAIL_MAX_LENGTH, "email: min_length must be <= max_length");
+    static_assert(field_constraints::NAME_MIN_LENGTH <= field_constraints::NAME_MAX_LENGTH, "name: min_length must be <= max_length");
 
     explicit User(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -171,7 +171,7 @@ using User_Name_t = arena_string<>;
 /// Data type with 6 fields
 struct CreateTaskRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TITLE_REQUIRED = true;
         static constexpr size_t TITLE_MIN_LENGTH = 1;
         static constexpr size_t TITLE_MAX_LENGTH = 200;
@@ -188,8 +188,8 @@ struct CreateTaskRequest {
         static constexpr bool DUE_DATE_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
-    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
+    static_assert(field_constraints::TITLE_MIN_LENGTH <= field_constraints::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
+    static_assert(field_constraints::PRIORITY_MINIMUM <= field_constraints::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
 
     explicit CreateTaskRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -233,7 +233,7 @@ using CreateTaskRequest_Due_date_t = std::optional<arena_string<>>;
 /// Data type with 7 fields
 struct UpdateTaskRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TITLE_REQUIRED = false;
         static constexpr size_t TITLE_MIN_LENGTH = 1;
         static constexpr size_t TITLE_MAX_LENGTH = 200;
@@ -251,8 +251,8 @@ struct UpdateTaskRequest {
         static constexpr bool DUE_DATE_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
-    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
+    static_assert(field_constraints::TITLE_MIN_LENGTH <= field_constraints::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
+    static_assert(field_constraints::PRIORITY_MINIMUM <= field_constraints::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
 
     explicit UpdateTaskRequest(monotonic_arena* arena = nullptr)
         : arena_(arena) {}
@@ -302,7 +302,7 @@ using UpdateTaskRequest_Due_date_t = std::optional<arena_string<>>;
 /// Data type with 2 fields
 struct BatchCreateResponse_Item_t_1 {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool INDEX_REQUIRED = true;
         static constexpr bool ERROR_REQUIRED = true;
     };
@@ -327,7 +327,7 @@ using BatchCreateResponse_Error_t = arena_string<>;
 /// Data type with 8 fields
 struct SearchRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TITLE_CONTAINS_REQUIRED = false;
         static constexpr size_t TITLE_CONTAINS_MIN_LENGTH = 1;
         static constexpr size_t TITLE_CONTAINS_MAX_LENGTH = 100;
@@ -348,10 +348,10 @@ struct SearchRequest {
         static constexpr bool HAS_ASSIGNEE_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_CONTAINS_MIN_LENGTH <= metadata::TITLE_CONTAINS_MAX_LENGTH, "title_contains: min_length must be <= max_length");
-    static_assert(metadata::STATUSES_MIN_ITEMS <= metadata::STATUSES_MAX_ITEMS, "statuses: min_items must be <= max_items");
-    static_assert(metadata::MIN_PRIORITY_MINIMUM <= metadata::MIN_PRIORITY_MAXIMUM, "min_priority: minimum must be <= maximum");
-    static_assert(metadata::MAX_PRIORITY_MINIMUM <= metadata::MAX_PRIORITY_MAXIMUM, "max_priority: minimum must be <= maximum");
+    static_assert(field_constraints::TITLE_CONTAINS_MIN_LENGTH <= field_constraints::TITLE_CONTAINS_MAX_LENGTH, "title_contains: min_length must be <= max_length");
+    static_assert(field_constraints::STATUSES_MIN_ITEMS <= field_constraints::STATUSES_MAX_ITEMS, "statuses: min_items must be <= max_items");
+    static_assert(field_constraints::MIN_PRIORITY_MINIMUM <= field_constraints::MIN_PRIORITY_MAXIMUM, "min_priority: minimum must be <= maximum");
+    static_assert(field_constraints::MAX_PRIORITY_MINIMUM <= field_constraints::MAX_PRIORITY_MAXIMUM, "max_priority: minimum must be <= maximum");
 
     explicit SearchRequest(monotonic_arena* arena = nullptr)
         : arena_(arena) {}
@@ -415,7 +415,7 @@ using TaskList_Has_more_t = bool;
 /// Data type with 4 fields
 struct HealthResponse {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool STATUS_REQUIRED = true;
         static constexpr bool TIMESTAMP_REQUIRED = true;
         static constexpr bool UPTIME_SECONDS_REQUIRED = false;
@@ -454,7 +454,7 @@ using HealthResponse_Total_requests_t = int64_t;
 /// Data type with 5 fields
 struct ProblemDetails {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TYPE_REQUIRED = true;
         static constexpr bool TITLE_REQUIRED = true;
         static constexpr bool STATUS_REQUIRED = true;
@@ -518,7 +518,7 @@ using deleteTask_param_id = int64_t;
 /// Data type with 11 fields
 struct Task {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool ID_REQUIRED = true;
         static constexpr double ID_MINIMUM = 1;
         static constexpr bool TITLE_REQUIRED = true;
@@ -540,8 +540,8 @@ struct Task {
         static constexpr bool METADATA_REQUIRED = false;
     };
 
-    static_assert(metadata::TITLE_MIN_LENGTH <= metadata::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
-    static_assert(metadata::PRIORITY_MINIMUM <= metadata::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
+    static_assert(field_constraints::TITLE_MIN_LENGTH <= field_constraints::TITLE_MAX_LENGTH, "title: min_length must be <= max_length");
+    static_assert(field_constraints::PRIORITY_MINIMUM <= field_constraints::PRIORITY_MAXIMUM, "priority: minimum must be <= maximum");
 
     explicit Task(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -572,13 +572,13 @@ struct Task {
 /// Data type with 1 fields
 struct BatchCreateRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TASKS_REQUIRED = true;
         static constexpr size_t TASKS_MIN_ITEMS = 1;
         static constexpr size_t TASKS_MAX_ITEMS = 100;
     };
 
-    static_assert(metadata::TASKS_MIN_ITEMS <= metadata::TASKS_MAX_ITEMS, "tasks: min_items must be <= max_items");
+    static_assert(field_constraints::TASKS_MIN_ITEMS <= field_constraints::TASKS_MAX_ITEMS, "tasks: min_items must be <= max_items");
 
     explicit BatchCreateRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
@@ -598,7 +598,7 @@ using BatchCreateResponse_Failed_t = arena_vector<BatchCreateResponse_Item_t_1>;
 /// Data type with 2 fields
 struct BatchCreateResponse {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool CREATED_REQUIRED = true;
         static constexpr bool FAILED_REQUIRED = true;
     };
@@ -621,7 +621,7 @@ using BatchCreateResponse_Created_t = arena_vector<Task>;
 /// Data type with 3 fields
 struct TaskList {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool TASKS_REQUIRED = true;
         static constexpr bool TOTAL_REQUIRED = true;
         static constexpr double TOTAL_MINIMUM = 0;

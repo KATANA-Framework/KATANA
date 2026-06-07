@@ -56,17 +56,17 @@ using katana::format_validators::is_valid_datetime;
     if (obj.password.empty()) {
         return validation_error{"password", validation_error_code::required_field_missing};
     }
-    if (!obj.password.empty() && katana::utf8_length(obj.password) < RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH) {
-        return validation_error{"password", validation_error_code::string_too_short, RegisterUserRequest::metadata::PASSWORD_MIN_LENGTH};
+    if (!obj.password.empty() && katana::utf8_length(obj.password) < RegisterUserRequest::field_constraints::PASSWORD_MIN_LENGTH) {
+        return validation_error{"password", validation_error_code::string_too_short, RegisterUserRequest::field_constraints::PASSWORD_MIN_LENGTH};
     }
-    if (katana::utf8_length(obj.password) > RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH) {
-        return validation_error{"password", validation_error_code::string_too_long, RegisterUserRequest::metadata::PASSWORD_MAX_LENGTH};
+    if (katana::utf8_length(obj.password) > RegisterUserRequest::field_constraints::PASSWORD_MAX_LENGTH) {
+        return validation_error{"password", validation_error_code::string_too_long, RegisterUserRequest::field_constraints::PASSWORD_MAX_LENGTH};
     }
-    if (obj.age && static_cast<double>((*obj.age)) < RegisterUserRequest::metadata::AGE_MINIMUM) {
-        return validation_error{"age", validation_error_code::value_too_small, RegisterUserRequest::metadata::AGE_MINIMUM};
+    if (obj.age && static_cast<double>((*obj.age)) < RegisterUserRequest::field_constraints::AGE_MINIMUM) {
+        return validation_error{"age", validation_error_code::value_too_small, RegisterUserRequest::field_constraints::AGE_MINIMUM};
     }
-    if (obj.age && static_cast<double>((*obj.age)) > RegisterUserRequest::metadata::AGE_MAXIMUM) {
-        return validation_error{"age", validation_error_code::value_too_large, RegisterUserRequest::metadata::AGE_MAXIMUM};
+    if (obj.age && static_cast<double>((*obj.age)) > RegisterUserRequest::field_constraints::AGE_MAXIMUM) {
+        return validation_error{"age", validation_error_code::value_too_large, RegisterUserRequest::field_constraints::AGE_MAXIMUM};
     }
     return std::nullopt;
 }

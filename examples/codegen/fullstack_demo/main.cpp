@@ -1,0 +1,193 @@
+// Fullstack demo: a Notes API exercising the whole current KATANA stack —
+//   OpenAPI codegen (DTOs, JSON, validators, typed router, enums, free-form metadata,
+//   date-time), SQL codegen against live PostgreSQL, x-katana cache + rate-limit policies,
+//   built-in /healthz + /readyz (readiness pings the DB) and /metrics, and the date helpers.
+//
+// Build (standalone):
+//   c++ -O2 -std=c++23 -DKATANA_USE_EPOLL -DKATANA_HAS_LIBPQ -I katana/core/include \
+//       -I examples/codegen/fullstack_demo main.cpp libkatana_core.a -lpq -pthread -o notes
+//   PG_DSN=postgresql://katana@127.0.0.1:5433/katana PORT=8090 ./notes
+
+#include "generated/generated_dtos.hpp"
+#include "generated/generated_handlers.hpp"
+#include "generated/generated_json.hpp"
+#include "generated/generated_router_bindings.hpp"
+#include "generated/generated_routes.hpp"
+#include "generated/generated_sql_repository.hpp"
+#include "generated/generated_validators.hpp"
+
+#include "katana/core/contract_policies.hpp"
+#include "katana/core/datetime.hpp"
+#include "katana/core/http_server.hpp"
+#include "katana/sql/postgres.hpp"
+
+#include <atomic>
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <string_view>
+
+using namespace katana::http;
+using katana::arena_allocator;
+using katana::arena_string;
+using katana::monotonic_arena;
+namespace sqlgen = katana::sql::generated;
+
+namespace {
+
+arena_string<> astr(monotonic_arena& a, std::string_view v) {
+    return arena_string<>(v.begin(), v.end(), arena_allocator<char>(&a));
+}
+
+// Map the seven note columns (as text from SQL) into a Note DTO.
+void fill_note(Note& n, monotonic_arena& a, int64_t id, std::string_view title,
+               std::string_view body, std::string_view priority, std::string_view metadata,
+               std::optional<std::string_view> due_date, std::string_view created_at) {
+    n.id = id;
+    n.title = astr(a, title);
+    n.body = astr(a, body);
+    if (auto p = Priority_enum_from_string(priority)) {
+        n.priority = *p;
+    }
+    if (!metadata.empty()) {
+        n.metadata = astr(a, metadata); // free-form: raw JSON passed through verbatim
+    }
+    if (due_date && !due_date->empty()) {
+        n.due_date = astr(a, *due_date);
+    }
+    n.created_at = astr(a, created_at);
+}
+
+template <typename Row> std::string_view col(const Row& opt) {
+    return opt ? std::string_view(opt->data(), opt->size()) : std::string_view{};
+}
+
+struct notes_handler : generated::api_handler {
+    explicit notes_handler(sqlgen::generated_repository& repo) : repo_(repo) {}
+
+    katana::result<void> create_note(const CreateNoteRequest& body, response& out) override {
+        // The body is already parsed + validated (required, length, enum) by the time we're here.
+        // Demo the date helper: reject a due_date that isn't real RFC 3339.
+        std::string_view due(body.due_date.data(), body.due_date.size());
+        if (!katana::parse_rfc3339(due)) {
+            out.assign_error(katana::problem_details::bad_request("due_date is not valid RFC 3339"));
+            return {};
+        }
+        const std::string priority_text(to_string(body.priority));
+        const std::string metadata_json =
+            body.metadata ? std::string(body.metadata->data(), body.metadata->size())
+                          : std::string("{}");
+
+        auto row = repo_.create_note(std::string_view(body.title.data(), body.title.size()),
+                                     std::string_view(body.body.data(), body.body.size()),
+                                     priority_text, metadata_json, due);
+        if (!row || !*row) {
+            out.assign_error(katana::problem_details::internal_server_error("insert failed"));
+            return {};
+        }
+
+        monotonic_arena a;
+        Note n(&a);
+        fill_note(n, a, (*row)->id.value_or(0), std::string_view(body.title.data(), body.title.size()),
+                  std::string_view(body.body.data(), body.body.size()), priority_text, metadata_json,
+                  due, col((*row)->created_at));
+        out.assign_json(serialize_Note(n), 201, "Created");
+        return {};
+    }
+
+    katana::result<void> get_note(int64_t id, response& out) override {
+        auto row = repo_.get_note(id);
+        if (!row) {
+            out.assign_error(katana::problem_details::internal_server_error("query failed"));
+            return {};
+        }
+        if (!*row) {
+            out.assign_error(katana::problem_details::not_found("no such note"));
+            return {};
+        }
+        const auto& r = **row;
+        monotonic_arena a;
+        Note n(&a);
+        fill_note(n, a, r.id.value_or(0), col(r.title), col(r.body), col(r.priority), col(r.metadata),
+                  r.due_date ? std::optional<std::string_view>(col(r.due_date)) : std::nullopt,
+                  col(r.created_at));
+        out.assign_json(serialize_Note(n));
+        return {};
+    }
+
+    katana::result<void> list_notes(std::optional<std::string_view> priority,
+                                    std::optional<int64_t> limit, std::optional<int64_t> offset,
+                                    response& out) override {
+        const std::string filter(priority.value_or(std::string_view{})); // "" => no filter (SQL NULL-or)
+        auto rows = repo_.list_notes(filter, limit.value_or(20), offset.value_or(0));
+        if (!rows) {
+            out.assign_error(katana::problem_details::internal_server_error("query failed"));
+            return {};
+        }
+        monotonic_arena a;
+        NoteList list(&a);
+        for (const auto& r : *rows) {
+            Note n(&a);
+            fill_note(n, a, r.id.value_or(0), col(r.title), col(r.body), col(r.priority),
+                      col(r.metadata),
+                      r.due_date ? std::optional<std::string_view>(col(r.due_date)) : std::nullopt,
+                      col(r.created_at));
+            list.notes.push_back(std::move(n));
+        }
+        list.count = static_cast<int64_t>(list.notes.size());
+        out.assign_json(serialize_NoteList(list));
+        return {};
+    }
+
+private:
+    sqlgen::generated_repository& repo_;
+};
+
+uint16_t env_u16(const char* name, uint16_t fallback) {
+    if (const char* v = std::getenv(name)) {
+        return static_cast<uint16_t>(std::atoi(v));
+    }
+    return fallback;
+}
+
+} // namespace
+
+int main() {
+    const char* dsn = std::getenv("PG_DSN");
+    const std::string conn = dsn ? dsn : "postgresql://katana@127.0.0.1:5433/katana";
+    const uint16_t port = env_u16("PORT", 8090);
+    const size_t workers = env_u16("WORKERS", 4);
+
+    katana::sql::postgres_pool pool({.postgres = {.connection_string = conn},
+                                     .executor_count = workers,
+                                     .eager_connect = true});
+    if (auto c = pool.connect_all(); !c) {
+        std::cerr << "DB connect failed\n";
+        return 1;
+    }
+    katana::sql::postgres_pool_executor pool_executor(pool); // routes to the per-reactor connection
+    sqlgen::generated_repository repo(pool_executor);
+    notes_handler handler(repo);
+
+    // x-katana policies: response caching (GET /notes) + rate limiting (POST /notes), in-memory.
+    in_memory_contract_policy_executor policies;
+
+    std::atomic<bool> db_ready{true};
+
+    const auto& router = generated::make_router(handler);
+    server(router)
+        .policy_executor(policies)
+        .readiness_check([&] {
+            // Live readiness: a trivial query through the pool confirms the DB is reachable.
+            return db_ready.load() && pool_executor.query("readyz_ping", "SELECT 1", {}).has_value();
+        })
+        .listen(port)
+        .workers(workers)
+        .on_start([&] {
+            std::cout << "Notes API on :" << port << " (" << workers << " workers) — "
+                      << "/notes, /notes/{id}, /healthz, /readyz, /metrics\n";
+        })
+        .run();
+    return 0;
+}

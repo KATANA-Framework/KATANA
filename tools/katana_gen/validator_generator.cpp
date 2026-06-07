@@ -347,20 +347,20 @@ void generate_validator_for_schema(std::ostream& out,
                 out << "    if ("
                     << (is_optional ? obj_prefix + " && !" + obj_prefix + "->empty() && " + len_expr
                                     : "!" + obj_prefix + ".empty() && " + len_expr)
-                    << " < " << struct_name << "::metadata::" << prop_name_upper
+                    << " < " << struct_name << "::field_constraints::" << prop_name_upper
                     << "_MIN_LENGTH) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::string_too_short, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_MIN_LENGTH};\n";
+                    << "::field_constraints::" << prop_name_upper << "_MIN_LENGTH};\n";
                 out << "    }\n";
             }
             if (prop.type->max_length) {
                 out << "    if (" << (is_optional ? obj_prefix + " && " + len_expr : len_expr)
-                    << " > " << struct_name << "::metadata::" << prop_name_upper
+                    << " > " << struct_name << "::field_constraints::" << prop_name_upper
                     << "_MAX_LENGTH) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::string_too_long, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_MAX_LENGTH};\n";
+                    << "::field_constraints::" << prop_name_upper << "_MAX_LENGTH};\n";
                 out << "    }\n";
             }
             if (prop.type->format == "email") {
@@ -429,39 +429,39 @@ void generate_validator_for_schema(std::ostream& out,
             if (prop.type->minimum) {
                 out << "    if (" << (is_optional ? obj_prefix + " && " : "")
                     << "static_cast<double>(" << (is_optional ? deref_prefix : obj_prefix) << ") < "
-                    << struct_name << "::metadata::" << prop_name_upper << "_MINIMUM) {\n";
+                    << struct_name << "::field_constraints::" << prop_name_upper << "_MINIMUM) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::value_too_small, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_MINIMUM};\n";
+                    << "::field_constraints::" << prop_name_upper << "_MINIMUM};\n";
                 out << "    }\n";
             }
             if (prop.type->maximum) {
                 out << "    if (" << (is_optional ? obj_prefix + " && " : "")
                     << "static_cast<double>(" << (is_optional ? deref_prefix : obj_prefix) << ") > "
-                    << struct_name << "::metadata::" << prop_name_upper << "_MAXIMUM) {\n";
+                    << struct_name << "::field_constraints::" << prop_name_upper << "_MAXIMUM) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::value_too_large, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_MAXIMUM};\n";
+                    << "::field_constraints::" << prop_name_upper << "_MAXIMUM};\n";
                 out << "    }\n";
             }
             if (prop.type->exclusive_minimum) {
                 out << "    if (" << (is_optional ? obj_prefix + " && " : "")
                     << "static_cast<double>(" << (is_optional ? deref_prefix : obj_prefix)
-                    << ") <= " << struct_name << "::metadata::" << prop_name_upper
+                    << ") <= " << struct_name << "::field_constraints::" << prop_name_upper
                     << "_EXCLUSIVE_MINIMUM) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::value_below_exclusive_minimum, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_EXCLUSIVE_MINIMUM};\n";
+                    << "::field_constraints::" << prop_name_upper << "_EXCLUSIVE_MINIMUM};\n";
                 out << "    }\n";
             }
             if (prop.type->exclusive_maximum) {
                 out << "    if (" << (is_optional ? obj_prefix + " && " : "")
                     << "static_cast<double>(" << (is_optional ? deref_prefix : obj_prefix)
-                    << ") >= " << struct_name << "::metadata::" << prop_name_upper
+                    << ") >= " << struct_name << "::field_constraints::" << prop_name_upper
                     << "_EXCLUSIVE_MAXIMUM) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::value_above_exclusive_maximum, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_EXCLUSIVE_MAXIMUM};\n";
+                    << "::field_constraints::" << prop_name_upper << "_EXCLUSIVE_MAXIMUM};\n";
                 out << "    }\n";
             }
             if (prop.type->multiple_of) {
@@ -474,18 +474,18 @@ void generate_validator_for_schema(std::ostream& out,
                     // point)
                     out << "    if (" << (is_optional ? obj_prefix + " && " : "")
                         << (is_optional ? deref_prefix : obj_prefix) << " % static_cast<int64_t>("
-                        << struct_name << "::metadata::" << prop_name_upper
+                        << struct_name << "::field_constraints::" << prop_name_upper
                         << "_MULTIPLE_OF) != 0) {\n";
                 } else {
                     // Number field or fractional multipleOf: use std::fmod
                     out << "    if (" << (is_optional ? obj_prefix + " && " : "")
                         << "std::fmod(static_cast<double>("
                         << (is_optional ? deref_prefix : obj_prefix) << "), " << struct_name
-                        << "::metadata::" << prop_name_upper << "_MULTIPLE_OF) != 0.0) {\n";
+                        << "::field_constraints::" << prop_name_upper << "_MULTIPLE_OF) != 0.0) {\n";
                 }
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::value_not_multiple_of, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_MULTIPLE_OF};\n";
+                    << "::field_constraints::" << prop_name_upper << "_MULTIPLE_OF};\n";
                 out << "    }\n";
             }
         }
@@ -496,22 +496,22 @@ void generate_validator_for_schema(std::ostream& out,
                     << (is_optional ? obj_prefix + " && !" + obj_prefix + "->empty() && " +
                                           obj_prefix + "->size()"
                                     : "!" + obj_prefix + ".empty() && " + obj_prefix + ".size()")
-                    << " < " << struct_name << "::metadata::" << prop_name_upper
+                    << " < " << struct_name << "::field_constraints::" << prop_name_upper
                     << "_MIN_ITEMS) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::array_too_small, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_MIN_ITEMS};\n";
+                    << "::field_constraints::" << prop_name_upper << "_MIN_ITEMS};\n";
                 out << "    }\n";
             }
             if (prop.type->max_items) {
                 out << "    if ("
                     << (is_optional ? obj_prefix + " && " + obj_prefix + "->size()"
                                     : obj_prefix + ".size()")
-                    << " > " << struct_name << "::metadata::" << prop_name_upper
+                    << " > " << struct_name << "::field_constraints::" << prop_name_upper
                     << "_MAX_ITEMS) {\n";
                 out << "        return validation_error{\"" << prop.name
                     << "\", validation_error_code::array_too_large, " << struct_name
-                    << "::metadata::" << prop_name_upper << "_MAX_ITEMS};\n";
+                    << "::field_constraints::" << prop_name_upper << "_MAX_ITEMS};\n";
                 out << "    }\n";
             }
             if (prop.type->unique_items) {

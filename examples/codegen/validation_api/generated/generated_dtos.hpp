@@ -39,7 +39,7 @@ using katana::monotonic_arena;
 /// Data type with 3 fields
 struct RegisterUserRequest {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool EMAIL_REQUIRED = true;
         static constexpr bool PASSWORD_REQUIRED = true;
         static constexpr size_t PASSWORD_MIN_LENGTH = 8;
@@ -49,8 +49,8 @@ struct RegisterUserRequest {
         static constexpr double AGE_MAXIMUM = 120;
     };
 
-    static_assert(metadata::PASSWORD_MIN_LENGTH <= metadata::PASSWORD_MAX_LENGTH, "password: min_length must be <= max_length");
-    static_assert(metadata::AGE_MINIMUM <= metadata::AGE_MAXIMUM, "age: minimum must be <= maximum");
+    static_assert(field_constraints::PASSWORD_MIN_LENGTH <= field_constraints::PASSWORD_MAX_LENGTH, "password: min_length must be <= max_length");
+    static_assert(field_constraints::AGE_MINIMUM <= field_constraints::AGE_MAXIMUM, "age: minimum must be <= maximum");
 
     explicit RegisterUserRequest(monotonic_arena* arena = nullptr)
         : arena_(arena),
