@@ -705,6 +705,9 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         state.request_start = std::chrono::steady_clock::now();
         if (tracing_enabled_) {
             state.current_trace = tracing::start_server_span(req.header("traceparent"));
+            if (auto ts = req.header("tracestate")) {
+                state.current_trace.tracestate = *ts; // carried verbatim for propagation
+            }
             ctx.trace = state.current_trace; // visible to the handler for downstream propagation
         }
         dispatch_request(req, ctx, resp);

@@ -73,6 +73,9 @@ struct span_context {
     uint64_t span_id = 0;        // this hop's span
     uint64_t parent_span_id = 0; // inbound span (0 = root)
     bool sampled = false;
+    // Inbound `tracestate` header, carried verbatim for propagation to downstream services
+    // (W3C: opaque vendor list). Points into the request buffer; valid for the request's life.
+    std::string_view tracestate{};
 
     [[nodiscard]] bool valid() const noexcept {
         return (trace_id_hi != 0 || trace_id_lo != 0) && span_id != 0;
