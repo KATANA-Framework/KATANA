@@ -1,37 +1,37 @@
 # Codegen Examples
 
-Актуальные примеры `katana_gen`, которые собираются через CMake и регенерируют код из OpenAPI при сборке.
+Current `katana_gen` examples that build through CMake and regenerate code from OpenAPI during the build.
 
-## Активные примеры
+## Active examples
 
-- `compute_api/` — CPU-нагрузка на parse/validate/serialize (`/compute/sum`).
-- `validation_api/` — валидации форматов и диапазонов (`/user/register`).
-- `text_api/` — несколько endpoint'ов с enum/transform-логикой.
-- `benchmark_api/` — широкий API для codegen-бенчей (CRUD + compute + validation).
-- `task_api/` — сложная спецификация для стресс-теста генератора.
+- `compute_api/` — CPU load on parse/validate/serialize (`/compute/sum`).
+- `validation_api/` — format and range validation (`/user/register`).
+- `text_api/` — several endpoints with enum/transform logic.
+- `benchmark_api/` — a broad API for codegen benchmarks (CRUD + compute + validation).
+- `task_api/` — a complex spec for stress-testing the generator.
 
-`products_api/` сохранён только как архивный reference-код и не считается поддерживаемым примером:
-- не подключён в CMake;
-- не участвует в benchmark pipeline;
-- не имеет актуального OpenAPI/codegen пайплайна.
+`products_api/` is kept only as archived reference code and is not considered a supported example:
+- not wired into CMake;
+- not part of the benchmark pipeline;
+- has no current OpenAPI/codegen pipeline.
 
-## Сборка
+## Build
 
 ```bash
 cmake --preset bench
 cmake --build --preset bench --target compute_api validation_api text_api benchmark_api task_api
 ```
 
-Бинарники появляются в `build/bench/examples/codegen/*/`.
+Binaries show up in `build/bench/examples/codegen/*/`.
 
-## Генерация через инструменты
+## Generation via the tools
 
-В каждом активном примере `CMakeLists.txt` вызывает `katana_gen openapi ... --emit all --inline-naming operation` и пишет файлы в локальный `generated/`.
+In each active example, `CMakeLists.txt` calls `katana_gen openapi ... --emit all --inline-naming operation` and writes the files into a local `generated/`.
 
-Ручная регенерация (из корня проекта):
+Manual regeneration (from the project root):
 
 ```bash
 ./build/bench/katana_gen openapi -i examples/codegen/compute_api/api.yaml -o examples/codegen/compute_api/generated --emit all --inline-naming operation
 ```
 
-Аналогично для остальных `api.yaml`.
+Same for the other `api.yaml` files.

@@ -2,9 +2,9 @@
 
 
 
-> Ревизия extension contract: что реально поддерживается, что только парсится,
+> Extension contract revision: what's actually supported, what only gets parsed,
 
-> что остаётся декларативным, а что пока нельзя обещать в docs.
+> what stays declarative, and what we can't promise in the docs yet.
 
 
 
@@ -16,11 +16,11 @@
 
 
 
-Все `x-katana-\*` расширения, найденные в кодовой базе:
+All `x-katana-\*` extensions found in the codebase:
 
 
 
-| Extension | Файл / Контекст |
+| Extension | File / Context |
 
 |---|---|
 
@@ -30,11 +30,11 @@
 
 | `x-katana-rate-limit` | AST (`openapi\_ast.hpp:151`), loader (`openapi\_loader.cpp:1259`), codegen (`router\_generator.cpp:1215`), README |
 
-| `x-katana-idempotency` | README Stage 5 roadmap only (`README.md:683`); \*\*нет в коде\*\* |
+| `x-katana-idempotency` | README Stage 5 roadmap only (`README.md:683`); \*\*not in code\*\* |
 
 
 
-Не найдены в коде и не документированы как отдельные расширения:
+Not found in code and not documented as separate extensions:
 
 `x-katana-auth`, `x-katana-log`, `x-katana-retry`, `x-katana-timeout`,
 
@@ -148,13 +148,13 @@ The ✅ is misleading without qualification.
 
 
 
-\- `выбор сериализатора (zero-copy / dom)` — no corresponding `x-katana-\*` extension in code
+\- `serializer choice (zero-copy / dom)` — no corresponding `x-katana-\*` extension in code
 
-\- `кэш (TTL, stale-while-revalidate, ключи инвалидации)` — only simple string/bool parsed; no stale-while-revalidate or invalidation keys
+\- `cache (TTL, stale-while-revalidate, invalidation keys)` — only simple string/bool parsed; no stale-while-revalidate or invalidation keys
 
-\- `rate limiting и idempotency` — idempotency not implemented at all
+\- `rate limiting and idempotency` — idempotency not implemented at all
 
-\- `требования консистентности и дедлайны` — no corresponding extension in code
+\- `consistency requirements and deadlines` — no corresponding extension in code
 
 
 
@@ -164,7 +164,7 @@ The ✅ is misleading without qualification.
 
 \*\*docs/OPENAPI.md:760\*\* correctly lists the specification as a pending task:
 
-`- \[ ] чёткая спецификация поддерживаемых x-katana-\* extensions`
+`- \[ ] clear specification of supported x-katana-\* extensions`
 
 
 
@@ -200,27 +200,27 @@ This is consistent with the actual state, but conflicts with README's ✅ claims
 
 
 
-> ### Расширения OpenAPI (`x-katana-\*`)
+> ### OpenAPI extensions (`x-katana-\*`)
 
 >
 
-> Не меняют стандарт, добавляют \*\*декларативные\*\* аннотации на уровне
+> They don't change the standard; they add \*\*declarative\*\* annotations at the
 
-> operation. На текущем этапе (Stage 2–3) аннотации:
-
->
-
-> - \*\*парсятся\*\* loader'ом из OpenAPI JSON/YAML,
-
-> - \*\*сохраняются\*\* в AST (`operation` struct),
-
-> - \*\*выводятся\*\* в generated код как комментарии (`// @cache:`, `// @alloc:`, `// @rate-limit:`).
+> operation level. At the current stage (Stage 2–3) the annotations are:
 
 >
 
-> \*\*Runtime enforcement\*\* (фактическое применение кэша, rate limit, аллокации)
+> - \*\*parsed\*\* by the loader from OpenAPI JSON/YAML,
 
-> запланировано на Stage 5.
+> - \*\*stored\*\* in the AST (`operation` struct),
+
+> - \*\*emitted\*\* into generated code as comments (`// @cache:`, `// @alloc:`, `// @rate-limit:`).
+
+>
+
+> \*\*Runtime enforcement\*\* (actually applying cache, rate limit, allocation)
+
+> is planned for Stage 5.
 
 >
 
@@ -236,7 +236,7 @@ This is consistent with the actual state, but conflicts with README's ✅ claims
 
 >
 
-> Расширения, упомянутые в roadmap, но ещё не реализованные:
+> Extensions mentioned in the roadmap but not yet implemented:
 
 > `x-katana-idempotency` (Stage 5).
 
@@ -250,17 +250,17 @@ This is consistent with the actual state, but conflicts with README's ✅ claims
 
 >
 
-> Katana поддерживает vendor extensions с префиксом `x-katana-` на уровне
+> Katana supports vendor extensions with the `x-katana-` prefix at the
 
-> OpenAPI operation. Расширения парсятся loader'ом и передаются в AST, но на
+> OpenAPI operation level. The extensions are parsed by the loader and passed
 
-> текущем этапе (Stage 3) \*\*не влияют на runtime behaviour\*\* — они
+> into the AST, but at the current stage (Stage 3) they \*\*don't affect runtime
 
-> декларативны.
+> behaviour\*\* — they are declarative.
 
 >
 
-> ### Поддерживаемые расширения
+> ### Supported extensions
 
 >
 

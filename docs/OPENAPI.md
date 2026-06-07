@@ -1,22 +1,22 @@
 # KATANA OpenAPI
 
-Arena-backed OpenAPI 3.x parser и AST для генерации compile-time API.
+Arena-backed OpenAPI 3.x parser and AST for generating compile-time APIs.
 
-## Обзор
+## Overview
 
-KATANA OpenAPI loader парсит OpenAPI 3.x спецификации (JSON/YAML) и строит arena-backed AST, который используется для кодогенерации типобезопасных роутов, DTO, валидаторов и сериализаторов.
+The KATANA OpenAPI loader parses OpenAPI 3.x specifications (JSON/YAML) and builds an arena-backed AST, which is used to generate type-safe routes, DTOs, validators, and serializers.
 
-### Ключевые особенности
+### Key features
 
-- ✅ **Arena-backed** — вся память выделяется из монотонной арены
-- ✅ **JSON и YAML** — поддержка обоих форматов
-- ✅ **OpenAPI 3.x** — валидация версии спецификации
+- ✅ **Arena-backed** — all memory is allocated from a monotonic arena
+- ✅ **JSON and YAML** — both formats are supported
+- ✅ **OpenAPI 3.x** — spec version validation
 - ✅ **Rich schema parsing** — objects, arrays, strings, numbers, enums, refs
 - ✅ **Validation constraints** — minLength, pattern, required, nullable, etc.
-- ✅ **Move-only semantics** — нет случайных копирований
-- ✅ **Zero dependencies** — легковесный парсер без тяжёлых библиотек
-- ✅ **Content negotiation aware bindings** — Content-Type/Accept, optional параметры, осмысленные имена inline-схем
-- ✅ **AST dump** — включает схемы для отладки (openapi_ast.json)
+- ✅ **Move-only semantics** — no accidental copies
+- ✅ **Zero dependencies** — lightweight parser with no heavy libraries
+- ✅ **Content negotiation aware bindings** — Content-Type/Accept, optional parameters, meaningful names for inline schemas
+- ✅ **AST dump** — includes schemas for debugging (openapi_ast.json)
 
 ---
 
@@ -24,34 +24,34 @@ KATANA OpenAPI loader парсит OpenAPI 3.x спецификации (JSON/YA
 
 **Stage 2: OpenAPI Parser + Code Generator** ✅
 
-**Парсинг реализовано:**
-- ✅ Парсинг OpenAPI версий (3.0.x, 3.1.x) с валидацией
-- ✅ Парсинг info (title, version)
-- ✅ Парсинг paths и operations (GET, POST, PUT, DELETE, PATCH)
-- ✅ Парсинг parameters (path, query, header, cookie) с style/explode
-- ✅ Парсинг requestBody и responses
+**Parsing implemented:**
+- ✅ Parsing OpenAPI versions (3.0.x, 3.1.x) with validation
+- ✅ Parsing info (title, version)
+- ✅ Parsing paths and operations (GET, POST, PUT, DELETE, PATCH)
+- ✅ Parsing parameters (path, query, header, cookie) with style/explode
+- ✅ Parsing requestBody and responses
 - ✅ Full schema parsing (type, format, properties, items, enum as vector)
-- ✅ `$ref` resolution с cycle detection
-- ✅ `allOf` merge с "most restrictive wins" strategy
+- ✅ `$ref` resolution with cycle detection
+- ✅ `allOf` merge with a "most restrictive wins" strategy
 - ✅ Validation constraints (min/max, minLength/maxLength, pattern, required, nullable, uniqueItems, enum)
 - ✅ Specification validation (operationId uniqueness, HTTP codes)
-- ✅ YAML support через katana::serde::yaml_to_json
-- ℹ️ YAML parser — лёгкий, без anchors/tags; дубликаты ключей считаются ошибкой с указанием строки (для сложных YAML стоит использовать JSON или плоский YAML)
+- ✅ YAML support via katana::serde::yaml_to_json
+- ℹ️ YAML parser — lightweight; both block and flow (inline) style are supported and can be mixed (e.g. `- { name: q1, in: query, schema: { type: integer } }`); anchors/tags are not supported, and duplicate keys are treated as an error with a line number
 
-**Кодогенерация реализована:**
-- ✅ DTO codegen с pmr arena allocators
-- ✅ JSON parsers codegen через katana::serde (zero-copy где возможно)
-- ✅ Constexpr route table codegen для интеграции с router
-- ✅ katana_gen CLI с флагами --emit, --alloc, --layer
-- ✅ Handler interfaces + router bindings: optional параметры, санитизация имён, Content-Type/Accept negotiation, парсинг тела по медиатипу
-- ✅ Unified validation errors (`katana/core/validation.hpp`) и compile-time metadata в DTO; валидация использует одни и те же коды ошибок во всех артефактах
-- ✅ Descriptor-based JSON parser (`katana/core/json_parser.hpp`) для сгенерированных парсеров: zero-alloc, аренный ввод/вывод, проверки min/max длины и массивов
+**Code generation implemented:**
+- ✅ DTO codegen with pmr arena allocators
+- ✅ JSON parsers codegen via katana::serde (zero-copy where possible)
+- ✅ Constexpr route table codegen for integration with the router
+- ✅ katana_gen CLI with --emit, --alloc, --layer flags
+- ✅ Handler interfaces + router bindings: optional parameters, name sanitization, Content-Type/Accept negotiation, body parsing by media type
+- ✅ Unified validation errors (`katana/core/validation.hpp`) and compile-time metadata in DTOs; validation uses the same error codes across all artifacts
+- ✅ Descriptor-based JSON parser (`katana/core/json_parser.hpp`) for generated parsers: zero-alloc, arena input/output, min/max length and array checks
 
 ---
 
 ## Quick Start
 
-### Загрузка OpenAPI спецификации
+### Loading an OpenAPI specification
 
 ```cpp
 #include "katana/core/openapi_loader.hpp"
@@ -60,7 +60,7 @@ KATANA OpenAPI loader парсит OpenAPI 3.x спецификации (JSON/YA
 
 using namespace katana::openapi;
 
-// JSON спецификация
+// JSON specification
 const std::string spec = R"({
   "openapi": "3.0.0",
   "info": {
@@ -100,7 +100,7 @@ const std::string spec = R"({
   }
 })";
 
-// Парсинг
+// Parsing
 monotonic_arena arena;
 auto result = load_from_string(spec, arena);
 
@@ -111,7 +111,7 @@ if (!result) {
 
 document& doc = *result;
 
-// Доступ к данным
+// Accessing the data
 std::cout << "API: " << doc.info_title << " v" << doc.info_version << "\n";
 std::cout << "Paths: " << doc.paths.size() << "\n";
 
@@ -124,7 +124,7 @@ for (const auto& path : doc.paths) {
 }
 ```
 
-### Загрузка из файла
+### Loading from a file
 
 ```cpp
 auto result = load_from_file("api/openapi.yaml", arena);
@@ -146,20 +146,20 @@ document& doc = *result;
 ```cpp
 struct document {
     monotonic_arena* arena_;
-    arena_vector<schema> schemas;           // Все схемы (inline + components)
-    arena_vector<path_item> paths;          // Все пути
+    arena_vector<schema> schemas;           // All schemas (inline + components)
+    arena_vector<path_item> paths;          // All paths
     arena_string<> openapi_version;         // "3.x"
     arena_string<> info_title;              // API title
     arena_string<> info_version;            // API version
 
-    // Методы
+    // Methods
     schema& add_schema(std::string_view name);
     path_item& add_path(std::string_view path);
     schema& add_inline_schema();
 };
 ```
 
-**Пример:**
+**Example:**
 ```cpp
 document doc(arena);
 doc.openapi_version;  // "3.x"
@@ -194,7 +194,7 @@ struct operation {
 };
 ```
 
-**Пример:**
+**Example:**
 ```cpp
 for (const auto& path : doc.paths) {
     std::cout << "Path: " << path.path << "\n";
@@ -241,14 +241,14 @@ enum class param_location : uint8_t {
 
 struct parameter {
     arena_string<> name;               // "id", "page", etc.
-    param_location in;                 // где находится параметр
-    bool required;                     // обязательный?
-    const schema* type;                // тип параметра
-    arena_string<> description;        // описание
+    param_location in;                 // where the parameter is located
+    bool required;                     // required?
+    const schema* type;                // parameter type
+    arena_string<> description;        // description
 };
 ```
 
-**Пример:**
+**Example:**
 ```cpp
 for (const auto& param : op.parameters) {
     std::cout << "Parameter: " << param.name << "\n";
@@ -272,7 +272,7 @@ for (const auto& param : op.parameters) {
 ```cpp
 struct media_type {
     arena_string<> content_type; // "application/json"
-    const schema* type;          // Схема для контента (nullable)
+    const schema* type;          // Schema for the content (nullable)
 };
 ```
 
@@ -280,14 +280,14 @@ struct media_type {
 
 ```cpp
 struct request_body {
-    arena_string<> description;         // Описание
-    arena_vector<media_type> content;   // Список media types
+    arena_string<> description;         // Description
+    arena_vector<media_type> content;   // List of media types
 
-    const media_type* first_media() const; // helper, возвращает первый media type или nullptr
+    const media_type* first_media() const; // helper, returns the first media type or nullptr
 };
 ```
 
-**Пример:**
+**Example:**
 ```cpp
 if (op.body) {
     std::cout << "Request Body:\n";
@@ -311,15 +311,15 @@ if (op.body) {
 ```cpp
 struct response {
     int status;                         // 200, 404, etc.
-    bool is_default;                    // true если это "default" ветка
+    bool is_default;                    // true if this is the "default" branch
     arena_string<> description;         // "User found"
-    arena_vector<media_type> content;   // Media types для ответа
+    arena_vector<media_type> content;   // Media types for the response
 
     const media_type* first_media() const; // helper
 };
 ```
 
-**Пример:**
+**Example:**
 ```cpp
 for (const auto& resp : op.responses) {
     std::cout << "Response " << resp.status << ":\n";
@@ -356,27 +356,27 @@ enum class schema_kind : uint8_t {
 
 ```cpp
 struct schema {
-    schema_kind kind;                  // Тип схемы
-    arena_string<> name;               // Имя (для components/schemas)
+    schema_kind kind;                  // Schema type
+    arena_string<> name;               // Name (for components/schemas)
     arena_string<> format;             // "int64", "date-time", "email", etc.
-    arena_string<> ref;                // "$ref" path (пока не resolves)
-    arena_string<> description;        // Описание
-    arena_string<> pattern;            // Regex pattern для string
-    arena_string<> discriminator;      // Для polymorphism
-    arena_string<> default_value;      // Значение по умолчанию
+    arena_string<> ref;                // "$ref" path (not yet resolved)
+    arena_string<> description;        // Description
+    arena_string<> pattern;            // Regex pattern for string
+    arena_string<> discriminator;      // For polymorphism
+    arena_string<> default_value;      // Default value
 
     // Array-specific
-    const schema* items;               // Тип элементов массива
+    const schema* items;               // Array element type
 
     // Object-specific
-    arena_vector<property> properties; // Свойства объекта
+    arena_vector<property> properties; // Object properties
     bool additional_properties_allowed;
     const schema* additional_properties;
 
     // Validation
-    bool nullable;                     // Может быть null
-    bool deprecated;                   // Устаревшее поле
-    bool unique_items;                 // Для массивов
+    bool nullable;                     // Can be null
+    bool deprecated;                   // Deprecated field
+    bool unique_items;                 // For arrays
     std::optional<double> minimum;
     std::optional<double> maximum;
     std::optional<double> exclusive_minimum;
@@ -388,8 +388,8 @@ struct schema {
     std::optional<size_t> max_items;
     arena_string<> enum_values;        // Semicolon-separated
 
-    bool required;                     // Для properties
-    bool is_ref;                       // Это $ref?
+    bool required;                     // For properties
+    bool is_ref;                       // Is this a $ref?
 };
 ```
 
@@ -413,7 +413,7 @@ required:
   - name
 ```
 
-**Доступ к properties:**
+**Accessing properties:**
 ```cpp
 if (schema->kind == schema_kind::object) {
     for (const auto& prop : schema->properties) {
@@ -454,7 +454,7 @@ maxItems: 10
 uniqueItems: true
 ```
 
-**Доступ к items:**
+**Accessing items:**
 ```cpp
 if (schema->kind == schema_kind::array) {
     std::cout << "Array of:\n";
@@ -491,7 +491,7 @@ pattern: "^[a-z]+@[a-z]+\\.[a-z]+$"
 enum: ["admin", "user", "guest"]
 ```
 
-**Доступ к constraints:**
+**Accessing constraints:**
 ```cpp
 if (schema->kind == schema_kind::string) {
     if (!schema->format.empty()) {
@@ -523,7 +523,7 @@ maximum: 100
 multipleOf: 5
 ```
 
-**Доступ к constraints:**
+**Accessing constraints:**
 ```cpp
 if (schema->kind == schema_kind::integer || schema->kind == schema_kind::number) {
     if (schema->minimum) {
@@ -542,7 +542,7 @@ if (schema->kind == schema_kind::integer || schema->kind == schema_kind::number)
 
 ## YAML Support
 
-OpenAPI loader поддерживает и JSON, и YAML:
+The OpenAPI loader supports both JSON and YAML:
 
 ```yaml
 openapi: 3.0.0
@@ -564,7 +564,7 @@ paths:
           description: User found
 ```
 
-**Загрузка:**
+**Loading:**
 ```cpp
 const std::string yaml_spec = R"(
 openapi: 3.0.0
@@ -590,13 +590,13 @@ if (result) {
 
 ```cpp
 enum class error_code {
-    openapi_parse_error,      // Невалидный JSON/YAML
-    openapi_invalid_spec,     // Неподдерживаемая версия OpenAPI
+    openapi_parse_error,      // Invalid JSON/YAML
+    openapi_invalid_spec,     // Unsupported OpenAPI version
     // ...
 };
 ```
 
-### Обработка ошибок
+### Handling errors
 
 ```cpp
 auto result = load_from_string(spec, arena);
@@ -624,7 +624,7 @@ if (!result) {
 
 ## Arena Memory Management
 
-Вся память AST выделяется из монотонной арены:
+All AST memory is allocated from a monotonic arena:
 
 ```cpp
 monotonic_arena arena;
@@ -633,26 +633,26 @@ auto result = load_from_string(spec, arena);
 if (result) {
     document& doc = *result;
 
-    // Все строки и векторы используют arena
+    // All strings and vectors use the arena
     // doc.info_title — arena_string
     // doc.paths — arena_vector
     // schema->properties — arena_vector
 }
 
-// После выхода из scope, arena освобождает всё сразу
+// Once the scope exits, the arena frees everything at once
 ```
 
-**Преимущества:**
-- ✅ Быстрая аллокация (bump allocator)
-- ✅ Нет фрагментации памяти
-- ✅ Освобождение всего AST одной операцией
-- ✅ Cache-friendly (локальность данных)
+**Benefits:**
+- ✅ Fast allocation (bump allocator)
+- ✅ No memory fragmentation
+- ✅ Free the entire AST in a single operation
+- ✅ Cache-friendly (data locality)
 
 ---
 
 ## Usage Patterns
 
-### 1. Инспекция спецификации
+### 1. Inspecting a specification
 
 ```cpp
 monotonic_arena arena;
@@ -674,10 +674,10 @@ for (const auto& path : doc->paths) {
 }
 ```
 
-### 2. Извлечение схем
+### 2. Extracting schemas
 
 ```cpp
-// Найти все объектные схемы
+// Find all object schemas
 for (const auto& schema : doc->schemas) {
     if (schema.kind == schema_kind::object && !schema.name.empty()) {
         std::cout << "Schema: " << schema.name << "\n";
@@ -690,7 +690,7 @@ for (const auto& schema : doc->schemas) {
 }
 ```
 
-### 3. Валидация параметров
+### 3. Validating parameters
 
 ```cpp
 for (const auto& path : doc->paths) {
@@ -699,7 +699,7 @@ for (const auto& path : doc->paths) {
             if (param.required && param.in == param_location::path) {
                 std::cout << "Required path param: " << param.name << "\n";
 
-                // Можно генерировать валидаторы
+                // You can generate validators
                 if (param.type && param.type->kind == schema_kind::integer) {
                     std::cout << "  → validate as integer\n";
                 }
@@ -733,29 +733,29 @@ TEST(OpenAPILoader, AcceptsVersionHint) {
 }
 ```
 
-Больше тестов в `test/unit/test_openapi_ast.cpp`.
+More tests in `test/unit/test_openapi_ast.cpp`.
 
 ---
 
 ## Limitations (Current Implementation)
 
-### Не поддерживается (пока):
+### Not supported (yet):
 
-1. **Security schemes** — не участвуют в runtime/codegen contract
-2. **Servers** — не используются генератором и runtime
-3. **Examples / example payloads** — не материализуются в generated артефакты
-4. **External docs** — игнорируются loader/codegen
-5. **Полная OpenAPI coverage** — фокус остаётся на runtime-critical subset, а не на полном зеркале спецификации
+1. **Security schemes** — not part of the runtime/codegen contract
+2. **Servers** — not used by the generator or runtime
+3. **Examples / example payloads** — not materialized into generated artifacts
+4. **External docs** — ignored by loader/codegen
+5. **Full OpenAPI coverage** — the focus stays on the runtime-critical subset, not a full mirror of the spec
 
 ---
 
 ## x-katana-\* Extensions
 
-Katana поддерживает vendor extensions с префиксом `x-katana-` на уровне OpenAPI operation.
-Расширения парсятся loader'ом и передаются в AST, но на текущем этапе (Stage 3)
-**не влияют на runtime behaviour** — они декларативны.
+Katana supports vendor extensions with the `x-katana-` prefix at the OpenAPI operation level.
+The extensions are parsed by the loader and passed into the AST, but at the current stage (Stage 3)
+they **do not affect runtime behaviour** — they are declarative.
 
-### Поддерживаемые расширения
+### Supported extensions
 
 | Extension | Value type | Loader support | Codegen output | Runtime |
 |---|---|---|---|---|
@@ -763,18 +763,18 @@ Katana поддерживает vendor extensions с префиксом `x-katan
 | `x-katana-alloc` | `string` / `number` | ✅ parsed | comment `// @alloc:` | Stage 5 |
 | `x-katana-rate-limit` | `string` | ✅ parsed | comment `// @rate-limit:` | Stage 5 |
 
-**Object values** (e.g. `x-katana-cache: { ttl: 10s }`) **не поддерживаются** и будут
-молча проигнорированы loader'ом.
+**Object values** (e.g. `x-katana-cache: { ttl: 10s }`) are **not supported** and will be
+silently ignored by the loader.
 
 ### Accepted value formats
 
-- `x-katana-cache`: строка с TTL (`"300s"`, `"5m"`) или boolean (`true`/`false`).
-- `x-katana-alloc`: строка (`"pool"`, `"arena"`, `"heap"`) или число (`4096`).
-- `x-katana-rate-limit`: строка вида `"<count>/<unit>"` (`"100/s"`, `"1000/m"`).
+- `x-katana-cache`: a string with a TTL (`"300s"`, `"5m"`) or a boolean (`true`/`false`).
+- `x-katana-alloc`: a string (`"pool"`, `"arena"`, `"heap"`) or a number (`4096`).
+- `x-katana-rate-limit`: a string of the form `"<count>/<unit>"` (`"100/s"`, `"1000/m"`).
 
 ### Codegen behavior
 
-Значения расширений выводятся в generated handler interface как комментарии:
+Extension values are emitted into the generated handler interface as comments:
 
 ```cpp
 // GET /users/{id}
@@ -784,53 +784,53 @@ Katana поддерживает vendor extensions с префиксом `x-katan
 katana::http::task<response> get_user(const get_user_request& req);
 ```
 
-Эти комментарии служат документацией и могут быть использованы внешними инструментами.
-Runtime enforcement запланирован на Stage 5.
+These comments serve as documentation and can be consumed by external tools.
+Runtime enforcement is planned for Stage 5.
 
-Полная ревизия: [X_KATANA_EXTENSIONS.md](X_KATANA_EXTENSIONS.md).
+Full reference: [X_KATANA_EXTENSIONS.md](X_KATANA_EXTENSIONS.md).
 
 ---
 
 ## Roadmap
 
-Stage 2 закрыт. Дальнейшее развитие OpenAPI-слоя идёт уже в общих roadmap-этапах репозитория.
+Stage 2 is closed. Further work on the OpenAPI layer now happens within the repository's general roadmap stages.
 
-### Ближайшие задачи OpenAPI-направления
+### Near-term OpenAPI tasks
 
-- [x] conformance harness для generated endpoints по OpenAPI fixtures (см. [CONFORMANCE.md](CONFORMANCE.md))
-- [x] media type registry integration для JSON/CBOR/MessagePack
-- [x] чёткая спецификация поддерживаемых `x-katana-*` extensions (см. [X_KATANA_EXTENSIONS.md](X_KATANA_EXTENSIONS.md))
-- [x] стабилизация runtime/codegen test path в canonical Linux/WSL CI
+- [x] conformance harness for generated endpoints against OpenAPI fixtures (see [CONFORMANCE.md](CONFORMANCE.md))
+- [x] media type registry integration for JSON/CBOR/MessagePack
+- [x] a clear specification of the supported `x-katana-*` extensions (see [X_KATANA_EXTENSIONS.md](X_KATANA_EXTENSIONS.md))
+- [x] stabilization of the runtime/codegen test path in canonical Linux/WSL CI
 
-### Дальше, после стабилизации runtime
+### Later, after runtime stabilization
 
-- [ ] интеграция generated contract с SQL layer
-- [ ] интеграция policy annotations (`cache`, `idempotency`, `rate-limit`) с runtime
-- [ ] compatibility tooling и SDK generation только после стабилизации core milestones
+- [ ] integration of the generated contract with the SQL layer
+- [ ] integration of policy annotations (`cache`, `idempotency`, `rate-limit`) with the runtime
+- [ ] compatibility tooling and SDK generation, only after core milestones stabilize
 
 ---
 
 ## Best Practices
 
-### 1. Используйте arena для всех операций
+### 1. Use the arena for all operations
 
 ```cpp
 // ✅ Good
 monotonic_arena arena;
 auto doc = load_from_string(spec, arena);
 
-// ❌ Bad (arena на стеке будет destroyed)
+// ❌ Bad (arena on the stack will be destroyed)
 {
     monotonic_arena arena;
     auto doc = load_from_string(spec, arena);
 }
-// doc содержит dangling pointers!
+// doc holds dangling pointers!
 ```
 
-### 2. Проверяйте nullable поля
+### 2. Check nullable fields
 
 ```cpp
-// Schema fields могут быть nullptr
+// Schema fields may be nullptr
 if (op.body) {
     if (const auto* media = op.body->first_media()) {
         std::cout << "Body: " << media->content_type << "\n";
@@ -842,7 +842,7 @@ if (schema->items) {
 }
 ```
 
-### 3. Валидируйте OpenAPI версию
+### 3. Validate the OpenAPI version
 
 ```cpp
 auto doc = load_from_string(spec, arena);
@@ -859,19 +859,19 @@ if (!doc) {
 
 ## Examples
 
-Полные примеры в `test/unit/test_openapi_ast.cpp`:
+Full examples in `test/unit/test_openapi_ast.cpp`:
 
-- Построение AST вручную
-- Парсинг JSON спецификаций
-- Парсинг YAML спецификаций
-- Обход schemas и operations
-- Валидация constraints
+- Building the AST by hand
+- Parsing JSON specifications
+- Parsing YAML specifications
+- Walking schemas and operations
+- Validating constraints
 
 ---
 
 ## See Also
 
-- [ROUTER.md](ROUTER.md) — HTTP Router документация
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — Общая архитектура
+- [ROUTER.md](ROUTER.md) — HTTP Router documentation
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — Overall architecture
 - [OpenAPI 3.0 Specification](https://spec.openapis.org/oas/v3.0.3)
 - [OpenAPI 3.1 Specification](https://spec.openapis.org/oas/v3.1.0)

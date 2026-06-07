@@ -1,55 +1,55 @@
-# Генератор кода KATANA (`katana_gen`)
+# KATANA code generator (`katana_gen`)
 
-CLI генерирует DTO, валидаторы, JSON (де)сериализацию, биндинги роутера и интерфейсы хендлеров под архитектуру ядра (router, arena-аллокаторы, zero-copy I/O).
+The CLI generates DTOs, validators, JSON (de)serialization, router bindings, and handler interfaces for the core architecture (router, arena allocators, zero-copy I/O).
 
-## Как вызвать
+## How to invoke
 
 ```bash
 katana_gen openapi -i test_api.yaml -o ./generated --emit all --alloc pmr
 ```
 
-Ключи:
-- `--emit dto|validator|serdes|router|handler|all` — что генерировать (по умолчанию `all`).
-- `--alloc pmr|std` — выбирай `pmr` для арен и zero-alloc горячего пути.
-- `--layer flat|layered` — стиль слоёв (flat по умолчанию).
-- `--dump-ast` — сохранить `openapi_ast.json`.
-- `--strict` — упасть на любой ошибке спеки.
+Flags:
+- `--emit dto|validator|serdes|router|handler|all` — what to generate (default `all`).
+- `--alloc pmr|std` — pick `pmr` for arenas and a zero-alloc hot path.
+- `--layer flat|layered` — layer style (flat by default).
+- `--dump-ast` — write out `openapi_ast.json`.
+- `--strict` — fail on any spec error.
 
-Артефакты:
-- `generated_dtos.hpp` — DTO/enum’ы (arena-aware при `--alloc pmr`).
-- `generated_validators.hpp` — проверки required/enum.
-- `generated_json.hpp` — JSON парсинг/сериализация.
-- `generated_routes.hpp` — compile-time метаданные маршрутов.
-- `generated_handlers.hpp` — `api_handler`, optional `async_api_handler` и `async_api_handler_base` для async-first сервисов.
-- `generated_router_bindings.hpp` — статический router, связанный с хендлером.
+Artifacts:
+- `generated_dtos.hpp` — DTOs/enums (arena-aware with `--alloc pmr`).
+- `generated_validators.hpp` — required/enum checks.
+- `generated_json.hpp` — JSON parsing/serialization.
+- `generated_routes.hpp` — compile-time route metadata.
+- `generated_handlers.hpp` — `api_handler`, optional `async_api_handler`, and `async_api_handler_base` for async-first services.
+- `generated_router_bindings.hpp` — a static router wired to the handler.
 
-### Быстрый старт
+### Quick start
 ```bash
 katana_gen openapi -i benchmark/test_api.yaml -o benchmark/generated --emit all --alloc pmr
 cmake --build build --target generated_api_benchmark
 ```
 
-## Производительность и архитектура
+## Performance and architecture
 
-- При `--alloc pmr` код использует `katana::monotonic_arena`; держи арену на запрос и переиспользуй.
-- Биндинги возвращают **stateless/static router** — создаётся один раз, без аллокаций на запрос.
-- DTO/парсер без кучи при `arena_string`/`arena_vector`; старайся везде `pmr` на hot path.
-- Параметры пути — `string_view`/примитивы, не копируй их.
-- В хендлерах собирай ответ с предвычисленными заголовками и `serialize_into`, переиспользуя буфер.
-- Если endpoint должен завершаться после возврата из initial dispatch frame, реализуй `*_async(..., katana::http::async_response_writer out)` и наследуйся от `async_api_handler_base`, а не пиши deferred glue вручную в каждом route handler.
+- With `--alloc pmr` the code uses `katana::monotonic_arena`; keep one arena per request and reuse it.
+- Bindings return a **stateless/static router** — created once, no per-request allocations.
+- DTOs/parser are heap-free with `arena_string`/`arena_vector`; use `pmr` everywhere on the hot path.
+- Path parameters are `string_view`/primitives — don't copy them.
+- In handlers, build the response with precomputed headers and `serialize_into`, reusing the buffer.
+- If an endpoint needs to finish after returning from the initial dispatch frame, implement `*_async(..., katana::http::async_response_writer out)` and derive from `async_api_handler_base` instead of writing deferred glue by hand in every route handler.
 
-## Регенерация для бенчмарков
+## Regenerating for benchmarks
 
-Бенчи `openapi_benchmark` и `generated_api_benchmark` ждут файлы в `benchmark/generated`. Обновить:
+The `openapi_benchmark` and `generated_api_benchmark` benchmarks expect files in `benchmark/generated`. To refresh them:
 
 ```bash
 katana_gen openapi -i benchmark/test_api.yaml -o benchmark/generated --emit all --alloc pmr
 cmake --build build --target generated_api_benchmark openapi_benchmark
 ```
 
-## Замечания для контрибьюторов
+## Notes for contributors
 
-- Новые шаблоны делай аллокатор-независимыми: arena только под `--alloc pmr`.
-- Не конкатенируй `std::string` на горячем пути — используй stack `to_chars` и префиксы заголовков.
-- Не создавай router на каждый запрос — держи статический (как генерируется).
-- Валидация — простые проверки required/enum; никаких `std::regex` и тяжёлых зависимостей.
+- Keep new templates allocator-independent: arena only under `--alloc pmr`.
+- Don't concatenate `std::string` on the hot path — use stack `to_chars` and header prefixes.
+- Don't create a router per request — keep it static (the way it's generated).
+- Validation is simple required/enum checks; no `std::regex` and no heavy dependencies.

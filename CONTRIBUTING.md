@@ -1,38 +1,41 @@
 # Contributing
 
-Спасибо за помощь в развитии KATANA! Сейчас репозиторий содержит только core (реактор, HTTP/1.1 парсер/ответы, арены, таймеры, TCP-хелперы). Добавляя фичи, держите документацию в актуальном состоянии и не обещайте то, чего нет в коде.
+Thanks for helping develop KATANA. When adding features, keep the documentation in sync with the code and don't promise things that aren't implemented yet.
 
-## Окружение
+## Environment
 
-- Зависимости: CMake ≥ 3.20, Ninja, Clang ≥ 16 или GCC ≥ 12. Для io_uring-пресетов нужен `liburing-dev`.
-- Конфигурация через `CMakePresets.json`:
+- Dependencies: CMake ≥ 3.20, Ninja, GCC ≥ 12 or Clang ≥ 16. The io_uring presets need `liburing-dev`.
+- Configuration via `CMakePresets.json`:
   - Debug: `cmake --preset debug && cmake --build --preset debug`
   - Sanitizers: `--preset asan|tsan|ubsan`
   - io_uring: `--preset io_uring-debug` / `io_uring-release`
-  - Примеры/бенчмарки: `--preset examples` / `bench`
-- Тесты: `ctest --preset debug` (используется лёгкий gtest-совместимый харнес `test/gtest/gtest.h`).
+  - Examples/benchmarks: `--preset examples` / `bench`
+- Tests: `ctest --preset debug`, or `ctest --test-dir build/<preset> -j`. The suite uses a lightweight gtest-compatible harness in `test/gtest/`. Running with `-j` is fine: the codegen tests are hermetic and use per-process temp dirs.
 - Fuzzing: `cmake --preset fuzz && cmake --build --preset fuzz && ./build/fuzz/test/fuzz/http_parser_fuzz -max_total_time=60`.
 
-## Качество и стиль
+There are Makefile shortcuts for the common flows: `make build`, `make test`, `make ci`, `make format`, `make lint`.
 
-- Форматирование: `clang-format` по `.clang-format`. Пользуйтесь `pre-commit install` (см. `.pre-commit-config.yaml`) перед коммитами.
-- Статический анализ: `.clang-tidy` включён, после конфигурации можно запускать `clang-tidy -p build/debug <files>`.
-- Код без необоснованных глобальных состояний и без сырого `new/delete`; RAII и `std::expected`/`monotonic_arena` предпочтительнее.
+**Build note (GCC 15 / CMake 3.31):** add `-DCMAKE_CXX_SCAN_FOR_MODULES=OFF` to the configure step. The project uses no C++20 modules, and CMake's module scanning breaks with that toolchain.
 
-## Тестирование
+## Quality and style
 
-- Unit/integration тесты находятся в `test/unit` и `test/integration`.
-- Сейчас нет харнеса для изолированного тестирования HTTP/бизнес-хендлеров без запуска реактора и нет моков для async-кода — приветствуются фикстуры в `test/support` (stub сокеты, фейковые таймеры, event-loop drivers).
-- При добавлении новых подсистем добавляйте fixture-based тесты, а для регрессий оставляйте минимальные воспроизведения.
+- Formatting: `clang-format` per `.clang-format`. Use `pre-commit install` (see `.pre-commit-config.yaml`) before committing.
+- Static analysis: `.clang-tidy` is enabled; after configuring you can run `clang-tidy -p build/debug <files>`.
+- Avoid unjustified global state and raw `new/delete`; prefer RAII and `std::expected`/`monotonic_arena`.
 
-## Документация
+## Testing
 
-- README/ARCHITECTURE описывают целевую архитектуру. Если функциональность добавлена или, наоборот, ещё не реализована, фиксируйте это в соответствующих секциях.
-- Описывайте новые CLI-флаги, параметры сборки и параметры тестов в README или отдельном файле в `docs/`.
+- Unit and integration tests live in `test/unit` and `test/integration`.
+- When adding new subsystems, add fixture-based tests, and keep minimal reproductions for regressions.
 
-## PR-Checklist
+## Documentation
+
+- README/ARCHITECTURE describe the target architecture. If functionality is added, or conversely not yet implemented, record that in the relevant sections.
+- Document new CLI flags, build options, and test parameters in the README or a separate file under `docs/`.
+
+## PR Checklist
 
 - [ ] `cmake --build --preset debug`
 - [ ] `ctest --preset debug`
 - [ ] `pre-commit run --all-files`
-- [ ] Обновлены релевантные .md (особенно если меняется фактическая функциональность)
+- [ ] Relevant .md files updated (especially when actual functionality changes)

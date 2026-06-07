@@ -1,26 +1,26 @@
 # KATANA Router
 
-Compile-time, zero-allocation HTTP router для KATANA фреймворка.
+Compile-time, zero-allocation HTTP router for the KATANA framework.
 
-## Обзор
+## Overview
 
-KATANA Router обеспечивает типобезопасный routing с compile-time парсингом путей и zero-allocation dispatch в hot path. Роутер автоматически обрабатывает 404/405 ошибки, генерирует RFC 7807 Problem Details и поддерживает middleware chains.
+The KATANA Router provides type-safe routing with compile-time path parsing and zero-allocation dispatch in the hot path. The router handles 404/405 errors automatically, generates RFC 7807 Problem Details, and supports middleware chains.
 
-### Ключевые особенности
+### Key features
 
-- ✅ **Compile-time парсинг путей** — ошибки в `/users/{id}` видны на этапе компиляции
-- ✅ **Zero-allocation hot path** — никаких heap-аллокаций при dispatch
-- ✅ **Автоматический RFC 7807** — 404/405 автоматически мапятся в Problem Details
-- ✅ **Allow header** — автоматическая генерация для 405 Method Not Allowed
-- ✅ **Path parameters** — автоматическое извлечение параметров
-- ✅ **Middleware chains** — композиция middleware без виртуальных вызовов
-- ✅ **Smart routing** — приоритизация статических сегментов над параметрами
+- ✅ **Compile-time path parsing** — errors in `/users/{id}` show up at compile time
+- ✅ **Zero-allocation hot path** — no heap allocations during dispatch
+- ✅ **Automatic RFC 7807** — 404/405 are mapped to Problem Details automatically
+- ✅ **Allow header** — generated automatically for 405 Method Not Allowed
+- ✅ **Path parameters** — extracted automatically
+- ✅ **Middleware chains** — middleware composition without virtual calls
+- ✅ **Smart routing** — static segments take priority over parameters
 
 ---
 
 ## Quick Start
 
-### Простейший роутер
+### Minimal router
 
 ```cpp
 #include "katana/core/router.hpp"
@@ -28,7 +28,7 @@ KATANA Router обеспечивает типобезопасный routing с c
 
 using namespace katana::http;
 
-// Определяем роуты
+// Define routes
 route_entry routes[] = {
     {method::get,
      path_pattern::from_literal<"/">(),
@@ -44,7 +44,7 @@ route_entry routes[] = {
      })},
 };
 
-// Создаём роутер
+// Create the router
 router r(routes);
 
 // Dispatch request
@@ -63,86 +63,86 @@ auto resp = dispatch_or_problem(r, req, ctx);
 
 ## Path Patterns
 
-### Compile-time парсинг
+### Compile-time parsing
 
-Path patterns парсятся на этапе компиляции через `from_literal<>()`:
+Path patterns are parsed at compile time via `from_literal<>()`:
 
 ```cpp
-// ✅ Валидно
+// ✅ Valid
 auto pattern = path_pattern::from_literal<"/users/{id}">();
 auto pattern = path_pattern::from_literal<"/orders/{orderId}/items/{itemId}">();
 auto pattern = path_pattern::from_literal<"/static/about">();
 
-// ❌ Ошибки компиляции
-auto pattern = path_pattern::from_literal<"users">(); // должно начинаться с '/'
-auto pattern = path_pattern::from_literal<"/users/{id">();  // незакрытая скобка
-auto pattern = path_pattern::from_literal<"/users/{}">();   // пустое имя параметра
+// ❌ Compile errors
+auto pattern = path_pattern::from_literal<"users">(); // must start with '/'
+auto pattern = path_pattern::from_literal<"/users/{id">();  // unclosed brace
+auto pattern = path_pattern::from_literal<"/users/{}">();   // empty parameter name
 ```
 
-### Синтаксис параметров
+### Parameter syntax
 
 ```cpp
-// Литеральные сегменты
-"/users"              // только точное совпадение
+// Literal segments
+"/users"              // exact match only
 
-// Параметры (любое значение)
+// Parameters (any value)
 "/users/{id}"         // /users/123, /users/alice
 "/users/{id}/posts"   // /users/42/posts
 
-// Множественные параметры
+// Multiple parameters
 "/orders/{orderId}/items/{itemId}"  // /orders/10/items/5
 ```
 
-### Приоритизация
+### Prioritization
 
-Статические сегменты имеют больший приоритет, чем параметры:
+Static segments have higher priority than parameters:
 
 ```cpp
 route_entry routes[] = {
-    {method::get, path_pattern::from_literal<"/users/me">(), handler_me},      // приоритет 1
-    {method::get, path_pattern::from_literal<"/users/{id}">(), handler_id},    // приоритет 2
+    {method::get, path_pattern::from_literal<"/users/me">(), handler_me},      // priority 1
+    {method::get, path_pattern::from_literal<"/users/{id}">(), handler_id},    // priority 2
 };
 
 router r(routes);
 
-// GET /users/me    → вызовет handler_me (точное совпадение)
-// GET /users/42    → вызовет handler_id (параметр)
+// GET /users/me    → calls handler_me (exact match)
+// GET /users/42    → calls handler_id (parameter)
 ```
 
-**Алгоритм приоритизации:**
+**Prioritization algorithm:**
 ```cpp
 score = literal_count * 16 + (MAX_ROUTE_SEGMENTS - param_count)
 ```
 
-Чем больше литеральных сегментов, тем выше приоритет.
+The more literal segments, the higher the priority.
 
 ---
 
 ## Path Parameters
 
-### Извлечение параметров
+### Extracting parameters
 
-Параметры автоматически извлекаются в `request_context::params`:
+Parameters are extracted automatically into `request_context::params`:
 
 ```cpp
 {method::get,
  path_pattern::from_literal<"/users/{id}">(),
  handler_fn([](const request& req, request_context& ctx) {
-     // Получение параметра
+     // Get a parameter
      auto id = ctx.params.get("id");  // std::optional<std::string_view>
 
      if (!id) {
          return response::error(problem_details::bad_request("Missing id"));
      }
 
-     // Безопасный fallback
+     // Safe fallback
      auto name = ctx.params.get("name").value_or("anonymous");
 
      return response::ok(std::string(*id));
  })}
 ```
 
-### Множественные параметры
+### Multiple parameters
 
 ```cpp
 {method::get,
@@ -151,17 +151,17 @@ score = literal_count * 16 + (MAX_ROUTE_SEGMENTS - param_count)
      auto order_id = ctx.params.get("orderId");
      auto item_id = ctx.params.get("itemId");
 
-     // Оба параметра доступны
+     // Both parameters are available
      return response::ok("OK");
  })}
 ```
 
-### Парсинг параметров
+### Parsing parameters
 
 ```cpp
 #include <charconv>
 
-// Конвертация в число
+// Convert to a number
 auto id_str = ctx.params.get("id").value_or("");
 int id = 0;
 auto [ptr, ec] = std::from_chars(id_str.data(), id_str.data() + id_str.size(), id);
@@ -183,12 +183,12 @@ using handler_fn = inplace_function<
 >;
 ```
 
-Хендлеры принимают:
-- `const request&` — HTTP запрос
-- `request_context&` — контекст с ареной и path parameters
+Handlers take:
+- `const request&` — the HTTP request
+- `request_context&` — the context with the arena and path parameters
 
-Возвращают:
-- `result<response>` — либо response, либо error_code
+They return:
+- `result<response>` — either a response or an error_code
 
 ### Lambda handlers
 
@@ -216,12 +216,12 @@ handler_fn([&repo](const request& req, request_context& ctx) {
 
 ```cpp
 handler_fn([](const request& req, request_context& ctx) {
-    // Возврат error_code
+    // Return an error_code
     if (something_wrong) {
         return std::unexpected(make_error_code(error_code::bad_request));
     }
 
-    // Возврат Problem Details
+    // Return Problem Details
     if (not_found) {
         return response::error(problem_details::not_found("Resource not found"));
     }
@@ -235,7 +235,7 @@ handler_fn([](const request& req, request_context& ctx) {
 
 ## HTTP Methods
 
-Поддерживаемые методы:
+Supported methods:
 
 ```cpp
 method::get      // GET
@@ -247,7 +247,7 @@ method::patch    // PATCH
 method::options  // OPTIONS
 ```
 
-### Множественные методы для одного пути
+### Multiple methods for one path
 
 ```cpp
 route_entry routes[] = {
@@ -263,17 +263,17 @@ route_entry routes[] = {
 
 ### 404 Not Found
 
-Автоматически возвращается, если путь не найден:
+Returned automatically when the path is not found:
 
 ```cpp
-// Нет роута для /missing
+// No route for /missing
 request req;
 req.http_method = method::get;
 req.uri = "/missing";
 
 auto resp = dispatch_or_problem(r, req, ctx);
 // resp.status == 404
-// resp содержит RFC 7807 Problem Details
+// resp contains RFC 7807 Problem Details
 ```
 
 **Response:**
@@ -288,7 +288,7 @@ auto resp = dispatch_or_problem(r, req, ctx);
 
 ### 405 Method Not Allowed
 
-Автоматически возвращается, если метод не поддерживается для пути:
+Returned automatically when the method is not supported for the path:
 
 ```cpp
 route_entry routes[] = {
@@ -298,7 +298,7 @@ route_entry routes[] = {
 router r(routes);
 
 request req;
-req.http_method = method::post;  // POST не поддерживается
+req.http_method = method::post;  // POST is not supported
 req.uri = "/users/1";
 
 auto resp = dispatch_or_problem(r, req, ctx);
@@ -321,7 +321,7 @@ Content-Type: application/problem+json
 
 ### Allow header
 
-При 405 автоматически генерируется `Allow` header со всеми допустимыми методами:
+On a 405, an `Allow` header is generated automatically with all allowed methods:
 
 ```cpp
 route_entry routes[] = {
@@ -346,10 +346,10 @@ using middleware_fn = inplace_function<
 >;
 ```
 
-Middleware принимает:
-- `const request&` — запрос
-- `request_context&` — контекст
-- `next_fn` — функция для вызова следующего middleware/handler
+Middleware takes:
+- `const request&` — the request
+- `request_context&` — the context
+- `next_fn` — a function that calls the next middleware/handler
 
 ### Logging middleware
 
@@ -357,7 +357,7 @@ Middleware принимает:
 middleware_fn logging_middleware([](const request& req, request_context& ctx, next_fn next) {
     std::cout << "[REQUEST] " << method_to_string(req.http_method) << " " << req.uri << "\n";
 
-    auto result = next();  // вызов следующего middleware/handler
+    auto result = next();  // call the next middleware/handler
 
     if (result) {
         std::cout << "[RESPONSE] " << result->status << "\n";
@@ -421,11 +421,11 @@ route_entry routes[] = {
     {method::get,
      path_pattern::from_literal<"/protected">(),
      handler,
-     chain},  // применить middleware chain
+     chain},  // apply the middleware chain
 };
 ```
 
-**Порядок выполнения:**
+**Execution order:**
 ```
 Request → logging → cors → auth → handler → auth → cors → logging → Response
           ↓         ↓      ↓        ↓          ↑      ↑      ↑
@@ -434,7 +434,7 @@ Request → logging → cors → auth → handler → auth → cors → logging 
 
 ### Per-route middleware
 
-Разные роуты могут иметь разные middleware:
+Different routes can have different middleware:
 
 ```cpp
 auto public_middleware = make_middleware_chain(std::array{logging_middleware()});
@@ -456,19 +456,19 @@ route_entry routes[] = {
 
 ## Query String Handling
 
-Query strings автоматически отрезаются при matching:
+Query strings are stripped automatically during matching:
 
 ```cpp
 // GET /users/42?page=1&limit=10
-// Будет match с /users/{id}, params = {id: "42"}
+// Matches /users/{id}, params = {id: "42"}
 
 {method::get,
  path_pattern::from_literal<"/users/{id}">(),
  handler_fn([](const request& req, request_context& ctx) {
      auto id = ctx.params.get("id");  // "42"
 
-     // Query string доступен через req.uri
-     // Парсинг query parameters — ручной (пока)
+     // The query string is available via req.uri
+     // Query parameter parsing is manual (for now)
      auto query_start = req.uri.find('?');
      if (query_start != std::string_view::npos) {
          auto query = req.uri.substr(query_start + 1);
@@ -485,8 +485,8 @@ Query strings автоматически отрезаются при matching:
 
 ```cpp
 struct request_context {
-    monotonic_arena& arena;     // arena для аллокаций
-    path_params params;         // извлечённые path parameters
+    monotonic_arena& arena;     // arena for allocations
+    path_params params;         // extracted path parameters
 };
 ```
 
@@ -494,15 +494,15 @@ struct request_context {
 
 ```cpp
 handler_fn([](const request& req, request_context& ctx) {
-    // Аллокация из арены
+    // Allocate from the arena
     auto* buffer = ctx.arena.allocate(1024);
 
-    // Строки из арены
+    // Strings from the arena
     arena_string<> str(ctx.arena);
     str.append("Hello");
 
     return response::ok("OK");
-    // Arena автоматически reset после завершения запроса
+    // The arena is reset automatically after the request completes
 })
 ```
 
@@ -512,7 +512,7 @@ handler_fn([](const request& req, request_context& ctx) {
 
 ### `dispatch()`
 
-Простой dispatch без автоматической обработки ошибок:
+Plain dispatch without automatic error handling:
 
 ```cpp
 router r(routes);
@@ -533,27 +533,27 @@ if (res) {
 
 ### `dispatch_with_info()`
 
-Dispatch с дополнительной информацией:
+Dispatch with extra information:
 
 ```cpp
 dispatch_result res = r.dispatch_with_info(req, ctx);
 
 if (res.path_matched) {
-    // Путь найден, но метод неверный (405)
+    // Path found, but the method is wrong (405)
     std::string allow = allow_header_from_mask(res.allowed_methods_mask);
     // allow == "GET, POST"
 } else {
-    // Путь не найден (404)
+    // Path not found (404)
 }
 ```
 
 ### `dispatch_or_problem()`
 
-**Рекомендуемый способ** — автоматически мапит ошибки в RFC 7807:
+**The recommended approach** — maps errors to RFC 7807 automatically:
 
 ```cpp
 response resp = dispatch_or_problem(r, req, ctx);
-// Всегда возвращает response (200, 404, 405, 500)
+// Always returns a response (200, 404, 405, 500)
 send_response(resp);
 ```
 
@@ -563,13 +563,13 @@ send_response(resp);
 
 ### Using `router_handler`
 
-Простая интеграция с существующим HTTP сервером:
+Simple integration with an existing HTTP server:
 
 ```cpp
 router r(routes);
 http::router_handler handler(r);
 
-// В вашем HTTP server loop:
+// In your HTTP server loop:
 monotonic_arena arena;
 const request& req = parse_request(...);
 
@@ -583,68 +583,68 @@ send_response(resp);
 
 ### Compile-time guarantees
 
-- ✅ Path patterns валидируются на этапе компиляции
-- ✅ Никакого runtime парсинга путей
-- ✅ Все структуры данных constexpr-safe
+- ✅ Path patterns are validated at compile time
+- ✅ No runtime path parsing
+- ✅ All data structures are constexpr-safe
 
 ### Zero-allocation hot path
 
 ```cpp
 // Dispatch — zero heap allocations
 route_entry routes[] = { /* ... */ };
-router r(routes);  // routes хранятся как std::span
+router r(routes);  // routes are stored as a std::span
 
 monotonic_arena arena;
-request_context ctx{arena};  // path_params на стеке
+request_context ctx{arena};  // path_params on the stack
 
 auto resp = r.dispatch(req, ctx);  // no heap alloc
 ```
 
-**Что НЕ аллоцируется:**
-- Route table (передаётся как span)
-- Path parameters (fixed-size array на стеке)
-- Middleware chain (передаётся как pointer + size)
+**What is NOT allocated:**
+- Route table (passed as a span)
+- Path parameters (fixed-size array on the stack)
+- Middleware chain (passed as pointer + size)
 
-**Что аллоцируется:**
-- Response body (если динамический)
-- Headers (если добавляются в handler)
+**What is allocated:**
+- Response body (if dynamic)
+- Headers (if added in the handler)
 
 ### Routing complexity
 
-- **Time:** O(N) где N — количество routes
+- **Time:** O(N) where N is the number of routes
 - **Space:** O(1) stack space
-- **Optimization:** Linear scan с early exit на first match
+- **Optimization:** Linear scan with early exit on the first match
 
-Для большого количества роутов (> 100) рекомендуется group by prefix или использовать будущую генерацию compile-time routing table из OpenAPI.
+For a large number of routes (> 100), group by prefix or use the upcoming compile-time routing table generated from OpenAPI.
 
 ---
 
 ## Best Practices
 
-### 1. Используйте `dispatch_or_problem()`
+### 1. Use `dispatch_or_problem()`
 
 ```cpp
 // ✅ Good
 response resp = dispatch_or_problem(r, req, ctx);
 
-// ❌ Avoid (требует ручной обработки ошибок)
+// ❌ Avoid (requires manual error handling)
 result<response> res = r.dispatch(req, ctx);
 if (!res) { /* handle 404/405 manually */ }
 ```
 
-### 2. Статические роуты перед параметрами
+### 2. Static routes before parameters
 
 ```cpp
-// ✅ Good (автоматическая приоритизация)
+// ✅ Good (automatic prioritization)
 route_entry routes[] = {
     {method::get, path_pattern::from_literal<"/users/me">(), ...},
     {method::get, path_pattern::from_literal<"/users/{id}">(), ...},
 };
 
-// Порядок не важен — статические всегда приоритетнее
+// Order doesn't matter — static segments always take priority
 ```
 
-### 3. Валидируйте параметры
+### 3. Validate parameters
 
 ```cpp
 handler_fn([](const request& req, request_context& ctx) {
@@ -668,17 +668,17 @@ handler_fn([](const request& req, request_context& ctx) {
 })
 ```
 
-### 4. Middleware порядок имеет значение
+### 4. Middleware order matters
 
 ```cpp
-// ✅ Good (error recovery снаружи)
+// ✅ Good (error recovery on the outside)
 std::array<middleware_fn, 3> middleware = {
     error_recovery_middleware(),  // 1. Catch exceptions
     logging_middleware(),          // 2. Log request/response
     auth_middleware(),             // 3. Validate auth
 };
 
-// ❌ Bad (auth exceptions не будут caught)
+// ❌ Bad (auth exceptions won't be caught)
 std::array<middleware_fn, 3> middleware = {
     auth_middleware(),
     logging_middleware(),
@@ -686,10 +686,10 @@ std::array<middleware_fn, 3> middleware = {
 };
 ```
 
-### 5. Группируйте роуты по префиксам
+### 5. Group routes by prefix
 
 ```cpp
-// Для лучшей читаемости
+// For better readability
 route_entry routes[] = {
     // User routes
     {method::get, path_pattern::from_literal<"/api/users">(), ...},
@@ -706,11 +706,11 @@ route_entry routes[] = {
 
 ## Examples
 
-Полные рабочие примеры:
+Full working examples:
 
-- **`examples/router_rest_api.cpp`** — REST API с CRUD операциями
-- **`examples/middleware_examples.cpp`** — Примеры всех типов middleware
-- **`examples/hello_world_server.cpp`** — Простейший HTTP сервер с роутером
+- **`examples/router_rest_api.cpp`** — REST API with CRUD operations
+- **`examples/middleware_examples.cpp`** — Examples of every middleware type
+- **`examples/hello_world_server.cpp`** — Minimal HTTP server with a router
 
 ---
 
@@ -718,12 +718,12 @@ route_entry routes[] = {
 
 ### Planned Features
 
-- [ ] **OpenAPI codegen** — автоматическая генерация роутов из OpenAPI спецификации
-- [ ] **Query parameter parsing** — встроенный парсинг query strings
-- [ ] **Compile-time routing table** — O(1) lookup для больших наборов роутов
-- [ ] **Regex path parameters** — `/users/{id:\d+}` с валидацией на compile-time
-- [ ] **Path prefixes** — группировка роутов по префиксам
-- [ ] **Route metadata** — tags, descriptions для документации
+- [ ] **OpenAPI codegen** — generate routes automatically from an OpenAPI spec
+- [ ] **Query parameter parsing** — built-in query string parsing
+- [ ] **Compile-time routing table** — O(1) lookup for large route sets
+- [ ] **Regex path parameters** — `/users/{id:\d+}` with compile-time validation
+- [ ] **Path prefixes** — grouping routes by prefix
+- [ ] **Route metadata** — tags and descriptions for documentation
 
 ### Future Middleware
 
@@ -760,10 +760,10 @@ auto pattern = path_pattern::from_literal<"/users">();
 ### Path parameter not found
 
 ```cpp
-// Проверяйте наличие параметра
+// Check whether the parameter is present
 auto id = ctx.params.get("id");
 if (!id) {
-    // Параметр отсутствует
+    // Parameter is missing
     return response::error(problem_details::bad_request("Missing id parameter"));
 }
 ```
@@ -771,12 +771,12 @@ if (!id) {
 ### Middleware chain not executing
 
 ```cpp
-// Убедитесь, что chain передан в route_entry
+// Make sure the chain is passed into route_entry
 route_entry routes[] = {
     {method::get,
      path_pattern::from_literal<"/path">(),
      handler,
-     middleware_chain},  // ← не забудьте!
+     middleware_chain},  // ← don't forget this!
 };
 ```
 
@@ -784,6 +784,6 @@ route_entry routes[] = {
 
 ## See Also
 
-- [OPENAPI.md](OPENAPI.md) — OpenAPI loader и AST
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — Общая архитектура фреймворка
-- [TESTING.md](TESTING.md) — Тестирование роутеров
+- [OPENAPI.md](OPENAPI.md) — OpenAPI loader and AST
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — Overall framework architecture
+- [TESTING.md](TESTING.md) — Testing routers
