@@ -123,6 +123,26 @@ public:
         return *this;
     }
 
+    /// Enable or disable the built-in `/healthz` and `/readyz` endpoints (on by default).
+    server& health_endpoints(bool enable) {
+        health_endpoints_enabled_ = enable;
+        return *this;
+    }
+
+    /// Override the liveness/readiness paths (defaults `/healthz`, `/readyz`).
+    server& health_paths(std::string liveness, std::string readiness) {
+        health_path_ = std::move(liveness);
+        ready_path_ = std::move(readiness);
+        return *this;
+    }
+
+    /// Register a readiness probe. `/readyz` returns 503 unless it returns true (and the
+    /// server is not shutting down). Typical use: check the DB pool / dependencies.
+    server& readiness_check(std::function<bool()> probe) {
+        readiness_probe_ = std::move(probe);
+        return *this;
+    }
+
     /// Run the server (blocking)
     /// Returns 0 on success, non-zero on error
     int run();
@@ -131,6 +151,9 @@ private:
     enum class flush_result : uint8_t { complete, blocked, error };
 
     void dispatch_request(const request& req, request_context& ctx, response& out) const {
+        if (try_serve_health(req, out)) {
+            return;
+        }
         if (router_) {
             dispatch_or_problem(*router_, req, ctx, out);
             return;
@@ -140,6 +163,37 @@ private:
         if (!dispatch_result) {
             map_route_error(dispatch_result.error(), out);
         }
+    }
+
+    // Serve the built-in liveness/readiness endpoints. Returns true if it handled the
+    // request (so the user router is bypassed).
+    [[nodiscard]] bool try_serve_health(const request& req, response& out) const {
+        if (!health_endpoints_enabled_ || req.http_method != method::get) {
+            return false;
+        }
+        std::string_view path = req.uri;
+        if (auto pos = path.find_first_of("?#"); pos != std::string_view::npos) {
+            path = path.substr(0, pos);
+        }
+        const bool is_live = path == health_path_;
+        const bool is_ready = path == ready_path_;
+        if (!is_live && !is_ready) {
+            return false;
+        }
+        bool ok = true;
+        std::string_view state = "alive";
+        if (is_ready) {
+            ok = !shutdown_manager::instance().is_shutdown_requested() &&
+                 (!readiness_probe_ || readiness_probe_());
+            state = ok ? "ready" : "not ready";
+        }
+        out.status = ok ? 200 : 503;
+        out.reason.assign(canonical_reason_phrase(out.status));
+        out.body = "{\"status\":\"";
+        out.body += state;
+        out.body += "\"}";
+        out.set_header("Content-Type", "application/json");
+        return true;
     }
 
     struct connection_state : std::enable_shared_from_this<connection_state> {
@@ -225,6 +279,14 @@ private:
     std::function<void()> on_stop_callback_;
     std::function<void(const request&, const response&)> on_request_callback_;
     route_policy_executor* policy_executor_ = nullptr;
+
+    // Built-in health/readiness endpoints (served before the user router). `/healthz` is
+    // liveness (always 200 while the process serves requests); `/readyz` is readiness —
+    // 503 while shutting down or when a registered probe reports not-ready, else 200.
+    bool health_endpoints_enabled_ = true;
+    std::string health_path_ = "/healthz";
+    std::string ready_path_ = "/readyz";
+    std::function<bool()> readiness_probe_;
 };
 
 } // namespace http

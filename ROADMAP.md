@@ -77,8 +77,10 @@ debuggable and safe to run.
   access logs, sampling.
 - **[P0] Metrics** — Prometheus `/metrics` (or OTLP push): request rate/errors/duration
   histograms per route, connection and pool gauges, reactor and allocator stats.
-- **[P0] Health & readiness** — `/healthz` (liveness) and `/readyz` (readiness that checks
-  the DB pool and dependencies).
+- **[P0] Health & readiness** — **done.** Built-in `/healthz` (liveness) and `/readyz`
+  (readiness) served before the user router, on by default. `/readyz` returns 503 while the
+  server is shutting down or a registered `readiness_check(probe)` reports not-ready (wire it
+  to the DB pool / dependencies); paths are configurable and the endpoints can be disabled.
 - **[P0] Timeouts & deadlines** — connect/read/write/handler/DB timeouts; a request deadline
   that propagates into the database; header/body/URI size limits; max connections;
   slowloris protection.
