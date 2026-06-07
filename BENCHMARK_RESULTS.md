@@ -3,6 +3,63 @@
 > Last updated: 2026-03-16 15:11:27
 > Commit: 1164aeb
 
+---
+
+# Honest Cross-Framework + SQL Stress Run (2026-06-07)
+
+> Manually curated. Ryzen 5 5600 (6c/12t, Zen 3), performance governor, server pinned
+> `taskset -c 0-3` (4 workers), wrk pinned to disjoint cores `4,5,10,11`. **All competitors
+> rebuilt with matching optimization** (actix/axum/ntex: `lto="fat"` + `target-cpu=native`;
+> drogon: `-O3 -march=native`+IPO; KATANA: `-O3 -march=native`+LTO Release). Full detail:
+> `comparisons/http_frameworks/RESULTS_2026-06-07.md`.
+
+## HTTP throughput (req/sec) — bold = scenario leader
+
+| Framework | Hello d1 | Hello d10 | Hello d20 | Compute d1 | Compute d10 | Compute d40 |
+|---|---|---|---|---|---|---|
+| katana-fastpath | 417K | 3.15M | **4.81M** | 415K | **2.81M** | **4.05M** |
+| katana-router-only | 419K | 3.15M | 4.78M | **416K** | 2.68M | 3.75M |
+| actix-web | **420K** | **3.20M** | 4.75M | 413K | 1.85M | 2.36M |
+| axum | 402K | 2.77M | 3.48M | 406K | 1.44M | 1.86M |
+| drogon | 413K | 2.57M | 3.14M | 295K | 711K | 786K |
+| ntex | 416K | 2.38M | 2.90M | 404K | 512K | 518K |
+
+**Honest read:** on the *compute* path (real JSON parse+validate+serialize) KATANA leads
+everywhere (≈1.5× actix at d10, ≈1.7× at d40). On bare *hello*, KATANA ≈ actix at the top —
+**actix actually wins hello-d1 and hello-d10 (3.20M vs 3.15M)**; KATANA edges hello-d20 and
+has tighter pipelined p50 (702 vs 1138 µs at d20). axum/drogon/ntex trail everywhere.
+`katana-router-only` ≈ `katana-fastpath`, so the result is not a hand-tuned-router artifact.
+Keep-alive d1 (~400–420K all round) is loopback-RTT-bound. wrk ran same-host (no separate
+load box), mitigated by core pinning.
+
+## SQL stress (complex e-commerce app, `examples/codegen/shop_api`)
+
+4-table schema (customers/products/orders/order_items), seeded 10K/2K/100K/**500K** rows.
+Queries via SQL-first codegen: joins, GROUP BY aggregates, `RANK() OVER`, bulk `UNNEST`.
+Concurrent harness, weighted mix of heavy analytics + light lookups + writes:
+
+| Threads | Total ops/s | Errors | order_detail p50 | customer_revenue p50 (heavy) | top_products p50 (heavy) |
+|---|---|---|---|---|---|
+| 8 (15s) | 288 | **0** | 159 µs | 95 ms | 132 ms |
+| 16 (12s) | 342 | **0** | 179 µs | 142 ms | 210 ms |
+
+**Verdict:** SQL runtime is perfectly stable under sustained mixed concurrent load — **0
+errors**, no pool exhaustion/leaks/crashes. Light-query median stays sub-200 µs even while
+heavy analytical joins (single-query 77–93 ms over 500K rows) saturate threads. Tail growth
+at 16-thread oversubscription is postgres-side query contention, not framework overhead.
+
+## Accepted micro-optimizations this session (verified, tests green)
+
+| Change | Result |
+|---|---|
+| SIMD CRLF hot path (128B/iter, `testz`-gated, force-inlined) | **62.2M → ~103M ops/s (+67%)** |
+| Arena: gate hot-path metrics behind inline flag | **373M → 715M alloc/s (+92%)** |
+| HTTP parser: drop redundant validation + dead `crlf_pairs_` | **2.12M → 2.30M parse/s (+8.6%)** |
+| Router: remove double `path_params` copy | 3.79M → 3.85M dispatch/s |
+| `parse_int64` overflow guard (R7) + signed integer fields (R11) | correctness fixes |
+
+---
+
 ## Summary
 
 - Stability verdict: stable enough for trend tracking
