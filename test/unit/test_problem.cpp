@@ -231,6 +231,23 @@ TEST(ProblemDetailsTest, UnprocessableEntityWithDetail) {
     EXPECT_EQ(*p.detail, "Validation failed");
 }
 
+TEST(ProblemDetailsTest, TooManyRequests) {
+    auto p = problem_details::too_many_requests();
+
+    EXPECT_EQ(p.status, 429);
+    EXPECT_EQ(p.title, "Too Many Requests");
+    EXPECT_FALSE(p.detail.has_value());
+}
+
+TEST(ProblemDetailsTest, TooManyRequestsWithDetail) {
+    auto p = problem_details::too_many_requests("Rate limit exceeded");
+
+    EXPECT_EQ(p.status, 429);
+    EXPECT_EQ(p.title, "Too Many Requests");
+    ASSERT_TRUE(p.detail.has_value());
+    EXPECT_EQ(*p.detail, "Rate limit exceeded");
+}
+
 TEST(ProblemDetailsTest, InternalServerError) {
     auto p = problem_details::internal_server_error();
 

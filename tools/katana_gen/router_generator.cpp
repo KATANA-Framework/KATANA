@@ -78,6 +78,113 @@ static void write_optional_type(std::ostringstream& out, std::string_view base, 
     out << "std::optional<" << base << ">";
 }
 
+static std::string string_view_literal(std::string_view value) {
+    if (value.empty()) {
+        return "std::string_view{}";
+    }
+    return "\"" + escape_cpp_string(value) + "\"";
+}
+
+static std::string route_cache_policy_kind_literal(const katana::openapi::cache_policy& policy) {
+    using katana::openapi::cache_policy_kind;
+    switch (policy.kind) {
+    case cache_policy_kind::none:
+        return "katana::http::route_cache_policy_kind::none";
+    case cache_policy_kind::disabled:
+        return "katana::http::route_cache_policy_kind::disabled";
+    case cache_policy_kind::enabled:
+        return "katana::http::route_cache_policy_kind::enabled";
+    case cache_policy_kind::ttl:
+        return "katana::http::route_cache_policy_kind::ttl";
+    }
+    return "katana::http::route_cache_policy_kind::none";
+}
+
+static std::string route_alloc_policy_kind_literal(const katana::openapi::alloc_policy& policy) {
+    using katana::openapi::alloc_policy_kind;
+    switch (policy.kind) {
+    case alloc_policy_kind::none:
+        return "katana::http::route_alloc_policy_kind::none";
+    case alloc_policy_kind::named_mode:
+        return "katana::http::route_alloc_policy_kind::named_mode";
+    case alloc_policy_kind::bytes:
+        return "katana::http::route_alloc_policy_kind::bytes";
+    }
+    return "katana::http::route_alloc_policy_kind::none";
+}
+
+static std::string
+route_rate_limit_unit_literal(const katana::openapi::rate_limit_policy& policy) {
+    using katana::openapi::rate_limit_unit;
+    switch (policy.unit) {
+    case rate_limit_unit::unknown:
+        return "katana::http::route_rate_limit_unit::unknown";
+    case rate_limit_unit::second:
+        return "katana::http::route_rate_limit_unit::second";
+    case rate_limit_unit::minute:
+        return "katana::http::route_rate_limit_unit::minute";
+    case rate_limit_unit::hour:
+        return "katana::http::route_rate_limit_unit::hour";
+    }
+    return "katana::http::route_rate_limit_unit::unknown";
+}
+
+static std::string
+route_idempotency_policy_kind_literal(const katana::openapi::idempotency_policy& policy) {
+    using katana::openapi::idempotency_policy_kind;
+    switch (policy.kind) {
+    case idempotency_policy_kind::none:
+        return "katana::http::route_idempotency_policy_kind::none";
+    case idempotency_policy_kind::disabled:
+        return "katana::http::route_idempotency_policy_kind::disabled";
+    case idempotency_policy_kind::enabled:
+        return "katana::http::route_idempotency_policy_kind::enabled";
+    case idempotency_policy_kind::mode:
+        return "katana::http::route_idempotency_policy_kind::mode";
+    }
+    return "katana::http::route_idempotency_policy_kind::none";
+}
+
+static std::string optional_size_literal(const std::optional<size_t>& value) {
+    if (!value.has_value()) {
+        return "std::nullopt";
+    }
+    return "std::optional<size_t>{" + std::to_string(*value) + "}";
+}
+
+static std::string route_policy_scope_literal(const katana::openapi::path_item& path,
+                                              const katana::openapi::operation& op) {
+    if (!op.operation_id.empty()) {
+        return string_view_literal(op.operation_id);
+    }
+    return string_view_literal(std::string(method_to_string(op.method)) + " " +
+                               std::string(path.path));
+}
+
+static std::string generate_route_policy_initializer(const katana::openapi::path_item& path,
+                                                     const katana::openapi::operation& op) {
+    std::ostringstream out;
+    out << "katana::http::route_policy_view{";
+    out << "katana::http::route_cache_policy_view{"
+        << route_cache_policy_kind_literal(op.cache) << ", "
+        << string_view_literal(op.cache.display_value()) << "}, ";
+    out << "katana::http::route_alloc_policy_view{"
+        << route_alloc_policy_kind_literal(op.alloc) << ", "
+        << string_view_literal(op.alloc.display_value()) << ", "
+        << optional_size_literal(op.alloc.bytes) << "}, ";
+    out << "katana::http::route_rate_limit_policy_view{"
+        << (op.rate_limit.present ? "true" : "false") << ", "
+        << string_view_literal(op.rate_limit.display_value()) << ", "
+        << optional_size_literal(op.rate_limit.count) << ", "
+        << route_rate_limit_unit_literal(op.rate_limit) << "}, ";
+    out << "katana::http::route_idempotency_policy_view{"
+        << route_idempotency_policy_kind_literal(op.idempotency) << ", "
+        << string_view_literal(op.idempotency.display_value()) << "}, ";
+    out << route_policy_scope_literal(path, op);
+    out << "}";
+    return out.str();
+}
+
 std::string generate_router_table(const document& doc) {
     std::ostringstream out;
     out << "#pragma once\n\n";
@@ -356,9 +463,23 @@ std::string generate_router_bindings(const document& doc) {
     make_router_stream << "class generated_router {\n";
     make_router_stream << "public:\n";
     make_router_stream << "    explicit generated_router(api_handler& handler)\n";
-    make_router_stream << "        : route_entries_{\n";
+    make_router_stream << "        : route_policies_{\n";
 
     size_t route_idx = 0;
+    for (const auto& path : doc.paths) {
+        for (const auto& op : path.operations) {
+            if (op.operation_id.empty()) {
+                continue;
+            }
+            make_router_stream << "        " << generate_route_policy_initializer(path, op)
+                               << ",\n";
+            ++route_idx;
+        }
+    }
+
+    make_router_stream << "        }, route_entries_{\n";
+
+    route_idx = 0;
     for (const auto& path : doc.paths) {
         for (const auto& op : path.operations) {
             if (op.operation_id.empty()) {
@@ -1018,6 +1139,9 @@ std::string generate_router_bindings(const document& doc) {
             make_router_stream << "                       return dispatch_" << method_name
                                << "(req, ctx, *handler_ptr, out);\n";
             make_router_stream << "                   })\n";
+            make_router_stream << "                   , katana::http::middleware_chain{}\n";
+            make_router_stream << "                   , &route_policies_[" << route_idx
+                               << "]\n";
             make_router_stream << "        },\n";
             ++route_idx;
         }
@@ -1034,11 +1158,19 @@ std::string generate_router_bindings(const document& doc) {
                           "return *router_; }\n";
     make_router_stream << "    [[nodiscard]] katana::http::router& router() noexcept { return "
                           "*router_; }\n";
+    make_router_stream
+        << "    [[nodiscard]] std::span<const katana::http::route_policy_view> route_policies() "
+           "const noexcept {\n";
+    make_router_stream << "        return std::span<const katana::http::route_policy_view>("
+                          "route_policies_.data(), route_policies_.size());\n";
+    make_router_stream << "    }\n";
     make_router_stream << "    [[nodiscard]] operator const katana::http::router&() const "
                           "noexcept { return *router_; }\n";
     make_router_stream << "    [[nodiscard]] operator katana::http::router&() noexcept { return "
                           "*router_; }\n\n";
     make_router_stream << "private:\n";
+    make_router_stream
+        << "    std::array<katana::http::route_policy_view, route_count> route_policies_;\n";
     make_router_stream
         << "    std::array<katana::http::route_entry, route_count> route_entries_;\n";
     make_router_stream << "    std::optional<katana::http::router> router_;\n";
@@ -1056,13 +1188,18 @@ std::string generate_router_bindings(const document& doc) {
     out << "// Optimized router with hash-based O(1) dispatch for static routes\n";
     out << "class fast_router {\n";
     out << "public:\n";
-    out << "    explicit fast_router(api_handler& handler, const katana::http::router& fallback)\n";
-    out << "        : handler_(handler), fallback_router_(fallback) {}\n\n";
+    out << "    explicit fast_router(api_handler& handler,\n";
+    out << "                         const katana::http::router& fallback,\n";
+    out << "                         std::span<const katana::http::route_policy_view> "
+           "route_policies)\n";
+    out << "        : handler_(handler), fallback_router_(fallback), "
+           "route_policies_(route_policies) {}\n\n";
 
     out << "    katana::result<void> dispatch_to(\n";
     out << "        const katana::http::request& req,\n";
     out << "        katana::http::request_context& ctx,\n";
     out << "        katana::http::response& out) const {\n";
+    out << "        ctx.route_policy = nullptr;\n";
     out << "        // Strip query string for matching\n";
     out << "        std::string_view path = req.uri;\n";
     out << "        auto query_pos = path.find('?');\n";
@@ -1093,8 +1230,19 @@ std::string generate_router_bindings(const document& doc) {
             for (const auto* r : routes_by_path[route.path]) {
                 out << "                    if (req.http_method == katana::http::method::"
                     << r->method << ")\n";
-                out << "                        { return dispatch_" << r->method_name
-                    << "(req, ctx, handler_, out); }\n";
+                out << "                        { ctx.params.reset(); ctx.route_policy = "
+                    << "&route_policies_[" << r->route_idx << "]; "
+                    << "auto policy_result = katana::http::apply_route_policy_executor(req, ctx, "
+                       "out); "
+                    << "if (!policy_result) return std::unexpected(policy_result.error()); "
+                    << "if (!*policy_result) return {}; "
+                    << "auto dispatch_result = dispatch_" << r->method_name
+                    << "(req, ctx, handler_, out); "
+                    << "if (!dispatch_result) return dispatch_result; "
+                    << "auto after_result = katana::http::apply_route_policy_after_dispatch(req, "
+                       "ctx, out); "
+                    << "if (!after_result) return after_result; "
+                    << "return {}; }\n";
             }
             out << "                }\n";
             out << "                break;\n";
@@ -1126,14 +1274,15 @@ std::string generate_router_bindings(const document& doc) {
     out << "private:\n";
     out << "    api_handler& handler_;\n";
     out << "    const katana::http::router& fallback_router_;\n";
+    out << "    std::span<const katana::http::route_policy_view> route_policies_;\n";
     out << "};\n\n";
 
     out << "// Create optimized router (recommended for production)\n";
     out << "class generated_fast_router {\n";
     out << "public:\n";
     out << "    explicit generated_fast_router(api_handler& handler)\n";
-    out << "        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) "
-           "{}\n\n";
+    out << "        : router_bundle_(handler), fast_router_(handler, router_bundle_.router(), "
+           "router_bundle_.route_policies()) {}\n\n";
     out << "    generated_fast_router(const generated_fast_router&) = delete;\n";
     out << "    generated_fast_router& operator=(const generated_fast_router&) = delete;\n";
     out << "    generated_fast_router(generated_fast_router&&) = delete;\n";
@@ -1291,14 +1440,17 @@ std::string generate_handler_interfaces(const document& doc) {
                 out << "    // " << op.summary << "\n";
             }
             // Emit x-katana-* extensions as comments
-            if (!op.x_katana_cache.empty()) {
-                out << "    // @cache: " << op.x_katana_cache << "\n";
+            if (op.cache.present()) {
+                out << "    // @cache: " << op.cache.display_value() << "\n";
             }
-            if (!op.x_katana_alloc.empty()) {
-                out << "    // @alloc: " << op.x_katana_alloc << "\n";
+            if (op.alloc.present()) {
+                out << "    // @alloc: " << op.alloc.display_value() << "\n";
             }
-            if (!op.x_katana_rate_limit.empty()) {
-                out << "    // @rate-limit: " << op.x_katana_rate_limit << "\n";
+            if (op.rate_limit.present) {
+                out << "    // @rate-limit: " << op.rate_limit.display_value() << "\n";
+            }
+            if (op.idempotency.present()) {
+                out << "    // @idempotency: " << op.idempotency.display_value() << "\n";
             }
 
             // Precompute body schema types

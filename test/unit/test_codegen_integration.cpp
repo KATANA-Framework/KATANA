@@ -557,6 +557,7 @@ paths:
       x-katana-cache: "5m"
       x-katana-alloc: pool
       x-katana-rate-limit: "100/s"
+      x-katana-idempotency: required
       responses:
         '200':
           description: ok
@@ -566,9 +567,17 @@ paths:
     ASSERT_TRUE(run_codegen("extensions.yaml", "all"));
 
     auto handlers = read_generated_file("generated_handlers.hpp");
+    auto bindings = read_generated_file("generated_router_bindings.hpp");
     EXPECT_NE(handlers.find("// @cache: 5m"), std::string::npos);
     EXPECT_NE(handlers.find("// @alloc: pool"), std::string::npos);
     EXPECT_NE(handlers.find("// @rate-limit: 100/s"), std::string::npos);
+    EXPECT_NE(handlers.find("// @idempotency: required"), std::string::npos);
+    EXPECT_NE(bindings.find("route_policy_view"), std::string::npos);
+    EXPECT_NE(bindings.find("route_policies_"), std::string::npos);
+    EXPECT_NE(bindings.find("ctx.route_policy = &route_policies_[0]"), std::string::npos);
+    EXPECT_NE(bindings.find("apply_route_policy_executor(req, ctx, out)"), std::string::npos);
+    EXPECT_NE(bindings.find("route_idempotency_policy_view"), std::string::npos);
+    EXPECT_NE(bindings.find("\"listJobs\""), std::string::npos);
 }
 
 TEST_F(CodegenIntegrationTest, InlineNamingFlagProducesFlatNames) {

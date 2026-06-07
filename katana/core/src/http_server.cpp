@@ -623,6 +623,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 
         const auto& req = state.http_parser.get_request();
         request_context ctx{state.arena};
+        ctx.policy_executor = policy_executor_;
         ctx.task_scheduler_user = &r;
         ctx.task_scheduler = &schedule_request_context_task;
         ctx.reactor_user = &r;

@@ -122,6 +122,7 @@ add_library(katana_core STATIC
     katana/core/src/arena.cpp
     katana/core/src/problem.cpp
     katana/core/src/openapi_loader.cpp
+    katana/core/src/redis_client.cpp
     katana/core/src/http.cpp
     katana/core/src/http_field.cpp
     katana/core/src/http_server.cpp

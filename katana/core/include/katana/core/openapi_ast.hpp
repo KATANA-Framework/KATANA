@@ -129,13 +129,115 @@ struct request_body {
     }
 };
 
+enum class cache_policy_kind : uint8_t { none, disabled, enabled, ttl };
+
+struct cache_policy {
+    explicit cache_policy(monotonic_arena* arena = nullptr)
+        : raw_value(arena_allocator<char>(arena)), ttl(arena_allocator<char>(arena)) {}
+
+    cache_policy_kind kind{cache_policy_kind::none};
+    arena_string<> raw_value;
+    arena_string<> ttl;
+
+    [[nodiscard]] bool present() const noexcept { return kind != cache_policy_kind::none; }
+    [[nodiscard]] bool enabled() const noexcept {
+        return kind == cache_policy_kind::enabled || kind == cache_policy_kind::ttl;
+    }
+    [[nodiscard]] std::string_view display_value() const noexcept {
+        if (!raw_value.empty()) {
+            return {raw_value.data(), raw_value.size()};
+        }
+        switch (kind) {
+        case cache_policy_kind::disabled:
+            return "false";
+        case cache_policy_kind::enabled:
+            return "true";
+        case cache_policy_kind::ttl:
+            return {ttl.data(), ttl.size()};
+        case cache_policy_kind::none:
+            break;
+        }
+        return {};
+    }
+};
+
+enum class alloc_policy_kind : uint8_t { none, named_mode, bytes };
+
+struct alloc_policy {
+    explicit alloc_policy(monotonic_arena* arena = nullptr)
+        : raw_value(arena_allocator<char>(arena)), mode(arena_allocator<char>(arena)) {}
+
+    alloc_policy_kind kind{alloc_policy_kind::none};
+    arena_string<> raw_value;
+    arena_string<> mode;
+    std::optional<size_t> bytes;
+
+    [[nodiscard]] bool present() const noexcept { return kind != alloc_policy_kind::none; }
+    [[nodiscard]] std::string_view display_value() const noexcept {
+        if (!raw_value.empty()) {
+            return {raw_value.data(), raw_value.size()};
+        }
+        return {mode.data(), mode.size()};
+    }
+};
+
+enum class rate_limit_unit : uint8_t { unknown, second, minute, hour };
+
+struct rate_limit_policy {
+    explicit rate_limit_policy(monotonic_arena* arena = nullptr)
+        : raw_value(arena_allocator<char>(arena)) {}
+
+    bool present = false;
+    arena_string<> raw_value;
+    std::optional<size_t> count;
+    rate_limit_unit unit{rate_limit_unit::unknown};
+
+    [[nodiscard]] bool parsed() const noexcept {
+        return present && count.has_value() && unit != rate_limit_unit::unknown;
+    }
+    [[nodiscard]] std::string_view display_value() const noexcept {
+        return {raw_value.data(), raw_value.size()};
+    }
+};
+
+enum class idempotency_policy_kind : uint8_t { none, disabled, enabled, mode };
+
+struct idempotency_policy {
+    explicit idempotency_policy(monotonic_arena* arena = nullptr)
+        : raw_value(arena_allocator<char>(arena)), mode(arena_allocator<char>(arena)) {}
+
+    idempotency_policy_kind kind{idempotency_policy_kind::none};
+    arena_string<> raw_value;
+    arena_string<> mode;
+
+    [[nodiscard]] bool present() const noexcept { return kind != idempotency_policy_kind::none; }
+    [[nodiscard]] bool enabled() const noexcept {
+        return kind == idempotency_policy_kind::enabled || kind == idempotency_policy_kind::mode;
+    }
+    [[nodiscard]] std::string_view display_value() const noexcept {
+        if (!raw_value.empty()) {
+            return {raw_value.data(), raw_value.size()};
+        }
+        switch (kind) {
+        case idempotency_policy_kind::disabled:
+            return "false";
+        case idempotency_policy_kind::enabled:
+            return "true";
+        case idempotency_policy_kind::mode:
+            return {mode.data(), mode.size()};
+        case idempotency_policy_kind::none:
+            break;
+        }
+        return {};
+    }
+};
+
 struct operation {
     explicit operation(monotonic_arena* arena = nullptr)
         : operation_id(arena_allocator<char>(arena)), summary(arena_allocator<char>(arena)),
           description(arena_allocator<char>(arena)), parameters(arena_allocator<parameter>(arena)),
-          responses(arena_allocator<response>(arena)), x_katana_cache(arena_allocator<char>(arena)),
-          x_katana_alloc(arena_allocator<char>(arena)),
-          x_katana_rate_limit(arena_allocator<char>(arena)) {}
+          responses(arena_allocator<response>(arena)), cache(arena), alloc(arena),
+          rate_limit(arena), idempotency(arena) {}
 
     http::method method = http::method::unknown;
     arena_string<> operation_id;
@@ -146,9 +248,10 @@ struct operation {
     arena_vector<response> responses;
 
     // x-katana-* extensions
-    arena_string<> x_katana_cache;      // e.g., "300s", "5m", "true"
-    arena_string<> x_katana_alloc;      // e.g., "4096", "pool"
-    arena_string<> x_katana_rate_limit; // e.g., "100/s", "1000/m"
+    cache_policy cache;           // e.g., false, true, "300s", "5m"
+    alloc_policy alloc;           // e.g., "4096", "pool"
+    rate_limit_policy rate_limit; // e.g., "100/s", "1000/m"
+    idempotency_policy idempotency; // e.g., false, true, "required"
 };
 
 struct path_item {

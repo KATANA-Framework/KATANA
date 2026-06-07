@@ -1,6 +1,10 @@
 #include "katana/core/arena.hpp"
+#include "katana/core/cache.hpp"
+#include "katana/core/contract_policies.hpp"
 #include "katana/core/http.hpp"
 #include "katana/core/http_server.hpp"
+#include "katana/core/idempotency.hpp"
+#include "katana/core/rate_limit.hpp"
 #include "katana/core/reactor_pool.hpp"
 #include "katana/core/router.hpp"
 
@@ -31,6 +35,16 @@ namespace {
 struct parsed_response {
     int status = 0;
     std::string body;
+    std::vector<std::pair<std::string, std::string>> headers;
+
+    [[nodiscard]] std::optional<std::string_view> header(std::string_view name) const {
+        for (const auto& [header_name, value] : headers) {
+            if (header_name == name) {
+                return value;
+            }
+        }
+        return std::nullopt;
+    }
 };
 
 uint16_t reserve_ephemeral_port() {
@@ -69,6 +83,28 @@ std::string make_get_request(std::string_view path) {
     return req;
 }
 
+std::string make_post_request(std::string_view path,
+                              std::string_view body,
+                              std::vector<std::pair<std::string_view, std::string_view>> headers = {}) {
+    std::string req;
+    req.reserve(path.size() + body.size() + 128);
+    req.append("POST ");
+    req.append(path);
+    req.append(" HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: keep-alive\r\n");
+    req.append("Content-Length: ");
+    req.append(std::to_string(body.size()));
+    req.append("\r\n");
+    for (const auto& [name, value] : headers) {
+        req.append(name);
+        req.append(": ");
+        req.append(value);
+        req.append("\r\n");
+    }
+    req.append("\r\n");
+    req.append(body);
+    return req;
+}
+
 bool try_extract_response(std::string& buffer, parsed_response& out) {
     const size_t header_end = buffer.find("\r\n\r\n");
     if (header_end == std::string::npos) {
@@ -92,12 +128,22 @@ bool try_extract_response(std::string& buffer, parsed_response& out) {
     const std::string_view content_length_prefix = "Content-Length: ";
     size_t scan_pos = 0;
     bool found_content_length = false;
+    out.headers.clear();
     while (scan_pos < headers.size()) {
         const size_t line_end = headers.find("\r\n", scan_pos);
         if (line_end == std::string::npos) {
             break;
         }
         const std::string_view line(headers.data() + scan_pos, line_end - scan_pos);
+        const size_t colon = line.find(':');
+        if (colon != std::string_view::npos) {
+            size_t value_pos = colon + 1;
+            if (value_pos < line.size() && line[value_pos] == ' ') {
+                ++value_pos;
+            }
+            out.headers.emplace_back(std::string(line.substr(0, colon)),
+                                     std::string(line.substr(value_pos)));
+        }
         if (line.starts_with(content_length_prefix)) {
             content_length = static_cast<size_t>(
                 std::stoul(std::string(line.substr(content_length_prefix.size()))));
@@ -244,6 +290,167 @@ pid_t spawn_deferred_server(uint16_t port) {
     std::_Exit(http::server(r)
                    .listen(port)
                    .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
+pid_t spawn_rate_limited_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_policy_view policy{
+        {},
+        {},
+        http::route_rate_limit_policy_view{
+            true, "1/s", std::optional<size_t>{1U}, http::route_rate_limit_unit::second},
+    };
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/limited">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("limited-ok");
+             return result<void>{};
+         }),
+         {},
+         &policy},
+    };
+
+    http::in_memory_rate_limit_executor executor;
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .policy_executor(executor)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
+pid_t spawn_idempotent_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_policy_view policy{
+        {},
+        {},
+        {},
+        http::route_idempotency_policy_view{http::route_idempotency_policy_kind::enabled, "true"},
+    };
+
+    static int call_count = 0;
+    const http::route_entry routes[] = {
+        {http::method::post,
+         http::path_pattern::from_literal<"/idempotent">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             ++call_count;
+             out.assign_text("created-" + std::to_string(call_count), "text/plain", 201, "Created");
+             return result<void>{};
+         }),
+         {},
+         &policy},
+    };
+
+    http::in_memory_idempotency_executor executor;
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .policy_executor(executor)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
+pid_t spawn_cached_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_policy_view policy{
+        http::route_cache_policy_view{http::route_cache_policy_kind::enabled, "true"},
+        {},
+        {},
+    };
+
+    static int call_count = 0;
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/cached">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             ++call_count;
+             out.assign_text("cached-" + std::to_string(call_count));
+             return result<void>{};
+         }),
+         {},
+         &policy},
+    };
+
+    http::in_memory_response_cache_executor executor;
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .policy_executor(executor)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
+pid_t spawn_contract_policy_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_policy_view cache_policy{
+        http::route_cache_policy_view{http::route_cache_policy_kind::enabled, "true"},
+        {},
+        http::route_rate_limit_policy_view{
+            true, "2/s", std::optional<size_t>{2U}, http::route_rate_limit_unit::second},
+    };
+    const http::route_policy_view idempotency_policy{
+        {},
+        {},
+        http::route_rate_limit_policy_view{
+            true, "1/s", std::optional<size_t>{1U}, http::route_rate_limit_unit::second},
+        http::route_idempotency_policy_view{http::route_idempotency_policy_kind::enabled, "true"},
+    };
+
+    static int cache_call_count = 0;
+    static int idempotent_call_count = 0;
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/contract-cached">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             ++cache_call_count;
+             out.assign_text("contract-cached-" + std::to_string(cache_call_count));
+             return result<void>{};
+         }),
+         {},
+         &cache_policy},
+        {http::method::post,
+         http::path_pattern::from_literal<"/contract-idempotent">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             ++idempotent_call_count;
+             out.assign_text("contract-created-" + std::to_string(idempotent_call_count),
+                             "text/plain",
+                             201,
+                             "Created");
+             return result<void>{};
+         }),
+         {},
+         &idempotency_policy},
+    };
+
+    http::in_memory_contract_policy_executor executor;
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .policy_executor(executor)
                    .graceful_shutdown(std::chrono::milliseconds(100))
                    .run());
 }
@@ -557,4 +764,183 @@ TEST(HTTPServerDeferredResponse, AbandonedHandleReturnsInternalServerError) {
     ASSERT_EQ(responses.size(), 1u);
     EXPECT_EQ(responses[0].status, 500);
     EXPECT_FALSE(responses[0].body.empty());
+}
+
+TEST(HTTPServerPolicies, RateLimitExecutorReturns429OverLiveSocketPath) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_rate_limited_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    const std::string pipeline = make_get_request("/limited") + make_get_request("/limited");
+    send_all(client_fd, pipeline);
+
+    auto responses = read_responses_slowly(client_fd, 2, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 2u);
+    EXPECT_EQ(responses[0].status, 200);
+    EXPECT_EQ(responses[0].body, "limited-ok");
+    EXPECT_EQ(responses[1].status, 429);
+    EXPECT_NE(responses[1].body.find("\"title\":\"Too Many Requests\""), std::string::npos);
+}
+
+TEST(HTTPServerPolicies, IdempotencyExecutorReplaysStoredResponseOverLiveSocketPath) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_idempotent_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    const std::vector<std::pair<std::string_view, std::string_view>> headers = {
+        {"Idempotency-Key", "live-key-1"}};
+    const std::string pipeline = make_post_request("/idempotent", "{}", headers) +
+                                 make_post_request("/idempotent", "{}", headers);
+    send_all(client_fd, pipeline);
+
+    auto responses = read_responses_slowly(client_fd, 2, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 2u);
+    EXPECT_EQ(responses[0].status, 201);
+    EXPECT_EQ(responses[0].body, "created-1");
+    EXPECT_EQ(responses[1].status, 201);
+    EXPECT_EQ(responses[1].body, "created-1");
+}
+
+TEST(HTTPServerPolicies, ResponseCacheExecutorReplaysCachedResponseOverLiveSocketPath) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_cached_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    const std::string pipeline = make_get_request("/cached") + make_get_request("/cached");
+    send_all(client_fd, pipeline);
+
+    auto responses = read_responses_slowly(client_fd, 2, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 2u);
+    EXPECT_EQ(responses[0].status, 200);
+    EXPECT_EQ(responses[0].body, "cached-1");
+    EXPECT_FALSE(responses[0].header("X-Katana-Cache").has_value());
+    EXPECT_EQ(responses[1].status, 200);
+    EXPECT_EQ(responses[1].body, "cached-1");
+    EXPECT_EQ(responses[1].header("X-Katana-Cache"), std::optional<std::string_view>{"HIT"});
+}
+
+TEST(HTTPServerPolicies, InMemoryContractPolicyExecutorAppliesCanonicalPoliciesOverLiveSocketPath) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_contract_policy_server(port);
+    ASSERT_GT(server_pid, 0);
+
+    struct guard {
+        pid_t pid;
+        int* client_fd;
+
+        ~guard() {
+            if (client_fd && *client_fd >= 0) {
+                ::close(*client_fd);
+                *client_fd = -1;
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    };
+
+    int client_fd = connect_with_retry(port);
+    guard cleanup{server_pid, &client_fd};
+    ASSERT_GE(client_fd, 0);
+
+    const std::vector<std::pair<std::string_view, std::string_view>> idempotency_headers = {
+        {"Idempotency-Key", "contract-live-key"}};
+    std::string pipeline;
+    pipeline += make_get_request("/contract-cached");
+    pipeline += make_get_request("/contract-cached");
+    pipeline += make_post_request("/contract-idempotent", "{}", idempotency_headers);
+    pipeline += make_post_request("/contract-idempotent", "{}", idempotency_headers);
+    pipeline += make_post_request(
+        "/contract-idempotent",
+        "{}",
+        {{"Idempotency-Key", "contract-live-key-2"}});
+    send_all(client_fd, pipeline);
+
+    auto responses = read_responses_slowly(client_fd, 5, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 5u);
+    EXPECT_EQ(responses[0].status, 200);
+    EXPECT_EQ(responses[0].body, "contract-cached-1");
+    EXPECT_EQ(responses[1].status, 200);
+    EXPECT_EQ(responses[1].body, "contract-cached-1");
+    EXPECT_EQ(responses[1].header("X-Katana-Cache"), std::optional<std::string_view>{"HIT"});
+    EXPECT_EQ(responses[2].status, 201);
+    EXPECT_EQ(responses[2].body, "contract-created-1");
+    EXPECT_EQ(responses[3].status, 201);
+    EXPECT_EQ(responses[3].body, "contract-created-1");
+    EXPECT_EQ(responses[3].header("Idempotency-Replayed"),
+              std::optional<std::string_view>{"true"});
+    EXPECT_EQ(responses[4].status, 429);
 }

@@ -29,6 +29,115 @@ using serde::yaml_to_json;
 constexpr int kMaxSchemaDepth = 64;
 constexpr size_t kMaxSchemaCount = 10000;
 
+arena_string<> to_arena_string(std::string_view value, monotonic_arena& arena) {
+    return arena_string<>(value.begin(), value.end(), arena_allocator<char>(&arena));
+}
+
+rate_limit_unit parse_rate_limit_unit(std::string_view unit) noexcept {
+    unit = trim_view(unit);
+    if (unit == "s") {
+        return rate_limit_unit::second;
+    }
+    if (unit == "m") {
+        return rate_limit_unit::minute;
+    }
+    if (unit == "h") {
+        return rate_limit_unit::hour;
+    }
+    return rate_limit_unit::unknown;
+}
+
+std::optional<size_t> parse_size_value(std::string_view raw_value) noexcept {
+    raw_value = trim_view(raw_value);
+    if (raw_value.empty()) {
+        return std::nullopt;
+    }
+
+    size_t value = 0;
+    const auto [end, ec] =
+        std::from_chars(raw_value.data(), raw_value.data() + raw_value.size(), value);
+    if (ec != std::errc() || end != raw_value.data() + raw_value.size()) {
+        return std::nullopt;
+    }
+    return value;
+}
+
+void assign_cache_policy_from_string(cache_policy& policy,
+                                     std::string_view raw_value,
+                                     monotonic_arena& arena) {
+    policy.kind = cache_policy_kind::ttl;
+    policy.raw_value = to_arena_string(raw_value, arena);
+    policy.ttl = to_arena_string(raw_value, arena);
+}
+
+void assign_cache_policy_from_bool(cache_policy& policy, bool enabled, monotonic_arena& arena) {
+    policy.kind = enabled ? cache_policy_kind::enabled : cache_policy_kind::disabled;
+    policy.raw_value = to_arena_string(enabled ? "true" : "false", arena);
+    policy.ttl.clear();
+}
+
+void assign_alloc_policy_from_bytes(alloc_policy& policy, size_t bytes, monotonic_arena& arena) {
+    policy.kind = alloc_policy_kind::bytes;
+    policy.bytes = bytes;
+    policy.raw_value = to_arena_string(std::to_string(bytes), arena);
+    policy.mode.clear();
+}
+
+void assign_alloc_policy_from_string(alloc_policy& policy,
+                                     std::string_view raw_value,
+                                     monotonic_arena& arena) {
+    if (auto bytes = parse_size_value(raw_value)) {
+        assign_alloc_policy_from_bytes(policy, *bytes, arena);
+        return;
+    }
+    policy.kind = alloc_policy_kind::named_mode;
+    policy.raw_value = to_arena_string(raw_value, arena);
+    policy.mode = to_arena_string(raw_value, arena);
+    policy.bytes.reset();
+}
+
+void assign_rate_limit_policy(rate_limit_policy& policy,
+                              std::string_view raw_value,
+                              monotonic_arena& arena) {
+    policy.present = true;
+    policy.raw_value = to_arena_string(raw_value, arena);
+    policy.count.reset();
+    policy.unit = rate_limit_unit::unknown;
+
+    const auto slash = raw_value.find('/');
+    if (slash == std::string_view::npos || slash == 0 || slash + 1 >= raw_value.size()) {
+        return;
+    }
+
+    const auto count_view = trim_view(raw_value.substr(0, slash));
+    const auto unit_view = trim_view(raw_value.substr(slash + 1));
+    size_t count = 0;
+    const auto [end, ec] =
+        std::from_chars(count_view.data(), count_view.data() + count_view.size(), count);
+    if (ec != std::errc() || end != count_view.data() + count_view.size()) {
+        return;
+    }
+
+    policy.count = count;
+    policy.unit = parse_rate_limit_unit(unit_view);
+}
+
+void assign_idempotency_policy_from_string(idempotency_policy& policy,
+                                           std::string_view raw_value,
+                                           monotonic_arena& arena) {
+    policy.kind = idempotency_policy_kind::mode;
+    policy.raw_value = to_arena_string(raw_value, arena);
+    policy.mode = to_arena_string(raw_value, arena);
+}
+
+void assign_idempotency_policy_from_bool(idempotency_policy& policy,
+                                         bool enabled,
+                                         monotonic_arena& arena) {
+    policy.kind = enabled ? idempotency_policy_kind::enabled : idempotency_policy_kind::disabled;
+    policy.raw_value = to_arena_string(enabled ? "true" : "false", arena);
+    policy.mode.clear();
+}
+
 std::optional<std::string_view> extract_openapi_version(std::string_view json_view) noexcept {
     json_cursor cur{json_view.data(), json_view.data() + json_view.size()};
     cur.skip_ws();
@@ -1238,31 +1347,31 @@ void parse_operation_object(json_cursor& cur,
             op.body = parse_request_body(cur, arena, pool, index, rbindex);
         } else if (*key == "x-katana-cache") {
             if (auto v = cur.string()) {
-                op.x_katana_cache =
-                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+                assign_cache_policy_from_string(op.cache, *v, arena);
             } else if (auto b = parse_bool(cur)) {
-                op.x_katana_cache =
-                    arena_string<>(*b ? "true" : "false", arena_allocator<char>(&arena));
+                assign_cache_policy_from_bool(op.cache, *b, arena);
             } else {
                 cur.skip_value();
             }
         } else if (*key == "x-katana-alloc") {
             if (auto v = cur.string()) {
-                op.x_katana_alloc =
-                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+                assign_alloc_policy_from_string(op.alloc, *v, arena);
             } else {
-                auto raw = parse_unquoted_string(cur);
-                double parsed = 0.0;
-                auto [end, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), parsed);
-                if (ec == std::errc() && end == raw.data() + raw.size()) {
-                    op.x_katana_alloc =
-                        arena_string<>(raw.begin(), raw.end(), arena_allocator<char>(&arena));
+                if (auto bytes = parse_size(cur)) {
+                    assign_alloc_policy_from_bytes(op.alloc, *bytes, arena);
                 }
             }
         } else if (*key == "x-katana-rate-limit") {
             if (auto v = cur.string()) {
-                op.x_katana_rate_limit =
-                    arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+                assign_rate_limit_policy(op.rate_limit, *v, arena);
+            } else {
+                cur.skip_value();
+            }
+        } else if (*key == "x-katana-idempotency") {
+            if (auto v = cur.string()) {
+                assign_idempotency_policy_from_string(op.idempotency, *v, arena);
+            } else if (auto b = parse_bool(cur)) {
+                assign_idempotency_policy_from_bool(op.idempotency, *b, arena);
             } else {
                 cur.skip_value();
             }

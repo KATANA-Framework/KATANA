@@ -17,10 +17,12 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace katana::http {
 
 class server;
+struct request_context;
 
 constexpr size_t MAX_ROUTE_SEGMENTS = 16;
 constexpr size_t MAX_PATH_PARAMS = 16;
@@ -70,6 +72,128 @@ private:
     // Uninitialized — only entries_[0..size_) are valid (written before read)
     std::array<param_entry, MAX_PATH_PARAMS> entries_;
     size_t size_{0};
+};
+
+enum class route_cache_policy_kind : uint8_t { none, disabled, enabled, ttl };
+enum class route_alloc_policy_kind : uint8_t { none, named_mode, bytes };
+enum class route_rate_limit_unit : uint8_t { unknown, second, minute, hour };
+
+struct route_cache_policy_view {
+    route_cache_policy_kind kind{route_cache_policy_kind::none};
+    std::string_view value{};
+
+    [[nodiscard]] bool present() const noexcept { return kind != route_cache_policy_kind::none; }
+    [[nodiscard]] bool enabled() const noexcept {
+        return kind == route_cache_policy_kind::enabled || kind == route_cache_policy_kind::ttl;
+    }
+};
+
+struct route_alloc_policy_view {
+    route_alloc_policy_kind kind{route_alloc_policy_kind::none};
+    std::string_view value{};
+    std::optional<size_t> bytes;
+
+    [[nodiscard]] bool present() const noexcept { return kind != route_alloc_policy_kind::none; }
+};
+
+struct route_rate_limit_policy_view {
+    bool present = false;
+    std::string_view value{};
+    std::optional<size_t> count;
+    route_rate_limit_unit unit{route_rate_limit_unit::unknown};
+
+    [[nodiscard]] bool parsed() const noexcept {
+        return present && count.has_value() && unit != route_rate_limit_unit::unknown;
+    }
+};
+
+enum class route_idempotency_policy_kind : uint8_t { none, disabled, enabled, mode };
+
+struct route_idempotency_policy_view {
+    route_idempotency_policy_kind kind{route_idempotency_policy_kind::none};
+    std::string_view value{};
+
+    [[nodiscard]] bool present() const noexcept {
+        return kind != route_idempotency_policy_kind::none;
+    }
+    [[nodiscard]] bool enabled() const noexcept {
+        return kind == route_idempotency_policy_kind::enabled ||
+               kind == route_idempotency_policy_kind::mode;
+    }
+};
+
+struct route_policy_view {
+    route_cache_policy_view cache{};
+    route_alloc_policy_view alloc{};
+    route_rate_limit_policy_view rate_limit{};
+    route_idempotency_policy_view idempotency{};
+    std::string_view scope{};
+
+    [[nodiscard]] bool empty() const noexcept {
+        return !cache.present() && !alloc.present() && !rate_limit.present &&
+               !idempotency.present();
+    }
+};
+
+enum class route_policy_resolution : uint8_t { continue_request, short_circuit };
+
+class route_policy_executor {
+public:
+    virtual ~route_policy_executor() = default;
+
+    virtual result<route_policy_resolution>
+    before_dispatch(const request& req, request_context& ctx, response& out) = 0;
+
+    virtual result<void> after_dispatch(const request& req, request_context& ctx, response& out) {
+        (void)req;
+        (void)ctx;
+        (void)out;
+        return {};
+    }
+};
+
+class route_policy_executor_chain final : public route_policy_executor {
+public:
+    route_policy_executor_chain() = default;
+
+    explicit route_policy_executor_chain(std::initializer_list<route_policy_executor*> executors) {
+        executors_.reserve(executors.size());
+        for (auto* executor : executors) {
+            add(*executor);
+        }
+    }
+
+    route_policy_executor_chain& add(route_policy_executor& executor) {
+        executors_.push_back(&executor);
+        return *this;
+    }
+
+    result<route_policy_resolution>
+    before_dispatch(const request& req, request_context& ctx, response& out) override {
+        for (auto* executor : executors_) {
+            auto result = executor->before_dispatch(req, ctx, out);
+            if (!result) {
+                return std::unexpected(result.error());
+            }
+            if (*result == route_policy_resolution::short_circuit) {
+                return route_policy_resolution::short_circuit;
+            }
+        }
+        return route_policy_resolution::continue_request;
+    }
+
+    result<void> after_dispatch(const request& req, request_context& ctx, response& out) override {
+        for (auto it = executors_.rbegin(); it != executors_.rend(); ++it) {
+            auto result = (*it)->after_dispatch(req, ctx, out);
+            if (!result) {
+                return result;
+            }
+        }
+        return {};
+    }
+
+private:
+    std::vector<route_policy_executor*> executors_;
 };
 
 class deferred_response_handle {
@@ -249,6 +373,8 @@ struct request_context {
 
     monotonic_arena& arena;
     path_params params{};
+    const route_policy_view* route_policy = nullptr;
+    route_policy_executor* policy_executor = nullptr;
     void* task_scheduler_user = nullptr;
     schedule_task_fn task_scheduler = nullptr;
     void* reactor_user = nullptr;
@@ -257,6 +383,9 @@ struct request_context {
     bool response_deferred = false;
 
     [[nodiscard]] bool can_schedule() const noexcept { return task_scheduler != nullptr; }
+    [[nodiscard]] bool can_apply_route_policy() const noexcept {
+        return policy_executor != nullptr && route_policy != nullptr && !route_policy->empty();
+    }
 
     bool schedule(scheduled_task task) const {
         if (task_scheduler == nullptr) {
@@ -492,7 +621,29 @@ struct route_entry {
     path_pattern pattern;
     handler_fn handler;
     middleware_chain middleware{};
+    const route_policy_view* policy = nullptr;
 };
+
+inline result<bool>
+apply_route_policy_executor(const request& req, request_context& ctx, response& out) {
+    if (!ctx.can_apply_route_policy()) {
+        return true;
+    }
+
+    auto decision = ctx.policy_executor->before_dispatch(req, ctx, out);
+    if (!decision) {
+        return std::unexpected(decision.error());
+    }
+    return *decision == route_policy_resolution::continue_request;
+}
+
+inline result<void>
+apply_route_policy_after_dispatch(const request& req, request_context& ctx, response& out) {
+    if (!ctx.can_apply_route_policy()) {
+        return {};
+    }
+    return ctx.policy_executor->after_dispatch(req, ctx, out);
+}
 
 inline constexpr uint32_t method_bit(http::method m) noexcept {
     auto idx = static_cast<uint32_t>(m);
@@ -547,6 +698,9 @@ public:
 
     dispatch_result
     dispatch_with_info(const request& req, request_context& ctx, response& out) const {
+        ctx.params.reset();
+        ctx.route_policy = nullptr;
+
         auto path = strip_query(req.uri);
         auto split = path_pattern::split_path(path);
         if (split.overflow) {
@@ -594,9 +748,23 @@ public:
 
         // If we found a matching route, return immediately
         if (best_route) {
+            // ctx.params is already filled in the match loop above (R3); apply the
+            // route's x-katana policy chain before the handler runs.
+            ctx.route_policy = best_route->policy;
+            auto policy_result = apply_route_policy_executor(req, ctx, out);
+            if (!policy_result) {
+                return dispatch_result{policy_result.error(), true, true, 0};
+            }
+            if (!*policy_result) {
+                return dispatch_result{};
+            }
             auto route_result = best_route->middleware.run(req, ctx, best_route->handler, out);
             if (!route_result) {
                 return dispatch_result{route_result.error(), true, true, 0};
+            }
+            auto after_result = apply_route_policy_after_dispatch(req, ctx, out);
+            if (!after_result) {
+                return dispatch_result{after_result.error(), true, true, 0};
             }
             return dispatch_result{};
         }
