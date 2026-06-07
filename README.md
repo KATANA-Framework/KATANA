@@ -19,7 +19,7 @@ stack built for predictable p99/p999 under load.
 </div>
 
 <!-- LATEST_UPDATE_START -->
-* 07.06 04:28 — Document the policy/Redis layer (5c2fea3)
+* 07.06 01:29 — chore: sync README with benchmark results (389b3c4)
 <!-- LATEST_UPDATE_END -->
 
 ---
