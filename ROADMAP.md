@@ -110,8 +110,10 @@ operational blockers.
   `katana_http_request_duration_seconds` histogram (the RED "Duration"; latency is also added to
   the access log as `duration_us`). Per-route counters (`katana_http_route_requests_total` and
   `..._route_duration_seconds_sum`) are labelled with the route **template** (`GET /notes/{id}`,
-  not raw ids) so cardinality stays bounded. *Remaining:* connection/pool gauges, reactor/
-  allocator stats, OTLP push.
+  not raw ids) so cardinality stays bounded. Opt-in `server.reactor_metrics()` exposes worker/
+  reactor gauges (`katana_http_workers`, `katana_reactor_*` for tasks/fd-events/timeouts/
+  rejections/exceptions); connection gauges (`katana_http_connections_active`) are always on.
+  *Remaining:* allocator/arena stats, OTLP push (see the exporter hook below).
 - **[P0] Health & readiness** — **done.** Built-in `/healthz` (liveness) and `/readyz`
   (readiness) served before the user router, on by default. `/readyz` returns 503 while the
   server is shutting down or a registered `readiness_check(probe)` reports not-ready (wire it

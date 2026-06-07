@@ -747,7 +747,8 @@ int server::run() {
     reactor_pool_config config;
     config.reactor_count = static_cast<uint32_t>(worker_count_);
     config.enable_adaptive_balancing = true;
-    reactor_pool pool(config);
+    reactor_pool pool(config); // reactor metrics are collected by default; exposed opt-in below
+    pool_ = &pool; // valid while run() blocks; cleared before returning
     ::katana::detail::scoped_syscall_metrics_reporter syscall_metrics_reporter;
 
     std::vector<std::shared_ptr<fd_watch>> accept_watches;
@@ -845,6 +846,7 @@ int server::run() {
 
     pool.start();
     pool.wait();
+    pool_ = nullptr; // pool is about to be destroyed
     return 0;
 }
 

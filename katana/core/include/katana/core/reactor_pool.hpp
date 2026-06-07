@@ -18,6 +18,7 @@ struct reactor_pool_config {
     size_t max_pending_tasks = 65536;
     bool enable_adaptive_balancing = true;
     bool enable_thread_pinning = false;
+    bool enable_metrics = true; // per-event reactor counters (the reactor collects these by default)
 };
 
 class reactor_pool {
