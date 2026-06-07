@@ -92,7 +92,13 @@ public:
 
     event(const event&) = delete;
     event& operator=(const event&) = delete;
-    event(event&&) = delete;
+
+    // Movable so an event can be returned (e.g. from a context helper) and chained. The
+    // moved-from event is deactivated so it never flushes.
+    event(event&& other) noexcept
+        : active_(other.active_), buffer_(std::move(other.buffer_)) {
+        other.active_ = false; // deactivated: the moved-from event won't flush
+    }
     event& operator=(event&&) = delete;
 
     ~event() { flush(); }

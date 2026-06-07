@@ -101,7 +101,9 @@ operational blockers.
   request, plus `X-Request-Id` correlation — echoed from the client or generated, reflected on
   the response, and exposed to handlers via `request_context::request_id`. The access log
   supports 1-in-N sampling (`access_log(enable, sample_every)`) for high-volume services.
-  *Remaining:* a per-request handler-side log helper that auto-binds the correlation id.
+  Handlers get `ctx.log_info("...")` (and `log_warn`/`log_error`/`log_debug`) which auto-tag the
+  line with the request's `request_id` and `trace_id`, so handler logs join the access log and
+  spans. *Remaining:* nothing major — async-safe sink batching is a future optimization.
 - **[P0] Metrics** — **base done.** Built-in Prometheus `/metrics` endpoint (on by default,
   served before the router) exposing `katana_http_requests_total` by status class, a
   `katana_http_requests_in_flight` gauge, `katana_http_connection_timeouts_total`, and a
