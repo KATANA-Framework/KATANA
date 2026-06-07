@@ -157,7 +157,8 @@ int main(int argc, char** argv) {
                   {"workers", "4"},
                   {"access_log", "true"},
                   {"conn_read_timeout_ms", "15000"},
-                  {"conn_idle_timeout_ms", "30000"}});
+                  {"conn_idle_timeout_ms", "30000"},
+                  {"db_statement_timeout_ms", "5000"}});
     if (const char* file = std::getenv("NOTES_CONFIG")) {
         cfg.from_file(file);
     }
@@ -185,9 +186,12 @@ int main(int argc, char** argv) {
     const uint16_t port = cfg.get_u16("port", 8090);
     const size_t workers = static_cast<size_t>(cfg.get_int("workers", 4));
 
-    katana::sql::postgres_pool pool({.postgres = {.connection_string = conn},
-                                     .executor_count = workers,
-                                     .eager_connect = true});
+    katana::sql::postgres_pool pool(
+        {.postgres = {.connection_string = conn,
+                      .statement_timeout_ms =
+                          static_cast<int>(cfg.get_int("db_statement_timeout_ms", 5000))},
+         .executor_count = workers,
+         .eager_connect = true});
     if (auto c = pool.connect_all(); !c) {
         std::cerr << "DB connect failed\n";
         return 1;

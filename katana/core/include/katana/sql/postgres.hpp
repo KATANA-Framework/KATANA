@@ -18,6 +18,9 @@ namespace katana::sql {
 
 struct postgres_config {
     std::string connection_string;
+    // When > 0, every connection runs with this server-side `statement_timeout` (ms), so a
+    // runaway query is cancelled by Postgres (SQLSTATE 57014) instead of blocking a reactor.
+    int statement_timeout_ms = 0;
 };
 
 struct postgres_pool_config {

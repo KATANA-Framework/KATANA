@@ -124,8 +124,10 @@ operational blockers.
   cap sheds load when the simultaneous-connection count is reached (over-cap accepts are closed,
   counted in `katana_http_connections_rejected_total`; live count in `katana_http_connections_active`).
   Header/body/URI/header-count size limits are enforced by the parser (8KB headers, 10MB body,
-  2KB URI, 100 headers). *Remaining:* handler/DB deadlines that propagate into libpq; making the
-  size limits configurable with proper 413/431 responses.
+  2KB URI, 100 headers). A DB deadline propagates into libpq: `postgres_config.statement_timeout_ms`
+  folds a server-side `statement_timeout` into the connection string (sync + async paths), so a
+  runaway query is cancelled by Postgres (57014) instead of pinning a reactor. *Remaining:*
+  making the HTTP size limits configurable with proper 413/431 responses.
 - **[P0] Complete graceful shutdown** — **base done.** On SIGTERM each reactor deregisters +
   closes its listener fd (stops accepting), then the existing drain loop — now seeing only live
   connections, not the listeners — lets in-flight requests finish and exits as soon as they
