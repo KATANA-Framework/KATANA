@@ -115,12 +115,16 @@ inline katana::result<void> dispatch_register_user(const katana::http::request& 
 class generated_router {
 public:
     explicit generated_router(api_handler& handler)
-        : route_entries_{
+        : route_policies_{
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "register_user"},
+        }, route_entries_{
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/user/register">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_register_user(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[0]
         },
         } {
         router_.emplace(route_entries_);
@@ -133,10 +137,14 @@ public:
 
     [[nodiscard]] const katana::http::router& router() const noexcept { return *router_; }
     [[nodiscard]] katana::http::router& router() noexcept { return *router_; }
+    [[nodiscard]] std::span<const katana::http::route_policy_view> route_policies() const noexcept {
+        return std::span<const katana::http::route_policy_view>(route_policies_.data(), route_policies_.size());
+    }
     [[nodiscard]] operator const katana::http::router&() const noexcept { return *router_; }
     [[nodiscard]] operator katana::http::router&() noexcept { return *router_; }
 
 private:
+    std::array<katana::http::route_policy_view, route_count> route_policies_;
     std::array<katana::http::route_entry, route_count> route_entries_;
     std::optional<katana::http::router> router_;
 };
@@ -148,13 +156,16 @@ inline generated_router make_router(api_handler& handler) {
 // Optimized router with hash-based O(1) dispatch for static routes
 class fast_router {
 public:
-    explicit fast_router(api_handler& handler, const katana::http::router& fallback)
-        : handler_(handler), fallback_router_(fallback) {}
+    explicit fast_router(api_handler& handler,
+                         const katana::http::router& fallback,
+                         std::span<const katana::http::route_policy_view> route_policies)
+        : handler_(handler), fallback_router_(fallback), route_policies_(route_policies) {}
 
     katana::result<void> dispatch_to(
         const katana::http::request& req,
         katana::http::request_context& ctx,
         katana::http::response& out) const {
+        ctx.route_policy = nullptr;
         // Strip query string for matching
         std::string_view path = req.uri;
         auto query_pos = path.find('?');
@@ -168,7 +179,7 @@ public:
             case HASH_REGISTER_USER:
                 if (path == "/user/register") {
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_register_user(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[0]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_register_user(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             default:
@@ -196,13 +207,14 @@ public:
 private:
     api_handler& handler_;
     const katana::http::router& fallback_router_;
+    std::span<const katana::http::route_policy_view> route_policies_;
 };
 
 // Create optimized router (recommended for production)
 class generated_fast_router {
 public:
     explicit generated_fast_router(api_handler& handler)
-        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) {}
+        : router_bundle_(handler), fast_router_(handler, router_bundle_.router(), router_bundle_.route_policies()) {}
 
     generated_fast_router(const generated_fast_router&) = delete;
     generated_fast_router& operator=(const generated_fast_router&) = delete;

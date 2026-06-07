@@ -117,6 +117,12 @@ public:
         return *this;
     }
 
+    /// Attach route policy executor to every request context created by this server.
+    server& policy_executor(route_policy_executor& executor) {
+        policy_executor_ = &executor;
+        return *this;
+    }
+
     /// Run the server (blocking)
     /// Returns 0 on success, non-zero on error
     int run();
@@ -218,6 +224,7 @@ private:
     std::function<void()> on_start_callback_;
     std::function<void()> on_stop_callback_;
     std::function<void(const request&, const response&)> on_request_callback_;
+    route_policy_executor* policy_executor_ = nullptr;
 };
 
 } // namespace http

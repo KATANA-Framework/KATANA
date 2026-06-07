@@ -217,6 +217,16 @@ problem_details problem_details::unprocessable_entity(std::string_view detail) {
     return p;
 }
 
+problem_details problem_details::too_many_requests(std::string_view detail) {
+    problem_details p;
+    p.status = 429;
+    p.title = "Too Many Requests";
+    if (!detail.empty()) {
+        p.detail = std::string(detail);
+    }
+    return p;
+}
+
 problem_details problem_details::internal_server_error(std::string_view detail) {
     problem_details p;
     p.status = 500;

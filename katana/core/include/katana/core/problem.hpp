@@ -34,6 +34,7 @@ struct problem_details {
     static problem_details unsupported_media_type(std::string_view detail = "");
     static problem_details conflict(std::string_view detail = "");
     static problem_details unprocessable_entity(std::string_view detail = "");
+    static problem_details too_many_requests(std::string_view detail = "");
     static problem_details internal_server_error(std::string_view detail = "");
     static problem_details service_unavailable(std::string_view detail = "");
 };

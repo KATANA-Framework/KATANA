@@ -209,6 +209,7 @@ paths:
       x-katana-cache: false
       x-katana-alloc: 4096
       x-katana-rate-limit: "100/s"
+      x-katana-idempotency: true
       responses:
         '200':
           description: ok
@@ -221,9 +222,78 @@ paths:
     ASSERT_EQ(res->paths[0].operations.size(), 1U);
 
     const auto& op = res->paths[0].operations[0];
-    EXPECT_EQ(op.x_katana_cache, "false");
-    EXPECT_EQ(op.x_katana_alloc, "4096");
-    EXPECT_EQ(op.x_katana_rate_limit, "100/s");
+    EXPECT_EQ(op.cache.kind, cache_policy_kind::disabled);
+    EXPECT_TRUE(op.cache.present());
+    EXPECT_FALSE(op.cache.enabled());
+    EXPECT_EQ(op.cache.display_value(), "false");
+
+    EXPECT_EQ(op.alloc.kind, alloc_policy_kind::bytes);
+    ASSERT_TRUE(op.alloc.bytes.has_value());
+    EXPECT_EQ(*op.alloc.bytes, 4096U);
+    EXPECT_EQ(op.alloc.display_value(), "4096");
+
+    EXPECT_TRUE(op.rate_limit.present);
+    EXPECT_TRUE(op.rate_limit.parsed());
+    ASSERT_TRUE(op.rate_limit.count.has_value());
+    EXPECT_EQ(*op.rate_limit.count, 100U);
+    EXPECT_EQ(op.rate_limit.unit, rate_limit_unit::second);
+    EXPECT_EQ(op.rate_limit.display_value(), "100/s");
+
+    EXPECT_EQ(op.idempotency.kind, idempotency_policy_kind::enabled);
+    EXPECT_TRUE(op.idempotency.present());
+    EXPECT_TRUE(op.idempotency.enabled());
+    EXPECT_EQ(op.idempotency.display_value(), "true");
+}
+
+TEST(OpenAPILoader, ParsesXKatanaStringPoliciesIntoTypedModel) {
+    const std::string spec = R"(
+openapi: 3.0.0
+info:
+  title: Extensions API
+  version: 1.0.0
+paths:
+  /jobs:
+    get:
+      operationId: listJobs
+      x-katana-cache: "5m"
+      x-katana-alloc: pool
+      x-katana-rate-limit: "250/m"
+      x-katana-idempotency: required
+      responses:
+        '200':
+          description: ok
+)";
+
+    monotonic_arena arena;
+    auto res = openapi::load_from_string(spec, arena);
+    ASSERT_TRUE(res);
+    ASSERT_EQ(res->paths.size(), 1U);
+    ASSERT_EQ(res->paths[0].operations.size(), 1U);
+
+    const auto& op = res->paths[0].operations[0];
+    EXPECT_EQ(op.cache.kind, cache_policy_kind::ttl);
+    EXPECT_TRUE(op.cache.present());
+    EXPECT_TRUE(op.cache.enabled());
+    EXPECT_EQ(op.cache.ttl, "5m");
+    EXPECT_EQ(op.cache.display_value(), "5m");
+
+    EXPECT_EQ(op.alloc.kind, alloc_policy_kind::named_mode);
+    EXPECT_EQ(op.alloc.mode, "pool");
+    EXPECT_FALSE(op.alloc.bytes.has_value());
+    EXPECT_EQ(op.alloc.display_value(), "pool");
+
+    EXPECT_TRUE(op.rate_limit.present);
+    EXPECT_TRUE(op.rate_limit.parsed());
+    ASSERT_TRUE(op.rate_limit.count.has_value());
+    EXPECT_EQ(*op.rate_limit.count, 250U);
+    EXPECT_EQ(op.rate_limit.unit, rate_limit_unit::minute);
+    EXPECT_EQ(op.rate_limit.display_value(), "250/m");
+
+    EXPECT_EQ(op.idempotency.kind, idempotency_policy_kind::mode);
+    EXPECT_TRUE(op.idempotency.present());
+    EXPECT_TRUE(op.idempotency.enabled());
+    EXPECT_EQ(op.idempotency.mode, "required");
+    EXPECT_EQ(op.idempotency.display_value(), "required");
 }
 
 TEST(OpenAPILoader, IgnoresUnsupportedXKatanaExtensionValueShapes) {
@@ -241,6 +311,8 @@ paths:
       x-katana-alloc:
         mode: pool
       x-katana-rate-limit: 100
+      x-katana-idempotency:
+        key: X-Idempotency-Key
       responses:
         '204':
           description: accepted
@@ -253,9 +325,10 @@ paths:
     ASSERT_EQ(res->paths[0].operations.size(), 1U);
 
     const auto& op = res->paths[0].operations[0];
-    EXPECT_TRUE(op.x_katana_cache.empty());
-    EXPECT_TRUE(op.x_katana_alloc.empty());
-    EXPECT_TRUE(op.x_katana_rate_limit.empty());
+    EXPECT_FALSE(op.cache.present());
+    EXPECT_FALSE(op.alloc.present());
+    EXPECT_FALSE(op.rate_limit.present);
+    EXPECT_FALSE(op.idempotency.present());
 }
 
 TEST(OpenAPILoader, ParsesSchemasShallowObjectArrayString) {
