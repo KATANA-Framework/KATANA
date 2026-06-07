@@ -48,8 +48,10 @@ struct sql_source {
 katana::result<sql_catalog> load_sql_catalog(const std::filesystem::path& input_root);
 katana::result<sql_catalog> load_sql_catalog_from_sources(std::vector<sql_source> sources);
 std::string dump_sql_ast_summary(const sql_catalog& catalog);
-std::string generate_sql_models(const sql_catalog& catalog);
-std::string generate_sql_repository(const sql_catalog& catalog);
+// `ns` (when non-empty) places the generated SQL types in `katana::sql::<ns>` instead of the
+// default `katana::sql::generated`, so multiple SQL contracts can link into one binary.
+std::string generate_sql_models(const sql_catalog& catalog, const std::string& ns = "");
+std::string generate_sql_repository(const sql_catalog& catalog, const std::string& ns = "");
 std::string sql_mode_literal(sql_query_mode mode);
 
 } // namespace katana_gen
