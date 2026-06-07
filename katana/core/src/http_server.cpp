@@ -443,7 +443,12 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
             resp.headers.set_unknown("X-Request-Id", request_id); // copies; safe past this scope
         }
 
-        if (access_log_enabled_) {
+        const bool log_this_request =
+            access_log_enabled_ &&
+            (access_log_sample_every_ <= 1 ||
+             access_log_counter_.fetch_add(1, std::memory_order_relaxed) % access_log_sample_every_ ==
+                 0);
+        if (log_this_request) {
             katana::log::info("http_request")
                 .field("method", method_to_string(req.http_method))
                 .field("path", req.uri)

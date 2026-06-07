@@ -292,8 +292,9 @@ public:
     /// Enable the built-in structured access log: one JSON line per request (method, path,
     /// status, response bytes, correlation id) emitted via `katana::log` at info level. Off by
     /// default — it logs every request, so opt in explicitly.
-    server& access_log(bool enable = true) {
+    server& access_log(bool enable = true, uint32_t sample_every = 1) {
         access_log_enabled_ = enable;
+        access_log_sample_every_ = sample_every == 0 ? 1 : sample_every;
         return *this;
     }
 
@@ -506,8 +507,11 @@ private:
     std::string metrics_path_ = "/metrics";
     mutable server_metrics metrics_;
 
-    // Built-in structured access log (opt-in via access_log()).
+    // Built-in structured access log (opt-in via access_log()). With sampling, only 1 in
+    // `access_log_sample_every_` requests is logged (the counter is shared across workers).
     bool access_log_enabled_ = false;
+    uint32_t access_log_sample_every_ = 1;
+    mutable std::atomic<uint64_t> access_log_counter_{0};
 
     // Per-connection idle/read/write timeouts (opt-in via connection_timeout()). When unset,
     // connections are registered without a timeout (legacy behavior).
