@@ -94,6 +94,7 @@ add_executable(unit_tests
     unit/test_shutdown.cpp
     unit/test_problem.cpp
     unit/test_router.cpp
+    unit/test_log.cpp
     unit/test_redis_client.cpp
     unit/test_redis_policy_stores.cpp
     unit/test_openapi_ast.cpp

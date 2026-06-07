@@ -82,8 +82,13 @@ debuggable and safe to run.
 
 - **[P0] Configuration system** — layered (file + env + flags), schema validation with
   clear errors, secrets handling, reload without full restart. (Today it's ad-hoc env vars.)
-- **[P0] Structured logging** — JSON logs, levels, a request-scoped correlation/trace id,
-  access logs, sampling.
+- **[P0] Structured logging** — **base done.** `katana::log` emits one JSON object per line
+  with level, timestamp, message and typed key/value fields (`info("...").field(k, v)`),
+  thread-safe, with a configurable min level and sink. The server has an opt-in built-in
+  access log (`server.access_log()`) that logs method/path/status/bytes/correlation-id per
+  request, plus `X-Request-Id` correlation — echoed from the client or generated, reflected on
+  the response, and exposed to handlers via `request_context::request_id`. *Remaining:* log
+  sampling, per-request handler-side log helper bound to the correlation id.
 - **[P0] Metrics** — **base done.** Built-in Prometheus `/metrics` endpoint (on by default,
   served before the router) exposing `katana_http_requests_total` by status class and a
   `katana_http_requests_in_flight` gauge. *Remaining:* per-route labels + request-duration
