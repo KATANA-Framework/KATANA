@@ -1,0 +1,160 @@
+openapi: 3.0.0
+info:
+  title: KATANA Shop API (complex SQL stress)
+  version: 1.0.0
+  description: E-commerce API over a 4-table schema exercising joins, aggregates,
+    window functions and bulk inserts via the SQL-first codegen.
+
+paths:
+  /shop/customers/revenue:
+    get:
+      operationId: customer_revenue
+      summary: Customers ranked by revenue within a country
+      parameters:
+        - name: country
+          in: query
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 2 }
+        - name: limit
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0 }
+      responses:
+        '200':
+          description: Ranked customers
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerRevenueList' }
+
+  /shop/products/top:
+    get:
+      operationId: top_products
+      summary: Top products per category
+      parameters:
+        - name: limit
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        '200':
+          description: Top products
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopProductList' }
+
+  /shop/categories/stats:
+    get:
+      operationId: category_stats
+      summary: Aggregate statistics per category
+      responses:
+        '200':
+          description: Category stats
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryStatList' }
+
+  /shop/orders/{id}:
+    get:
+      operationId: order_detail
+      summary: Order detail with aggregated line totals
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Order detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDetail' }
+
+  /shop/orders:
+    post:
+      operationId: create_order
+      summary: Create an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateOrderResponse' }
+
+components:
+  schemas:
+    CustomerRevenue:
+      type: object
+      required: [customer_id, name, country, revenue, order_count, revenue_rank]
+      properties:
+        customer_id: { type: integer }
+        name: { type: string }
+        country: { type: string }
+        revenue: { type: number }
+        order_count: { type: integer }
+        revenue_rank: { type: integer }
+    CustomerRevenueList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CustomerRevenue' } }
+    TopProduct:
+      type: object
+      required: [product_id, name, category, units_sold, revenue, category_rank]
+      properties:
+        product_id: { type: integer }
+        name: { type: string }
+        category: { type: string }
+        units_sold: { type: integer }
+        revenue: { type: number }
+        category_rank: { type: integer }
+    TopProductList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/TopProduct' } }
+    CategoryStat:
+      type: object
+      required: [category, product_count, avg_price, total_stock, min_price, max_price]
+      properties:
+        category: { type: string }
+        product_count: { type: integer }
+        avg_price: { type: number }
+        total_stock: { type: integer }
+        min_price: { type: number }
+        max_price: { type: number }
+    CategoryStatList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CategoryStat' } }
+    OrderDetail:
+      type: object
+      required: [order_id, status, customer_name, country, line_count, total_qty, total_amount]
+      properties:
+        order_id: { type: integer }
+        status: { type: string }
+        customer_name: { type: string }
+        country: { type: string }
+        line_count: { type: integer }
+        total_qty: { type: integer }
+        total_amount: { type: number }
+    CreateOrderRequest:
+      type: object
+      required: [customer_id, status]
+      properties:
+        customer_id: { type: integer, minimum: 1 }
+        status: { type: string, minLength: 1, maxLength: 32 }
+    CreateOrderResponse:
+      type: object
+      required: [id]
+      properties:
+        id: { type: integer }
