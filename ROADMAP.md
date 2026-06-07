@@ -128,8 +128,10 @@ operational blockers.
   Header/body/URI/header-count size limits are enforced by the parser (8KB headers, 10MB body,
   2KB URI, 100 headers). A DB deadline propagates into libpq: `postgres_config.statement_timeout_ms`
   folds a server-side `statement_timeout` into the connection string (sync + async paths), so a
-  runaway query is cancelled by Postgres (57014) instead of pinning a reactor. *Remaining:*
-  making the HTTP size limits configurable with proper 413/431 responses.
+  runaway query is cancelled by Postgres (57014) instead of pinning a reactor. Oversized
+  requests now return a specific status — 414 (URI), 431 (header fields), 413 (body) — instead
+  of a bare connection close. *Remaining:* making the size limits themselves runtime-configurable
+  (they're sensible compile-time defaults today).
 - **[P0] Complete graceful shutdown** — **base done.** On SIGTERM each reactor deregisters +
   closes its listener fd (stops accepting), then the existing drain loop — now seeing only live
   connections, not the listeners — lets in-flight requests finish and exits as soon as they

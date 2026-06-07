@@ -584,7 +584,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         return true;
     };
 
-    auto close_with_parse_error = [&]() -> void {
+    auto close_with_parse_error = [&](std::error_code parse_ec) -> void {
         if (parser_debug_enabled()) {
             std::cerr << "[parser_debug] state="
                       << parser_state_name(state.http_parser.current_state())
@@ -594,7 +594,18 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                       << escape_preview(state.http_parser.unparsed_view(128)) << "\"\n";
         }
         response resp{&state.arena};
-        resp.assign_error(problem_details::bad_request("Invalid HTTP request"));
+        // Map request-size violations to their specific status (414/431/413); everything else
+        // is a generic malformed request (400).
+        if (parse_ec == make_error_code(error_code::uri_too_long)) {
+            resp.assign_error(problem_details::uri_too_long("Request URI too long"));
+        } else if (parse_ec == make_error_code(error_code::header_fields_too_large)) {
+            resp.assign_error(
+                problem_details::request_header_fields_too_large("Request header fields too large"));
+        } else if (parse_ec == make_error_code(error_code::payload_too_large)) {
+            resp.assign_error(problem_details::content_too_large("Request body too large"));
+        } else {
+            resp.assign_error(problem_details::bad_request("Invalid HTTP request"));
+        }
         resp.headers.set_known_borrowed(http::field::connection, "close");
         auto count = ++close_counters().parse_error;
         maybe_log_close("parse_error", count);
@@ -645,7 +656,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     while (true) {
         auto parse_result = state.http_parser.parse_available();
         if (!parse_result) {
-            close_with_parse_error();
+            close_with_parse_error(parse_result.error());
             return;
         }
 
@@ -686,7 +697,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 
             parse_result = state.http_parser.commit_input(read_result->size());
             if (!parse_result) {
-                close_with_parse_error();
+                close_with_parse_error(parse_result.error());
                 return;
             }
 

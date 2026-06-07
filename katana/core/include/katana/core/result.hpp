@@ -245,6 +245,9 @@ enum class error_code : int {
     method_not_allowed = 8,
     openapi_parse_error = 9,
     openapi_invalid_spec = 10,
+    uri_too_long = 11,            // -> 414 URI Too Long
+    header_fields_too_large = 12, // -> 431 Request Header Fields Too Large
+    payload_too_large = 13,       // -> 413 Content Too Large
 };
 
 class error_category : public std::error_category {
@@ -276,6 +279,12 @@ public:
             return "failed to parse OpenAPI document";
         case ec::openapi_invalid_spec:
             return "invalid or unsupported OpenAPI document";
+        case ec::uri_too_long:
+            return "request URI too long";
+        case ec::header_fields_too_large:
+            return "request header fields too large";
+        case ec::payload_too_large:
+            return "request payload too large";
         default:
             return "unknown error";
         }

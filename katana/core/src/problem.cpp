@@ -227,6 +227,36 @@ problem_details problem_details::too_many_requests(std::string_view detail) {
     return p;
 }
 
+problem_details problem_details::uri_too_long(std::string_view detail) {
+    problem_details p;
+    p.status = 414;
+    p.title = "URI Too Long";
+    if (!detail.empty()) {
+        p.detail = std::string(detail);
+    }
+    return p;
+}
+
+problem_details problem_details::request_header_fields_too_large(std::string_view detail) {
+    problem_details p;
+    p.status = 431;
+    p.title = "Request Header Fields Too Large";
+    if (!detail.empty()) {
+        p.detail = std::string(detail);
+    }
+    return p;
+}
+
+problem_details problem_details::content_too_large(std::string_view detail) {
+    problem_details p;
+    p.status = 413;
+    p.title = "Content Too Large";
+    if (!detail.empty()) {
+        p.detail = std::string(detail);
+    }
+    return p;
+}
+
 problem_details problem_details::internal_server_error(std::string_view detail) {
     problem_details p;
     p.status = 500;
