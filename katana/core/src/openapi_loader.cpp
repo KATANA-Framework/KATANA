@@ -174,7 +174,35 @@ struct schema_arena_pool {
     monotonic_arena* arena;
     std::vector<schema*> allocated;
 
+    // Provenance lookup: the JSON byte buffer the cursors walk, plus a sorted
+    // offset→YAML-line map produced by yaml_to_json. Both null when the input was
+    // already JSON (no YAML lines to recover).
+    const char* json_base = nullptr;
+    const katana::serde::yaml_line_map* line_map = nullptr;
+
     explicit schema_arena_pool(document* d, monotonic_arena* a) : doc(d), arena(a) {}
+
+    // Map a pointer into the JSON buffer back to its 1-based YAML source line, or 0.
+    [[nodiscard]] size_t line_at(const char* p) const {
+        if (line_map == nullptr || json_base == nullptr || p < json_base) {
+            return 0;
+        }
+        const auto offset = static_cast<size_t>(p - json_base);
+        // Largest checkpoint whose offset is <= offset.
+        size_t lo = 0;
+        size_t hi = line_map->size();
+        size_t line = 0;
+        while (lo < hi) {
+            const size_t mid = lo + (hi - lo) / 2;
+            if ((*line_map)[mid].first <= offset) {
+                line = (*line_map)[mid].second;
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return line;
+    }
 
     schema* make(schema_kind kind, std::optional<std::string_view> name = std::nullopt) {
         if (doc) {
@@ -471,6 +499,8 @@ schema* parse_schema_object(json_cursor& cur,
                             int depth = 0,
                             std::optional<std::string_view> parent_ctx = std::nullopt,
                             std::optional<std::string_view> field_ctx = std::nullopt) {
+    // Byte position of this schema's '{' — used to recover its YAML source line.
+    const char* obj_start = cur.ptr;
     if (depth > kMaxSchemaDepth) {
         cur.skip_value();
         return nullptr;
@@ -486,6 +516,7 @@ schema* parse_schema_object(json_cursor& cur,
     auto ensure_schema = [&](schema_kind kind) -> schema* {
         if (!result) {
             result = pool.make(kind, name);
+            result->source_line = pool.line_at(obj_start);
             // Set context for intelligent naming immediately upon creation
             if (parent_ctx && !parent_ctx->empty()) {
                 result->parent_context = arena_string<>(
@@ -1578,11 +1609,12 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
 
     std::string storage;
     std::string_view json_view = trimmed_input;
+    katana::serde::yaml_line_map line_map;
     bool is_json =
         !trimmed_input.empty() && (trimmed_input.front() == '{' || trimmed_input.front() == '[');
     if (!is_json) {
         std::string yaml_error;
-        auto maybe_json = yaml_to_json(trimmed_input, &yaml_error);
+        auto maybe_json = yaml_to_json(trimmed_input, &yaml_error, &line_map);
         if (!maybe_json) {
             if (!yaml_error.empty()) {
                 std::cerr << "[openapi][yaml] " << yaml_error << "\n";
@@ -1605,6 +1637,11 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
     doc.schemas.reserve(kMaxSchemaCount);
 
     schema_arena_pool pool(&doc, &arena);
+    if (!is_json) {
+        // json_view aliases the emitted JSON buffer; line_map offsets share its frame.
+        pool.json_base = json_view.data();
+        pool.line_map = &line_map;
+    }
     schema_index index;
     parameter_index pindex;
     response_index rindex;
@@ -1846,7 +1883,16 @@ result<document> load_from_file(const char* path, monotonic_arena& arena) {
     content.resize(static_cast<size_t>(in.tellg()));
     in.seekg(0, std::ios::beg);
     in.read(content.data(), static_cast<std::streamsize>(content.size()));
-    return load_from_string(content, arena);
+    auto loaded = load_from_string(content, arena);
+    if (loaded) {
+        // Record the spec's basename for generated provenance comments.
+        std::string_view p(path);
+        const auto slash = p.find_last_of("/\\");
+        const std::string_view base = slash == std::string_view::npos ? p : p.substr(slash + 1);
+        loaded->source_file =
+            arena_string<>(base.begin(), base.end(), arena_allocator<char>(&arena));
+    }
+    return loaded;
 }
 
 } // namespace katana::openapi

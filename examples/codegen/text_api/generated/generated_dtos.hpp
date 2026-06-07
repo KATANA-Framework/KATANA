@@ -61,6 +61,7 @@ inline std::optional<text_transform_operation_enum> text_transform_operation_enu
 // Data Transfer Objects (DTOs)
 // ============================================================
 
+// text_uppercase_request — object, 1 field(s)  ← api.yaml:18
 /// Request body type with 1 fields
 struct text_uppercase_request {
     // Compile-time metadata for validation
@@ -80,8 +81,10 @@ struct text_uppercase_request {
     arena_string<> text;
 };
 
-using text_uppercase_request_Text = arena_string<>;
+// text_uppercase_request_Text_t — string, field text_uppercase_request.text  ← api.yaml:22
+using text_uppercase_request_Text_t = arena_string<>;
 
+// text_uppercase_response — object, 1 field(s)  ← api.yaml:31
 /// Response body type with 1 fields
 struct text_uppercase_response {
     // Compile-time metadata for validation
@@ -98,8 +101,10 @@ struct text_uppercase_response {
     std::optional<arena_string<>> result;
 };
 
-using text_uppercase_response_Result = arena_string<>;
+// text_uppercase_response_Result_t — string, field text_uppercase_response.result  ← api.yaml:34
+using text_uppercase_response_Result_t = arena_string<>;
 
+// text_lowercase_request — object, 1 field(s)  ← api.yaml:45
 /// Request body type with 1 fields
 struct text_lowercase_request {
     // Compile-time metadata for validation
@@ -119,8 +124,10 @@ struct text_lowercase_request {
     arena_string<> text;
 };
 
-using text_lowercase_request_Text = arena_string<>;
+// text_lowercase_request_Text_t — string, field text_lowercase_request.text  ← api.yaml:49
+using text_lowercase_request_Text_t = arena_string<>;
 
+// text_lowercase_response — object, 1 field(s)  ← api.yaml:58
 /// Response body type with 1 fields
 struct text_lowercase_response {
     // Compile-time metadata for validation
@@ -137,8 +144,10 @@ struct text_lowercase_response {
     std::optional<arena_string<>> result;
 };
 
-using text_lowercase_response_Result = arena_string<>;
+// text_lowercase_response_Result_t — string, field text_lowercase_response.result  ← api.yaml:61
+using text_lowercase_response_Result_t = arena_string<>;
 
+// text_reverse_request — object, 1 field(s)  ← api.yaml:72
 /// Request body type with 1 fields
 struct text_reverse_request {
     // Compile-time metadata for validation
@@ -158,8 +167,10 @@ struct text_reverse_request {
     arena_string<> text;
 };
 
-using text_reverse_request_Text = arena_string<>;
+// text_reverse_request_Text_t — string, field text_reverse_request.text  ← api.yaml:76
+using text_reverse_request_Text_t = arena_string<>;
 
+// text_reverse_response — object, 1 field(s)  ← api.yaml:85
 /// Response body type with 1 fields
 struct text_reverse_response {
     // Compile-time metadata for validation
@@ -176,8 +187,10 @@ struct text_reverse_response {
     std::optional<arena_string<>> result;
 };
 
-using text_reverse_response_Result = arena_string<>;
+// text_reverse_response_Result_t — string, field text_reverse_response.result  ← api.yaml:88
+using text_reverse_response_Result_t = arena_string<>;
 
+// text_stats_request — object, 1 field(s)  ← api.yaml:100
 /// Request body type with 1 fields
 struct text_stats_request {
     // Compile-time metadata for validation
@@ -195,8 +208,10 @@ struct text_stats_request {
     arena_string<> text;
 };
 
-using text_stats_request_Text = arena_string<>;
+// text_stats_request_Text_t — string, field text_stats_request.text  ← api.yaml:104
+using text_stats_request_Text_t = arena_string<>;
 
+// text_stats_response — object, 3 field(s)  ← api.yaml:112
 /// Response body type with 3 fields
 struct text_stats_response {
     // Compile-time metadata for validation
@@ -219,12 +234,16 @@ struct text_stats_response {
     std::optional<int64_t> lines;
 };
 
-using text_stats_response_Chars = int64_t;
+// text_stats_response_Chars_t — integer, field text_stats_response.chars  ← api.yaml:115
+using text_stats_response_Chars_t = int64_t;
 
-using text_stats_response_Words = int64_t;
+// text_stats_response_Words_t — integer, field text_stats_response.words  ← api.yaml:118
+using text_stats_response_Words_t = int64_t;
 
-using text_stats_response_Lines = int64_t;
+// text_stats_response_Lines_t — integer, field text_stats_response.lines  ← api.yaml:121
+using text_stats_response_Lines_t = int64_t;
 
+// text_transform_request — object, 3 field(s)  ← api.yaml:134
 /// Request body type with 3 fields
 struct text_transform_request {
     // Compile-time metadata for validation
@@ -249,12 +268,16 @@ struct text_transform_request {
     std::optional<bool> trim;
 };
 
-using text_transform_request_Text = arena_string<>;
+// text_transform_request_Text_t — string, field text_transform_request.text  ← api.yaml:138
+using text_transform_request_Text_t = arena_string<>;
 
+// text_transform_operation — enum, field text_transform_request.operation  ← api.yaml:142
 using text_transform_operation = text_transform_operation_enum;
 
-using text_transform_request_Trim = bool;
+// text_transform_request_Trim_t — boolean, field text_transform_request.trim  ← api.yaml:145
+using text_transform_request_Trim_t = bool;
 
+// text_transform_response — object, 3 field(s)  ← api.yaml:153
 /// Response body type with 3 fields
 struct text_transform_response {
     // Compile-time metadata for validation
@@ -277,9 +300,12 @@ struct text_transform_response {
     std::optional<arena_string<>> operation_applied;
 };
 
-using text_transform_response_Original_length = int64_t;
+// text_transform_response_Original_length_t — integer, field text_transform_response.original_length  ← api.yaml:156
+using text_transform_response_Original_length_t = int64_t;
 
-using text_transform_response_Result = arena_string<>;
+// text_transform_response_Result_t — string, field text_transform_response.result  ← api.yaml:158
+using text_transform_response_Result_t = arena_string<>;
 
-using text_transform_response_Operation_applied = arena_string<>;
+// text_transform_response_Operation_applied_t — string, field text_transform_response.operation_applied  ← api.yaml:160
+using text_transform_response_Operation_applied_t = arena_string<>;
 

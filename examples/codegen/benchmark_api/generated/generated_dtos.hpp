@@ -90,6 +90,7 @@ inline std::optional<ItemCategory_enum> ItemCategory_enum_from_string(std::strin
 // Data Transfer Objects (DTOs)
 // ============================================================
 
+// SumRequest — object, 1 field(s)  ← api.yaml:221
 /// Data type with 1 fields
 struct SumRequest {
     // Compile-time metadata for validation
@@ -109,10 +110,13 @@ struct SumRequest {
     arena_vector<double> values;
 };
 
+// SumRequest_Values_t — array, field SumRequest.values  ← api.yaml:225
 using SumRequest_Values_t = arena_vector<double, 8>;
 
+// SumRequest_Item_t — number, field SumRequest.item  ← api.yaml:227
 using SumRequest_Item_t = double;
 
+// SumResponse — object, 2 field(s)  ← api.yaml:233
 /// Data type with 2 fields
 struct SumResponse {
     // Compile-time metadata for validation
@@ -130,10 +134,13 @@ struct SumResponse {
     int64_t count;
 };
 
+// SumResponse_Result_t — number, field SumResponse.result  ← api.yaml:237
 using SumResponse_Result_t = double;
 
+// SumResponse_Count_t — integer, field SumResponse.count  ← api.yaml:240
 using SumResponse_Count_t = int64_t;
 
+// StatsRequest — object, 2 field(s)  ← api.yaml:243
 /// Data type with 2 fields
 struct StatsRequest {
     // Compile-time metadata for validation
@@ -156,12 +163,16 @@ struct StatsRequest {
     std::optional<bool> include_median;
 };
 
+// StatsRequest_Values_t — array, field StatsRequest.values  ← api.yaml:247
 using StatsRequest_Values_t = arena_vector<double, 8>;
 
+// StatsRequest_Item_t — number, field StatsRequest.item  ← api.yaml:249
 using StatsRequest_Item_t = double;
 
+// StatsRequest_Include_median_t — boolean, field StatsRequest.include_median  ← api.yaml:254
 using StatsRequest_Include_median_t = bool;
 
+// StatsResponse — object, 6 field(s)  ← api.yaml:257
 /// Data type with 6 fields
 struct StatsResponse {
     // Compile-time metadata for validation
@@ -193,18 +204,25 @@ struct StatsResponse {
     std::optional<double> median;
 };
 
+// StatsResponse_Min_t — number, field StatsResponse.min  ← api.yaml:260
 using StatsResponse_Min_t = double;
 
+// StatsResponse_Max_t — number, field StatsResponse.max  ← api.yaml:263
 using StatsResponse_Max_t = double;
 
+// StatsResponse_Mean_t — number, field StatsResponse.mean  ← api.yaml:266
 using StatsResponse_Mean_t = double;
 
+// StatsResponse_Sum_t — number, field StatsResponse.sum  ← api.yaml:269
 using StatsResponse_Sum_t = double;
 
+// StatsResponse_Count_t — integer, field StatsResponse.count  ← api.yaml:272
 using StatsResponse_Count_t = int64_t;
 
+// StatsResponse_Median_t — number, field StatsResponse.median  ← api.yaml:274
 using StatsResponse_Median_t = double;
 
+// RegisterRequest — object, 6 field(s)  ← api.yaml:279
 /// Data type with 6 fields
 struct RegisterRequest {
     // Compile-time metadata for validation
@@ -248,22 +266,28 @@ struct RegisterRequest {
     std::optional<arena_vector<arena_string<>>> tags;
 };
 
+// RegisterRequest_Username_t — string, field RegisterRequest.username  ← api.yaml:283
 using RegisterRequest_Username_t = arena_string<>;
 
+// RegisterRequest_Email_t — string, field RegisterRequest.email  ← api.yaml:288
 using RegisterRequest_Email_t = arena_string<>;
 
+// RegisterRequest_Password_t — string, field RegisterRequest.password  ← api.yaml:291
 using RegisterRequest_Password_t = arena_string<>;
 
+// RegisterRequest_Age_t — integer, field RegisterRequest.age  ← api.yaml:295
 using RegisterRequest_Age_t = int64_t;
 
-using RegisterRequest_Role_t = std::monostate;
-
+// RegisterRequest_Tags_t — array, field RegisterRequest.tags  ← api.yaml:301
 using RegisterRequest_Tags_t = arena_vector<arena_string<>>;
 
+// RegisterRequest_Item_t — string, field RegisterRequest.item  ← api.yaml:303
 using RegisterRequest_Item_t = arena_string<>;
 
+// UserRole — enum  ← api.yaml:308
 using UserRole = UserRole_enum;
 
+// UserResponse — object, 5 field(s)  ← api.yaml:312
 /// Data type with 5 fields
 struct UserResponse {
     // Compile-time metadata for validation
@@ -291,36 +315,43 @@ struct UserResponse {
     arena_string<> created_at;
 };
 
+// UserResponse_Id_t — string, field UserResponse.id  ← api.yaml:316
 using UserResponse_Id_t = arena_string<>;
 
+// UserResponse_Username_t — string, field UserResponse.username  ← api.yaml:319
 using UserResponse_Username_t = arena_string<>;
 
+// UserResponse_Email_t — string, field UserResponse.email  ← api.yaml:321
 using UserResponse_Email_t = arena_string<>;
 
-using UserResponse_Role_t = std::monostate;
-
+// UserResponse_Created_at_t — string, field UserResponse.created_at  ← api.yaml:325
 using UserResponse_Created_at_t = arena_string<>;
 
+// ItemCategory — enum  ← api.yaml:330
 using ItemCategory = ItemCategory_enum;
 
+// Item_Id_t — integer, field Item.id  ← api.yaml:338
 using Item_Id_t = int64_t;
 
+// Item_Name_t — string, field Item.name  ← api.yaml:341
 using Item_Name_t = arena_string<>;
 
+// Item_Description_t — string, field Item.description  ← api.yaml:343
 using Item_Description_t = arena_string<>;
 
+// Item_Price_t — number, field Item.price  ← api.yaml:345
 using Item_Price_t = double;
 
+// Item_Stock_t — integer, field Item.stock  ← api.yaml:348
 using Item_Stock_t = int64_t;
 
-using Item_Category_t = std::monostate;
-
+// Item_Tags_t — array, field Item.tags  ← api.yaml:353
 using Item_Tags_t = arena_vector<arena_string<>>;
 
+// Item_Item_t — string, field Item.item  ← api.yaml:355
 using Item_Item_t = arena_string<>;
 
-using Item_Metadata_t = std::monostate;
-
+// ItemMetadata — object, 4 field(s)  ← api.yaml:360
 /// Data type with 4 fields
 struct ItemMetadata {
     // Compile-time metadata for validation
@@ -346,30 +377,37 @@ struct ItemMetadata {
     std::optional<arena_string<>> sku;
 };
 
+// ItemMetadata_Weight_kg_t — number, field ItemMetadata.weight_kg  ← api.yaml:363
 using ItemMetadata_Weight_kg_t = double;
 
+// ItemMetadata_Dimensions_t — string, field ItemMetadata.dimensions  ← api.yaml:366
 using ItemMetadata_Dimensions_t = arena_string<>;
 
+// ItemMetadata_Manufacturer_t — string, field ItemMetadata.manufacturer  ← api.yaml:368
 using ItemMetadata_Manufacturer_t = arena_string<>;
 
+// ItemMetadata_Sku_t — string, field ItemMetadata.sku  ← api.yaml:370
 using ItemMetadata_Sku_t = arena_string<>;
 
+// CreateItemRequest_Name_t — string, field CreateItemRequest.name  ← api.yaml:377
 using CreateItemRequest_Name_t = arena_string<>;
 
+// CreateItemRequest_Description_t — string, field CreateItemRequest.description  ← api.yaml:381
 using CreateItemRequest_Description_t = arena_string<>;
 
+// CreateItemRequest_Price_t — number, field CreateItemRequest.price  ← api.yaml:384
 using CreateItemRequest_Price_t = double;
 
+// CreateItemRequest_Stock_t — integer, field CreateItemRequest.stock  ← api.yaml:389
 using CreateItemRequest_Stock_t = int64_t;
 
-using CreateItemRequest_Category_t = std::monostate;
-
+// CreateItemRequest_Tags_t — array, field CreateItemRequest.tags  ← api.yaml:396
 using CreateItemRequest_Tags_t = arena_vector<arena_string<>>;
 
+// CreateItemRequest_Item_t — string, field CreateItemRequest.item  ← api.yaml:398
 using CreateItemRequest_Item_t = arena_string<>;
 
-using CreateItemRequest_Metadata_t = std::monostate;
-
+// UpdateItemRequest — object, 6 field(s)  ← api.yaml:405
 /// Data type with 6 fields
 struct UpdateItemRequest {
     // Compile-time metadata for validation
@@ -408,28 +446,34 @@ struct UpdateItemRequest {
     std::optional<arena_vector<arena_string<>>> tags;
 };
 
+// UpdateItemRequest_Name_t — string, field UpdateItemRequest.name  ← api.yaml:408
 using UpdateItemRequest_Name_t = arena_string<>;
 
+// UpdateItemRequest_Description_t — string, field UpdateItemRequest.description  ← api.yaml:412
 using UpdateItemRequest_Description_t = arena_string<>;
 
+// UpdateItemRequest_Price_t — number, field UpdateItemRequest.price  ← api.yaml:415
 using UpdateItemRequest_Price_t = double;
 
+// UpdateItemRequest_Stock_t — integer, field UpdateItemRequest.stock  ← api.yaml:419
 using UpdateItemRequest_Stock_t = int64_t;
 
-using UpdateItemRequest_Category_t = std::monostate;
-
+// UpdateItemRequest_Tags_t — array, field UpdateItemRequest.tags  ← api.yaml:425
 using UpdateItemRequest_Tags_t = arena_vector<arena_string<>>;
 
+// UpdateItemRequest_Item_t — string, field UpdateItemRequest.item  ← api.yaml:427
 using UpdateItemRequest_Item_t = arena_string<>;
 
-using ItemList_Item_t = std::monostate;
-
+// ItemList_Total_t — integer, field ItemList.total  ← api.yaml:439
 using ItemList_Total_t = int64_t;
 
+// ItemList_Limit_t — integer, field ItemList.limit  ← api.yaml:442
 using ItemList_Limit_t = int64_t;
 
+// ItemList_Offset_t — integer, field ItemList.offset  ← api.yaml:444
 using ItemList_Offset_t = int64_t;
 
+// EchoRequest — object, 3 field(s)  ← api.yaml:448
 /// Data type with 3 fields
 struct EchoRequest {
     // Compile-time metadata for validation
@@ -456,12 +500,16 @@ struct EchoRequest {
     std::optional<bool> uppercase;
 };
 
+// EchoRequest_Message_t — string, field EchoRequest.message  ← api.yaml:452
 using EchoRequest_Message_t = arena_string<>;
 
+// EchoRequest_Repeat_t — integer, field EchoRequest.repeat  ← api.yaml:455
 using EchoRequest_Repeat_t = int64_t;
 
+// EchoRequest_Uppercase_t — boolean, field EchoRequest.uppercase  ← api.yaml:459
 using EchoRequest_Uppercase_t = bool;
 
+// EchoResponse — object, 2 field(s)  ← api.yaml:462
 /// Data type with 2 fields
 struct EchoResponse {
     // Compile-time metadata for validation
@@ -481,54 +529,34 @@ struct EchoResponse {
     std::optional<int64_t> length;
 };
 
+// EchoResponse_Message_t — string, field EchoResponse.message  ← api.yaml:466
 using EchoResponse_Message_t = arena_string<>;
 
+// EchoResponse_Length_t — integer, field EchoResponse.length  ← api.yaml:468
 using EchoResponse_Length_t = int64_t;
 
-using schema = std::monostate;
-
-using schema_1 = std::monostate;
-
-using schema_2 = std::monostate;
-
-using schema_3 = std::monostate;
-
-using schema_4 = std::monostate;
-
-using schema_5 = std::monostate;
-
+// list_items_param_limit — integer  ← api.yaml:81
 using list_items_param_limit = int64_t;
 
+// list_items_param_offset — integer  ← api.yaml:87
 using list_items_param_offset = int64_t;
 
-using schema_6 = std::monostate;
-
-using schema_7 = std::monostate;
-
+// create_item_param_X_Request_Id — string  ← api.yaml:108
 using create_item_param_X_Request_Id = arena_string<>;
 
+// create_item_param_session — string  ← api.yaml:113
 using create_item_param_session = arena_string<>;
 
-using schema_8 = std::monostate;
-
-using schema_9 = std::monostate;
-
+// get_item_param_id — integer  ← api.yaml:137
 using get_item_param_id = int64_t;
 
-using schema_10 = std::monostate;
-
+// update_item_param_id — integer  ← api.yaml:153
 using update_item_param_id = int64_t;
 
-using schema_11 = std::monostate;
-
-using schema_12 = std::monostate;
-
+// delete_item_param_id — integer  ← api.yaml:175
 using delete_item_param_id = int64_t;
 
-using schema_13 = std::monostate;
-
-using schema_14 = std::monostate;
-
+// health_check_response — object, 2 field(s)  ← api.yaml:209
 /// Response body type with 2 fields
 struct health_check_response {
     // Compile-time metadata for validation
@@ -548,10 +576,13 @@ struct health_check_response {
     std::optional<int64_t> uptime_ms;
 };
 
-using health_check_response_Status = arena_string<>;
+// health_check_response_Status_t — string, field health_check_response.status  ← api.yaml:212
+using health_check_response_Status_t = arena_string<>;
 
-using health_check_response_Uptime_ms = int64_t;
+// health_check_response_Uptime_ms_t — integer, field health_check_response.uptime_ms  ← api.yaml:214
+using health_check_response_Uptime_ms_t = int64_t;
 
+// Item — object, 8 field(s)  ← api.yaml:334
 /// Data type with 8 fields
 struct Item {
     // Compile-time metadata for validation
@@ -586,6 +617,7 @@ struct Item {
     std::optional<ItemMetadata> metadata;
 };
 
+// CreateItemRequest — object, 7 field(s)  ← api.yaml:373
 /// Data type with 7 fields
 struct CreateItemRequest {
     // Compile-time metadata for validation
@@ -628,6 +660,7 @@ struct CreateItemRequest {
     std::optional<ItemMetadata> metadata;
 };
 
+// ItemList — object, 4 field(s)  ← api.yaml:431
 /// Data type with 4 fields
 struct ItemList {
     // Compile-time metadata for validation
@@ -652,5 +685,6 @@ struct ItemList {
     std::optional<int64_t> offset;
 };
 
+// ItemList_Items_t — array, field ItemList.items  ← api.yaml:435
 using ItemList_Items_t = arena_vector<Item>;
 

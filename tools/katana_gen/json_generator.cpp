@@ -3,6 +3,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 namespace katana_gen {
 namespace {
@@ -47,6 +48,15 @@ constexpr uint64_t fnv1a_hash(std::string_view str) noexcept {
     return hash;
 }
 
+// A schema synthesized from a parent property (e.g. an inline nested object or
+// array field). Such schemas are only ever parsed *in place* from a cursor by the
+// parent's parser — user code never feeds them a raw JSON string — so they do not
+// need the string_view entry-point overload. Top-level component schemas and
+// operation request/response/parameter bodies have no field context and keep it.
+bool is_field_wrapper_schema(const katana::openapi::schema& s) {
+    return !s.parent_context.empty() && !s.field_context.empty();
+}
+
 constexpr size_t DEFAULT_INLINE_ARENA_ARRAY_CAPACITY = 8;
 
 bool supports_inline_arena_array(const katana::openapi::schema* s) {
@@ -87,21 +97,29 @@ void generate_field_parse_body(std::ostream& out,
                                const std::string& indent) {
     const auto member_name = property_member_identifier(prop.name);
     const bool is_optional = is_optional_property(prop);
-    if (prop.required) {
-        out << indent << "    has_" << member_name << " = true;\n";
-    }
+    using katana::openapi::schema_kind;
+    // Mark the required field as present only AFTER a value of the right type is
+    // successfully parsed — so null / wrong-typed values don't satisfy the presence check.
+    // For typeless / free-form fields (no value to type-check) mere key presence counts.
+    const std::string mark_present =
+        prop.required ? (indent + "        has_" + member_name + " = true;\n") : std::string();
     if (!prop.type) {
         out << indent << "    cur.skip_value();\n";
+        if (prop.required) {
+            out << indent << "    has_" << member_name << " = true;\n";
+        }
         return;
     }
-    using katana::openapi::schema_kind;
     bool is_enum = prop.type->kind == schema_kind::string && !prop.type->enum_values.empty();
     auto nested_name = schema_identifier(doc, prop.type);
     if (is_enum && !nested_name.empty()) {
         out << indent << "    if (auto v = cur.string()) {\n";
+        out << indent << "        std::string ev_scratch_;\n";
         out << indent << "        auto enum_val = " << nested_name
-            << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
-        out << indent << "        if (enum_val) obj." << member_name << " = *enum_val;\n";
+            << "_enum_from_string(katana::serde::decode_json_view(*v, ev_scratch_));\n";
+        out << indent << "        if (enum_val) { obj." << member_name << " = *enum_val;\n";
+        out << mark_present;
+        out << indent << "        }\n";
         out << indent << "    } else { cur.skip_value(); }\n";
     } else {
         switch (prop.type->kind) {
@@ -109,27 +127,31 @@ void generate_field_parse_body(std::ostream& out,
             out << indent << "    if (auto v = cur.string()) {\n";
             if (use_pmr) {
                 out << indent << "        obj." << member_name
-                    << " = arena_string<>(v->begin(), v->end(), "
+                    << " = katana::serde::decode_json_string<arena_string<>>(*v, "
                        "arena_allocator<char>(arena));\n";
             } else {
                 out << indent << "        obj." << member_name
-                    << " = std::string(v->begin(), v->end());\n";
+                    << " = katana::serde::decode_json_string(*v);\n";
             }
+            out << mark_present;
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::integer:
             out << indent << "    if (auto v = katana::serde::parse_int64(cur)) {\n";
             out << indent << "        obj." << member_name << " = *v;\n";
+            out << mark_present;
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::number:
             out << indent << "    if (auto v = katana::serde::parse_double(cur)) {\n";
             out << indent << "        obj." << member_name << " = *v;\n";
+            out << mark_present;
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::boolean:
             out << indent << "    if (auto v = katana::serde::parse_bool(cur)) {\n";
             out << indent << "        obj." << member_name << " = *v;\n";
+            out << mark_present;
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::array:
@@ -153,8 +175,10 @@ void generate_field_parse_body(std::ostream& out,
                     if (!item->enum_values.empty()) {
                         auto enum_item_name = schema_identifier(doc, item);
                         out << indent << "            if (auto v = cur.string()) {\n";
+                        out << indent << "                std::string ev_scratch_;\n";
                         out << indent << "                auto enum_val = " << enum_item_name
-                            << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
+                            << "_enum_from_string(katana::serde::decode_json_view(*v, "
+                               "ev_scratch_));\n";
                         out << indent << "                if (enum_val) " << array_expr
                             << ".push_back(*enum_val);\n";
                         out << indent << "            } else { cur.skip_value(); }\n";
@@ -162,11 +186,11 @@ void generate_field_parse_body(std::ostream& out,
                         out << indent << "            if (auto v = cur.string()) {\n";
                         if (use_pmr) {
                             out << indent << "                " << array_expr
-                                << ".emplace_back(v->begin(), v->end(), "
-                                   "arena_allocator<char>(arena));\n";
+                                << ".push_back(katana::serde::decode_json_string<arena_string<>>(*v, "
+                                   "arena_allocator<char>(arena)));\n";
                         } else {
                             out << indent << "                " << array_expr
-                                << ".emplace_back(v->begin(), v->end());\n";
+                                << ".push_back(katana::serde::decode_json_string(*v));\n";
                         }
                         out << indent << "            } else { cur.skip_value(); }\n";
                     }
@@ -213,6 +237,7 @@ void generate_field_parse_body(std::ostream& out,
             }
             out << indent << "            cur.try_comma();\n";
             out << indent << "        }\n";
+            out << mark_present;
             out << indent << "    } else { cur.skip_value(); }\n";
             break;
         case schema_kind::object: {
@@ -221,14 +246,17 @@ void generate_field_parse_body(std::ostream& out,
                 out << indent << "    if (auto nested = parse_" << nested_obj_name
                     << "(cur, arena)) {\n";
                 out << indent << "        obj." << member_name << " = std::move(*nested);\n";
+                out << mark_present;
                 out << indent << "    } else { cur.skip_value(); }\n";
             } else {
                 out << indent << "    cur.skip_value();\n";
+                out << mark_present;
             }
             break;
         }
         default:
             out << indent << "    cur.skip_value();\n";
+            out << mark_present;
             break;
         }
     }
@@ -372,8 +400,9 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
             // Generate enum parser
             out << "    (void)arena;\n";
             out << "    if (auto v = cur.string()) {\n";
+            out << "        std::string ev_scratch_;\n";
             out << "        return " << struct_name
-                << "_enum_from_string(std::string_view(v->begin(), v->end()));\n";
+                << "_enum_from_string(katana::serde::decode_json_view(*v, ev_scratch_));\n";
             out << "    }\n";
             out << "    return std::nullopt;\n";
             out << "}\n\n";
@@ -385,9 +414,11 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
             out << "    if (auto v = cur.string()) {\n";
             if (use_pmr) {
                 out << "        return " << struct_name
-                    << "{arena_string<>(v->begin(), v->end(), arena_allocator<char>(arena))};\n";
+                    << "{katana::serde::decode_json_string<arena_string<>>(*v, "
+                       "arena_allocator<char>(arena))};\n";
             } else {
-                out << "        return " << struct_name << "{std::string(v->begin(), v->end())};\n";
+                out << "        return " << struct_name
+                    << "{katana::serde::decode_json_string(*v)};\n";
             }
             out << "    }\n";
             out << "    return std::nullopt;\n";
@@ -469,10 +500,10 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
                 } else {
                     out << "        if (auto v = cur.string()) {\n";
                     if (use_pmr) {
-                        out << "            result.emplace_back(v->begin(), v->end(), "
-                               "arena_allocator<char>(arena));\n";
+                        out << "            result.push_back(katana::serde::decode_json_string<"
+                               "arena_string<>>(*v, arena_allocator<char>(arena)));\n";
                     } else {
-                        out << "            result.emplace_back(v->begin(), v->end());\n";
+                        out << "            result.push_back(katana::serde::decode_json_string(*v));\n";
                     }
                     out << "        } else { cur.skip_value(); }\n";
                 }
@@ -528,9 +559,10 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
     }
     out << "\n";
 
+    out << "    bool obj_closed_ = false;\n";
     out << "    while (!cur.eof()) {\n";
     out << "        cur.skip_ws();\n";
-    out << "        if (cur.try_object_end()) break;\n";
+    out << "        if (cur.try_object_end()) { obj_closed_ = true; break; }\n";
     out << "        auto key = cur.string();\n";
     out << "        if (!key || !cur.consume(':')) break;\n\n";
 
@@ -603,6 +635,8 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
     }
     out << "        cur.try_comma();\n";
     out << "    }\n";
+    // Reject an object that ran off the end without its closing '}' (unterminated).
+    out << "    if (!obj_closed_) return std::nullopt;\n";
 
     // required check
     for (const auto& prop : s.properties) {
@@ -626,8 +660,16 @@ void generate_json_parser_for_schema(std::ostream& out,
                                      bool use_pmr) {
     auto struct_name = schema_identifier(doc, &s);
 
+    out << "// parse " << schema_banner(doc, s) << "\n";
+
     // Generate cursor-based overload first (primary implementation)
     generate_json_parser_for_schema_cursor(out, doc, s, use_pmr);
+
+    // Inline field wrappers are only parsed in place via the cursor overload above;
+    // they never receive a raw JSON string, so the string_view entry point is dead.
+    if (is_field_wrapper_schema(s)) {
+        return;
+    }
 
     if (s.kind == katana::openapi::schema_kind::array) {
         out << "[[nodiscard]] inline std::optional<" << struct_name << "> parse_" << struct_name
@@ -698,14 +740,21 @@ void generate_json_parser_for_schema(std::ostream& out,
 
         out << "        cur.try_comma();\n";
         out << "    }\n";
+        out << "    cur.skip_ws();\n";
+        out << "    if (!cur.eof()) return std::nullopt;\n";
         out << "    return result;\n";
         out << "}\n\n";
     } else {
-        // Generate string_view overload as thin wrapper
+        // Generate string_view overload as thin wrapper. Rejects trailing garbage /
+        // unterminated input: after the value, only whitespace may remain before EOF.
         out << "[[nodiscard]] inline std::optional<" << struct_name << "> parse_" << struct_name
             << "(std::string_view json, monotonic_arena* arena) {\n";
         out << "    katana::serde::json_cursor cur{json.data(), json.data() + json.size()};\n";
-        out << "    return parse_" << struct_name << "(cur, arena);\n";
+        out << "    auto result = parse_" << struct_name << "(cur, arena);\n";
+        out << "    if (!result) return std::nullopt;\n";
+        out << "    cur.skip_ws();\n";
+        out << "    if (!cur.eof()) return std::nullopt;\n";
+        out << "    return result;\n";
         out << "}\n\n";
     }
 }
@@ -718,6 +767,8 @@ void generate_json_serializer_for_schema(std::ostream& out,
                                          const document& doc,
                                          const katana::openapi::schema& s) {
     auto struct_name = schema_identifier(doc, &s);
+
+    out << "// serialize " << schema_banner(doc, s) << "\n";
 
     // ── serialize_into: appends to existing string ──
     out << "inline void serialize_" << struct_name << "_into(const " << struct_name
@@ -800,15 +851,9 @@ void generate_json_serializer_for_schema(std::ostream& out,
         case schema_kind::number:
             if (s.nullable) {
                 out << "    if (!obj) { json.append(\"null\"); return; }\n";
-                out << "    char buf[64];\n";
-                out << "    auto res = std::to_chars(buf, buf + sizeof(buf), *obj);\n";
-                out << "    if (res.ec == std::errc()) json.append(buf, "
-                       "static_cast<size_t>(res.ptr - buf));\n";
+                out << "    katana::serde::append_json_double(json, *obj);\n";
             } else {
-                out << "    char buf[64];\n";
-                out << "    auto res = std::to_chars(buf, buf + sizeof(buf), obj);\n";
-                out << "    if (res.ec == std::errc()) json.append(buf, "
-                       "static_cast<size_t>(res.ptr - buf));\n";
+                out << "    katana::serde::append_json_double(json, obj);\n";
             }
             out << "}\n\n";
             // thin wrapper
@@ -980,11 +1025,8 @@ void generate_json_serializer_for_schema(std::ostream& out,
                         out << "            json.append(\"null\");\n";
                         out << "        } else {\n";
                     }
-                    out << "        char buf[64];\n";
-                    out << "        auto res = std::to_chars(buf, buf + sizeof(buf), "
+                    out << "        katana::serde::append_json_double(json, "
                         << (is_optional ? "*obj." + member_name : "obj." + member_name) << ");\n";
-                    out << "        if (res.ec == std::errc()) json.append(buf, "
-                           "static_cast<size_t>(res.ptr - buf));\n";
                     if (is_optional) {
                         out << "        }\n";
                     }
@@ -1047,15 +1089,10 @@ void generate_json_serializer_for_schema(std::ostream& out,
                             out << "        }\n";
                             break;
                         case schema_kind::number:
-                            out << "        {\n";
-                            out << "            char buf[64];\n";
-                            out << "            auto res = std::to_chars(buf, buf + sizeof(buf), "
+                            out << "        katana::serde::append_json_double(json, "
                                 << (is_optional ? "(*obj." + member_name + ")[i]"
                                                 : "obj." + member_name + "[i]")
                                 << ");\n";
-                            out << "            if (res.ec == std::errc()) json.append(buf, "
-                                   "static_cast<size_t>(res.ptr - buf));\n";
-                            out << "        }\n";
                             break;
                         case schema_kind::boolean:
                             out << "        json.append("
@@ -1139,6 +1176,8 @@ void generate_json_array_parser(std::ostream& out,
                                 [[maybe_unused]] bool use_pmr) {
     auto struct_name = schema_identifier(doc, &s);
 
+    out << "// parse_array " << schema_banner(doc, s) << "\n";
+
     // Cursor-based overload (primary)
     out << "[[nodiscard]] inline std::optional<std::vector<" << struct_name << ">> parse_"
         << struct_name << "_array(katana::serde::json_cursor& cur, monotonic_arena* arena) {\n";
@@ -1158,6 +1197,11 @@ void generate_json_array_parser(std::ostream& out,
     out << "    return result;\n";
     out << "}\n\n";
 
+    // Inline field wrappers never take a raw JSON string — cursor overload only.
+    if (is_field_wrapper_schema(s)) {
+        return;
+    }
+
     // String_view overload (thin wrapper)
     out << "[[nodiscard]] inline std::optional<std::vector<" << struct_name << ">> parse_"
         << struct_name << "_array(std::string_view json, monotonic_arena* arena) {\n";
@@ -1175,6 +1219,8 @@ void generate_json_array_serializer(std::ostream& out,
                                     const katana::openapi::schema& s,
                                     bool use_pmr) {
     auto struct_name = schema_identifier(doc, &s);
+
+    out << "// serialize_array " << schema_banner(doc, s) << "\n";
 
     // serialize_into for std::vector
     out << "inline void serialize_" << struct_name << "_array_into(const std::vector<"
@@ -1241,8 +1287,180 @@ bool should_skip_schema(const katana::openapi::schema& s) {
     return false;
 }
 
+namespace {
+
+// A per-field scalar or array wrapper schema (e.g. `using SumResponse_Result_t = double;`
+// or `using SumRequest_Values_t = arena_vector<...>`). Synthesized from a property, they
+// carry parent_context + field_context, and struct parsers/serializers handle scalar AND
+// array *fields* inline — they never call parse_<wrapper>/serialize_<wrapper>. So the whole
+// emitted function family is dead weight (the dominant bloat in generated_json.hpp) UNLESS
+// the wrapper is the element type of a top-level array, whose serializer DOES call
+// serialize_<item>_into. That exception is handled by the caller via an items reference set.
+// Object field wrappers are excluded (kept): parent parsers call them for object fields and
+// object array items. Enums are excluded too (their conversion helpers are referenced).
+bool is_value_field_wrapper(const katana::openapi::schema& s) {
+    using katana::openapi::schema_kind;
+    if (s.parent_context.empty() || s.field_context.empty() || !s.enum_values.empty()) {
+        return false;
+    }
+    switch (s.kind) {
+    case schema_kind::string:
+    case schema_kind::integer:
+    case schema_kind::number:
+    case schema_kind::boolean:
+    case schema_kind::array:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// True for a named, empty object schema that lowers to `std::monostate`
+// (content-less 204 responses, trivial parameter schemas, empty component
+// schemas). These carry no data; their parse/serialize helpers are only worth
+// emitting if some other generated type actually calls them — otherwise they are
+// the `schema_N` aliases that clutter the output with dead, undebuggable noise.
+bool is_empty_object_alias(const katana::openapi::schema& s) {
+    using katana::openapi::schema_kind;
+    return s.kind == schema_kind::object && s.properties.empty() && !s.name.empty() &&
+           s.enum_values.empty() && s.one_of.empty() && s.any_of.empty() && s.all_of.empty() &&
+           s.additional_properties == nullptr;
+}
+
+// Collect the identifiers of every schema reachable as a parse_<X>/serialize_<X>
+// call target: object-typed properties, array items, composition members, and
+// operation request/response/parameter bodies. A named empty-object schema absent
+// from this set is never called and can be dropped from JSON generation entirely.
+void collect_json_referenced_names(const document& doc, std::unordered_set<std::string>& out) {
+    auto note = [&](const katana::openapi::schema* s) {
+        if (s) {
+            out.insert(schema_identifier(doc, s));
+        }
+    };
+    for (const auto& s : doc.schemas) {
+        for (const auto& prop : s.properties) {
+            note(prop.type);
+            if (prop.type) {
+                note(prop.type->items);
+            }
+        }
+        note(s.items);
+        for (const auto* m : s.one_of) {
+            note(m);
+        }
+        for (const auto* m : s.any_of) {
+            note(m);
+        }
+        for (const auto* m : s.all_of) {
+            note(m);
+        }
+        note(s.additional_properties);
+    }
+    for (const auto& path : doc.paths) {
+        for (const auto& op : path.operations) {
+            if (op.body) {
+                for (const auto& media : op.body->content) {
+                    note(media.type);
+                }
+            }
+            for (const auto& param : op.parameters) {
+                note(param.type);
+            }
+            for (const auto& resp : op.responses) {
+                for (const auto& media : resp.content) {
+                    note(media.type);
+                }
+            }
+        }
+    }
+}
+
+} // namespace
+
 std::string generate_json_parsers(const document& doc, bool use_pmr) {
     std::ostringstream out;
+
+    // Schemas reachable as a parse_/serialize_ call target. Used to drop dead,
+    // never-called `std::monostate` aliases (the `schema_N` clutter) without
+    // removing any helper another generated type actually invokes.
+    std::unordered_set<std::string> json_referenced;
+    collect_json_referenced_names(doc, json_referenced);
+
+    // Element types of top-level (non-field-wrapper) arrays. A top-level array body's
+    // serializer emits `serialize_<item>_into(...)`, so its element wrapper must NOT be
+    // dropped as a dead value-field-wrapper even though, as a plain field, it would be.
+    std::unordered_set<std::string> array_item_refs;
+    for (const auto& s : doc.schemas) {
+        if (s.kind == katana::openapi::schema_kind::array && s.items != nullptr &&
+            !is_field_wrapper_schema(s)) {
+            array_item_refs.insert(schema_identifier(doc, s.items));
+        }
+    }
+
+    // JSON entry points: schemas parsed/serialized from a raw string by the router —
+    // request bodies and response bodies. Operation PARAMETERS are NOT here: they are
+    // parsed from the query/path string via from_chars, never via parse_<X>(json). So a
+    // top-level scalar/array schema that is only a parameter has a fully dead JSON family.
+    std::unordered_set<std::string> entrypoint_refs;
+    for (const auto& path : doc.paths) {
+        for (const auto& op : path.operations) {
+            if (op.body != nullptr) {
+                for (const auto& media : op.body->content) {
+                    if (media.type != nullptr) {
+                        entrypoint_refs.insert(schema_identifier(doc, media.type));
+                    }
+                }
+            }
+            for (const auto& resp : op.responses) {
+                for (const auto& media : resp.content) {
+                    if (media.type != nullptr) {
+                        entrypoint_refs.insert(schema_identifier(doc, media.type));
+                    }
+                }
+            }
+        }
+    }
+
+    // A named, top-level scalar/array schema (not a field wrapper, not an enum/object)
+    // whose JSON helpers are never invoked: not a body/response entry point and not the
+    // element of a kept array. These are the per-parameter wrappers (listTasks_param_limit
+    // and friends) that bloat the output with dead parse/serialize families.
+    const auto is_dead_param_wrapper = [&](const katana::openapi::schema& s) {
+        using katana::openapi::schema_kind;
+        if (s.name.empty() || is_field_wrapper_schema(s) || !s.enum_values.empty()) {
+            return false;
+        }
+        switch (s.kind) {
+        case schema_kind::string:
+        case schema_kind::integer:
+        case schema_kind::number:
+        case schema_kind::boolean:
+        case schema_kind::array:
+            break;
+        default:
+            return false;
+        }
+        const auto name = schema_identifier(doc, &s);
+        return !entrypoint_refs.contains(name) && !array_item_refs.contains(name);
+    };
+
+    const auto skip_for_json = [&](const katana::openapi::schema& s) {
+        if (should_skip_schema(s)) {
+            return true;
+        }
+        // Dead scalar/array field wrappers — unless referenced as a top-level array element.
+        if (is_value_field_wrapper(s) && !array_item_refs.contains(schema_identifier(doc, &s))) {
+            return true;
+        }
+        if (is_dead_param_wrapper(s)) {
+            return true;
+        }
+        if (is_empty_object_alias(s) && !json_referenced.contains(schema_identifier(doc, &s))) {
+            return true;
+        }
+        return false;
+    };
+
     out << "// Auto-generated JSON parsers and serializers from OpenAPI specification\n";
     out << "//\n";
     out << "// This file contains:\n";
@@ -1275,9 +1493,10 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "// Forward Declarations\n";
     out << "// ============================================================\n\n";
 
-    // Forward declarations: parse (string_view overload)
+    // Forward declarations: parse (string_view overload) — skipped for inline field
+    // wrappers, which are only ever parsed in place via the cursor overload.
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema) && !is_field_wrapper_schema(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "[[nodiscard]] inline std::optional<" << name << "> parse_" << name
                 << "(std::string_view json, monotonic_arena* arena);\n";
@@ -1286,7 +1505,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "\n";
     // Forward declarations: parse (cursor overload)
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "[[nodiscard]] inline std::optional<" << name << "> parse_" << name
                 << "(katana::serde::json_cursor& cur, monotonic_arena* arena);\n";
@@ -1295,7 +1514,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "\n";
     // Forward declarations: serialize_into
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "inline void serialize_" << name << "_into(const " << name
                 << "& obj, std::string& out);\n";
@@ -1304,15 +1523,16 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "\n";
     // Forward declarations: serialize
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "inline std::string serialize_" << name << "(const " << name << "& obj);\n";
         }
     }
     out << "\n";
-    // Forward declarations: parse_array (string_view overload)
+    // Forward declarations: parse_array (string_view overload) — skipped for inline
+    // field wrappers (cursor overload only).
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema) && !is_field_wrapper_schema(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "[[nodiscard]] inline std::optional<std::vector<" << name << ">> parse_" << name
                 << "_array(std::string_view json, monotonic_arena* arena);\n";
@@ -1321,7 +1541,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "\n";
     // Forward declarations: parse_array (cursor overload)
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "[[nodiscard]] inline std::optional<std::vector<" << name << ">> parse_" << name
                 << "_array(katana::serde::json_cursor& cur, monotonic_arena* arena);\n";
@@ -1330,7 +1550,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "\n";
     // Forward declarations: serialize_array_into
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "inline void serialize_" << name << "_array_into(const std::vector<" << name
                 << ">& arr, std::string& out);\n";
@@ -1343,7 +1563,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
     out << "\n";
     // Forward declarations: serialize_array
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "inline std::string serialize_" << name << "_array(const std::vector<" << name
                 << ">& arr);\n";
@@ -1364,7 +1584,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
 
     // Only generate parsers for non-trivial schemas (objects with properties or arrays)
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             generate_json_parser_for_schema(out, doc, schema, use_pmr);
         }
     }
@@ -1378,7 +1598,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
 
     // Only generate serializers for non-trivial schemas
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             generate_json_serializer_for_schema(out, doc, schema);
         }
     }
@@ -1392,7 +1612,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
 
     // Generate array parsers only for non-trivial schemas
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             generate_json_array_parser(out, doc, schema, use_pmr);
         }
     }
@@ -1406,7 +1626,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr) {
 
     // Generate array serializers only for non-trivial schemas
     for (const auto& schema : doc.schemas) {
-        if (!should_skip_schema(schema)) {
+        if (!skip_for_json(schema)) {
             generate_json_array_serializer(out, doc, schema, use_pmr);
         }
     }

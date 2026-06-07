@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -770,6 +771,151 @@ inline std::string escape_json_string(std::string_view sv) {
     out.reserve(sv.size() + 8);
     escape_json_string_into_escaped(sv, out);
     return out;
+}
+
+// ── Number serialization (RFC 8259 safe) ──
+// std::to_chars happily writes "nan"/"inf"/"-inf" for non-finite doubles, which are
+// NOT valid JSON and break every downstream parser. Emit null for them instead.
+inline void append_json_double(std::string& out, double v) {
+    if (!std::isfinite(v)) {
+        out.append("null", 4);
+        return;
+    }
+    char buf[64];
+    auto res = std::to_chars(buf, buf + sizeof(buf), v);
+    if (res.ec == std::errc()) {
+        out.append(buf, static_cast<size_t>(res.ptr - buf));
+    } else {
+        out.append("null", 4);
+    }
+}
+
+// ── JSON string unescaping ──
+// json_cursor::string() returns the raw bytes between the quotes WITHOUT decoding
+// escapes (zero-copy). These helpers decode \" \\ \/ \b \f \n \r \t and \uXXXX
+// (including UTF-16 surrogate pairs → UTF-8) so parsed values match what the client sent.
+[[nodiscard]] inline bool json_string_needs_unescape(std::string_view raw) noexcept {
+    return raw.find('\\') != std::string_view::npos;
+}
+
+template <class OutString>
+inline void unescape_json_into(std::string_view raw, OutString& out) {
+    const size_t n = raw.size();
+    auto hex4 = [&](size_t at, uint32_t& cp) -> bool {
+        if (at + 4 > n) {
+            return false;
+        }
+        uint32_t v = 0;
+        for (size_t k = 0; k < 4; ++k) {
+            const char h = raw[at + k];
+            v <<= 4U;
+            if (h >= '0' && h <= '9') {
+                v |= static_cast<uint32_t>(h - '0');
+            } else if (h >= 'a' && h <= 'f') {
+                v |= static_cast<uint32_t>(h - 'a' + 10);
+            } else if (h >= 'A' && h <= 'F') {
+                v |= static_cast<uint32_t>(h - 'A' + 10);
+            } else {
+                return false;
+            }
+        }
+        cp = v;
+        return true;
+    };
+    auto push_utf8 = [&](uint32_t cp) {
+        if (cp <= 0x7F) {
+            out.push_back(static_cast<char>(cp));
+        } else if (cp <= 0x7FF) {
+            out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp <= 0xFFFF) {
+            out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+    };
+    size_t i = 0;
+    while (i < n) {
+        const char c = raw[i];
+        if (c != '\\') {
+            out.push_back(c);
+            ++i;
+            continue;
+        }
+        if (i + 1 >= n) {
+            out.push_back('\\');
+            break;
+        }
+        const char e = raw[i + 1];
+        switch (e) {
+        case '"': out.push_back('"'); i += 2; break;
+        case '\\': out.push_back('\\'); i += 2; break;
+        case '/': out.push_back('/'); i += 2; break;
+        case 'b': out.push_back('\b'); i += 2; break;
+        case 'f': out.push_back('\f'); i += 2; break;
+        case 'n': out.push_back('\n'); i += 2; break;
+        case 'r': out.push_back('\r'); i += 2; break;
+        case 't': out.push_back('\t'); i += 2; break;
+        case 'u': {
+            uint32_t cp = 0;
+            if (!hex4(i + 2, cp)) {
+                out.push_back('\\');
+                out.push_back('u');
+                i += 2;
+                break;
+            }
+            i += 6;
+            if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < n && raw[i] == '\\' && raw[i + 1] == 'u') {
+                uint32_t lo = 0;
+                if (hex4(i + 2, lo) && lo >= 0xDC00 && lo <= 0xDFFF) {
+                    cp = 0x10000 + ((cp - 0xD800) << 10U) + (lo - 0xDC00);
+                    i += 6;
+                }
+            }
+            push_utf8(cp);
+            break;
+        }
+        default: out.push_back(e); i += 2; break;
+        }
+    }
+}
+
+// Build an arena/std string from a raw JSON string body, decoding escapes only when present.
+template <class Str, class Alloc>
+[[nodiscard]] inline Str decode_json_string(std::string_view raw, const Alloc& alloc) {
+    Str s(alloc);
+    if (json_string_needs_unescape(raw)) {
+        unescape_json_into(raw, s);
+    } else {
+        s.append(raw.data(), raw.size());
+    }
+    return s;
+}
+
+[[nodiscard]] inline std::string decode_json_string(std::string_view raw) {
+    std::string s;
+    if (json_string_needs_unescape(raw)) {
+        unescape_json_into(raw, s);
+    } else {
+        s.assign(raw.data(), raw.size());
+    }
+    return s;
+}
+
+// Return the decoded view for enum/keyword matching: the raw view if there are no escapes,
+// otherwise decode into `scratch` and return a view of it.
+[[nodiscard]] inline std::string_view decode_json_view(std::string_view raw, std::string& scratch) {
+    if (!json_string_needs_unescape(raw)) {
+        return raw;
+    }
+    scratch.clear();
+    unescape_json_into(raw, scratch);
+    return scratch;
 }
 
 // Optimized integer to string conversion using lookup tables

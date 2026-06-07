@@ -35,6 +35,7 @@ using katana::monotonic_arena;
 // Data Transfer Objects (DTOs)
 // ============================================================
 
+// RegisterUserRequest — object, 3 field(s)  ← api.yaml:25
 /// Data type with 3 fields
 struct RegisterUserRequest {
     // Compile-time metadata for validation
@@ -63,13 +64,15 @@ struct RegisterUserRequest {
     std::optional<int64_t> age;
 };
 
+// RegisterUserRequest_Email_t — string, field RegisterUserRequest.email  ← api.yaml:31
 using RegisterUserRequest_Email_t = arena_string<>;
 
+// RegisterUserRequest_Password_t — string, field RegisterUserRequest.password  ← api.yaml:34
 using RegisterUserRequest_Password_t = arena_string<>;
 
+// RegisterUserRequest_Age_t — integer, field RegisterUserRequest.age  ← api.yaml:38
 using RegisterUserRequest_Age_t = std::optional<int64_t>;
 
-using schema = std::monostate;
-
+// register_user_response — string  ← api.yaml:21
 using register_user_response = arena_string<>;
 

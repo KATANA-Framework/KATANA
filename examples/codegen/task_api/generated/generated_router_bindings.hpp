@@ -81,8 +81,10 @@ inline katana::result<void> dispatch_list_tasks(const katana::http::request& req
         named_param_target{"limit", &p_limit},
         named_param_target{"offset", &p_offset},
     });
+    if (p_status) *p_status = katana::http_utils::percent_decode_view(*p_status, ctx.arena);
     std::optional<std::string_view> status = std::nullopt;
     if (p_status) status = *p_status;
+    if (p_priority) *p_priority = katana::http_utils::percent_decode_view(*p_priority, ctx.arena);
     std::optional<int64_t> priority;
     if (p_priority) {
         int64_t tmp = 0;
@@ -90,6 +92,7 @@ inline katana::result<void> dispatch_list_tasks(const katana::http::request& req
         if (ec != std::errc() || ptr != p_priority->data() + p_priority->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param priority")); return {}; }
         priority = tmp;
     }
+    if (p_limit) *p_limit = katana::http_utils::percent_decode_view(*p_limit, ctx.arena);
     std::optional<int64_t> limit;
     if (p_limit) {
         int64_t tmp = 0;
@@ -97,6 +100,7 @@ inline katana::result<void> dispatch_list_tasks(const katana::http::request& req
         if (ec != std::errc() || ptr != p_limit->data() + p_limit->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param limit")); return {}; }
         limit = tmp;
     }
+    if (p_offset) *p_offset = katana::http_utils::percent_decode_view(*p_offset, ctx.arena);
     std::optional<int64_t> offset;
     if (p_offset) {
         int64_t tmp = 0;
@@ -186,6 +190,7 @@ inline katana::result<void> dispatch_get_task(const katana::http::request& req, 
     }
     auto p_id = ctx.params.get("id");
     if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    *p_id = katana::http_utils::percent_decode_view(*p_id, ctx.arena);
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
@@ -225,6 +230,7 @@ inline katana::result<void> dispatch_update_task(const katana::http::request& re
     }
     auto p_id = ctx.params.get("id");
     if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    *p_id = katana::http_utils::percent_decode_view(*p_id, ctx.arena);
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
@@ -280,6 +286,7 @@ inline katana::result<void> dispatch_delete_task(const katana::http::request& re
     }
     auto p_id = ctx.params.get("id");
     if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    *p_id = katana::http_utils::percent_decode_view(*p_id, ctx.arena);
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
@@ -598,11 +605,15 @@ public:
                 break;
         }
 
-        // Fallback to standard router for:
-        // - Dynamic routes (with path parameters)
-        // - Hash collisions
-        // - Method mismatches
-        return fallback_router_.dispatch(req, ctx, out);
+        // Fallback to standard router for dynamic routes (path params), hash
+        // collisions, and method mismatches. Use dispatch_with_info +
+        // map_dispatch_error so a 405 keeps its Allow header (plain dispatch()
+        // drops the allowed-methods mask, violating RFC 7231).
+        auto fallback_info_ = fallback_router_.dispatch_with_info(req, ctx, out);
+        if (fallback_info_.has_error) {
+            katana::http::map_dispatch_error(fallback_info_, out);
+        }
+        return {};
     }
 
     katana::result<katana::http::response> operator()(

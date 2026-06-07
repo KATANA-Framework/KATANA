@@ -35,9 +35,12 @@ using katana::monotonic_arena;
 // Data Transfer Objects (DTOs)
 // ============================================================
 
+// compute_sum_request — array  ← api.yaml:15
 using compute_sum_request = arena_vector<double, 8>;
 
-using schema = double;
+// compute_sum_request_Item_t — number, field compute_sum_request.item  ← api.yaml:17
+using compute_sum_request_Item_t = double;
 
+// compute_sum_response — number  ← api.yaml:27
 using compute_sum_response = double;
 

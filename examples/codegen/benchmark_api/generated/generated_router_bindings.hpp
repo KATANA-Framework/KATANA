@@ -91,6 +91,18 @@ inline katana::result<void> dispatch_compute_sum(const katana::http::request& re
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->compute_sum_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.compute_sum(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -127,6 +139,18 @@ inline katana::result<void> dispatch_compute_stats(const katana::http::request& 
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->compute_stats_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.compute_stats(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -163,6 +187,18 @@ inline katana::result<void> dispatch_register_user(const katana::http::request& 
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->register_user_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.register_user(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -189,6 +225,7 @@ inline katana::result<void> dispatch_list_items(const katana::http::request& req
         named_param_target{"offset", &p_offset},
         named_param_target{"category", &p_category},
     });
+    if (p_limit) *p_limit = katana::http_utils::percent_decode_view(*p_limit, ctx.arena);
     std::optional<int64_t> limit;
     if (p_limit) {
         int64_t tmp = 0;
@@ -196,6 +233,7 @@ inline katana::result<void> dispatch_list_items(const katana::http::request& req
         if (ec != std::errc() || ptr != p_limit->data() + p_limit->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param limit")); return {}; }
         limit = tmp;
     }
+    if (p_offset) *p_offset = katana::http_utils::percent_decode_view(*p_offset, ctx.arena);
     std::optional<int64_t> offset;
     if (p_offset) {
         int64_t tmp = 0;
@@ -203,10 +241,23 @@ inline katana::result<void> dispatch_list_items(const katana::http::request& req
         if (ec != std::errc() || ptr != p_offset->data() + p_offset->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param offset")); return {}; }
         offset = tmp;
     }
+    if (p_category) *p_category = katana::http_utils::percent_decode_view(*p_category, ctx.arena);
     std::optional<std::string_view> category = std::nullopt;
     if (p_category) category = *p_category;
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->list_items_async(limit, offset, category, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.list_items(limit, offset, category, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -249,6 +300,18 @@ inline katana::result<void> dispatch_create_item(const katana::http::request& re
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->create_item_async(X_Request_Id, session, *parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.create_item(X_Request_Id, session, *parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -269,6 +332,7 @@ inline katana::result<void> dispatch_get_item(const katana::http::request& req, 
     }
     auto p_id = ctx.params.get("id");
     if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    *p_id = katana::http_utils::percent_decode_view(*p_id, ctx.arena);
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
@@ -276,6 +340,18 @@ inline katana::result<void> dispatch_get_item(const katana::http::request& req, 
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->get_item_async(id, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.get_item(id, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -296,6 +372,7 @@ inline katana::result<void> dispatch_update_item(const katana::http::request& re
     }
     auto p_id = ctx.params.get("id");
     if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    *p_id = katana::http_utils::percent_decode_view(*p_id, ctx.arena);
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
@@ -319,6 +396,18 @@ inline katana::result<void> dispatch_update_item(const katana::http::request& re
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->update_item_async(id, *parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.update_item(id, *parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -333,6 +422,7 @@ inline katana::result<void> dispatch_update_item(const katana::http::request& re
 inline katana::result<void> dispatch_delete_item(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
     auto p_id = ctx.params.get("id");
     if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    *p_id = katana::http_utils::percent_decode_view(*p_id, ctx.arena);
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
@@ -340,6 +430,18 @@ inline katana::result<void> dispatch_delete_item(const katana::http::request& re
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response());
+            if (async_out) {
+                if (async_handler->delete_item_async(id, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.delete_item(id, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -373,6 +475,18 @@ inline katana::result<void> dispatch_echo(const katana::http::request& req, kata
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->echo_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.echo(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -393,6 +507,18 @@ inline katana::result<void> dispatch_health_check(const katana::http::request& r
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->health_check_async(async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.health_check(out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -410,66 +536,97 @@ inline katana::result<void> dispatch_health_check(const katana::http::request& r
 class generated_router {
 public:
     explicit generated_router(api_handler& handler)
-        : route_entries_{
+        : route_policies_{
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "compute_sum"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "compute_stats"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "register_user"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "list_items"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "create_item"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "get_item"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "update_item"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "delete_item"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "echo"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "health_check"},
+        }, route_entries_{
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/compute/sum">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_compute_sum(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[0]
         },
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/compute/stats">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_compute_stats(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[1]
         },
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/users/register">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_register_user(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[2]
         },
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/items">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_list_items(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[3]
         },
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/items">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_create_item(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[4]
         },
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/items/{id}">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_get_item(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[5]
         },
         katana::http::route_entry{katana::http::method::put,
                    katana::http::path_pattern::from_literal<"/items/{id}">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_update_item(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[6]
         },
         katana::http::route_entry{katana::http::method::del,
                    katana::http::path_pattern::from_literal<"/items/{id}">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_delete_item(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[7]
         },
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/echo">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_echo(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[8]
         },
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/health">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_health_check(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[9]
         },
         } {
         router_.emplace(route_entries_);
@@ -482,10 +639,14 @@ public:
 
     [[nodiscard]] const katana::http::router& router() const noexcept { return *router_; }
     [[nodiscard]] katana::http::router& router() noexcept { return *router_; }
+    [[nodiscard]] std::span<const katana::http::route_policy_view> route_policies() const noexcept {
+        return std::span<const katana::http::route_policy_view>(route_policies_.data(), route_policies_.size());
+    }
     [[nodiscard]] operator const katana::http::router&() const noexcept { return *router_; }
     [[nodiscard]] operator katana::http::router&() noexcept { return *router_; }
 
 private:
+    std::array<katana::http::route_policy_view, route_count> route_policies_;
     std::array<katana::http::route_entry, route_count> route_entries_;
     std::optional<katana::http::router> router_;
 };
@@ -497,13 +658,16 @@ inline generated_router make_router(api_handler& handler) {
 // Optimized router with hash-based O(1) dispatch for static routes
 class fast_router {
 public:
-    explicit fast_router(api_handler& handler, const katana::http::router& fallback)
-        : handler_(handler), fallback_router_(fallback) {}
+    explicit fast_router(api_handler& handler,
+                         const katana::http::router& fallback,
+                         std::span<const katana::http::route_policy_view> route_policies)
+        : handler_(handler), fallback_router_(fallback), route_policies_(route_policies) {}
 
     katana::result<void> dispatch_to(
         const katana::http::request& req,
         katana::http::request_context& ctx,
         katana::http::response& out) const {
+        ctx.route_policy = nullptr;
         // Strip query string for matching
         std::string_view path = req.uri;
         auto query_pos = path.find('?');
@@ -517,50 +681,54 @@ public:
             case HASH_COMPUTE_SUM:
                 if (path == "/compute/sum") {
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_compute_sum(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[0]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_compute_sum(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_COMPUTE_STATS:
                 if (path == "/compute/stats") {
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_compute_stats(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[1]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_compute_stats(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_REGISTER_USER:
                 if (path == "/users/register") {
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_register_user(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[2]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_register_user(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_LIST_ITEMS:
                 if (path == "/items") {
                     if (req.http_method == katana::http::method::get)
-                        { return dispatch_list_items(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[3]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_list_items(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_create_item(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[4]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_create_item(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_ECHO:
                 if (path == "/echo") {
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_echo(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[8]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_echo(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_HEALTH_CHECK:
                 if (path == "/health") {
                     if (req.http_method == katana::http::method::get)
-                        { return dispatch_health_check(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[9]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_health_check(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             default:
                 break;
         }
 
-        // Fallback to standard router for:
-        // - Dynamic routes (with path parameters)
-        // - Hash collisions
-        // - Method mismatches
-        return fallback_router_.dispatch(req, ctx, out);
+        // Fallback to standard router for dynamic routes (path params), hash
+        // collisions, and method mismatches. Use dispatch_with_info +
+        // map_dispatch_error so a 405 keeps its Allow header (plain dispatch()
+        // drops the allowed-methods mask, violating RFC 7231).
+        auto fallback_info_ = fallback_router_.dispatch_with_info(req, ctx, out);
+        if (fallback_info_.has_error) {
+            katana::http::map_dispatch_error(fallback_info_, out);
+        }
+        return {};
     }
 
     katana::result<katana::http::response> operator()(
@@ -577,13 +745,14 @@ public:
 private:
     api_handler& handler_;
     const katana::http::router& fallback_router_;
+    std::span<const katana::http::route_policy_view> route_policies_;
 };
 
 // Create optimized router (recommended for production)
 class generated_fast_router {
 public:
     explicit generated_fast_router(api_handler& handler)
-        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) {}
+        : router_bundle_(handler), fast_router_(handler, router_bundle_.router(), router_bundle_.route_policies()) {}
 
     generated_fast_router(const generated_fast_router&) = delete;
     generated_fast_router& operator=(const generated_fast_router&) = delete;

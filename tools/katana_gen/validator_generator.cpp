@@ -211,6 +211,7 @@ void generate_validator_for_schema(std::ostream& out,
     // Handle top-level arrays (e.g., body: array<number>)
     if (s.kind == schema_kind::array) {
         auto struct_name = schema_identifier(doc, &s);
+        out << "// validate " << schema_banner(doc, s) << "\n";
         out << "[[nodiscard]] inline std::optional<validation_error> validate_" << struct_name
             << "(const " << struct_name << "& arr) {\n";
         // Suppress unused parameter warning when no array constraints
@@ -245,6 +246,7 @@ void generate_validator_for_schema(std::ostream& out,
 
     auto struct_name = schema_identifier(doc, &s);
 
+    out << "// validate " << schema_banner(doc, s) << "\n";
     // Use unified validation_error instead of per-struct error types
     out << "[[nodiscard]] inline std::optional<validation_error> validate_" << struct_name
         << "(const " << struct_name << "& obj) {\n";
@@ -337,11 +339,14 @@ void generate_validator_for_schema(std::ostream& out,
 
         // Skip all string validations for enums (they're strongly typed, validated at parse time)
         if (prop.type->kind == schema_kind::string && !is_enum) {
+            // Length is measured in Unicode code points (utf8_length), not bytes, per the
+            // OpenAPI/JSON-Schema definition of minLength/maxLength.
+            const std::string len_expr =
+                "katana::utf8_length(" + (is_optional ? deref_prefix : obj_prefix) + ")";
             if (prop.type->min_length) {
                 out << "    if ("
-                    << (is_optional ? obj_prefix + " && !" + obj_prefix + "->empty() && " +
-                                          obj_prefix + "->size()"
-                                    : "!" + obj_prefix + ".empty() && " + obj_prefix + ".size()")
+                    << (is_optional ? obj_prefix + " && !" + obj_prefix + "->empty() && " + len_expr
+                                    : "!" + obj_prefix + ".empty() && " + len_expr)
                     << " < " << struct_name << "::metadata::" << prop_name_upper
                     << "_MIN_LENGTH) {\n";
                 out << "        return validation_error{\"" << prop.name
@@ -350,9 +355,7 @@ void generate_validator_for_schema(std::ostream& out,
                 out << "    }\n";
             }
             if (prop.type->max_length) {
-                out << "    if ("
-                    << (is_optional ? obj_prefix + " && " + obj_prefix + "->size()"
-                                    : obj_prefix + ".size()")
+                out << "    if (" << (is_optional ? obj_prefix + " && " + len_expr : len_expr)
                     << " > " << struct_name << "::metadata::" << prop_name_upper
                     << "_MAX_LENGTH) {\n";
                 out << "        return validation_error{\"" << prop.name
@@ -531,6 +534,39 @@ void generate_validator_for_schema(std::ostream& out,
         }
     }
 
+    // Recurse into nested objects and array-of-object items so their own constraints are
+    // enforced too — otherwise nested/array-element data bypasses validation entirely.
+    for (const auto& prop : s.properties) {
+        if (!prop.type) {
+            continue;
+        }
+        const auto member = property_member_identifier(prop.name);
+        const bool opt = is_optional_property(prop);
+        if (prop.type->kind == schema_kind::object && !prop.type->properties.empty()) {
+            const auto nested = schema_identifier(doc, prop.type);
+            if (opt) {
+                out << "    if (obj." << member << ") { if (auto e_ = validate_" << nested
+                    << "(*obj." << member << ")) return e_; }\n";
+            } else {
+                out << "    if (auto e_ = validate_" << nested << "(obj." << member
+                    << ")) return e_;\n";
+            }
+        } else if (prop.type->kind == schema_kind::array && prop.type->items != nullptr &&
+                   prop.type->items->kind == schema_kind::object &&
+                   !prop.type->items->properties.empty()) {
+            const auto item = schema_identifier(doc, prop.type->items);
+            const std::string arr = opt ? "(*obj." + member + ")" : "obj." + member;
+            if (opt) {
+                out << "    if (obj." << member << ") {\n";
+            }
+            out << "    for (const auto& it_ : " << arr << ") { if (auto e_ = validate_" << item
+                << "(it_)) return e_; }\n";
+            if (opt) {
+                out << "    }\n";
+            }
+        }
+    }
+
     out << "    return std::nullopt;\n";
     out << "}\n\n";
 }
@@ -564,7 +600,20 @@ std::string generate_validators(const document& doc) {
     out << "#include <string>\n";
     out << "#include <cmath>\n";
     out << "#include <cctype>\n";
-    out << "#include <regex>\n";
+    // <regex> is only needed when a `pattern` constraint falls back to std::regex_match
+    // (complex patterns). Simple patterns compile to a hand-coded character loop and need
+    // nothing. Including this heavy header unconditionally slowed every generated TU, so
+    // emit it only when the spec actually has a pattern that could require it.
+    bool any_pattern = false;
+    for (const auto& sc : doc.schemas) {
+        if (!sc.pattern.empty()) {
+            any_pattern = true;
+            break;
+        }
+    }
+    if (any_pattern) {
+        out << "#include <regex>\n";
+    }
     out << "#include <unordered_set>\n";
     out << "#include <vector>\n\n";
     out << "using katana::validation_error;\n";
@@ -586,6 +635,26 @@ std::string generate_validators(const document& doc) {
     out << "// ============================================================\n";
     out << "// Validation Functions\n";
     out << "// ============================================================\n\n";
+
+    // Forward declarations so a validator can recurse into a nested type whose definition
+    // appears later in the file (schemas are emitted in document order, not sorted).
+    {
+        std::unordered_set<std::string> declared;
+        for (const auto& schema : doc.schemas) {
+            const bool emits =
+                schema.kind == katana::openapi::schema_kind::array ||
+                (schema.kind == katana::openapi::schema_kind::object && !schema.properties.empty());
+            if (!emits) {
+                continue;
+            }
+            auto name = schema_identifier(doc, &schema);
+            if (declared.insert(name).second) {
+                out << "[[nodiscard]] inline std::optional<validation_error> validate_" << name
+                    << "(const " << name << "&);\n";
+            }
+        }
+        out << "\n";
+    }
 
     for (const auto& schema : doc.schemas) {
         generate_validator_for_schema(out, doc, schema);

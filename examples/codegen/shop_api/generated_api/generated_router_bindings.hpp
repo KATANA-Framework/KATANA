@@ -80,14 +80,17 @@ inline katana::result<void> dispatch_customer_revenue(const katana::http::reques
         named_param_target{"offset", &p_offset},
     });
     if (!p_country) { out = katana::http::response::error(katana::problem_details::bad_request("missing param country")); return {}; }
+    if (p_country) *p_country = katana::http_utils::percent_decode_view(*p_country, ctx.arena);
     auto country = p_country ? *p_country : std::string_view{};
     if (!p_limit) { out = katana::http::response::error(katana::problem_details::bad_request("missing param limit")); return {}; }
+    if (p_limit) *p_limit = katana::http_utils::percent_decode_view(*p_limit, ctx.arena);
     int64_t limit = 0;
     if (p_limit) {
         auto [ptr, ec] = std::from_chars(p_limit->data(), p_limit->data() + p_limit->size(), limit);
         if (ec != std::errc() || ptr != p_limit->data() + p_limit->size()) { out = katana::http::response::error(katana::problem_details::bad_request("invalid param limit")); return {}; }
     }
     if (!p_offset) { out = katana::http::response::error(katana::problem_details::bad_request("missing param offset")); return {}; }
+    if (p_offset) *p_offset = katana::http_utils::percent_decode_view(*p_offset, ctx.arena);
     int64_t offset = 0;
     if (p_offset) {
         auto [ptr, ec] = std::from_chars(p_offset->data(), p_offset->data() + p_offset->size(), offset);
@@ -127,6 +130,7 @@ inline katana::result<void> dispatch_top_products(const katana::http::request& r
     }
     auto p_limit = query_param(req.uri, "limit");
     if (!p_limit) { out = katana::http::response::error(katana::problem_details::bad_request("missing param limit")); return {}; }
+    if (p_limit) *p_limit = katana::http_utils::percent_decode_view(*p_limit, ctx.arena);
     int64_t limit = 0;
     if (p_limit) {
         auto [ptr, ec] = std::from_chars(p_limit->data(), p_limit->data() + p_limit->size(), limit);
@@ -198,6 +202,7 @@ inline katana::result<void> dispatch_order_detail(const katana::http::request& r
     }
     auto p_id = ctx.params.get("id");
     if (!p_id) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param id")); return {}; }
+    *p_id = katana::http_utils::percent_decode_view(*p_id, ctx.arena);
     int64_t id = 0;
     {
         auto [ptr, ec] = std::from_chars(p_id->data(), p_id->data() + p_id->size(), id);
@@ -282,36 +287,52 @@ inline katana::result<void> dispatch_create_order(const katana::http::request& r
 class generated_router {
 public:
     explicit generated_router(api_handler& handler)
-        : route_entries_{
+        : route_policies_{
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "customer_revenue"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "top_products"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "category_stats"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "order_detail"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "create_order"},
+        }, route_entries_{
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/shop/customers/revenue">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_customer_revenue(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[0]
         },
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/shop/products/top">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_top_products(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[1]
         },
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/shop/categories/stats">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_category_stats(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[2]
         },
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/shop/orders/{id}">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_order_detail(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[3]
         },
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/shop/orders">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_create_order(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[4]
         },
         } {
         router_.emplace(route_entries_);
@@ -324,10 +345,14 @@ public:
 
     [[nodiscard]] const katana::http::router& router() const noexcept { return *router_; }
     [[nodiscard]] katana::http::router& router() noexcept { return *router_; }
+    [[nodiscard]] std::span<const katana::http::route_policy_view> route_policies() const noexcept {
+        return std::span<const katana::http::route_policy_view>(route_policies_.data(), route_policies_.size());
+    }
     [[nodiscard]] operator const katana::http::router&() const noexcept { return *router_; }
     [[nodiscard]] operator katana::http::router&() noexcept { return *router_; }
 
 private:
+    std::array<katana::http::route_policy_view, route_count> route_policies_;
     std::array<katana::http::route_entry, route_count> route_entries_;
     std::optional<katana::http::router> router_;
 };
@@ -339,13 +364,16 @@ inline generated_router make_router(api_handler& handler) {
 // Optimized router with hash-based O(1) dispatch for static routes
 class fast_router {
 public:
-    explicit fast_router(api_handler& handler, const katana::http::router& fallback)
-        : handler_(handler), fallback_router_(fallback) {}
+    explicit fast_router(api_handler& handler,
+                         const katana::http::router& fallback,
+                         std::span<const katana::http::route_policy_view> route_policies)
+        : handler_(handler), fallback_router_(fallback), route_policies_(route_policies) {}
 
     katana::result<void> dispatch_to(
         const katana::http::request& req,
         katana::http::request_context& ctx,
         katana::http::response& out) const {
+        ctx.route_policy = nullptr;
         // Strip query string for matching
         std::string_view path = req.uri;
         auto query_pos = path.find('?');
@@ -359,36 +387,40 @@ public:
             case HASH_CUSTOMER_REVENUE:
                 if (path == "/shop/customers/revenue") {
                     if (req.http_method == katana::http::method::get)
-                        { return dispatch_customer_revenue(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[0]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_customer_revenue(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_TOP_PRODUCTS:
                 if (path == "/shop/products/top") {
                     if (req.http_method == katana::http::method::get)
-                        { return dispatch_top_products(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[1]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_top_products(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_CATEGORY_STATS:
                 if (path == "/shop/categories/stats") {
                     if (req.http_method == katana::http::method::get)
-                        { return dispatch_category_stats(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[2]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_category_stats(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             case HASH_CREATE_ORDER:
                 if (path == "/shop/orders") {
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_create_order(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[4]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_create_order(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             default:
                 break;
         }
 
-        // Fallback to standard router for:
-        // - Dynamic routes (with path parameters)
-        // - Hash collisions
-        // - Method mismatches
-        return fallback_router_.dispatch(req, ctx, out);
+        // Fallback to standard router for dynamic routes (path params), hash
+        // collisions, and method mismatches. Use dispatch_with_info +
+        // map_dispatch_error so a 405 keeps its Allow header (plain dispatch()
+        // drops the allowed-methods mask, violating RFC 7231).
+        auto fallback_info_ = fallback_router_.dispatch_with_info(req, ctx, out);
+        if (fallback_info_.has_error) {
+            katana::http::map_dispatch_error(fallback_info_, out);
+        }
+        return {};
     }
 
     katana::result<katana::http::response> operator()(
@@ -405,13 +437,14 @@ public:
 private:
     api_handler& handler_;
     const katana::http::router& fallback_router_;
+    std::span<const katana::http::route_policy_view> route_policies_;
 };
 
 // Create optimized router (recommended for production)
 class generated_fast_router {
 public:
     explicit generated_fast_router(api_handler& handler)
-        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) {}
+        : router_bundle_(handler), fast_router_(handler, router_bundle_.router(), router_bundle_.route_policies()) {}
 
     generated_fast_router(const generated_fast_router&) = delete;
     generated_fast_router& operator=(const generated_fast_router&) = delete;

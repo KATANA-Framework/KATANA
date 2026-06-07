@@ -1,9 +1,24 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string_view>
 
 namespace katana {
+
+// Number of Unicode code points in a UTF-8 string. OpenAPI/JSON-Schema minLength and
+// maxLength are defined in code points, not bytes, so length checks must use this rather
+// than std::string::size() (which would wrongly reject multibyte text like Cyrillic/CJK/emoji).
+// Counts lead bytes — every byte that is not a 10xxxxxx continuation byte.
+[[nodiscard]] inline constexpr std::size_t utf8_length(std::string_view s) noexcept {
+    std::size_t n = 0;
+    for (unsigned char c : s) {
+        if ((c & 0xC0U) != 0x80U) {
+            ++n;
+        }
+    }
+    return n;
+}
 
 // Unified validation error codes used by generated validators and runtime JSON parsing.
 enum class validation_error_code : uint8_t {

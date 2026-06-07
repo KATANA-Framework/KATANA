@@ -442,11 +442,15 @@ public:
                 break;
         }
 
-        // Fallback to standard router for:
-        // - Dynamic routes (with path parameters)
-        // - Hash collisions
-        // - Method mismatches
-        return fallback_router_.dispatch(req, ctx, out);
+        // Fallback to standard router for dynamic routes (path params), hash
+        // collisions, and method mismatches. Use dispatch_with_info +
+        // map_dispatch_error so a 405 keeps its Allow header (plain dispatch()
+        // drops the allowed-methods mask, violating RFC 7231).
+        auto fallback_info_ = fallback_router_.dispatch_with_info(req, ctx, out);
+        if (fallback_info_.has_error) {
+            katana::http::map_dispatch_error(fallback_info_, out);
+        }
+        return {};
     }
 
     katana::result<katana::http::response> operator()(
