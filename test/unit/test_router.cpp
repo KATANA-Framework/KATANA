@@ -742,6 +742,46 @@ TEST(Router, InMemoryIdempotencyExecutorRequiresKeyInRequiredMode) {
     EXPECT_FALSE(handler_called);
 }
 
+// Regression: a non-"required" idempotency mode (codegen emits `mode, "true"` for
+// x-katana-idempotency: "true") with NO Idempotency-Key header must skip idempotency and run
+// the handler — not dereference a missing key (which segfaulted under load before the fix).
+TEST(Router, IdempotencyModeWithoutKeySkipsInsteadOfCrashing) {
+    const route_policy_view policy{
+        {},
+        {},
+        {},
+        route_idempotency_policy_view{route_idempotency_policy_kind::mode, "true"},
+    };
+
+    in_memory_idempotency_executor executor;
+    int handler_calls = 0;
+    route_entry routes[] = {
+        route_entry{method::post,
+                    path_pattern::from_literal<"/events">(),
+                    handler_fn([&](const request&, request_context&, response& out) {
+                        ++handler_calls;
+                        out.assign_text("accepted", "text/plain", 202, "Accepted");
+                        return result<void>{};
+                    }),
+                    {},
+                    &policy},
+    };
+
+    router r(routes);
+    monotonic_arena arena;
+
+    // Several no-key requests in a row must each run the handler and never crash.
+    for (int i = 0; i < 5; ++i) {
+        request_context ctx{arena};
+        ctx.policy_executor = &executor;
+        auto res = r.dispatch(make_request(method::post, "/events"), ctx);
+        ASSERT_TRUE(res);
+        EXPECT_EQ(res->status, 202);
+        EXPECT_FALSE(res->headers.get("Idempotency-Replayed").has_value());
+    }
+    EXPECT_EQ(handler_calls, 5);
+}
+
 TEST(Router, RoutePolicyExecutorChainCombinesRateLimitAndIdempotency) {
     const route_policy_view policy{
         {},

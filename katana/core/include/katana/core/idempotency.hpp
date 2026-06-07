@@ -46,6 +46,11 @@ public:
             out.assign_error(problem_details::bad_request(options_.missing_key_detail));
             return route_policy_resolution::short_circuit;
         }
+        // No key resolved (e.g. enabled-mode request without the header): nothing to dedupe —
+        // never dereference a missing key below.
+        if (!state.idempotency_key) {
+            return route_policy_resolution::continue_request;
+        }
 
         const auto begin = store_.begin(ctx.route_policy,
                                         *state.idempotency_key,
@@ -122,10 +127,12 @@ private:
         state.should_apply = true;
         const auto key = req.headers.get(options_.key_header);
         if (!key.has_value()) {
+            // No key: only `required` mode rejects with 400; every other configuration simply
+            // skips idempotency (leaving idempotency_key unset, so it must never be dereferenced).
             if (ctx.route_policy->idempotency.kind == route_idempotency_policy_kind::mode &&
                 is_required_mode(ctx.route_policy->idempotency.value)) {
                 state.missing_required_key = true;
-            } else if (ctx.route_policy->idempotency.kind == route_idempotency_policy_kind::enabled) {
+            } else {
                 state.should_apply = false;
             }
             return state;
