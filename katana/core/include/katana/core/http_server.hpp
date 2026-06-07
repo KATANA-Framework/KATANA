@@ -327,6 +327,14 @@ public:
         return *this;
     }
 
+    /// Replace the default span sink (a `katana::log` "span" line) with a custom exporter,
+    /// called once per sampled request with the completed span. This is the seam for OTLP /
+    /// Zipkin / any backend — the framework hands you the span; you own the wire protocol.
+    server& span_exporter(std::function<void(const tracing::span_record&)> exporter) {
+        span_exporter_ = std::move(exporter);
+        return *this;
+    }
+
     /// Cap the number of simultaneously-open client connections (across all workers). Accepts
     /// beyond the cap are closed immediately and counted in
     /// `katana_http_connections_rejected_total`. 0 (default) means unlimited.
@@ -546,6 +554,7 @@ private:
 
     // W3C distributed tracing (opt-in via tracing()).
     bool tracing_enabled_ = false;
+    std::function<void(const tracing::span_record&)> span_exporter_;
 
     // Reactor/worker gauges at /metrics (opt-in via reactor_metrics()). pool_ points at the
     // run()-local pool while the server is serving (cleared before run() returns).

@@ -114,6 +114,16 @@ struct span_context {
     }
 };
 
+// A completed span handed to a span_exporter. Bundles the W3C context with the operation name,
+// outcome and latency — enough to translate to OTLP, Zipkin, etc. without the framework owning
+// any wire protocol.
+struct span_record {
+    span_context span;
+    std::string_view name;     // e.g. "GET /notes/{id}"
+    int status = 0;            // HTTP status
+    int64_t duration_micros = 0;
+};
+
 // The fields decoded from an inbound `traceparent` header.
 struct parsed_traceparent {
     uint64_t trace_id_hi = 0;

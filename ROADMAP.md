@@ -150,9 +150,11 @@ operational blockers.
   `to_traceparent()` for downstream propagation). Per sampled request it emits a span (via
   `katana::log`, msg `"span"`: trace/span/parent ids, name, status, duration) and adds `trace_id`
   to the access log. Opt-in via `server.tracing()`. Inbound `tracestate` is carried verbatim on
-  `request_context::trace.tracestate` for downstream propagation. *Remaining:* OTLP exporter to a
-  collector (see the pluggable exporter below), automatic propagation into the SQL layer
-  (sqlcommenter / span per query).
+  `request_context::trace.tracestate` for downstream propagation. A pluggable
+  `server.span_exporter(fn)` replaces the default log sink with any backend (the seam for OTLP/
+  Zipkin — the framework hands you `tracing::span_record`, you own the wire protocol, so no
+  gRPC/protobuf dependency is bundled). *Remaining:* a bundled OTLP/HTTP exporter implementation,
+  automatic span-per-SQL-query.
 
 ---
 
