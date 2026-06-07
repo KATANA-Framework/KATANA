@@ -80,8 +80,13 @@ Remaining:
 You cannot operate a service without these. This is the stage that makes a deployment
 debuggable and safe to run.
 
-- **[P0] Configuration system** — layered (file + env + flags), schema validation with
-  clear errors, secrets handling, reload without full restart. (Today it's ad-hoc env vars.)
+- **[P0] Configuration system** — **base done.** `katana::config` merges layered sources in
+  precedence order — programmatic defaults < config file (`key = value`, `#` comments) < env
+  vars (`from_env("KATANA")` → `KATANA_DB_DSN` maps to `db_dsn`) < `--flags` — into one
+  normalized snake_case key space, with typed accessors (`get_u16`/`get_int`/`get_bool`/
+  `get_or`), load-error capture, and `validate({required...})` returning clear messages. Wired
+  into the fullstack demo (`KATANA_PORT=… ./notes --workers 8`). *Remaining:* secrets handling,
+  hot reload without restart, typed-schema binding to a struct.
 - **[P0] Structured logging** — **base done.** `katana::log` emits one JSON object per line
   with level, timestamp, message and typed key/value fields (`info("...").field(k, v)`),
   thread-safe, with a configurable min level and sink. The server has an opt-in built-in
