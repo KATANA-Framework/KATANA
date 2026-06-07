@@ -19,6 +19,7 @@ stack built for predictable p99/p999 under load.
 </div>
 
 <!-- LATEST_UPDATE_START -->
+* 07.06 04:28 — Document the policy/Redis layer (5c2fea3)
 <!-- LATEST_UPDATE_END -->
 
 ---
@@ -134,6 +135,7 @@ A worked example with joins, aggregates, window functions and bulk inserts is in
 | [ROADMAP.md](ROADMAP.md) | What works, what's in progress, what's planned |
 
 <!-- BENCH_SUMMARY_START -->
+
 <!-- BENCH_SUMMARY_END -->
 
 ## License
