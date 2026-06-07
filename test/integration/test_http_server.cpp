@@ -509,6 +509,30 @@ pid_t spawn_graceful_server(uint16_t port) {
                    .run());
 }
 
+pid_t spawn_capped_server(uint16_t port, size_t cap) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong");
+             return result<void>{};
+         })},
+    };
+
+    const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1) // single reactor so the global cap is deterministic in the test
+                   .max_connections(cap)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
 pid_t spawn_timeout_server(uint16_t port) {
     pid_t pid = ::fork();
     if (pid != 0) {
@@ -1265,4 +1289,81 @@ TEST(ServerMetricsHistogram, ObservesDurationsIntoCumulativeBuckets) {
               4);
     // Sum = 0.2 + 0.8 + 3 + 40 = 44.0ms = 0.044000s
     EXPECT_NE(out.find("katana_http_request_duration_seconds_sum 0.044000"), std::string::npos);
+}
+
+TEST(HTTPServerMaxConnections, RefusesConnectionsBeyondTheCap) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+
+    const pid_t server_pid = spawn_capped_server(port, 2);
+    ASSERT_GT(server_pid, 0);
+
+    int c1 = -1, c2 = -1, c3 = -1;
+    struct guard {
+        pid_t pid;
+        int* fds[3];
+        ~guard() {
+            for (int* f : fds) {
+                if (f && *f >= 0) {
+                    ::close(*f);
+                    *f = -1;
+                }
+            }
+            if (pid > 0) {
+                ::kill(pid, SIGKILL);
+                int status = 0;
+                (void)::waitpid(pid, &status, 0);
+            }
+        }
+    } cleanup{server_pid, {&c1, &c2, &c3}};
+
+    // Two kept-alive connections fill the cap.
+    c1 = connect_with_retry(port);
+    ASSERT_GE(c1, 0);
+    send_all(c1, make_get_request("/ping"));
+    ASSERT_EQ(read_responses_slowly(c1, 1, std::chrono::seconds(2)).size(), 1u);
+
+    c2 = connect_with_retry(port);
+    ASSERT_GE(c2, 0);
+    send_all(c2, make_get_request("/ping"));
+    ASSERT_EQ(read_responses_slowly(c2, 1, std::chrono::seconds(2)).size(), 1u);
+
+    // A third connection is accepted by the kernel but closed immediately by the server: the
+    // client sees an orderly close (recv 0) and gets no response.
+    c3 = connect_with_retry(port);
+    ASSERT_GE(c3, 0);
+    send_all(c3, make_get_request("/ping"));
+    bool refused = false;
+    char buf[128];
+    for (int i = 0; i < 100; ++i) { // up to ~1s
+        pollfd pfd{c3, POLLIN, 0};
+        if (::poll(&pfd, 1, 10) > 0) {
+            ssize_t n = ::recv(c3, buf, sizeof(buf), 0);
+            if (n <= 0) { // 0 = FIN, <0 = RST — either way the request was not served
+                refused = true;
+                break;
+            }
+            // If somehow served, it must NOT be a 200 pong (would mean the cap leaked).
+            std::string got(buf, static_cast<size_t>(n));
+            if (got.find("pong") != std::string::npos) {
+                break; // refused stays false -> test fails
+            }
+        }
+    }
+    EXPECT_TRUE(refused);
+
+    // Query metrics over an existing (counted) connection — a fresh one would also be refused.
+    send_all(c1, make_get_request("/metrics"));
+    auto responses = read_responses_slowly(c1, 1, std::chrono::seconds(2));
+    ASSERT_EQ(responses.size(), 1u);
+    const std::string& body = responses[0].body;
+    const std::string rej = "\nkatana_http_connections_rejected_total ";
+    const size_t rp = body.find(rej);
+    ASSERT_NE(rp, std::string::npos);
+    EXPECT_GE(std::stoi(body.substr(rp + rej.size())), 1);
+    // c1 + c2 are still open and counted; c3 was refused (never counted).
+    const std::string act = "\nkatana_http_connections_active ";
+    const size_t ap = body.find(act);
+    ASSERT_NE(ap, std::string::npos);
+    EXPECT_EQ(std::stoi(body.substr(ap + act.size())), 2);
 }

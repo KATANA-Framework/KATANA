@@ -708,9 +708,21 @@ int server::run() {
                 return;
             }
 
+            // Enforce the max-connections cap (global across workers): refuse over-cap accepts
+            // so an overloaded server sheds load instead of exhausting fds/memory.
+            if (max_connections_ != 0 &&
+                metrics_.active_connections.load(std::memory_order_relaxed) >=
+                    static_cast<int64_t>(max_connections_)) {
+                metrics_.connections_rejected.fetch_add(1, std::memory_order_relaxed);
+                ::close(fd);
+                continue; // keep draining the accept queue, closing further over-cap sockets
+            }
+
             configure_client_socket(fd);
 
+            metrics_.active_connections.fetch_add(1, std::memory_order_relaxed);
             auto state = std::make_shared<connection_state>(tcp_socket(fd));
+            state->active_conn_counter = &metrics_.active_connections;
             auto state_ptr = state.get();
 
             auto on_event = [this, state, state_ptr, &r](event_type ev) {

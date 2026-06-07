@@ -52,6 +52,8 @@ struct server_metrics {
     std::atomic<uint64_t> requests_5xx{0};
     std::atomic<int64_t> in_flight{0};
     std::atomic<uint64_t> connection_timeouts{0};
+    std::atomic<int64_t> active_connections{0};
+    std::atomic<uint64_t> connections_rejected{0};
 
     // Request-duration histogram (Prometheus). Bucket upper bounds in microseconds, with the
     // matching `le` labels in seconds. Buckets are cumulative-on-read (observe increments every
@@ -126,6 +128,15 @@ struct server_metrics {
         out += "# TYPE katana_http_connection_timeouts_total counter\n";
         line(out, "katana_http_connection_timeouts_total", "",
              connection_timeouts.load(std::memory_order_relaxed));
+        out += "# HELP katana_http_connections_active Open client connections.\n";
+        out += "# TYPE katana_http_connections_active gauge\n";
+        const int64_t conns = active_connections.load(std::memory_order_relaxed);
+        line(out, "katana_http_connections_active", "", static_cast<uint64_t>(conns < 0 ? 0 : conns));
+        out += "# HELP katana_http_connections_rejected_total Connections refused at the "
+               "max-connections cap.\n";
+        out += "# TYPE katana_http_connections_rejected_total counter\n";
+        line(out, "katana_http_connections_rejected_total", "",
+             connections_rejected.load(std::memory_order_relaxed));
 
         const uint64_t dur_count = duration_count.load(std::memory_order_relaxed);
         out += "# HELP katana_http_request_duration_seconds Request handling latency.\n";
@@ -297,6 +308,14 @@ public:
         return *this;
     }
 
+    /// Cap the number of simultaneously-open client connections (across all workers). Accepts
+    /// beyond the cap are closed immediately and counted in
+    /// `katana_http_connections_rejected_total`. 0 (default) means unlimited.
+    server& max_connections(size_t limit) {
+        max_connections_ = limit;
+        return *this;
+    }
+
     /// Access the live server metrics registry (e.g. for tests or custom export).
     [[nodiscard]] server_metrics& metrics() noexcept { return metrics_; }
 
@@ -402,6 +421,15 @@ private:
         bool deferred_response_active = false;
         server* owner_server = nullptr;
         reactor* owner_reactor = nullptr;
+        // When set, decremented on destruction so the server's active-connection gauge tracks
+        // this connection's lifetime (incremented at accept).
+        std::atomic<int64_t>* active_conn_counter = nullptr;
+
+        ~connection_state() {
+            if (active_conn_counter != nullptr) {
+                active_conn_counter->fetch_sub(1, std::memory_order_relaxed);
+            }
+        }
 
         explicit connection_state(tcp_socket sock)
             : socket(std::move(sock)), arena(detail::HTTP_SERVER_ARENA_CAPACITY),
@@ -484,6 +512,9 @@ private:
     // Per-connection idle/read/write timeouts (opt-in via connection_timeout()). When unset,
     // connections are registered without a timeout (legacy behavior).
     std::optional<timeout_config> connection_timeout_;
+
+    // Max simultaneous connections across all workers (0 = unlimited).
+    size_t max_connections_ = 0;
 };
 
 } // namespace http

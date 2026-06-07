@@ -115,8 +115,12 @@ connection close on shutdown, …). The remaining Stage 6 item is [P1] distribut
   `katana_http_connection_timeouts_total`. Activity refreshes the timer so actively-fed
   connections survive (verified under load: 0 timeouts, 0 errors at ~305K req/s). This also
   fixed a latent unit bug in the reactor's timeout comparison (nanoseconds vs milliseconds) that
-  made any timed fd fire almost immediately and ignore refreshes. *Remaining:* handler/DB
-  deadlines that propagate into libpq; header/body/URI size limits; max-connections cap.
+  made any timed fd fire almost immediately and ignore refreshes. A `server.max_connections(n)`
+  cap sheds load when the simultaneous-connection count is reached (over-cap accepts are closed,
+  counted in `katana_http_connections_rejected_total`; live count in `katana_http_connections_active`).
+  Header/body/URI/header-count size limits are enforced by the parser (8KB headers, 10MB body,
+  2KB URI, 100 headers). *Remaining:* handler/DB deadlines that propagate into libpq; making the
+  size limits configurable with proper 413/431 responses.
 - **[P0] Complete graceful shutdown** — **base done.** On SIGTERM each reactor deregisters +
   closes its listener fd (stops accepting), then the existing drain loop — now seeing only live
   connections, not the listeners — lets in-flight requests finish and exits as soon as they
