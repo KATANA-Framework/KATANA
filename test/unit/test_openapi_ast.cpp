@@ -296,6 +296,36 @@ paths:
     EXPECT_EQ(op.idempotency.display_value(), "required");
 }
 
+// Regression: the full-word rate-limit units must parse (not just "s"/"m"/"h"). Previously
+// "200/second" parsed as unit::unknown, which silently disabled rate limiting at runtime.
+TEST(OpenAPILoader, ParsesFullWordRateLimitUnits) {
+    const auto unit_of = [](const char* value) {
+        const std::string spec = std::string(R"(
+openapi: 3.0.0
+info: { title: RL, version: 1.0.0 }
+paths:
+  /x:
+    post:
+      operationId: x
+      x-katana-rate-limit: ")") + value + R"("
+      responses: { '200': { description: ok } })";
+        monotonic_arena arena;
+        auto res = openapi::load_from_string(spec, arena);
+        EXPECT_TRUE(res);
+        return res->paths[0].operations[0].rate_limit.unit;
+    };
+
+    EXPECT_EQ(unit_of("200/second"), rate_limit_unit::second);
+    EXPECT_EQ(unit_of("200/seconds"), rate_limit_unit::second);
+    EXPECT_EQ(unit_of("200/sec"), rate_limit_unit::second);
+    EXPECT_EQ(unit_of("200/s"), rate_limit_unit::second);
+    EXPECT_EQ(unit_of("5/minute"), rate_limit_unit::minute);
+    EXPECT_EQ(unit_of("5/min"), rate_limit_unit::minute);
+    EXPECT_EQ(unit_of("1/hour"), rate_limit_unit::hour);
+    EXPECT_EQ(unit_of("1/h"), rate_limit_unit::hour);
+    EXPECT_EQ(unit_of("1/fortnight"), rate_limit_unit::unknown);
+}
+
 TEST(OpenAPILoader, IgnoresUnsupportedXKatanaExtensionValueShapes) {
     const std::string spec = R"(
 openapi: 3.0.0

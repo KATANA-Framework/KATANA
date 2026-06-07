@@ -35,13 +35,14 @@ arena_string<> to_arena_string(std::string_view value, monotonic_arena& arena) {
 
 rate_limit_unit parse_rate_limit_unit(std::string_view unit) noexcept {
     unit = trim_view(unit);
-    if (unit == "s") {
+    // Accept the short form and the natural words: "100/s", "100/sec", "100/second".
+    if (unit == "s" || unit == "sec" || unit == "second" || unit == "seconds") {
         return rate_limit_unit::second;
     }
-    if (unit == "m") {
+    if (unit == "m" || unit == "min" || unit == "minute" || unit == "minutes") {
         return rate_limit_unit::minute;
     }
-    if (unit == "h") {
+    if (unit == "h" || unit == "hr" || unit == "hour" || unit == "hours") {
         return rate_limit_unit::hour;
     }
     return rate_limit_unit::unknown;
