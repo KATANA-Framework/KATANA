@@ -336,22 +336,10 @@ inline std::string serialize_listTasks_param_status_array(const arena_vector<lis
 
 // parse Task_Metadata_t — object, field Task.metadata  ← api.yaml:254
 [[nodiscard]] inline std::optional<Task_Metadata_t> parse_Task_Metadata_t(katana::serde::json_cursor& cur, monotonic_arena* arena) {
-    (void)arena;
-    if (!cur.try_object_start()) {
-        cur.skip_value();
-        return std::nullopt;
-    }
-    while (!cur.eof()) {
-        cur.skip_ws();
-        if (cur.try_object_end()) break;
-        auto key = cur.string();
-        if (!key || !cur.consume(':')) {
-            return std::nullopt;
-        }
-        cur.skip_value();
-        cur.try_comma();
-    }
-    return Task_Metadata_t{};
+    cur.skip_ws();
+    const char* ff_start_ = cur.ptr;
+    cur.skip_value();
+    return Task_Metadata_t(ff_start_, cur.ptr, arena_allocator<char>(arena));
 }
 
 // parse User — object, 3 field(s)  ← api.yaml:258
@@ -1203,13 +1191,15 @@ inline std::string serialize_Task_Status_t(const Task_Status_t& obj) {
 
 // serialize Task_Metadata_t — object, field Task.metadata  ← api.yaml:254
 inline void serialize_Task_Metadata_t_into(const Task_Metadata_t& obj, std::string& json) {
-    (void)obj;
-    json.append("{}");
+    if (obj.empty()) { json.append("null"); }
+    else { json.append(obj.data(), obj.size()); }
 }
 
 inline std::string serialize_Task_Metadata_t(const Task_Metadata_t& obj) {
-    (void)obj;
-    return std::string("{}");
+    std::string json;
+    json.reserve(obj.size() + 4);
+    serialize_Task_Metadata_t_into(obj, json);
+    return json;
 }
 
 // serialize User — object, 3 field(s)  ← api.yaml:258

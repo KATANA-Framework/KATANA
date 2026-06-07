@@ -127,7 +127,7 @@ using Task_Created_at_t = arena_string<>;
 using Task_Updated_at_t = std::optional<arena_string<>>;
 
 // Task_Metadata_t — object, field Task.metadata  ← api.yaml:254
-using Task_Metadata_t = std::monostate;
+using Task_Metadata_t = arena_string<>;
 
 // User — object, 3 field(s)  ← api.yaml:258
 /// Data type with 3 fields
@@ -565,7 +565,7 @@ struct Task {
     /// Optional field
     std::optional<arena_string<>> updated_at;
     /// Optional field
-    std::optional<std::monostate> metadata;
+    std::optional<arena_string<>> metadata;
 };
 
 // BatchCreateRequest — object, 1 field(s)  ← api.yaml:348

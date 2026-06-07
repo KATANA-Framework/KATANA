@@ -522,6 +522,21 @@ void generate_json_parser_for_schema_cursor(std::ostream& out,
             out << "}\n\n";
             return;
         case schema_kind::object:
+            if (is_free_form_object(&s)) {
+                // Free-form object: capture the whole value verbatim as raw JSON text.
+                out << "    cur.skip_ws();\n";
+                out << "    const char* ff_start_ = cur.ptr;\n";
+                out << "    cur.skip_value();\n";
+                if (use_pmr) {
+                    out << "    return " << struct_name
+                        << "(ff_start_, cur.ptr, arena_allocator<char>(arena));\n";
+                } else {
+                    out << "    (void)arena;\n";
+                    out << "    return " << struct_name << "(ff_start_, cur.ptr);\n";
+                }
+                out << "}\n\n";
+                return;
+            }
             out << "    (void)arena;\n";
             out << "    if (!cur.try_object_start()) {\n";
             out << "        cur.skip_value();\n";
@@ -912,6 +927,20 @@ void generate_json_serializer_for_schema(std::ostream& out,
             out << "}\n\n";
             return;
         case schema_kind::object:
+            if (is_free_form_object(&s)) {
+                // Free-form object: the value already holds raw JSON; emit it verbatim.
+                out << "    if (obj.empty()) { json.append(\"null\"); }\n";
+                out << "    else { json.append(obj.data(), obj.size()); }\n";
+                out << "}\n\n";
+                out << "inline std::string serialize_" << struct_name << "(const " << struct_name
+                    << "& obj) {\n";
+                out << "    std::string json;\n";
+                out << "    json.reserve(obj.size() + 4);\n";
+                out << "    serialize_" << struct_name << "_into(obj, json);\n";
+                out << "    return json;\n";
+                out << "}\n\n";
+                return;
+            }
             out << "    (void)obj;\n";
             if (s.nullable) {
                 out << "    if (!obj) { json.append(\"null\"); return; }\n";
