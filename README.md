@@ -19,7 +19,7 @@ stack built for predictable p99/p999 under load.
 </div>
 
 <!-- LATEST_UPDATE_START -->
-* 07.06 01:29 — chore: sync README with benchmark results (389b3c4)
+* 07.06 19:52 — build: submodule-friendly CMake (aliases, codegen helpers, lean defaults) (c116c5f)
 <!-- LATEST_UPDATE_END -->
 
 ---
