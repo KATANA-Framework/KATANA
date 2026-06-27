@@ -19,7 +19,7 @@ stack built for predictable p99/p999 under load.
 </div>
 
 <!-- LATEST_UPDATE_START -->
-* 25.06 06:50 — chore: sync README with benchmark results (dd9e386)
+* 26.06 06:57 — chore: sync README with benchmark results (21a0088)
 <!-- LATEST_UPDATE_END -->
 
 ---
