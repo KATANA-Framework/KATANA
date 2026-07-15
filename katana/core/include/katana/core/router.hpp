@@ -5,6 +5,7 @@
 #include "http.hpp"
 #include "inplace_function.hpp"
 #include "log.hpp"
+#include "principal.hpp"
 #include "problem.hpp"
 #include "result.hpp"
 #include "tracing.hpp"
@@ -130,10 +131,13 @@ struct route_policy_view {
     route_rate_limit_policy_view rate_limit{};
     route_idempotency_policy_view idempotency{};
     std::string_view scope{};
+    // x-katana-auth: whether this route requires authentication, and (optionally) a required scope.
+    bool auth_required = false;
+    std::string_view auth_scope{};
 
     [[nodiscard]] bool empty() const noexcept {
         return !cache.present() && !alloc.present() && !rate_limit.present &&
-               !idempotency.present();
+               !idempotency.present() && !auth_required;
     }
 };
 
@@ -379,12 +383,18 @@ struct request_context {
     // The server echoes this — or a generated id when absent — back on the response and in
     // the access log, so handler logs can be tied to a single request.
     std::string_view request_id{};
+    // Peer IP of the connection (from accept), for edge rate-limiting and access logs. Empty if
+    // unavailable.
+    std::string_view client_ip{};
     // Distributed-tracing span for this request (W3C Trace Context). Populated by the server
     // when tracing is enabled; handlers read `trace.to_traceparent()` to propagate downstream.
     tracing::span_context trace{};
     // Index of the matched route in the router (set by dispatch), or -1 if none matched. Used
     // for per-route metric labels without re-parsing the path.
     int route_index = -1;
+    // Authenticated caller, set by the auth middleware/executor before the handler runs (null when
+    // the route is unauthenticated or auth is disabled). Read via katana::http::ctx().
+    const ::katana::auth::principal_view* principal = nullptr;
     const route_policy_view* route_policy = nullptr;
     route_policy_executor* policy_executor = nullptr;
     void* task_scheduler_user = nullptr;

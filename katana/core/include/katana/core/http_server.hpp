@@ -6,9 +6,12 @@
 #include "katana/core/log.hpp"
 #include "katana/core/reactor_pool.hpp"
 #include "katana/core/router.hpp"
+#include "katana/core/auth.hpp"
+#include "katana/core/compression.hpp"
 #include "katana/core/shutdown.hpp"
 #include "katana/core/tcp_listener.hpp"
 #include "katana/core/tcp_socket.hpp"
+#include "katana/core/tls.hpp"
 
 #include <array>
 #include <atomic>
@@ -17,8 +20,10 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <type_traits>
 #include <vector>
 
@@ -173,6 +178,44 @@ struct cors_config {
     int max_age_seconds = 600;
 };
 
+// Edge admission control. A global in-flight cap sheds load with 503 when the server is saturated;
+// a per-client rate caps requests-per-second per source IP with 429. Both off (0) by default.
+struct load_shedding_config {
+    size_t max_in_flight = 0;  // 0 = unlimited; concurrent in-flight requests before 503
+    size_t per_client_rps = 0; // 0 = off; requests/second per client IP before 429
+};
+
+// Per-client fixed-window rate limiter keyed by IP. Thread-safe (worker reactors share it). Simple
+// by design — the bucket map is not evicted, so it fits an edge guard, not an unbounded keyspace.
+class edge_limiter {
+public:
+    explicit edge_limiter(size_t rps) : rps_(rps) {}
+
+    [[nodiscard]] bool allow(std::string_view ip) {
+        const auto now = std::chrono::steady_clock::now();
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto& b = buckets_[std::string(ip)];
+        if (now - b.window_start >= std::chrono::seconds(1)) {
+            b.window_start = now;
+            b.count = 0;
+        }
+        if (b.count >= rps_) {
+            return false;
+        }
+        ++b.count;
+        return true;
+    }
+
+private:
+    struct bucket {
+        std::chrono::steady_clock::time_point window_start{};
+        size_t count = 0;
+    };
+    size_t rps_;
+    std::mutex mutex_;
+    std::unordered_map<std::string, bucket> buckets_;
+};
+
 /// High-level HTTP server abstraction
 ///
 /// Encapsulates reactor pool, listener, connection handling, and lifecycle management.
@@ -275,10 +318,31 @@ public:
         return *this;
     }
 
-    /// Attach route policy executor to every request context created by this server.
+    /// Attach route policy executor to every request context created by this server. When auth is
+    /// also enabled, the server composes an auth executor *ahead* of this one (auth runs first).
     server& policy_executor(route_policy_executor& executor) {
-        policy_executor_ = &executor;
+        app_policy_executor_ = &executor;
         return *this;
+    }
+
+    /// Enable JWT bearer auth (HS256/RS256/ES256 + JWKS). Routes annotated with x-katana-auth are
+    /// enforced by the contract-first executor; the `auth::require_auth()` middleware can also use
+    /// this configuration. Combine with api_key_auth() to accept either.
+    server& jwt_auth(auth::jwt_auth_config config) {
+        ensure_authenticator().configure_jwt(std::move(config));
+        return *this;
+    }
+
+    /// Enable API-key auth (a header carrying a key mapped to a principal).
+    server& api_key_auth(auth::api_key_config config) {
+        ensure_authenticator().configure_api_key(std::move(config));
+        return *this;
+    }
+
+    /// The server's authenticator (shared with the contract-first executor). Null until jwt_auth /
+    /// api_key_auth is called — useful for building `require_auth()` middleware over the same config.
+    [[nodiscard]] std::shared_ptr<const auth::authenticator> authenticator() const {
+        return authenticator_;
     }
 
     /// Enable or disable the built-in `/healthz` and `/readyz` endpoints (on by default).
@@ -368,6 +432,34 @@ public:
         return *this;
     }
 
+    /// Enable TLS/HTTPS termination. Pass a `tls_config` with cert/key paths (and optional ALPN,
+    /// CA, ciphers). The context is built once at `run()`; every accepted connection performs the
+    /// TLS handshake before its first request. Reads/writes then flow through OpenSSL transparently.
+    server& tls(tls::tls_config config) {
+        tls_config_ = std::move(config);
+        return *this;
+    }
+
+    /// Enable response compression (gzip/brotli/zstd). Compressible responses above the size
+    /// threshold are encoded per the request's Accept-Encoding, with Content-Encoding + Vary set.
+    server& compression(compression_config config = {}) {
+        compression_ = config;
+        return *this;
+    }
+
+    /// Edge admission control: shed load with 503 above `max_in_flight` concurrent requests, and
+    /// rate-limit per client IP to `per_client_rps` (429 + Retry-After). Runs before routing.
+    server& load_shedding(load_shedding_config config) {
+        load_shedding_ = config;
+        return *this;
+    }
+
+    /// Rebuild the TLS context from the configured cert/key paths and swap it in atomically, so a
+    /// rotated certificate is picked up without dropping in-flight connections (they keep their
+    /// existing session). Call from a SIGHUP handler / config-reload path. Returns false if the new
+    /// cert/key fail to load (the old context stays active). No-op when TLS isn't enabled.
+    bool reload_tls();
+
     /// Cap the number of simultaneously-open client connections (across all workers). Accepts
     /// beyond the cap are closed immediately and counted in
     /// `katana_http_connections_rejected_total`. 0 (default) means unlimited.
@@ -391,6 +483,24 @@ private:
         if (auto rid = req.header("x-request-id")) {
             ctx.request_id = *rid; // inbound correlation id, visible to handlers
         }
+
+        // Edge admission control: shed before any routing work. in_flight was just incremented, so
+        // finalize_response balances it whether we serve or shed.
+        if (load_shedding_) {
+            if (load_shedding_->max_in_flight != 0 &&
+                metrics_.in_flight.load(std::memory_order_relaxed) >
+                    static_cast<int64_t>(load_shedding_->max_in_flight)) {
+                out.assign_error(problem_details::service_unavailable("server overloaded"));
+                out.set_header("Retry-After", "1");
+                return;
+            }
+            if (edge_limiter_ && !ctx.client_ip.empty() && !edge_limiter_->allow(ctx.client_ip)) {
+                out.assign_error(problem_details::too_many_requests("rate limit exceeded"));
+                out.set_header("Retry-After", "1");
+                return;
+            }
+        }
+
         if (try_serve_cors_preflight(req, out) || try_serve_health(req, out) ||
             try_serve_metrics(req, out)) {
             return;
@@ -462,6 +572,11 @@ private:
         using deferred_response_slot = std::optional<response>;
 
         tcp_socket socket;
+        // When set, the connection speaks TLS: reads/writes route through the SSL session (which
+        // owns the SSL* bound to socket's fd, BIO_NOCLOSE). handshake_done gates the parse loop.
+        std::optional<tls::ssl_session> tls;
+        bool handshake_done = false;
+        std::string client_ip; // peer IP captured at accept (for edge rate-limiting / access logs)
         std::string active_response;
         std::string active_response_body;
         std::string queued_response;
@@ -522,6 +637,18 @@ private:
 
         [[nodiscard]] bool has_queued_response() const noexcept {
             return queued_response_bytes() != 0 || queued_response_completed_requests != 0;
+        }
+
+        // Transport dispatch: TLS session when present, else the raw socket. Same read/write/writev
+        // contract either way (empty span = would-block, 0 = blocked, error_code::ok = EOF).
+        result<std::span<uint8_t>> transport_read(std::span<uint8_t> buf) {
+            return tls ? tls->read(buf) : socket.read(buf);
+        }
+        result<size_t> transport_write(std::span<const uint8_t> data) {
+            return tls ? tls->write(data) : socket.write(data);
+        }
+        result<size_t> transport_writev(const iovec* iov, size_t count) {
+            return tls ? tls->writev(iov, count) : socket.writev(iov, count);
         }
 
         result<void> set_watch_events(event_type events) {
@@ -592,6 +719,36 @@ private:
 
     // CORS policy (opt-in via cors()).
     std::optional<cors_config> cors_;
+    std::optional<compression_config> compression_;
+    std::optional<load_shedding_config> load_shedding_;
+    std::unique_ptr<edge_limiter> edge_limiter_; // built in run() when per_client_rps is set
+
+    // TLS: config set via tls(); the shared context is built once in run() and each connection gets
+    // its own ssl_session. Held as shared_ptr so a future hot-reload can swap it atomically.
+    std::optional<tls::tls_config> tls_config_;
+    std::shared_ptr<tls::tls_context> tls_ctx_;      // swapped under tls_ctx_mutex_ for hot-reload
+    mutable std::mutex tls_ctx_mutex_;
+
+    // Auth: the shared authenticator (jwt/api-key config) and the contract-first executor built from
+    // it, composed ahead of the app's policy executor in run().
+    std::shared_ptr<auth::authenticator> authenticator_;
+    std::optional<auth::auth_executor> auth_executor_;
+    std::optional<route_policy_executor_chain> policy_chain_;
+    route_policy_executor* app_policy_executor_ = nullptr;
+
+    auth::authenticator& ensure_authenticator() {
+        if (!authenticator_) {
+            authenticator_ = std::make_shared<auth::authenticator>();
+        }
+        return *authenticator_;
+    }
+
+    // Thread-safe snapshot of the active TLS context (accept runs on worker threads; reload_tls may
+    // swap it concurrently).
+    [[nodiscard]] std::shared_ptr<tls::tls_context> current_tls_context() const {
+        std::lock_guard<std::mutex> lock(tls_ctx_mutex_);
+        return tls_ctx_;
+    }
 
     [[nodiscard]] bool cors_origin_allowed(std::string_view origin) const {
         if (cors_->allowed_origins.empty()) {

@@ -227,15 +227,33 @@ between "the primitives exist" and "it's pleasant to build a separate product on
 
 ## Stage 8 — Security & transport  [P0/P1]
 
-- **[P0] TLS / HTTPS** — termination (OpenSSL/BoringSSL or kTLS), ALPN, SNI, certificate
-  loading and hot reload, modern cipher defaults. The single biggest single gap; pull it
-  earlier if a public deployment is needed before the rest of this stage.
-- **[P0] AuthN / AuthZ** — JWT and API-key authentication, plus a per-route authorization
-  hook (scopes/roles).
-- **[P1] Response compression** — gzip/brotli/zstd, with content negotiation; request
-  decompression.
-- **[P1] Edge rate limiting & load shedding** — per-client and global, with admission control
-  so the server sheds load instead of falling over (builds on Stage 5's policy layer).
+- **[P0] TLS / HTTPS** — **done.** OpenSSL termination integrated with the non-blocking reactor
+  (`katana/core/tls.{hpp,cpp}`): `tls_config`/`tls_context`/`ssl_session`, a handshake phase before
+  the parse loop, want-read/want-write interest re-arming, ALPN (negotiates `http/1.1`), modern
+  cipher/version defaults (no compression/renegotiation, server preference), cert/key load, and
+  `server.reload_tls()` hot-reload (atomic context swap). `server.tls(cfg)` builder; verified with
+  a real `curl` HTTPS/TLS1.3 round-trip + an integration test. mTLS config (`ca_file`,
+  `require_client_cert`) is supported; *remaining:* SNI multi-cert selection, a bundled cert-rotation
+  watcher, and keeping `-DENABLE_TLS=OFF` buildable.
+- **[P0] AuthN / AuthZ** — **done.** JWT (HS256/RS256/ES256 + JWKS, `katana/core/jwt.{hpp,cpp}`) and
+  API-key auth with an `authenticator` + `principal` (`auth.{hpp,cpp}`), delivered **both** ways: a
+  contract-first `x-katana-auth` annotation → `route_policy_view` → `auth_executor` (401 missing/
+  invalid, 403 insufficient scope, principal exposed to handlers), and an attachable
+  `require_auth(scope)` middleware. `server.jwt_auth()/api_key_auth()` builders compose the auth
+  executor ahead of the Stage-5 policy chain. Covered by jwt/auth unit tests and an end-to-end
+  scope-enforcement integration test.
+- **[P1] Response compression** — **done.** `server.compression()` negotiates gzip/brotli/zstd from
+  `Accept-Encoding` (server preference br > zstd > gzip), compresses a compressible body above a size
+  threshold in `finalize_response`, and sets `Content-Encoding` + `Vary`. `katana/core/compression.{hpp,cpp}`
+  (zlib/libzstd/libbrotli behind `ENABLE_COMPRESSION`). Verified end-to-end (gzip round-trip, codec
+  preference) with an integration test. *Remaining:* request decompression (`Content-Encoding` on
+  inbound bodies).
+- **[P1] Edge rate limiting & load shedding** — **done.** `server.load_shedding()` adds a global
+  in-flight cap (sheds with **503 + Retry-After** before routing) and a per-client-IP fixed-window
+  rate limit (**429 + Retry-After**). The peer IP is captured at accept and exposed on
+  `request_context.client_ip` (also useful for access logs). Covered by an integration test (3 pass,
+  then 429). *Remaining:* pluggable/Redis-backed shared counters and bucket eviction for unbounded
+  keyspaces.
 - **[P2] Security headers & CSRF** — HSTS, CSP, X-Frame-Options, etc.
 - **[P2] mTLS, OAuth2/OIDC** — beyond basic JWT/API-key.
 

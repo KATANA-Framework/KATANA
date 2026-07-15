@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <chrono>
 #include <csignal>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <gtest/gtest.h>
@@ -1888,4 +1890,275 @@ TEST(HTTPServerCors, ActualRequestRespectsAllowlist) {
     ASSERT_EQ(bad.size(), 1u);
     EXPECT_EQ(bad[0].status, 200);
     EXPECT_FALSE(bad[0].header("Access-Control-Allow-Origin").has_value());
+}
+
+#ifdef KATANA_HAS_OPENSSL
+namespace {
+bool make_self_signed(const std::string& dir) {
+    const std::string cmd = "openssl req -x509 -newkey rsa:2048 -keyout " + dir + "/key.pem -out " +
+                            dir + "/cert.pem -days 1 -nodes -subj /CN=localhost >/dev/null 2>&1";
+    return std::system(cmd.c_str()) == 0;
+}
+
+pid_t spawn_tls_server(uint16_t port, const std::string& cert, const std::string& key) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+    const http::route_entry routes[] = {
+        {http::method::get,
+         http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong-tls");
+             return result<void>{};
+         })},
+    };
+    const http::router r(routes);
+    tls::tls_config cfg;
+    cfg.cert_file = cert;
+    cfg.key_file = key;
+    std::_Exit(http::server(r)
+                   .listen(port)
+                   .workers(1)
+                   .tls(cfg)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+} // namespace
+
+TEST(HTTPServerTls, ServesHttpsAndNegotiatesHttp11Alpn) {
+    char tmpl[] = "/tmp/katana_tls_XXXXXX";
+    ASSERT_NE(mkdtemp(tmpl), nullptr);
+    const std::string dir(tmpl);
+    ASSERT_TRUE(make_self_signed(dir));
+
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_tls_server(port, dir + "/cert.pem", dir + "/key.pem");
+    ASSERT_GT(pid, 0);
+
+    // Drive it with curl over TLS (self-signed → -k). %{http_version} = 1.1 confirms ALPN picked
+    // http/1.1 (curl offers h2,http/1.1; the server only advertises http/1.1).
+    const std::string url = "https://127.0.0.1:" + std::to_string(port) + "/ping";
+    const std::string cmd = "curl -sk --retry 10 --retry-connrefused --retry-delay 1 "
+                            "-w '|%{http_version}' '" +
+                            url + "' 2>/dev/null";
+    std::string out;
+    if (FILE* p = ::popen(cmd.c_str(), "r")) {
+        char buf[256];
+        size_t n = 0;
+        while ((n = fread(buf, 1, sizeof buf, p)) > 0) {
+            out.append(buf, n);
+        }
+        ::pclose(p);
+    }
+    ::kill(pid, SIGTERM);
+    int st = 0;
+    ::waitpid(pid, &st, 0);
+    (void)std::system(("rm -rf " + dir).c_str());
+
+    EXPECT_NE(out.find("pong-tls"), std::string::npos);
+    EXPECT_NE(out.find("|1.1"), std::string::npos);
+}
+
+namespace {
+// Contract-first policies (what the generator emits for x-katana-auth).
+const http::route_policy_view g_admin_policy{.auth_required = true, .auth_scope = "admin"};
+
+pid_t spawn_auth_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+    static const http::route_entry routes[] = {
+        {http::method::get, http::path_pattern::from_literal<"/admin">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("admin-ok");
+             return result<void>{};
+         }),
+         {}, &g_admin_policy},
+    };
+    static const http::router r(routes);
+    auth::jwt_auth_config jc;
+    jc.verify.hs_secret = "secret";
+    jc.verify.require_exp = false;
+    std::_Exit(http::server(r)
+                   .jwt_auth(jc)
+                   .listen(port)
+                   .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+
+int status_for(uint16_t port, const std::string& auth_header) {
+    const std::string h = auth_header.empty() ? "" : (" -H 'Authorization: Bearer " + auth_header + "'");
+    const std::string cmd = "curl -s -o /dev/null -w '%{http_code}' --retry 10 --retry-connrefused "
+                            "--retry-delay 1" +
+                            h + " http://127.0.0.1:" + std::to_string(port) + "/admin 2>/dev/null";
+    std::string out;
+    if (FILE* p = ::popen(cmd.c_str(), "r")) {
+        char buf[32];
+        size_t n = 0;
+        while ((n = fread(buf, 1, sizeof buf, p)) > 0) {
+            out.append(buf, n);
+        }
+        ::pclose(p);
+    }
+    return out.empty() ? 0 : std::atoi(out.c_str());
+}
+} // namespace
+
+TEST(HTTPServerAuth, ContractFirstScopeEnforcement) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_auth_server(port);
+    ASSERT_GT(pid, 0);
+
+    auto admin = auth::sign_jwt_hs256(R"({"sub":"alice","scope":"admin read"})", "secret");
+    auto user = auth::sign_jwt_hs256(R"({"sub":"bob","scope":"read"})", "secret");
+    ASSERT_TRUE(admin.has_value());
+    ASSERT_TRUE(user.has_value());
+
+    const int no_token = status_for(port, "");     // 401
+    const int wrong_scope = status_for(port, *user); // 403
+    const int ok = status_for(port, *admin);         // 200
+
+    ::kill(pid, SIGTERM);
+    int st = 0;
+    ::waitpid(pid, &st, 0);
+
+    EXPECT_EQ(no_token, 401);
+    EXPECT_EQ(wrong_scope, 403);
+    EXPECT_EQ(ok, 200);
+}
+#endif // KATANA_HAS_OPENSSL
+
+#ifdef KATANA_HAS_COMPRESSION
+namespace {
+std::string g_big_json = [] {
+    std::string s = "{\"items\":[";
+    for (int i = 0; i < 200; ++i) {
+        s += "{\"id\":" + std::to_string(i) + ",\"name\":\"widget-" + std::to_string(i) + "\"},";
+    }
+    s += "{\"end\":true}]}";
+    return s;
+}();
+
+pid_t spawn_compression_server(uint16_t port) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+    static const http::route_entry routes[] = {
+        {http::method::get, http::path_pattern::from_literal<"/data">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_json(g_big_json);
+             return result<void>{};
+         })},
+    };
+    static const http::router r(routes);
+    std::_Exit(http::server(r)
+                   .compression()
+                   .listen(port)
+                   .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+} // namespace
+
+TEST(HTTPServerCompression, NegotiatesGzipAndRoundTrips) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_compression_server(port);
+    ASSERT_GT(pid, 0);
+
+    const std::string base = "http://127.0.0.1:" + std::to_string(port) + "/data";
+    // Headers with gzip requested: expect Content-Encoding: gzip + Vary.
+    const std::string hdr_cmd = "curl -s -D - -o /dev/null --retry 10 --retry-connrefused "
+                                "--retry-delay 1 -H 'Accept-Encoding: gzip' '" +
+                                base + "' 2>/dev/null";
+    // --compressed transparently decodes; body must equal the original JSON.
+    const std::string body_cmd = "curl -s --compressed --retry 10 --retry-connrefused '" + base +
+                                 "' 2>/dev/null";
+    auto run = [](const std::string& c) {
+        std::string out;
+        if (FILE* p = ::popen(c.c_str(), "r")) {
+            char buf[4096];
+            size_t n = 0;
+            while ((n = fread(buf, 1, sizeof buf, p)) > 0) {
+                out.append(buf, n);
+            }
+            ::pclose(p);
+        }
+        return out;
+    };
+    const std::string headers = run(hdr_cmd);
+    const std::string body = run(body_cmd);
+
+    ::kill(pid, SIGTERM);
+    int st = 0;
+    ::waitpid(pid, &st, 0);
+
+    // Case-insensitive-ish check for the header curl printed.
+    EXPECT_NE(headers.find("ontent-Encoding: gzip"), std::string::npos);
+    EXPECT_NE(headers.find("ary: Accept-Encoding"), std::string::npos);
+    EXPECT_EQ(body, g_big_json);
+}
+#endif // KATANA_HAS_COMPRESSION
+
+namespace {
+pid_t spawn_shedding_server(uint16_t port, size_t rps) {
+    pid_t pid = ::fork();
+    if (pid != 0) {
+        return pid;
+    }
+    static const http::route_entry routes[] = {
+        {http::method::get, http::path_pattern::from_literal<"/ping">(),
+         http::handler_fn([](const http::request&, http::request_context&, http::response& out) {
+             out.assign_text("pong");
+             return result<void>{};
+         })},
+    };
+    static const http::router r(routes);
+    http::load_shedding_config cfg;
+    cfg.per_client_rps = rps;
+    std::_Exit(http::server(r)
+                   .load_shedding(cfg)
+                   .listen(port)
+                   .workers(1)
+                   .graceful_shutdown(std::chrono::milliseconds(100))
+                   .run());
+}
+} // namespace
+
+TEST(HTTPServerLoadShedding, PerClientRateLimitReturns429) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_shedding_server(port, /*rps=*/3);
+    ASSERT_GT(pid, 0);
+
+    int fd = connect_with_retry(port);
+    ASSERT_GE(fd, 0);
+    // Eight pipelined requests on one keep-alive connection; the first 3 pass, the rest are 429.
+    for (int i = 0; i < 8; ++i) {
+        send_all(fd, "GET /ping HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n\r\n");
+    }
+    auto responses = read_responses_slowly(fd, 8, std::chrono::seconds(3));
+    ::close(fd);
+    ::kill(pid, SIGTERM);
+    int st = 0;
+    ::waitpid(pid, &st, 0);
+
+    ASSERT_EQ(responses.size(), 8u);
+    int ok = 0;
+    int limited = 0;
+    for (const auto& r : responses) {
+        if (r.status == 200) {
+            ++ok;
+        } else if (r.status == 429) {
+            ++limited;
+        }
+    }
+    EXPECT_EQ(ok, 3);
+    EXPECT_EQ(limited, 5);
 }
