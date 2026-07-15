@@ -25,6 +25,7 @@
 #include "generated/catalog/generated_json.hpp"
 #include "generated/catalog/generated_router_bindings.hpp"
 #include "generated/catalog/generated_routes.hpp"
+#include "generated/catalog/generated_bridge.hpp"
 #include "generated/catalog/generated_sql_repository.hpp"
 #include "generated/catalog/generated_validators.hpp"
 
@@ -61,7 +62,7 @@ template <typename Opt> std::string_view col(const Opt& o) {
 // ---- Catalog contract ---------------------------------------------------------------------
 
 struct catalog_handler : catalog::api_handler {
-    explicit catalog_handler(katana::sql::catalog::generated_repository& repo) : repo_(repo) {}
+    explicit catalog_handler(catalog::generated_repository& repo) : repo_(repo) {}
 
     katana::result<void> create_product(const catalog::CreateProductRequest& body,
                                         response& out) override {
@@ -97,12 +98,8 @@ struct catalog_handler : catalog::api_handler {
         }
         const auto& r = **row;
         monotonic_arena a;
-        catalog::Product p(&a);
-        p.id = r.id.value_or(0);
-        p.sku = astr(a, col(r.sku));
-        p.name = astr(a, col(r.name));
-        p.price_cents = r.price_cents.value_or(0);
-        p.created_at = astr(a, col(r.created_at));
+        // Generated Row→DTO bridge (katana_gen sql --openapi): no hand-copied fields.
+        auto p = catalog::to_Product(r, &a);
         out.assign_json(catalog::serialize_Product(p));
         return {};
     }
@@ -117,13 +114,7 @@ struct catalog_handler : catalog::api_handler {
         monotonic_arena a;
         catalog::ProductList list(&a);
         for (const auto& r : *rows) {
-            catalog::Product p(&a);
-            p.id = r.id.value_or(0);
-            p.sku = astr(a, col(r.sku));
-            p.name = astr(a, col(r.name));
-            p.price_cents = r.price_cents.value_or(0);
-            p.created_at = astr(a, col(r.created_at));
-            list.products.push_back(std::move(p));
+            list.products.push_back(catalog::to_Product(r, &a));
         }
         list.count = static_cast<int64_t>(list.products.size());
         out.assign_json(catalog::serialize_ProductList(list));
@@ -131,13 +122,13 @@ struct catalog_handler : catalog::api_handler {
     }
 
 private:
-    katana::sql::catalog::generated_repository& repo_;
+    catalog::generated_repository& repo_;
 };
 
 // ---- Analytics contract -------------------------------------------------------------------
 
 struct analytics_handler : analytics::api_handler {
-    explicit analytics_handler(katana::sql::analytics::generated_repository& repo) : repo_(repo) {}
+    explicit analytics_handler(analytics::generated_repository& repo) : repo_(repo) {}
 
     katana::result<void> ingest_event(const analytics::IngestEventRequest& body,
                                       response& out) override {
@@ -178,7 +169,7 @@ struct analytics_handler : analytics::api_handler {
     }
 
 private:
-    katana::sql::analytics::generated_repository& repo_;
+    analytics::generated_repository& repo_;
 };
 
 // A reloadable config behind a SIGHUP handler (declared static so the signal handler can reach
@@ -237,8 +228,8 @@ int main(int argc, char** argv) {
     }
     katana::sql::postgres_pool_executor catalog_exec(catalog_pool);
     katana::sql::postgres_pool_executor analytics_exec(analytics_pool);
-    katana::sql::catalog::generated_repository catalog_repo(catalog_exec);
-    katana::sql::analytics::generated_repository analytics_repo(analytics_exec);
+    catalog::generated_repository catalog_repo(catalog_exec);
+    analytics::generated_repository analytics_repo(analytics_exec);
 
     catalog_handler cat_handler(catalog_repo);
     analytics_handler ana_handler(analytics_repo);

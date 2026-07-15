@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# katana — one-command dev orchestrator for a KATANA fullstack service.
+#
+#   katana dev   [service-dir]   bring up deps (Postgres+Redis) + backend + frontend, watch, tail
+#   katana up    [service-dir]   start just the dependencies (docker compose)
+#   katana down  [service-dir]   stop the dependencies
+#   katana build [service-dir]   (re)generate contracts + build the backend
+#
+# service-dir defaults to examples/services/pulse (the reference template). It must contain a
+# CMakeLists.txt, a docker-compose.yml, and a web/ frontend.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CMD="${1:-dev}"
+SVC="${2:-$ROOT/examples/services/pulse}"
+SVC="$(cd "$SVC" && pwd)"
+
+c_g="\033[32m"; c_y="\033[33m"; c_d="\033[2m"; c_0="\033[0m"
+say() { echo -e "${c_g}▸${c_0} $*"; }
+warn() { echo -e "${c_y}!${c_0} $*" >&2; }
+die() { echo -e "\033[31m✗ $*${c_0}" >&2; exit 1; }
+
+need() { command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not found. $2"; }
+
+compose() {
+  if docker compose version >/dev/null 2>&1; then docker compose "$@";
+  elif command -v docker-compose >/dev/null 2>&1; then docker-compose "$@";
+  else die "docker compose not found. Install Docker."; fi
+}
+
+dc() { compose -f "$SVC/docker-compose.yml" -p "$(basename "$SVC")" "$@"; }
+
+deps_up() {
+  need docker "Install Docker to run the dependencies."
+  say "starting dependencies (Postgres + Redis)…"
+  dc up -d
+  say "waiting for Postgres to be ready…"
+  for _ in $(seq 1 30); do
+    if dc exec -T postgres pg_isready -U katana -d katana >/dev/null 2>&1; then
+      say "dependencies ready"; return 0
+    fi
+    sleep 1
+  done
+  die "Postgres did not become ready in time (check: katana down, then retry)."
+}
+
+deps_down() {
+  need docker "Install Docker to manage the dependencies."
+  say "stopping dependencies…"
+  dc down
+}
+
+build_backend() {
+  need cmake "Install cmake + ninja and a C++23 compiler."
+  say "configuring + building backend ($(basename "$SVC"))…"
+  cmake -S "$SVC" -B "$SVC/build" -G Ninja >/dev/null
+  cmake --build "$SVC/build"
+}
+
+dev() {
+  need npm "Install Node.js (npm) to run the frontend."
+  deps_up
+  build_backend
+
+  local bin="$SVC/build/$(basename "$SVC")"
+  [ -x "$bin" ] || die "backend binary not found at $bin"
+
+  # Ensure frontend deps.
+  if [ ! -d "$SVC/web/node_modules" ]; then
+    say "installing frontend deps…"
+    (cd "$SVC/web" && npm install >/dev/null)
+  fi
+
+  local pids=()
+  cleanup() {
+    echo
+    say "shutting down…"
+    for p in "${pids[@]:-}"; do kill "$p" >/dev/null 2>&1 || true; done
+    deps_down || true
+  }
+  trap cleanup EXIT INT TERM
+
+  say "starting backend on :8080  ${c_d}(logs prefixed [api])${c_0}"
+  ( "$bin" 2>&1 | sed "s/^/$(printf '\033[36m[api]\033[0m') /" ) &
+  pids+=($!)
+
+  say "starting frontend on :3000  ${c_d}(logs prefixed [web])${c_0}"
+  ( cd "$SVC/web" && npm run dev 2>&1 | sed "s/^/$(printf '\033[35m[web]\033[0m') /" ) &
+  pids+=($!)
+
+  echo
+  say "up: ${c_d}api${c_0} http://localhost:8080  ·  ${c_d}web${c_0} http://localhost:3000  ·  Ctrl-C to stop"
+  wait
+}
+
+case "$CMD" in
+  dev) dev ;;
+  up) deps_up ;;
+  down) deps_down ;;
+  build) build_backend ;;
+  -h|--help|help) awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0" ;;
+  *) die "unknown command '$CMD' (try: dev, up, down, build, help)" ;;
+esac

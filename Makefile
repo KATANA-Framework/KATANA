@@ -8,7 +8,7 @@ DOCKER_PROFILE_IMAGE ?= katana-profile
 PERF_PATH ?= $(HOME)/src/WSL2-Linux-Kernel/tools/perf/perf
 
 .PHONY: help configure build test ci format lint bench bench-report fuzz profile clean \
-	docker-bench-image docker-bench docker-profile-image docker-profile
+	docker-bench-image docker-bench docker-profile-image docker-profile dev up down
 
 help:
 	@echo "Common targets:"
@@ -23,7 +23,19 @@ help:
 	@echo "  make profile (Release simple_benchmark)"
 	@echo "  make docker-bench-image / docker-bench (build & run benchmark container)"
 	@echo "  make docker-profile-image / docker-profile (build & run perf container; PERF_PATH overrides host perf)"
+	@echo "  make dev  (one command: deps + backend + frontend for the pulse template; SVC=<dir> to target another)"
+	@echo "  make up / make down (start / stop the template's Postgres+Redis deps)"
 	@echo "  make clean"
+
+# Fullstack dev orchestrator (tools/katana). SVC overrides the service dir.
+dev:
+	./tools/katana dev $(SVC)
+
+up:
+	./tools/katana up $(SVC)
+
+down:
+	./tools/katana down $(SVC)
 
 configure:
 	cmake --preset $(PRESET)
