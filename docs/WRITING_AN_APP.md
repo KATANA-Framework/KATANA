@@ -90,7 +90,7 @@ You get `generated_sql_models.hpp` (a `Row` struct per query) and
 `generated_sql_repository.hpp` (one method per query). The methods look like this:
 
 ```cpp
-namespace katana::sql::generated {
+namespace generated {
 class generated_repository {
 public:
     explicit generated_repository(katana::sql::executor& executor) noexcept;
@@ -105,8 +105,14 @@ public:
 ```
 
 `result<T>` carries either the value or an error, so you check it instead of
-catching exceptions. Note the parameters are positional (`p1, p2, p3`) in the order
-of `$1, $2, $3`.
+catching exceptions. Parameters are positional (`p1, p2, p3`) in the order of
+`$1, $2, $3`.
+
+**Named parameters.** Write `@name` placeholders instead of `$1/$2` and the generated
+method takes readable arguments (`arg_<name>`) instead of `p1/p2`. Repeats of the same
+`@name` reuse one positional slot, and the SQL sent to Postgres is still positional
+`$N` — so `WHERE id = @user_id::bigint AND status = @status::text` generates
+`get_user(int64_t arg_user_id, std::string_view arg_status)`.
 
 ## 4. The HTTP contract
 
@@ -219,7 +225,7 @@ katana::sql::postgres_pool pool({
 
 // one executor per worker thread
 auto& executor = pool.for_reactor(thread_index);
-katana::sql::generated::generated_repository repo(executor);
+generated::generated_repository repo(executor);
 ```
 
 The executor is single-connection and not shared between threads — `for_reactor`

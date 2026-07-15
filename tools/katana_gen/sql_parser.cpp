@@ -4,6 +4,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <optional>
 #include <sstream>
 #include <string_view>
@@ -408,6 +409,43 @@ std::optional<std::string> extract_projection_segment(std::string_view sql,
     return trim_copy(sql.substr(body_start, end_pos - body_start));
 }
 
+// Rewrite `@name` placeholders to positional `$N` in first-appearance order (repeats reuse the same
+// index), returning index→name. Postgres only understands `$N`, so the emitted SQL string uses the
+// positional form; the names are kept only to generate readable C++ parameter names. A query that
+// uses raw `$N` has no `@` tokens, so this is a no-op there (back-compat: those stay `pN`).
+std::unordered_map<std::size_t, std::string> rewrite_named_parameters(std::string& sql) {
+    std::unordered_map<std::string, std::size_t> index_by_name;
+    std::unordered_map<std::size_t, std::string> name_by_index;
+    std::string out;
+    out.reserve(sql.size());
+    for (std::size_t pos = 0; pos < sql.size();) {
+        const bool is_name_start =
+            sql[pos] == '@' && pos + 1 < sql.size() &&
+            (std::isalpha(static_cast<unsigned char>(sql[pos + 1])) || sql[pos + 1] == '_');
+        if (!is_name_start) {
+            out += sql[pos];
+            ++pos;
+            continue;
+        }
+        std::size_t start = pos + 1;
+        std::size_t end = start;
+        while (end < sql.size() &&
+               (std::isalnum(static_cast<unsigned char>(sql[end])) || sql[end] == '_')) {
+            ++end;
+        }
+        std::string name = sql.substr(start, end - start);
+        auto [it, inserted] = index_by_name.try_emplace(name, index_by_name.size() + 1);
+        if (inserted) {
+            name_by_index.emplace(it->second, name);
+        }
+        out += '$';
+        out += std::to_string(it->second);
+        pos = end;
+    }
+    sql = std::move(out);
+    return name_by_index;
+}
+
 std::vector<sql_parameter> parse_parameters(std::string_view sql) {
     std::unordered_map<std::size_t, std::string> type_by_index;
     for (std::size_t pos = 0; pos < sql.size(); ++pos) {
@@ -454,6 +492,7 @@ std::vector<sql_parameter> parse_parameters(std::string_view sql) {
         const auto resolved_type = type_name.empty() ? std::string("text") : type_name;
         parameters.push_back(sql_parameter{
             .index = index,
+            .name = {}, // filled in by parse_sql_source from @name placeholders, if any
             .pg_type = resolved_type,
             .cpp_type = map_pg_type_to_cpp(resolved_type),
         });
@@ -522,7 +561,13 @@ katana::result<sql_query> parse_sql_source(const sql_source& source) {
     query.source_path = source.path;
     query.mode = header->second;
     query.sql = std::move(body);
+    auto param_names = rewrite_named_parameters(query.sql); // @name → $N, in place
     query.parameters = parse_parameters(query.sql);
+    for (auto& param : query.parameters) {
+        if (auto it = param_names.find(param.index); it != param_names.end()) {
+            param.name = it->second;
+        }
+    }
     query.columns = parse_columns(query.sql, query.mode);
     if (query.mode == sql_query_mode::exec && !query.columns.empty()) {
         return std::unexpected(std::make_error_code(std::errc::invalid_argument));
@@ -589,9 +634,15 @@ katana::result<sql_catalog> load_sql_catalog_from_sources(std::vector<sql_source
     for (const auto& source : sources) {
         auto query = parse_sql_source(source);
         if (!query) {
+            std::cerr << "[sql] " << source.path.generic_string()
+                      << ": failed to parse (" << query.error().message()
+                      << "). Expected a `-- name: <name> :one|:many|:exec` header and a "
+                         "non-empty query body; an :exec query must not RETURN columns.\n";
             return std::unexpected(query.error());
         }
         if (!seen_names.insert(query->name).second) {
+            std::cerr << "[sql] " << source.path.generic_string() << ": duplicate query name '"
+                      << query->name << "' (already defined in another file)\n";
             return std::unexpected(std::make_error_code(std::errc::file_exists));
         }
         catalog.queries.push_back(std::move(*query));
@@ -614,8 +665,8 @@ std::string dump_sql_ast_summary(const sql_catalog& catalog) {
             if (p != 0) {
                 out += ',';
             }
-            out += "{\"index\":" + std::to_string(param.index) + ",\"type\":\"" + param.pg_type +
-                   "\",\"cpp\":\"" + param.cpp_type + "\"}";
+            out += "{\"index\":" + std::to_string(param.index) + ",\"name\":\"" + param.name +
+                   "\",\"type\":\"" + param.pg_type + "\",\"cpp\":\"" + param.cpp_type + "\"}";
         }
         out += "],\"columns\":[";
         for (std::size_t c = 0; c < query.columns.size(); ++c) {

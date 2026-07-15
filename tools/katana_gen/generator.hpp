@@ -39,4 +39,8 @@ std::string generate_router_table(const document& doc, const std::string& ns = "
 std::string generate_handler_interfaces(const document& doc, const std::string& ns = "");
 std::string generate_router_bindings(const document& doc, const std::string& ns = "");
 
+// TypeScript client (interfaces + a typed ApiClient). Emits a `.ts` module, so `ns` is accepted
+// for signature symmetry but unused (TypeScript has no C++-style namespace wrapping here).
+std::string generate_typescript_client(const document& doc, const std::string& ns = "");
+
 } // namespace katana_gen

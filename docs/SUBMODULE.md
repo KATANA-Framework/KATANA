@@ -31,7 +31,7 @@ In code, include the generated headers by their fixed names (quoted):
 ```cpp
 #include "generated_dtos.hpp"            // catalog::Product, catalog::CreateProductRequest, …
 #include "generated_router_bindings.hpp" // catalog::make_router, catalog::api_handler
-#include "generated_sql_repository.hpp"  // katana::sql::catalog::generated_repository
+#include "generated_sql_repository.hpp"  // catalog::generated_repository
 ```
 
 ## What `add_subdirectory` gives you

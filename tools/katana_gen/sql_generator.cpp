@@ -34,6 +34,21 @@ std::string row_type_name(const sql_query& query) {
     return to_pascal_case_local(query.name) + "Row";
 }
 
+// C++ identifier for a query parameter: an `arg_`-prefixed form of the @name when present, else the
+// positional fallback pN. The `arg_` prefix keeps the name readable while guaranteeing it never
+// collides with the method's generated internal locals (params, row, status, mapped, out_row, …),
+// none of which start with `arg_`. Raw $N queries keep their historical pN names.
+std::string param_identifier(const sql_parameter& parameter) {
+    if (parameter.name.empty()) {
+        return "p" + std::to_string(parameter.index);
+    }
+    std::string id = "arg_";
+    for (char c : parameter.name) {
+        id.push_back((std::isalnum(static_cast<unsigned char>(c)) || c == '_') ? c : '_');
+    }
+    return id;
+}
+
 std::string raw_sql_literal(const std::string& sql) {
     return "R\"__KATANA_SQL__(\n" + sql + "\n)__KATANA_SQL__\"";
 }
@@ -72,7 +87,7 @@ std::string generate_sql_models(const sql_catalog& catalog, const std::string& n
     out << "#include <optional>\n";
     out << "#include <string>\n\n";
     out << "#include <vector>\n\n";
-    out << "namespace katana::sql::" << sql_ns << " {\n\n";
+    out << "namespace " << sql_ns << " {\n\n";
     for (const auto& query : catalog.queries) {
         if (query.columns.empty()) {
             continue;
@@ -83,7 +98,7 @@ std::string generate_sql_models(const sql_catalog& catalog, const std::string& n
         }
         out << "};\n\n";
     }
-    out << "} // namespace katana::sql::" << sql_ns << "\n";
+    out << "} // namespace " << sql_ns << "\n";
     return out.str();
 }
 
@@ -97,7 +112,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
     out << "#include <string_view>\n";
     out << "#include <utility>\n";
     out << "#include <vector>\n\n";
-    out << "namespace katana::sql::" << sql_ns << " {\n\n";
+    out << "namespace " << sql_ns << " {\n\n";
     out << "class generated_repository {\n";
     out << "public:\n";
     for (const auto& query : catalog.queries) {
@@ -119,14 +134,14 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             if (i != 0) {
                 out << ", ";
             }
-            out << param_cpp_type(parameter) << " p" << parameter.index;
+            out << param_cpp_type(parameter) << " " << param_identifier(parameter);
         }
         out << ") const {\n";
         out << "        katana::sql::parameters params;\n";
         out << "        params.reserve(" << query.parameters.size() << ");\n";
         for (const auto& parameter : query.parameters) {
-            out << "        params.push_back(katana::sql::encode_value(p" << parameter.index
-                << "));\n";
+            out << "        params.push_back(katana::sql::encode_value("
+                << param_identifier(parameter) << "));\n";
         }
         if (query.mode == sql_query_mode::exec) {
             out << "        return executor_.exec(\"" << query.name << "\", " << query.name
@@ -185,7 +200,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             if (i != 0) {
                 out << ", ";
             }
-            out << param_cpp_type(parameter) << " p" << parameter.index;
+            out << param_cpp_type(parameter) << " " << param_identifier(parameter);
         }
         if (!query.parameters.empty()) {
             out << ", ";
@@ -205,7 +220,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             if (i != 0) {
                 out << ", ";
             }
-            out << "p" << query.parameters[i].index;
+            out << param_identifier(query.parameters[i]);
         }
         out << "));\n";
         out << "            return true;\n";
@@ -213,8 +228,8 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         out << "        katana::sql::parameters params;\n";
         out << "        params.reserve(" << query.parameters.size() << ");\n";
         for (const auto& parameter : query.parameters) {
-            out << "        params.push_back(katana::sql::encode_value(p" << parameter.index
-                << "));\n";
+            out << "        params.push_back(katana::sql::encode_value("
+                << param_identifier(parameter) << "));\n";
         }
         if (query.mode == sql_query_mode::exec) {
             out << "        return async_executor->exec_async(\"" << query.name << "\", "
@@ -308,7 +323,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
     }
 
     out << "};\n\n";
-    out << "} // namespace katana::sql::" << sql_ns << "\n";
+    out << "} // namespace " << sql_ns << "\n";
     return out.str();
 }
 

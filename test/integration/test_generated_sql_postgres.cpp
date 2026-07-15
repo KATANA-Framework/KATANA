@@ -57,7 +57,7 @@ TEST(GeneratedSqlRepositoryIntegration, UsesPostgresPoolExecutor) {
                               {}));
 
     katana::sql::postgres_pool_executor pool_executor(pool);
-    katana::sql::generated::generated_repository repo(pool_executor);
+    generated::generated_repository repo(pool_executor);
 
     auto one = repo.get_user(1);
     ASSERT_TRUE(one);
@@ -141,9 +141,9 @@ TEST(GeneratedSqlRepositoryIntegration, SupportsAsyncGeneratedQueries) {
                               {}));
 
     katana::sql::postgres_pool_executor pool_executor(pool);
-    katana::sql::generated::generated_repository repo(pool_executor);
+    generated::generated_repository repo(pool_executor);
 
-    std::promise<katana::result<std::optional<katana::sql::generated::GetUserRow>>> get_promise;
+    std::promise<katana::result<std::optional<generated::GetUserRow>>> get_promise;
     ASSERT_TRUE(repo.get_user_async(
         1, [&get_promise](auto result) { get_promise.set_value(std::move(result)); }));
     auto async_user = get_promise.get_future().get();
@@ -191,10 +191,10 @@ TEST(GeneratedSqlRepositoryIntegration,
                               {}));
 
     katana::sql::postgres_pool_executor pool_executor(pool);
-    katana::sql::generated::generated_repository repo(pool_executor);
+    generated::generated_repository repo(pool_executor);
     katana::reactor r;
 
-    std::promise<katana::result<std::optional<katana::sql::generated::GetUserRow>>> result_promise;
+    std::promise<katana::result<std::optional<generated::GetUserRow>>> result_promise;
     std::promise<std::thread::id> callback_thread_promise;
     std::thread::id reactor_thread_id{};
 

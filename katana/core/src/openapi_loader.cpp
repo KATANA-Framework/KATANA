@@ -175,6 +175,19 @@ struct schema_arena_pool {
     monotonic_arena* arena;
     std::vector<schema*> allocated;
 
+    // Diagnostics: when the loader meets a construct it can't represent it normally coerces/skips
+    // silently. warn_unknown() surfaces that on stderr with a source line, and records it so the
+    // driver can fail the run under --strict instead of emitting quietly-wrong code.
+    bool strict = false;
+    std::string source_name = "<spec>";
+    bool had_unknown_construct = false;
+
+    void warn_unknown(const char* p, const std::string& message) {
+        had_unknown_construct = true;
+        std::cerr << "[openapi] " << source_name << ":" << line_at(p) << ": warning: " << message
+                  << "\n";
+    }
+
     // Provenance lookup: the JSON byte buffer the cursors walk, plus a sorted
     // offset→YAML-line map produced by yaml_to_json. Both null when the input was
     // already JSON (no YAML lines to recover).
@@ -593,6 +606,8 @@ schema* parse_schema_object(json_cursor& cur,
                 } else if (type == "boolean") {
                     kind = schema_kind::boolean;
                 } else {
+                    pool.warn_unknown(cur.ptr, "unknown schema type '" + std::string(type) +
+                                                   "', treated as object");
                     cur.skip_value();
                     kind = schema_kind::object;
                 }
@@ -1602,7 +1617,8 @@ void parse_components(json_cursor& cur,
 
 } // namespace
 
-result<document> load_from_string(std::string_view spec_text, monotonic_arena& arena) {
+result<document> load_from_string(std::string_view spec_text, monotonic_arena& arena, bool strict,
+                                  std::string_view source_name) {
     auto trimmed_input = trim_view(spec_text);
     if (trimmed_input.empty()) {
         return std::unexpected(make_error_code(error_code::openapi_parse_error));
@@ -1638,6 +1654,10 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
     doc.schemas.reserve(kMaxSchemaCount);
 
     schema_arena_pool pool(&doc, &arena);
+    pool.strict = strict;
+    if (!source_name.empty()) {
+        pool.source_name.assign(source_name.begin(), source_name.end());
+    }
     if (!is_json) {
         // json_view aliases the emitted JSON buffer; line_map offsets share its frame.
         pool.json_base = json_view.data();
@@ -1871,10 +1891,16 @@ result<document> load_from_string(std::string_view spec_text, monotonic_arena& a
         }
     }
 
+    if (pool.strict && pool.had_unknown_construct) {
+        std::cerr << "[openapi] " << pool.source_name
+                  << ": strict mode: unsupported construct(s) above are an error\n";
+        return std::unexpected(make_error_code(error_code::openapi_parse_error));
+    }
+
     return doc;
 }
 
-result<document> load_from_file(const char* path, monotonic_arena& arena) {
+result<document> load_from_file(const char* path, monotonic_arena& arena, bool strict) {
     std::ifstream in(path, std::ios::binary);
     if (!in) {
         return std::unexpected(make_error_code(error_code::openapi_parse_error));
@@ -1884,7 +1910,7 @@ result<document> load_from_file(const char* path, monotonic_arena& arena) {
     content.resize(static_cast<size_t>(in.tellg()));
     in.seekg(0, std::ios::beg);
     in.read(content.data(), static_cast<std::streamsize>(content.size()));
-    auto loaded = load_from_string(content, arena);
+    auto loaded = load_from_string(content, arena, strict, path);
     if (loaded) {
         // Record the spec's basename for generated provenance comments.
         std::string_view p(path);

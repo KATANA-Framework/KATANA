@@ -14,6 +14,7 @@ struct options {
     std::string allocator = "pmr";           // pmr,std
     std::string inline_naming = "operation"; // operation,flat
     std::string ns;                          // wrap all generated symbols in this namespace
+    std::string openapi_spec;                // sql subcommand: OpenAPI spec to bridge rows↔DTOs
     bool strict = false;
     bool dump_ast = false;
     bool json_output = false;

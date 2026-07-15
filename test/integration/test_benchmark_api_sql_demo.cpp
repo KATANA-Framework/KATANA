@@ -321,9 +321,9 @@ TEST(BenchmarkApiSqlDemoIntegration, GeneratedRepositorySupportsAsyncCrudWrites)
     ASSERT_TRUE(demo.start());
 
     katana::sql::postgres_pool_executor pool_executor(demo.pool());
-    katana::sql::generated::generated_repository repo(pool_executor);
+    generated::generated_repository repo(pool_executor);
 
-    std::promise<katana::result<std::optional<katana::sql::generated::CreateItemRow>>>
+    std::promise<katana::result<std::optional<generated::CreateItemRow>>>
         create_promise;
     ASSERT_TRUE(repo.create_item_async(
         "Async Drill",
@@ -342,7 +342,7 @@ TEST(BenchmarkApiSqlDemoIntegration, GeneratedRepositorySupportsAsyncCrudWrites)
 
     const auto created_id = *created->value().id;
 
-    std::promise<katana::result<std::optional<katana::sql::generated::UpdateItemRow>>>
+    std::promise<katana::result<std::optional<generated::UpdateItemRow>>>
         update_promise;
     ASSERT_TRUE(repo.update_item_async(
         created_id,

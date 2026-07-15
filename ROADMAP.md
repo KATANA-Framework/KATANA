@@ -171,20 +171,57 @@ the exporter hook instead and leaves the transport to the application.
 The fullstack CaseCore trial surfaced concrete DX gaps. This stage closes the distance
 between "the primitives exist" and "it's pleasant to build a separate product on it".
 
-- **[P0] Standalone consumer build** — depend on KATANA via a clean `add_subdirectory()`/
-  install/export, without relying on `CMAKE_SOURCE_DIR` or hand-setting
-  `KATANA_USE_EPOLL`/`KATANA_USE_IO_URING`.
-- **[P0] CORS middleware** — correct preflight and CORS headers out of the box, so a separate
-  browser frontend works without hand-rolled glue.
-- **[P1] Generated TypeScript client** from the OpenAPI spec, so frontends don't hand-write
-  a fetch layer over the same contract.
-- **[P1] Reference fullstack template** — backend + frontend + OpenAPI + SQL catalog + run
-  scripts, proving a real product builds without patching framework internals.
-- **[P1] `katana dev`** — one command to bring up backend + frontend + deps and watch/reload.
-- **[P2] Codegen ergonomics** — named SQL parameters instead of positional `p1/p2/p3`; a
-  `Row → DTO` bridge; consistent namespaces between SQL (`katana::sql::generated`) and
-  OpenAPI (`generated`) output; file/line/column on codegen errors; a loud error instead of
-  a silent drop when a spec construct isn't understood.
+- **[P0] Standalone consumer build** — **done.** KATANA now exports a proper CMake package:
+  `install(TARGETS … EXPORT)` + `configure_package_config_file` produce `katanaConfig.cmake`,
+  so a consumer just does `find_package(katana)` and links `katana::core` (library) /
+  `katana::gen` (generator). The backend macro (`KATANA_USE_EPOLL`/`KATANA_USE_IO_URING`) and
+  `KATANA_HAS_LIBPQ` are now PUBLIC usage requirements on `katana_core` instead of directory-scope
+  defines, so consumers never hand-set them; public include dirs use `BUILD_INTERFACE`/
+  `INSTALL_INTERFACE`. The `katana_add_openapi`/`katana_add_sql` helpers ship with the package and
+  resolve the generator as either the in-tree `katana_gen` or the imported `katana::gen`. Verified
+  end-to-end both ways: a `find_package(katana)` consumer generates from a contract, compiles and
+  runs; and the CaseCore trial builds via `add_subdirectory` with the manual `KATANA_USE_EPOLL` and
+  the hardcoded `katana_gen` path both removed. *Remaining:* nothing major (multi-arch/static
+  packaging is Stage 11).
+- **[P0] CORS middleware** — **done.** `server.cors(cors_config)` handles preflight `OPTIONS`
+  (204 + `Access-Control-Allow-Methods/Headers/Max-Age`, 403 for a disallowed Origin) before
+  routing, and `finalize_response` decorates every actual (non-preflight) response from an allowed
+  Origin with `Access-Control-Allow-Origin` (+ `Allow-Credentials`/`Expose-Headers`/`Vary` per
+  policy). Config covers origin allow-list (empty/`*` = any), methods, headers (`*` echoes the
+  requested set), exposed headers, credentials, and max-age. Covered by integration tests for
+  preflight (permissive + allow-list + reject) and for actual responses on a *fresh* connection
+  (so the actual-response path is verified independently of preflight header reuse).
+- **[P1] Generated TypeScript client** — **done.** `katana_gen openapi --emit typescript` writes a
+  self-contained `generated_client.ts`: `interface`s/enum unions for the schemas and a typed
+  `ApiClient` with one async method per operation (path-param interpolation, query object, JSON body,
+  2xx return type), plus an `ApiError`. Opt-in (not part of `--emit all`, which feeds the C++ dirs);
+  the `katana_add_typescript()` CMake helper regenerates it for a frontend build. Output is
+  `tsc --strict` clean; covered by a codegen snapshot test.
+- **[P1] Reference fullstack template** — **done.** `examples/services/pulse` is now a copy-me
+  template: a `CMakeLists.txt` (find_package(katana), else in-repo add_subdirectory) that generates
+  both contracts + SQL + the Row↔DTO bridge + the TypeScript clients, a Next.js `web/` console driven
+  by the generated client, a `docker-compose.yml` (Postgres+Redis, schema auto-applied), and the
+  exemplary backend wiring (config layering, two PG pools, Redis policies, built-in
+  CORS/`/healthz`/`/readyz`, graceful shutdown). It builds and runs without patching the framework;
+  verified end-to-end (CRUD + analytics through the bridge and generated client).
+- **[P1] `katana dev`** — **done.** `tools/katana` (with `make dev`/`up`/`down`) brings up the
+  template's deps via docker compose, regenerates + builds the backend, starts the API and the
+  frontend dev server with prefixed logs, and tears it all down on `Ctrl-C`. `[service-dir]` targets
+  any KATANA service, defaulting to the pulse template.
+- **[P2] Codegen ergonomics** — **done.**
+  - *Named SQL parameters* — write `@name` placeholders and the generated method takes readable
+    `arg_<name>` arguments (repeats reuse one slot; the SQL sent to Postgres stays positional
+    `$N`). Raw `$N` queries keep their `pN` names.
+  - *Row→DTO bridge* — `katana_gen sql --openapi <spec>` emits `generated_bridge.hpp` with
+    `to_<Dto>(row, arena)` / `to_<Row>(dto)` converters for every row that exactly matches a DTO
+    (normalized field names + compatible scalar/string types); ambiguous or partial matches are
+    skipped with a warning, never mis-mapped.
+  - *Consistent namespaces* — the SQL generator now honours `--namespace` as a bare namespace
+    (default `generated`), the same as the OpenAPI generator, so a contract's DTOs and its SQL
+    rows/repository share one namespace (`katana::sql::` prefix removed).
+  - *Louder errors* — the OpenAPI loader warns (`<file>:<line>: warning: …`) on an unsupported
+    construct instead of silently coercing it, and `--strict` turns that into an error; SQL parse
+    failures name the offending file and query.
 
 ---
 
