@@ -131,7 +131,7 @@ int main() {
     }
 
     katana::sql::postgres_pool_executor pool_executor(pool);
-    katana::sql::generated::generated_repository repo(pool_executor);
+    generated::generated_repository repo(pool_executor);
     constexpr int iterations = 400;
 
     const auto get_user_stats = run_bench(iterations, [&]() -> int64_t {

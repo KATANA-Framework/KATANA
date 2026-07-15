@@ -12,6 +12,8 @@ else()
 endif()
 
 include(CheckIPOSupported)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(CMAKE_CXX_STANDARD 23)
@@ -99,13 +101,13 @@ if(KATANA_POLL STREQUAL "io_uring")
     set(REACTOR_SOURCE katana/core/src/io_uring_reactor.cpp)
     set(REACTOR_LIBS ${LIBURING_LIBRARIES})
     set(REACTOR_INCLUDE_DIRS ${LIBURING_INCLUDE_DIRS})
-    add_compile_definitions(KATANA_USE_IO_URING)
+    list(APPEND KATANA_PUBLIC_DEFINES KATANA_USE_IO_URING)
     message(STATUS "Using io_uring backend")
 elseif(KATANA_POLL STREQUAL "epoll")
     set(REACTOR_SOURCE katana/core/src/epoll_reactor.cpp)
     set(REACTOR_LIBS "")
     set(REACTOR_INCLUDE_DIRS "")
-    add_compile_definitions(KATANA_USE_EPOLL)
+    list(APPEND KATANA_PUBLIC_DEFINES KATANA_USE_EPOLL)
     message(STATUS "Using epoll backend")
 else()
     message(FATAL_ERROR "Invalid KATANA_POLL value: ${KATANA_POLL}. Must be 'epoll' or 'io_uring'")
@@ -120,7 +122,7 @@ if(ENABLE_POSTGRES)
         set(POSTGRES_SOURCE katana/core/src/postgres.cpp)
         set(POSTGRES_LIBS ${PostgreSQL_LIBRARIES})
         set(POSTGRES_INCLUDE_DIRS ${PostgreSQL_INCLUDE_DIRS})
-        add_compile_definitions(KATANA_HAS_LIBPQ)
+        list(APPEND KATANA_PUBLIC_DEFINES KATANA_HAS_LIBPQ)
         message(STATUS "Using PostgreSQL/libpq runtime")
     else()
         message(STATUS "PostgreSQL/libpq not found; SQL runtime disabled")
@@ -149,10 +151,19 @@ add_library(katana_core STATIC
 )
 
 target_include_directories(katana_core PUBLIC
-    katana/core/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/katana/core/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     ${REACTOR_INCLUDE_DIRS}
     ${POSTGRES_INCLUDE_DIRS}
 )
+
+# Backend/runtime feature macros are a PUBLIC usage requirement: public headers (e.g.
+# reactor_impl.hpp) switch on KATANA_USE_EPOLL/KATANA_USE_IO_URING, so a consumer that
+# includes them must see the same define. Attaching it to the target (not a directory-scope
+# add_compile_definitions) means it propagates automatically — no hand-setting required.
+if(KATANA_PUBLIC_DEFINES)
+    target_compile_definitions(katana_core PUBLIC ${KATANA_PUBLIC_DEFINES})
+endif()
 
 if(REACTOR_LIBS)
     target_link_libraries(katana_core PUBLIC ${REACTOR_LIBS})
@@ -173,6 +184,9 @@ option(ENABLE_BENCHMARKS "Enable benchmarks" OFF)
 option(ENABLE_FUZZING "Enable fuzzing" OFF)
 option(ENABLE_EXAMPLES "Enable examples" ${KATANA_IS_TOP_LEVEL})
 option(ENABLE_TOOLS "Enable CLI/tools" ON)
+# Install/export rules (find_package(katana) support). On by default when top-level; a parent
+# that pulls KATANA in via add_subdirectory usually does not want to install it, so it defaults off.
+option(KATANA_INSTALL "Generate install/export rules for find_package(katana)" ${KATANA_IS_TOP_LEVEL})
 
 if(ENABLE_TESTING)
     enable_testing()
@@ -232,6 +246,8 @@ if(ENABLE_TOOLS)
         tools/katana_gen/sql_generator.cpp
         tools/katana_gen/validator_generator.cpp
         tools/katana_gen/router_generator.cpp
+        tools/katana_gen/typescript_generator.cpp
+        tools/katana_gen/bridge_generator.cpp
     )
     target_include_directories(katana_gen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tools)
     target_link_libraries(katana_gen katana_core)
@@ -243,4 +259,56 @@ if(ENABLE_TOOLS)
     # Codegen helper functions (katana_add_openapi / katana_add_sql) for consumers — only useful
     # when the generator is built.
     include(KatanaCodegen)
+endif()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Install / export — make `find_package(katana)` work for standalone consumers.
+# Produces katana::core (+ katana::gen when tools are built) and ships the codegen
+# helpers, so a consumer never has to reference paths inside this repo or hand-set
+# backend macros like KATANA_USE_EPOLL.
+# ─────────────────────────────────────────────────────────────────────────────
+if(KATANA_INSTALL)
+    # EXPORT_NAME makes the imported targets `katana::core` / `katana::gen` (matching the in-tree
+    # aliases), not `katana::katana_core` / `katana::katana_gen` (ALIAS targets aren't exportable).
+    set(KATANA_EXPORT_TARGETS katana_core)
+    set_target_properties(katana_core PROPERTIES EXPORT_NAME core)
+    if(ENABLE_TOOLS)
+        list(APPEND KATANA_EXPORT_TARGETS katana_gen)
+        set_target_properties(katana_gen PROPERTIES EXPORT_NAME gen)
+    endif()
+
+    install(TARGETS ${KATANA_EXPORT_TARGETS}
+        EXPORT katanaTargets
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+    # Public headers: the whole katana/ tree (core + sql) under the include prefix.
+    install(DIRECTORY katana/core/include/katana
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+    # Namespaced imported targets (katana::core, katana::gen).
+    install(EXPORT katanaTargets
+        FILE katanaTargets.cmake
+        NAMESPACE katana::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/katana)
+
+    # Codegen helper module ships next to the config so find_package pulls in katana_add_*.
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/KatanaCodegen.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/katana)
+
+    # Package config + version.
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/katanaConfig.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/katanaConfig.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/katana)
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/katanaConfigVersion.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
+    install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/katanaConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/katanaConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/katana)
 endif()

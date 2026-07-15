@@ -1,5 +1,6 @@
 #pragma once
 
+#include "katana/core/openapi_loader.hpp"
 #include "katana/core/result.hpp"
 
 #include <cstddef>
@@ -17,6 +18,7 @@ enum class sql_query_mode {
 
 struct sql_parameter {
     std::size_t index = 0;
+    std::string name; // from an @name placeholder; empty for positional $N (falls back to pN)
     std::string pg_type;
     std::string cpp_type;
 };
@@ -48,10 +50,16 @@ struct sql_source {
 katana::result<sql_catalog> load_sql_catalog(const std::filesystem::path& input_root);
 katana::result<sql_catalog> load_sql_catalog_from_sources(std::vector<sql_source> sources);
 std::string dump_sql_ast_summary(const sql_catalog& catalog);
-// `ns` (when non-empty) places the generated SQL types in `katana::sql::<ns>` instead of the
-// default `katana::sql::generated`, so multiple SQL contracts can link into one binary.
+// `ns` places the generated SQL types in `namespace <ns>` (default `generated`) — the same bare
+// namespace the OpenAPI generator uses, so a contract's DTOs and its SQL rows/repository share one
+// namespace (and multiple contracts can link into one binary via distinct namespaces).
 std::string generate_sql_models(const sql_catalog& catalog, const std::string& ns = "");
 std::string generate_sql_repository(const sql_catalog& catalog, const std::string& ns = "");
+// Row↔DTO bridge: for each generated <Name>Row whose field set exactly matches an OpenAPI DTO
+// (by normalized name + compatible scalar type), emit `to_<Dto>(row, arena)` and `to_<Row>(dto)`
+// converters. Ambiguous/partial matches are skipped with a warning (never a wrong mapping).
+std::string generate_bridge(const sql_catalog& catalog, const katana::openapi::document& doc,
+                            const std::string& ns = "");
 std::string sql_mode_literal(sql_query_mode mode);
 
 } // namespace katana_gen

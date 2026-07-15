@@ -90,7 +90,7 @@ throughput_stats run_parallel_bench(katana::sql::postgres_pool& pool,
     for (int thread_index = 0; thread_index < thread_count; ++thread_index) {
         workers.emplace_back([&, thread_index]() {
             auto& executor = pool.for_reactor(static_cast<std::size_t>(thread_index));
-            katana::sql::generated::generated_repository repo(executor);
+            generated::generated_repository repo(executor);
             ready.fetch_add(1, std::memory_order_release);
             while (!start.load(std::memory_order_acquire)) {
                 std::this_thread::yield();

@@ -150,7 +150,7 @@ void print_result(std::string_view name, const bench_stats& stats) {
 int main() {
     fake_executor executor;
     executor.seed();
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     constexpr int samples = 4000;
 
     const auto get_user_stats = run_bench(samples, 256, [&]() -> int64_t {

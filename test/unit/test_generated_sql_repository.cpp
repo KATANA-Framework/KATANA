@@ -90,7 +90,7 @@ TEST(GeneratedSqlRepositoryTest, MapsSingleRowQueries) {
     executor.query_rows = {
         {{"id", std::string("42")}, {"name", std::string("Ada")}, {"active", std::string("true")}}};
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     auto result = repo.get_user(42);
 
     ASSERT_TRUE(result);
@@ -111,7 +111,7 @@ TEST(GeneratedSqlRepositoryTest, MapsManyQueries) {
         {{"id", std::string("2")}, {"name", std::string("Linus")}},
     };
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     auto result = repo.list_users(true);
 
     ASSERT_TRUE(result);
@@ -129,10 +129,10 @@ TEST(GeneratedSqlRepositoryTest, MapsAsyncSingleRowQueries) {
     executor.query_rows = {
         {{"id", std::string("42")}, {"name", std::string("Ada")}, {"active", std::string("true")}}};
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     bool invoked = false;
-    katana::result<std::optional<katana::sql::generated::GetUserRow>> async_result =
-        std::optional<katana::sql::generated::GetUserRow>{};
+    katana::result<std::optional<generated::GetUserRow>> async_result =
+        std::optional<generated::GetUserRow>{};
 
     ASSERT_TRUE(repo.get_user_async(42, [&](auto result) {
         invoked = true;
@@ -150,7 +150,7 @@ TEST(GeneratedSqlRepositoryTest, MapsAsyncExecQueries) {
     FakeExecutor executor;
     executor.exec_result_value.affected_rows = 3;
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     bool invoked = false;
     katana::result<katana::sql::exec_result> async_result = katana::sql::exec_result{};
 
@@ -168,7 +168,7 @@ TEST(GeneratedSqlRepositoryTest, PassesExecQueriesThrough) {
     FakeExecutor executor;
     executor.exec_result_value.affected_rows = 3;
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     auto result = repo.touch_user(77);
 
     ASSERT_TRUE(result);
@@ -186,7 +186,7 @@ TEST(GeneratedSqlRepositoryTest, RejectsMultipleRowsForOneQuery) {
         {{"id", std::string("2")}, {"name", std::string("Linus")}, {"active", std::string("true")}},
     };
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     auto result = repo.get_user(1);
 
     ASSERT_FALSE(result);
@@ -198,7 +198,7 @@ TEST(GeneratedSqlRepositoryTest, SupportsUpsertQueriesReturningRows) {
                             {"name", std::string("Grace")},
                             {"active", std::string("true")}}};
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     auto result = repo.upsert_user(7, "Grace", true);
 
     ASSERT_TRUE(result);
@@ -220,7 +220,7 @@ TEST(GeneratedSqlRepositoryTest, SupportsBulkArrayParameters) {
          {"active", std::string("false")}},
     };
 
-    katana::sql::generated::generated_repository repo(executor);
+    generated::generated_repository repo(executor);
     auto result = repo.bulk_upsert_users(std::vector<int64_t>{1, 2},
                                          std::vector<std::string>{"Ada", "Linus"},
                                          std::vector<bool>{true, false});

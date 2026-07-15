@@ -1830,3 +1830,62 @@ TEST(HTTPServerCors, AllowlistEchoesAllowedOriginAndRejectsOthers) {
     EXPECT_EQ(bad[0].status, 403);
     EXPECT_FALSE(bad[0].header("Access-Control-Allow-Origin").has_value());
 }
+
+// A simple (non-preflighted) cross-origin request arrives on its own connection: the actual
+// response must carry Access-Control-Allow-Origin on its own, not by leaking a header from a
+// preceding preflight on the same keep-alive connection. This is the case a browser makes for a
+// simple GET, and the one a preflight-then-actual reuse test can hide.
+TEST(HTTPServerCors, ActualRequestOnFreshConnectionCarriesAllowOrigin) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_cors_server(port, /*allowlist=*/false);
+    ASSERT_GT(pid, 0);
+    int fd = -1;
+    cors_guard cleanup{pid, &fd};
+    fd = connect_with_retry(port);
+    ASSERT_GE(fd, 0);
+
+    // No preflight first — the very first request on this connection is the actual GET.
+    send_all(fd, "GET /ping HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                 "Origin: http://localhost:3000\r\n\r\n");
+    auto act = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(act.size(), 1u);
+    EXPECT_EQ(act[0].status, 200);
+    EXPECT_EQ(act[0].body, "pong");
+    EXPECT_EQ(act[0].header("Access-Control-Allow-Origin"), std::optional<std::string_view>{"*"});
+}
+
+// The allow-list policy must also decorate actual (non-preflight) responses: an allowed Origin is
+// echoed back with credentials, a disallowed Origin gets no Allow-Origin header at all.
+TEST(HTTPServerCors, ActualRequestRespectsAllowlist) {
+    const uint16_t port = reserve_ephemeral_port();
+    ASSERT_NE(port, 0);
+    const pid_t pid = spawn_cors_server(port, /*allowlist=*/true);
+    ASSERT_GT(pid, 0);
+    int fd = -1;
+    cors_guard cleanup{pid, &fd};
+    fd = connect_with_retry(port);
+    ASSERT_GE(fd, 0);
+
+    // Allowed origin: echoed back on the actual response.
+    send_all(fd, "GET /ping HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                 "Origin: https://app.example.com\r\n\r\n");
+    auto ok = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(ok.size(), 1u);
+    EXPECT_EQ(ok[0].status, 200);
+    EXPECT_EQ(ok[0].header("Access-Control-Allow-Origin"),
+              std::optional<std::string_view>{"https://app.example.com"});
+    EXPECT_EQ(ok[0].header("Access-Control-Allow-Credentials"),
+              std::optional<std::string_view>{"true"});
+
+    // Disallowed origin on a fresh connection: response is served but carries no Allow-Origin.
+    close(fd);
+    fd = connect_with_retry(port);
+    ASSERT_GE(fd, 0);
+    send_all(fd, "GET /ping HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n"
+                 "Origin: https://evil.example\r\n\r\n");
+    auto bad = read_responses_slowly(fd, 1, std::chrono::seconds(2));
+    ASSERT_EQ(bad.size(), 1u);
+    EXPECT_EQ(bad[0].status, 200);
+    EXPECT_FALSE(bad[0].header("Access-Control-Allow-Origin").has_value());
+}

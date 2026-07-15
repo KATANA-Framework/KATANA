@@ -18,10 +18,12 @@ Options:
   -i, --input <path>         OpenAPI spec file or SQL directory
   -o, --output <dir>         Output directory (default: .)
   --emit <targets>           OpenAPI: dto,validator,serdes,router,handler,all
+                             (typescript: opt-in only, not part of 'all')
                              SQL: models,repository,all (default: all)
   --layer <mode>             Architecture: flat,layered (default: flat)
   --alloc <type>             Allocator: pmr,std (default: pmr)
   --inline-naming <style>    Inline schema naming: operation,flat (default: operation)
+  --openapi <spec>           SQL: also emit a Row<->DTO bridge against this OpenAPI spec
   --json                     Output as JSON format
   --check                    Validate input only, no files written
   --strict                   Strict validation, fail on any error
@@ -40,6 +42,9 @@ Options:
 
   # Generate everything (DTOs, serdes, router, handlers)
   katana_gen openapi -i api/openapi.yaml -o gen --emit all --inline-naming operation
+
+  # Generate a TypeScript client for a frontend
+  katana_gen openapi -i api/openapi.yaml -o web/src/api --emit typescript
 
   # Generate SQL models and repository bindings
   katana_gen sql -i sql -o gen --emit all
@@ -110,6 +115,11 @@ options parse_args(int argc, char** argv) {
                 print_usage();
             }
             opts.ns = argv[++i];
+        } else if (arg == "--openapi") {
+            if (i + 1 >= argc) {
+                print_usage();
+            }
+            opts.openapi_spec = argv[++i];
         } else if (arg == "--check") {
             opts.check_only = true;
         } else if (arg == "-v" || arg == "--verbose") {

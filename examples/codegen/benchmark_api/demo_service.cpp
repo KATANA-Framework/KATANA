@@ -17,7 +17,7 @@ namespace katana::benchmark_api_demo {
 
 namespace {
 
-using sql_repo = katana::sql::generated::generated_repository;
+using sql_repo = generated::generated_repository;
 void debug_backend_error(std::string_view operation, const std::error_code& error) {
     if (const char* debug = std::getenv("KATANA_BENCHMARK_API_DEBUG_ERRORS")) {
         if (*debug != '\0' && *debug != '0') {
@@ -237,7 +237,7 @@ public:
 
         return repo_.get_item_async(
             id,
-            [out](katana::result<std::optional<katana::sql::generated::GetItemRow>> row_result) {
+            [out](katana::result<std::optional<generated::GetItemRow>> row_result) {
                 if (!row_result) {
                     debug_backend_error("get_item.async.sql", row_result.error());
                     (void)out.fail(problem_details::internal_server_error("get_item failed"));
@@ -283,7 +283,7 @@ public:
                 static_cast<int64_t>(offset),
                 *category,
                 [complete = std::move(complete)](
-                    katana::result<std::vector<katana::sql::generated::ListItemsPageByCategoryRow>>
+                    katana::result<std::vector<generated::ListItemsPageByCategoryRow>>
                         rows_result) {
                     complete(std::move(rows_result), "list_items.async.map.filtered");
                 });
@@ -293,7 +293,7 @@ public:
             static_cast<int64_t>(limit),
             static_cast<int64_t>(offset),
             [complete = std::move(complete)](
-                katana::result<std::vector<katana::sql::generated::ListItemsPageAllRow>>
+                katana::result<std::vector<generated::ListItemsPageAllRow>>
                     rows_result) { complete(std::move(rows_result), "list_items.async.map.all"); });
     }
 
@@ -312,7 +312,7 @@ public:
             command.stock.has_value(),
             command.stock.value_or(0),
             category,
-            [out](katana::result<std::optional<katana::sql::generated::CreateItemRow>> row_result) {
+            [out](katana::result<std::optional<generated::CreateItemRow>> row_result) {
                 if (!row_result) {
                     debug_backend_error("create_item.async.sql", row_result.error());
                     (void)out.fail(problem_details::internal_server_error("create_item failed"));
@@ -356,7 +356,7 @@ public:
             command.stock.value_or(0),
             category.has_value(),
             category.value_or(std::string_view{}),
-            [out](katana::result<std::optional<katana::sql::generated::UpdateItemRow>> row_result) {
+            [out](katana::result<std::optional<generated::UpdateItemRow>> row_result) {
                 if (!row_result) {
                     debug_backend_error("update_item.async.sql", row_result.error());
                     (void)out.fail(problem_details::internal_server_error("update_item failed"));

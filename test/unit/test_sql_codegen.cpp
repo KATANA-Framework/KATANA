@@ -112,6 +112,79 @@ UPDATE users SET touched_at = NOW() WHERE id = $1::bigint;
         std::string::npos);
 }
 
+TEST_F(SqlCodegenTest, NamedParametersProduceNamedArgsAndPositionalSql) {
+    write_sql("get_user.sql",
+              R"(-- name: get_user :one
+SELECT id::bigint AS id, status::text AS status
+FROM users
+WHERE id = @user_id::bigint AND status = @status::text;
+)");
+
+    ASSERT_TRUE(run_codegen());
+    const auto repo = read_file(temp_dir / "generated_sql_repository.hpp");
+    ASSERT_FALSE(repo.empty());
+
+    // @name → readable, collision-safe `arg_` C++ parameters (first-appearance order).
+    EXPECT_NE(repo.find("get_user(int64_t arg_user_id, std::string_view arg_status) const"),
+              std::string::npos);
+    EXPECT_NE(repo.find("encode_value(arg_user_id)"), std::string::npos);
+    EXPECT_NE(repo.find("encode_value(arg_status)"), std::string::npos);
+    // The SQL string sent to Postgres must use positional $N, not @name.
+    EXPECT_NE(repo.find("id = $1::bigint AND status = $2::text"), std::string::npos);
+    EXPECT_EQ(repo.find("@user_id"), std::string::npos);
+}
+
+TEST_F(SqlCodegenTest, PositionalParametersKeepLegacyPNames) {
+    write_sql("legacy.sql",
+              R"(-- name: legacy_lookup :one
+SELECT id::bigint AS id FROM users WHERE id = $1::bigint;
+)");
+
+    ASSERT_TRUE(run_codegen());
+    const auto repo = read_file(temp_dir / "generated_sql_repository.hpp");
+    ASSERT_FALSE(repo.empty());
+
+    // Raw $N queries keep their historical pN names (back-compat).
+    EXPECT_NE(repo.find("legacy_lookup(int64_t p1) const"), std::string::npos);
+    EXPECT_NE(repo.find("encode_value(p1)"), std::string::npos);
+}
+
+TEST_F(SqlCodegenTest, GeneratesRowDtoBridgeForExactMatchesOnly) {
+    // A DTO whose fields exactly match a query row, plus a query whose row is only a subset.
+    std::ofstream(temp_dir / "api.yaml") << R"(openapi: 3.0.0
+info: { title: Bridge API, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Widget:
+      type: object
+      required: [id, label]
+      properties:
+        id: { type: integer }
+        label: { type: string }
+)";
+    write_sql("get_widget.sql", R"(-- name: get_widget :one
+SELECT id::bigint AS id, label::text AS label FROM widgets WHERE id = $1::bigint;
+)");
+    write_sql("count_widget.sql", R"(-- name: count_widget :one
+SELECT id::bigint AS id FROM widgets WHERE id = $1::bigint;
+)");
+
+    const std::string flags =
+        "--namespace wid --openapi " + shell_quote(temp_dir / "api.yaml");
+    ASSERT_TRUE(run_codegen(flags));
+
+    const auto bridge = read_file(temp_dir / "generated_bridge.hpp");
+    ASSERT_FALSE(bridge.empty());
+    // Exact match → both converters, in the shared namespace.
+    EXPECT_NE(bridge.find("namespace wid"), std::string::npos);
+    EXPECT_NE(bridge.find("Widget to_Widget(const GetWidgetRow& row, katana::monotonic_arena*"),
+              std::string::npos);
+    EXPECT_NE(bridge.find("GetWidgetRow to_GetWidgetRow(const Widget& dto)"), std::string::npos);
+    // Subset row (only id) must NOT be bridged to Widget.
+    EXPECT_EQ(bridge.find("CountWidgetRow to_"), std::string::npos);
+}
+
 TEST_F(SqlCodegenTest, SqlAstDumpIsStable) {
     write_sql("users.sql",
               R"(-- name: list_users :many
@@ -126,7 +199,7 @@ ORDER BY id;
     const auto ast_json = read_file(temp_dir / "sql_ast.json");
     ASSERT_FALSE(ast_json.empty());
     const std::string expected =
-        R"({"queries":[{"name":"list_users","mode":"many","path":"users.sql","params":[{"index":1,"type":"bool","cpp":"bool"}],"columns":[{"name":"id","type":"bigint","cpp":"int64_t"},{"name":"name","type":"text","cpp":"std::string"}]}]})";
+        R"({"queries":[{"name":"list_users","mode":"many","path":"users.sql","params":[{"index":1,"name":"","type":"bool","cpp":"bool"}],"columns":[{"name":"id","type":"bigint","cpp":"int64_t"},{"name":"name","type":"text","cpp":"std::string"}]}]})";
     EXPECT_EQ(ast_json, expected);
 }
 

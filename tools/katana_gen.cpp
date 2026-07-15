@@ -44,13 +44,16 @@ std::string generate_openapi_package_header(bool emit_dto,
     return out;
 }
 
-std::string generate_sql_package_header(bool emit_models, bool emit_repository) {
+std::string generate_sql_package_header(bool emit_models, bool emit_repository, bool emit_bridge) {
     std::string out = "#pragma once\n\n";
     if (emit_models) {
         out += "#include \"generated_sql_models.hpp\"\n";
     }
     if (emit_repository) {
         out += "#include \"generated_sql_repository.hpp\"\n";
+    }
+    if (emit_bridge) {
+        out += "#include \"generated_bridge.hpp\"\n";
     }
     return out;
 }
@@ -93,7 +96,7 @@ int run_openapi(const options& opts) {
     }
 
     katana::monotonic_arena arena;
-    auto loaded = katana::openapi::load_from_file(opts.input.c_str(), arena);
+    auto loaded = katana::openapi::load_from_file(opts.input.c_str(), arena, opts.strict);
     if (!loaded) {
         std::cerr << "[openapi] " << error_message(loaded.error()) << "\n";
         if (opts.strict) {
@@ -136,6 +139,9 @@ int run_openapi(const options& opts) {
     if (emit_handler || emit_bindings) {
         emit_serdes = true; // нужно для парсинга body в glue
     }
+    // The TypeScript client is opt-in only: `--emit all` feeds the C++ codegen dirs, so we do not
+    // want a stray .ts file dropped in there. Request it explicitly with `--emit typescript`.
+    bool emit_typescript = (opts.emit.find("typescript") != std::string::npos);
 
     auto with_layer = [&](std::string code) {
         return std::string("// layer: ") + opts.layer + "\n" + code;
@@ -260,7 +266,26 @@ int run_openapi(const options& opts) {
         log << "\n";
     }
 
-    {
+    if (emit_typescript) {
+        if (opts.verbose) {
+            log << "[verbose] Generating TypeScript client...\n";
+        }
+        auto ts_code = generate_typescript_client(doc, opts.ns);
+        auto ts_path = opts.output / "generated_client.ts";
+        std::ofstream out(ts_path, std::ios::binary);
+        if (!out) {
+            std::cerr << "[openapi] failed to write " << ts_path << "\n";
+            return 1;
+        }
+        out << ts_code;
+        log << "[codegen] TypeScript client written to " << ts_path;
+        if (opts.verbose) {
+            log << " (" << ts_code.size() << " bytes)";
+        }
+        log << "\n";
+    }
+
+    if (emit_dto || emit_validator || emit_serdes || emit_router || emit_handler || emit_bindings) {
         auto package_code = generate_openapi_package_header(
             emit_dto, emit_validator, emit_serdes, emit_router, emit_handler, emit_bindings);
         auto package_path = opts.output / "generated_openapi_package.hpp";
@@ -371,8 +396,31 @@ int run_sql(const options& opts) {
         log << "[codegen] SQL repository written to " << repository_path << "\n";
     }
 
+    bool emit_bridge = false;
+    if (!opts.openapi_spec.empty()) {
+        katana::monotonic_arena bridge_arena;
+        auto bridge_doc =
+            katana::openapi::load_from_file(opts.openapi_spec.c_str(), bridge_arena, opts.strict);
+        if (!bridge_doc) {
+            std::cerr << "[sql] --openapi: failed to load " << opts.openapi_spec << "\n";
+            return 1;
+        }
+        // Assign the same inline schema names the DTO generator used, so DTO type names match.
+        ensure_inline_schema_names(*bridge_doc, opts.inline_naming);
+        auto bridge_code = generate_bridge(*catalog, *bridge_doc, opts.ns);
+        auto bridge_path = opts.output / "generated_bridge.hpp";
+        std::ofstream out(bridge_path, std::ios::binary);
+        if (!out) {
+            std::cerr << "[sql] failed to write " << bridge_path << "\n";
+            return 1;
+        }
+        out << bridge_code;
+        log << "[codegen] Row<->DTO bridge written to " << bridge_path << "\n";
+        emit_bridge = true;
+    }
+
     {
-        auto package_code = generate_sql_package_header(emit_models, emit_repository);
+        auto package_code = generate_sql_package_header(emit_models, emit_repository, emit_bridge);
         auto package_path = opts.output / "generated_sql_package.hpp";
         std::ofstream out(package_path, std::ios::binary);
         if (!out) {

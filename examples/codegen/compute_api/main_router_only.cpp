@@ -27,7 +27,7 @@ struct compute_handler : generated::api_handler {
         out.reason.assign(canonical_reason_phrase(200));
         out.body.clear();
         out.body.reserve(32);
-        serialize_schema_into(acc, out.body);
+        serialize_compute_sum_response_into(acc, out.body);
         out.set_header(http::field::content_type, "application/json");
         return {};
     }

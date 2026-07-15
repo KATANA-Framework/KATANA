@@ -1,0 +1,26 @@
+@PACKAGE_INIT@
+
+# Re-find transitive dependencies so imported targets resolve on the consumer side.
+include(CMakeFindDependencyMacro)
+
+set(KATANA_POLL "@KATANA_POLL@")
+set(KATANA_HAS_POSTGRES @PostgreSQL_FOUND@)
+
+if(KATANA_POLL STREQUAL "io_uring")
+    find_dependency(PkgConfig)
+    pkg_check_modules(LIBURING REQUIRED liburing>=2.0)
+endif()
+
+if(KATANA_HAS_POSTGRES)
+    find_dependency(PostgreSQL)
+endif()
+
+# Imported targets: katana::core (library) and, when tools were built, katana::gen (generator).
+include("${CMAKE_CURRENT_LIST_DIR}/katanaTargets.cmake")
+
+# Codegen convenience helpers: katana_add_openapi() / katana_add_sql().
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/KatanaCodegen.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/KatanaCodegen.cmake")
+endif()
+
+check_required_components(katana)
