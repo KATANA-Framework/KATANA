@@ -2,3 +2,7 @@ node_modules/
 .next/
 next-env.d.ts
 *.tsbuildinfo
+
+# Generated TypeScript clients (produced by katana_add_typescript at build time)
+lib/catalog/
+lib/analytics/
