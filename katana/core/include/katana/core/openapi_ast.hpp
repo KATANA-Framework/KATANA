@@ -237,12 +237,22 @@ struct idempotency_policy {
     }
 };
 
+// x-katana-auth: require authentication for this operation, optionally with a specific scope.
+struct auth_policy {
+    explicit auth_policy(monotonic_arena* arena = nullptr) : scope(arena_allocator<char>(arena)) {}
+
+    bool required = false;
+    arena_string<> scope; // required scope; empty means "any authenticated caller"
+
+    [[nodiscard]] bool present() const noexcept { return required; }
+};
+
 struct operation {
     explicit operation(monotonic_arena* arena = nullptr)
         : operation_id(arena_allocator<char>(arena)), summary(arena_allocator<char>(arena)),
           description(arena_allocator<char>(arena)), parameters(arena_allocator<parameter>(arena)),
           responses(arena_allocator<response>(arena)), cache(arena), alloc(arena),
-          rate_limit(arena), idempotency(arena) {}
+          rate_limit(arena), idempotency(arena), auth(arena) {}
 
     http::method method = http::method::unknown;
     arena_string<> operation_id;
@@ -257,6 +267,7 @@ struct operation {
     alloc_policy alloc;           // e.g., "4096", "pool"
     rate_limit_policy rate_limit; // e.g., "100/s", "1000/m"
     idempotency_policy idempotency; // e.g., false, true, "required"
+    auth_policy auth;               // x-katana-auth: true / "scope-name"
 };
 
 struct path_item {

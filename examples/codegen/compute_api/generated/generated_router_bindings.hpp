@@ -116,7 +116,7 @@ class generated_router {
 public:
     explicit generated_router(api_handler& handler)
         : route_policies_{
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "compute_sum"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "compute_sum", false, std::string_view{}},
         }, route_entries_{
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/compute/sum">(),

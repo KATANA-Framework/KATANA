@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sstream>
@@ -185,7 +186,7 @@ server::flush_result server::flush_active_response(connection_state& state) {
         result<size_t> write_result = size_t{0};
         if (body_size == 0) {
             auto remaining = std::string_view(state.active_response).substr(state.write_pos);
-            write_result = state.socket.write(as_bytes(remaining));
+            write_result = state.transport_write(as_bytes(remaining));
         } else {
             iovec iov[2];
             size_t iov_count = 0;
@@ -202,7 +203,7 @@ server::flush_result server::flush_active_response(connection_state& state) {
                 iov[iov_count].iov_len = body_size - body_offset;
                 ++iov_count;
             }
-            write_result = state.socket.writev(iov, iov_count);
+            write_result = state.transport_writev(iov, iov_count);
         }
 
         if (!write_result) {
@@ -305,6 +306,26 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     state.owner_server = this;
     state.owner_reactor = &r;
 
+    // TLS handshake must complete before any HTTP bytes flow. Re-armed per want-read/want-write
+    // until it finishes; a failure drops the connection.
+    if (state.tls && !state.handshake_done) {
+        using hs = tls::ssl_session::handshake_state;
+        switch (state.tls->handshake()) {
+        case hs::want_read:
+            state.set_watch_events(event_type::readable);
+            return;
+        case hs::want_write:
+            state.set_watch_events(event_type::writable);
+            return;
+        case hs::failed:
+            state.watch.reset();
+            return;
+        case hs::done:
+            break;
+        }
+        state.handshake_done = true;
+    }
+
     // DEBUG: Track iterations
     [[maybe_unused]] static thread_local int iter_count = 0;
     ++iter_count;
@@ -315,7 +336,11 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 
     auto arm_writable = [&]() {
         if (state.watch) {
-            state.set_watch_events(event_type::writable);
+            // Under TLS a blocked SSL_write may actually be waiting on a read (renegotiation);
+            // re-arm the direction OpenSSL asked for.
+            const event_type want = (state.tls && state.tls->wants_read()) ? event_type::readable
+                                                                           : event_type::writable;
+            state.set_watch_events(want);
         }
     };
 
@@ -430,6 +455,25 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                 add_cors_headers(*origin, resp);
             }
         }
+
+#ifdef KATANA_HAS_COMPRESSION
+        // Response compression: encode a compressible body per the client's Accept-Encoding.
+        if (compression_ && resp.body.size() >= compression_->min_size &&
+            !resp.headers.contains("Content-Encoding")) {
+            const std::string_view ct = resp.headers.get("content-type").value_or("");
+            if (is_compressible_type(ct)) {
+                const content_encoding enc =
+                    negotiate_encoding(req.header("accept-encoding").value_or(""), *compression_);
+                if (enc != content_encoding::identity) {
+                    if (auto encoded = compress(enc, resp.body, *compression_)) {
+                        resp.body = std::move(*encoded);
+                        resp.set_header("Content-Encoding", encoding_token(enc));
+                        resp.set_header("Vary", "Accept-Encoding");
+                    }
+                }
+            }
+        }
+#endif
         const int64_t duration_micros =
             std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - state.request_start)
@@ -680,7 +724,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                 return;
             }
 
-            auto read_result = state.socket.read(*writable);
+            auto read_result = state.transport_read(*writable);
             if (!read_result) {
                 if (read_result.error().value() == EAGAIN ||
                     read_result.error().value() == EWOULDBLOCK) {
@@ -698,7 +742,11 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
                 return;
             }
             if (read_result->empty()) {
-                state.set_watch_events(event_type::readable);
+                // TLS may block a read on writability (renegotiation); honor its requested direction.
+                const event_type want = (state.tls && state.tls->wants_write())
+                                            ? event_type::writable
+                                            : event_type::readable;
+                state.set_watch_events(want);
                 return;
             }
 
@@ -719,6 +767,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 
         const auto& req = state.http_parser.get_request();
         request_context ctx{state.arena};
+        ctx.client_ip = state.client_ip; // stable for the connection's lifetime
         ctx.policy_executor = policy_executor_;
         ctx.task_scheduler_user = &r;
         ctx.task_scheduler = &schedule_request_context_task;
@@ -755,7 +804,55 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
     DEBUG_LOG("[DEBUG] Exiting handle_connection (while loop ended)\n");
 }
 
+bool server::reload_tls() {
+    if (!tls_config_) {
+        return false;
+    }
+    auto ctx = tls::tls_context::create(*tls_config_);
+    if (!ctx) {
+        std::cerr << "[server] TLS reload failed; keeping the current certificate\n";
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(tls_ctx_mutex_);
+    tls_ctx_ = std::move(*ctx);
+    return true;
+}
+
 int server::run() {
+    // Build the TLS context once before accepting; a bad cert/key fails fast here.
+    if (tls_config_) {
+        auto ctx = tls::tls_context::create(*tls_config_);
+        if (!ctx) {
+            std::cerr << "[server] TLS setup failed (check cert/key: " << tls_config_->cert_file
+                      << " / " << tls_config_->key_file << ")\n";
+            return 1;
+        }
+        {
+            std::lock_guard<std::mutex> lock(tls_ctx_mutex_);
+            tls_ctx_ = std::move(*ctx);
+        }
+    }
+
+    // Compose the effective policy executor: when auth is enabled, run the auth executor first
+    // (so an unauthenticated request is rejected before cache/rate-limit/idempotency), then the
+    // app's policy executor if any.
+    if (authenticator_ && authenticator_->enabled()) {
+        auth_executor_.emplace(authenticator_);
+        if (app_policy_executor_ != nullptr) {
+            policy_chain_.emplace(std::initializer_list<route_policy_executor*>{
+                &*auth_executor_, app_policy_executor_});
+            policy_executor_ = &*policy_chain_;
+        } else {
+            policy_executor_ = &*auth_executor_;
+        }
+    } else {
+        policy_executor_ = app_policy_executor_;
+    }
+
+    if (load_shedding_ && load_shedding_->per_client_rps != 0) {
+        edge_limiter_ = std::make_unique<edge_limiter>(load_shedding_->per_client_rps);
+    }
+
     init_per_route_metrics(); // size per-route counters from the router before workers start
     reactor_pool_config config;
     config.reactor_count = static_cast<uint32_t>(worker_count_);
@@ -768,7 +865,10 @@ int server::run() {
 
     auto accept_handler = [this](reactor& r, int listener_fd) {
         while (true) {
-            int fd = ::accept4(listener_fd, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
+            sockaddr_storage peer{};
+            socklen_t peer_len = sizeof(peer);
+            int fd = ::accept4(listener_fd, reinterpret_cast<sockaddr*>(&peer), &peer_len,
+                               SOCK_NONBLOCK | SOCK_CLOEXEC);
             if (fd < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     break;
@@ -791,6 +891,21 @@ int server::run() {
             metrics_.active_connections.fetch_add(1, std::memory_order_relaxed);
             auto state = std::make_shared<connection_state>(tcp_socket(fd));
             state->active_conn_counter = &metrics_.active_connections;
+            // Capture the peer IP for edge rate-limiting / access logs.
+            {
+                char ipbuf[INET6_ADDRSTRLEN] = {0};
+                if (peer.ss_family == AF_INET) {
+                    ::inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in*>(&peer)->sin_addr, ipbuf,
+                                sizeof(ipbuf));
+                } else if (peer.ss_family == AF_INET6) {
+                    ::inet_ntop(AF_INET6, &reinterpret_cast<sockaddr_in6*>(&peer)->sin6_addr, ipbuf,
+                                sizeof(ipbuf));
+                }
+                state->client_ip = ipbuf;
+            }
+            if (auto ctx = current_tls_context()) {
+                state->tls.emplace(*ctx, fd); // TLS handshake runs on first handle_connection
+            }
             auto state_ptr = state.get();
 
             auto on_event = [this, state, state_ptr, &r](event_type ev) {

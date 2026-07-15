@@ -29,6 +29,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(KATANA_POLL "epoll" CACHE STRING "I/O polling backend: epoll or io_uring")
 set_property(CACHE KATANA_POLL PROPERTY STRINGS "epoll" "io_uring")
 option(ENABLE_POSTGRES "Enable PostgreSQL/libpq runtime" ON)
+option(ENABLE_TLS "Enable TLS/HTTPS + auth crypto (OpenSSL)" ON)
+option(ENABLE_COMPRESSION "Enable response compression (zlib/zstd/brotli)" ON)
 
 add_compile_options(
     -Wall
@@ -129,9 +131,44 @@ if(ENABLE_POSTGRES)
     endif()
 endif()
 
+# TLS/HTTPS termination + the crypto that auth (JWT HS/RS/ES) reuses — OpenSSL. Same optional-dep
+# shape as PostgreSQL: KATANA_HAS_OPENSSL becomes a PUBLIC usage requirement so find_package(katana)
+# consumers inherit it. Build with -DENABLE_TLS=OFF to drop the dependency (no HTTPS, no JWT).
+set(TLS_SOURCE)
+set(TLS_LIBS)
+if(ENABLE_TLS)
+    find_package(OpenSSL)
+    if(OpenSSL_FOUND)
+        set(TLS_SOURCE katana/core/src/tls.cpp katana/core/src/jwt.cpp katana/core/src/auth.cpp)
+        set(TLS_LIBS OpenSSL::SSL OpenSSL::Crypto)
+        list(APPEND KATANA_PUBLIC_DEFINES KATANA_HAS_OPENSSL)
+        message(STATUS "Using OpenSSL (TLS + auth crypto)")
+    else()
+        message(STATUS "OpenSSL not found; TLS/HTTPS and JWT auth disabled")
+    endif()
+endif()
+
+# Response compression: zlib (gzip), zstd, brotli. gzip via find_package(ZLIB); zstd/brotli linked by
+# name (present on any modern distro). Turn off with -DENABLE_COMPRESSION=OFF.
+set(COMPRESSION_SOURCE)
+set(COMPRESSION_LIBS)
+if(ENABLE_COMPRESSION)
+    find_package(ZLIB)
+    if(ZLIB_FOUND)
+        set(COMPRESSION_SOURCE katana/core/src/compression.cpp)
+        set(COMPRESSION_LIBS ZLIB::ZLIB zstd brotlienc brotlicommon)
+        list(APPEND KATANA_PUBLIC_DEFINES KATANA_HAS_COMPRESSION)
+        message(STATUS "Using response compression (gzip/zstd/brotli)")
+    else()
+        message(STATUS "zlib not found; response compression disabled")
+    endif()
+endif()
+
 add_library(katana_core STATIC
     ${REACTOR_SOURCE}
     ${POSTGRES_SOURCE}
+    ${TLS_SOURCE}
+    ${COMPRESSION_SOURCE}
     katana/core/src/cpu_info.cpp
     katana/core/src/reactor_pool.cpp
     katana/core/src/syscall_metrics.cpp
@@ -170,6 +207,12 @@ if(REACTOR_LIBS)
 endif()
 if(POSTGRES_LIBS)
     target_link_libraries(katana_core PUBLIC ${POSTGRES_LIBS})
+endif()
+if(TLS_LIBS)
+    target_link_libraries(katana_core PUBLIC ${TLS_LIBS})
+endif()
+if(COMPRESSION_LIBS)
+    target_link_libraries(katana_core PUBLIC ${COMPRESSION_LIBS})
 endif()
 
 # Namespaced alias for consumers: target_link_libraries(app PRIVATE katana::core)

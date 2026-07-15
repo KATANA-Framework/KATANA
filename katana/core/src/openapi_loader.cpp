@@ -1422,6 +1422,16 @@ void parse_operation_object(json_cursor& cur,
             } else {
                 cur.skip_value();
             }
+        } else if (*key == "x-katana-auth") {
+            // A string is a required scope; `true` requires any authenticated caller.
+            if (auto v = cur.string()) {
+                op.auth.required = true;
+                op.auth.scope = arena_string<>(v->begin(), v->end(), arena_allocator<char>(&arena));
+            } else if (auto b = parse_bool(cur)) {
+                op.auth.required = *b;
+            } else {
+                cur.skip_value();
+            }
         } else {
             cur.skip_value();
         }

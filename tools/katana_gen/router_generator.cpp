@@ -181,6 +181,9 @@ static std::string generate_route_policy_initializer(const katana::openapi::path
         << route_idempotency_policy_kind_literal(op.idempotency) << ", "
         << string_view_literal(op.idempotency.display_value()) << "}, ";
     out << route_policy_scope_literal(path, op);
+    // x-katana-auth: required flag + required scope.
+    out << ", " << (op.auth.required ? "true" : "false") << ", "
+        << string_view_literal(std::string_view{op.auth.scope.data(), op.auth.scope.size()});
     out << "}";
     return out.str();
 }
