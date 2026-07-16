@@ -413,17 +413,110 @@ std::optional<std::string> extract_projection_segment(std::string_view sql,
 // index), returning index→name. Postgres only understands `$N`, so the emitted SQL string uses the
 // positional form; the names are kept only to generate readable C++ parameter names. A query that
 // uses raw `$N` has no `@` tokens, so this is a no-op there (back-compat: those stay `pN`).
+//
+// The scan is lexer-aware: `@name` is only treated as a placeholder in "code" state — never inside a
+// `--` line comment, a `/* */` block comment, a `'...'` string literal (with `''` escape), or a
+// `$tag$...$tag$` dollar-quoted string. (Previously an `@word` in a comment minted a phantom
+// parameter — a real bug this fixes.)
 std::unordered_map<std::size_t, std::string> rewrite_named_parameters(std::string& sql) {
     std::unordered_map<std::string, std::size_t> index_by_name;
     std::unordered_map<std::size_t, std::string> name_by_index;
     std::string out;
     out.reserve(sql.size());
+
+    enum class lex { code, line_comment, block_comment, single_quote, dollar_quote };
+    lex st = lex::code;
+    std::string dollar_tag; // active `$tag$` delimiter while in dollar_quote
+
     for (std::size_t pos = 0; pos < sql.size();) {
+        const char c = sql[pos];
+        switch (st) {
+            case lex::line_comment:
+                out += c;
+                ++pos;
+                if (c == '\n') {
+                    st = lex::code;
+                }
+                continue;
+            case lex::block_comment:
+                if (c == '*' && pos + 1 < sql.size() && sql[pos + 1] == '/') {
+                    out += "*/";
+                    pos += 2;
+                    st = lex::code;
+                } else {
+                    out += c;
+                    ++pos;
+                }
+                continue;
+            case lex::single_quote:
+                out += c;
+                ++pos;
+                if (c == '\'') {
+                    if (pos < sql.size() && sql[pos] == '\'') {
+                        out += '\''; // doubled quote is an escaped quote — stay in the string
+                        ++pos;
+                    } else {
+                        st = lex::code;
+                    }
+                }
+                continue;
+            case lex::dollar_quote:
+                if (!dollar_tag.empty() && sql.compare(pos, dollar_tag.size(), dollar_tag) == 0) {
+                    out += dollar_tag;
+                    pos += dollar_tag.size();
+                    st = lex::code;
+                } else {
+                    out += c;
+                    ++pos;
+                }
+                continue;
+            case lex::code:
+                break;
+        }
+
+        // ── code state: enter comment/string states, else detect @name ──────────────────────
+        if (c == '-' && pos + 1 < sql.size() && sql[pos + 1] == '-') {
+            out += "--";
+            pos += 2;
+            st = lex::line_comment;
+            continue;
+        }
+        if (c == '/' && pos + 1 < sql.size() && sql[pos + 1] == '*') {
+            out += "/*";
+            pos += 2;
+            st = lex::block_comment;
+            continue;
+        }
+        if (c == '\'') {
+            out += c;
+            ++pos;
+            st = lex::single_quote;
+            continue;
+        }
+        if (c == '$') { // dollar-quote open: `$$` or `$tag$` (tag: empty or ident) — not a `$N` param
+            std::size_t e = pos + 1;
+            if (e < sql.size() &&
+                (std::isalpha(static_cast<unsigned char>(sql[e])) || sql[e] == '_')) {
+                ++e;
+                while (e < sql.size() &&
+                       (std::isalnum(static_cast<unsigned char>(sql[e])) || sql[e] == '_')) {
+                    ++e;
+                }
+            }
+            if (e < sql.size() && sql[e] == '$') {
+                dollar_tag = sql.substr(pos, e - pos + 1);
+                out += dollar_tag;
+                pos = e + 1;
+                st = lex::dollar_quote;
+                continue;
+            }
+        }
+
         const bool is_name_start =
-            sql[pos] == '@' && pos + 1 < sql.size() &&
+            c == '@' && pos + 1 < sql.size() &&
             (std::isalpha(static_cast<unsigned char>(sql[pos + 1])) || sql[pos + 1] == '_');
         if (!is_name_start) {
-            out += sql[pos];
+            out += c;
             ++pos;
             continue;
         }

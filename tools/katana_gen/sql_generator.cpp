@@ -77,6 +77,33 @@ std::string repository_return_type(const sql_query& query) {
     return "katana::result<std::vector<" + row_type_name(query) + ">>";
 }
 
+// A named-args params struct is emitted only when every parameter carries a `@name` — i.e. a
+// fully-named query. Raw `$N`/`pN` queries keep only the positional method (back-compat).
+bool all_params_named(const sql_query& query) {
+    if (query.parameters.empty()) {
+        return false;
+    }
+    for (const auto& p : query.parameters) {
+        if (p.name.empty()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string param_struct_type_name(const sql_query& query) {
+    return to_pascal_case_local(query.name) + "Params";
+}
+
+// Owning member type for the params struct (so callers can aggregate-init with temporaries): strings
+// own, vectors own, scalars pass through.
+std::string param_owning_type(const sql_parameter& parameter) {
+    if (parameter.cpp_type.starts_with("std::vector<")) {
+        return parameter.cpp_type;
+    }
+    return parameter.cpp_type; // std::string / scalar are already owning
+}
+
 } // namespace
 
 std::string generate_sql_models(const sql_catalog& catalog, const std::string& ns) {
@@ -95,6 +122,19 @@ std::string generate_sql_models(const sql_catalog& catalog, const std::string& n
         out << "struct " << row_type_name(query) << " {\n";
         for (const auto& column : query.columns) {
             out << "    " << optional_cpp_type(column.cpp_type) << " " << column.name << ";\n";
+        }
+        out << "};\n\n";
+    }
+    // Named-args params structs — enable `repo.query({.a = …, .b = …})` so same-type args can't be
+    // silently swapped at the call site. Members are in first-appearance (SQL) order, matching the
+    // positional method's argument order for designated-initializer parity.
+    for (const auto& query : catalog.queries) {
+        if (!all_params_named(query)) {
+            continue;
+        }
+        out << "struct " << param_struct_type_name(query) << " {\n";
+        for (const auto& parameter : query.parameters) {
+            out << "    " << param_owning_type(parameter) << " " << parameter.name << ";\n";
         }
         out << "};\n\n";
     }
@@ -285,6 +325,32 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             out << "            });\n";
         }
         out << "    }\n\n";
+
+        // Named-args overloads — forward to the positional methods above (which stay the API of
+        // record). Callers use `repo.query({.a = …, .b = …})` so same-type arguments can't swap.
+        if (all_params_named(query)) {
+            const std::string params_type = param_struct_type_name(query);
+            out << "    " << return_type << " " << query.name << "(const " << params_type
+                << "& args) const {\n";
+            out << "        return " << query.name << "(";
+            for (std::size_t i = 0; i < query.parameters.size(); ++i) {
+                if (i != 0) {
+                    out << ", ";
+                }
+                out << "args." << query.parameters[i].name;
+            }
+            out << ");\n";
+            out << "    }\n\n";
+
+            out << "    bool " << query.name << "_async(const " << params_type << "& args, "
+                << query.name << "_async_handler handler) const {\n";
+            out << "        return " << query.name << "_async(";
+            for (const auto& parameter : query.parameters) {
+                out << "args." << parameter.name << ", ";
+            }
+            out << "std::move(handler));\n";
+            out << "    }\n\n";
+        }
     }
 
     out << "private:\n";

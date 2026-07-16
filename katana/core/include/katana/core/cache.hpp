@@ -1,8 +1,10 @@
 #pragma once
 
+#include "log.hpp"
 #include "policy_storage.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <charconv>
 #include <chrono>
 #include <cstdint>
@@ -59,6 +61,18 @@ public:
     result<void> after_dispatch(const request& req, request_context& ctx, response& out) override {
         auto ttl = resolve_ttl(ctx);
         if (!ttl.has_value() || !is_cacheable_method(req.http_method)) {
+            return {};
+        }
+
+        // A deferred/async response is not populated yet at after_dispatch time — it completes later,
+        // off the policy path — so caching `out` here would store an empty body (and serve it on the
+        // next HIT). Skip the store and warn once: a route can be cached OR async, not both.
+        if (ctx.is_response_deferred()) {
+            static std::atomic<bool> warned{false};
+            if (!warned.exchange(true, std::memory_order_relaxed)) {
+                katana::log::warn("cache_skipped_deferred_response")
+                    .field("hint", "x-katana-cache has no effect on an async/deferred handler");
+            }
             return {};
         }
 

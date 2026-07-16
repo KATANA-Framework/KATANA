@@ -134,6 +134,59 @@ WHERE id = @user_id::bigint AND status = @status::text;
     EXPECT_EQ(repo.find("@user_id"), std::string::npos);
 }
 
+TEST_F(SqlCodegenTest, NamedParameterInCommentIsNotTreatedAsPlaceholder) {
+    // An `@word` inside a `--` comment or a string literal must NOT mint a phantom parameter.
+    write_sql("assign.sql",
+              R"(-- name: assign_ticket :one
+-- Reassign a ticket. Note: @assignee must exist (this @word is only a comment).
+UPDATE tickets SET assignee_id = @assignee_id::bigint, label = 'sent to @nobody'
+WHERE id = @ticket_id::bigint
+RETURNING id::bigint AS id, assignee_id::bigint AS assignee_id;
+)");
+
+    ASSERT_TRUE(run_codegen());
+    const auto repo = read_file(temp_dir / "generated_sql_repository.hpp");
+    ASSERT_FALSE(repo.empty());
+
+    // Exactly two real params, in first-appearance order; no phantom arg_assignee/arg_nobody.
+    EXPECT_NE(repo.find("assign_ticket(int64_t arg_assignee_id, int64_t arg_ticket_id) const"),
+              std::string::npos);
+    EXPECT_EQ(repo.find("arg_assignee,"), std::string::npos);
+    EXPECT_EQ(repo.find("arg_nobody"), std::string::npos);
+    EXPECT_EQ(repo.find("$3"), std::string::npos); // only $1/$2 exist
+    // The string literal with @nobody survives verbatim in the emitted SQL.
+    EXPECT_NE(repo.find("'sent to @nobody'"), std::string::npos);
+}
+
+TEST_F(SqlCodegenTest, NamedParametersEmitParamsStructAndOverload) {
+    write_sql("assign.sql",
+              R"(-- name: assign_ticket :one
+UPDATE tickets SET assignee_id = @assignee_id::bigint WHERE id = @ticket_id::bigint
+RETURNING id::bigint AS id;
+)");
+    // A raw positional query must NOT get a params struct (back-compat).
+    write_sql("legacy.sql",
+              R"(-- name: legacy_lookup :one
+SELECT id::bigint AS id FROM t WHERE id = $1::bigint;
+)");
+
+    ASSERT_TRUE(run_codegen());
+    const auto models = read_file(temp_dir / "generated_sql_models.hpp");
+    const auto repo = read_file(temp_dir / "generated_sql_repository.hpp");
+
+    // Named-args struct (members in first-appearance order) + a forwarding overload.
+    EXPECT_NE(models.find("struct AssignTicketParams"), std::string::npos);
+    EXPECT_NE(models.find("int64_t assignee_id;"), std::string::npos);
+    EXPECT_NE(models.find("int64_t ticket_id;"), std::string::npos);
+    EXPECT_NE(repo.find("assign_ticket(const AssignTicketParams& args) const"), std::string::npos);
+    EXPECT_NE(repo.find("assign_ticket_async(const AssignTicketParams& args"), std::string::npos);
+    // The positional method stays as the API of record.
+    EXPECT_NE(repo.find("assign_ticket(int64_t arg_assignee_id, int64_t arg_ticket_id) const"),
+              std::string::npos);
+    // Raw $N queries get no struct.
+    EXPECT_EQ(models.find("struct LegacyLookupParams"), std::string::npos);
+}
+
 TEST_F(SqlCodegenTest, PositionalParametersKeepLegacyPNames) {
     write_sql("legacy.sql",
               R"(-- name: legacy_lookup :one
