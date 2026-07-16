@@ -54,6 +54,10 @@ std::string raw_sql_literal(const std::string& sql) {
 }
 
 std::string param_cpp_type(const sql_parameter& parameter) {
+    if (parameter.nullable) {
+        // `@name?::type` → std::optional<T> by value; encode_value binds SQL NULL when empty.
+        return "std::optional<" + parameter.cpp_type + ">";
+    }
     if (parameter.cpp_type == "std::string") {
         return "std::string_view";
     }
@@ -98,10 +102,10 @@ std::string param_struct_type_name(const sql_query& query) {
 // Owning member type for the params struct (so callers can aggregate-init with temporaries): strings
 // own, vectors own, scalars pass through.
 std::string param_owning_type(const sql_parameter& parameter) {
-    if (parameter.cpp_type.starts_with("std::vector<")) {
-        return parameter.cpp_type;
+    if (parameter.nullable) {
+        return "std::optional<" + parameter.cpp_type + ">";
     }
-    return parameter.cpp_type; // std::string / scalar are already owning
+    return parameter.cpp_type; // std::string / vector / scalar are already owning
 }
 
 } // namespace

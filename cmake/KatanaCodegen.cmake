@@ -34,10 +34,12 @@ if(NOT COMMAND _katana_require_gen)
 endif()
 
 # katana_add_openapi(<name> CONTRACT <spec.yaml> [NAMESPACE <ns>] [OUTPUT <dir>]
-#                    [EMIT <all|dto,...>] [INLINE_NAMING <operation|flat>])
+#                    [EMIT <all|dto,...>] [INLINE_NAMING <operation|flat>] [STRICT] [EXTRA_ARGS <...>])
+# STRICT fails the build on any unsupported/ambiguous construct (passes --strict). EXTRA_ARGS forwards
+# arbitrary flags to katana_gen.
 function(katana_add_openapi NAME)
     _katana_require_gen()
-    cmake_parse_arguments(ARG "" "CONTRACT;NAMESPACE;OUTPUT;EMIT;INLINE_NAMING" "" ${ARGN})
+    cmake_parse_arguments(ARG "STRICT" "CONTRACT;NAMESPACE;OUTPUT;EMIT;INLINE_NAMING" "EXTRA_ARGS" ${ARGN})
     if(NOT ARG_CONTRACT)
         message(FATAL_ERROR "katana_add_openapi(${NAME}): CONTRACT <spec.yaml> is required.")
     endif()
@@ -54,13 +56,18 @@ function(katana_add_openapi NAME)
     if(ARG_NAMESPACE)
         set(ns_args --namespace ${ARG_NAMESPACE})
     endif()
+    set(strict_args "")
+    if(ARG_STRICT)
+        set(strict_args --strict)
+    endif()
 
     file(MAKE_DIRECTORY "${ARG_OUTPUT}")
     set(stamp "${ARG_OUTPUT}/.${NAME}.stamp")
     add_custom_command(
         OUTPUT "${stamp}"
         COMMAND $<TARGET_FILE:${KATANA_GEN_TARGET}> openapi -i "${ARG_CONTRACT}" -o "${ARG_OUTPUT}"
-                --emit ${ARG_EMIT} --inline-naming ${ARG_INLINE_NAMING} ${ns_args}
+                --emit ${ARG_EMIT} --inline-naming ${ARG_INLINE_NAMING} ${ns_args} ${strict_args}
+                ${ARG_EXTRA_ARGS}
         COMMAND ${CMAKE_COMMAND} -E touch "${stamp}"
         DEPENDS ${KATANA_GEN_TARGET} "${ARG_CONTRACT}"
         COMMENT "katana_gen openapi: ${NAME}"
@@ -109,7 +116,7 @@ endfunction()
 # contract (use the SAME NAMESPACE as the contract's DTOs so the types line up).
 function(katana_add_sql NAME)
     _katana_require_gen()
-    cmake_parse_arguments(ARG "" "DIR;NAMESPACE;OUTPUT;EMIT;BRIDGE_OPENAPI" "" ${ARGN})
+    cmake_parse_arguments(ARG "STRICT" "DIR;NAMESPACE;OUTPUT;EMIT;BRIDGE_OPENAPI" "EXTRA_ARGS" ${ARGN})
     if(NOT ARG_DIR)
         message(FATAL_ERROR "katana_add_sql(${NAME}): DIR <sql_dir> is required.")
     endif()
@@ -129,6 +136,10 @@ function(katana_add_sql NAME)
         set(bridge_args --openapi "${ARG_BRIDGE_OPENAPI}")
         set(bridge_dep "${ARG_BRIDGE_OPENAPI}")
     endif()
+    set(strict_args "")
+    if(ARG_STRICT)
+        set(strict_args --strict)
+    endif()
 
     file(MAKE_DIRECTORY "${ARG_OUTPUT}")
     set(stamp "${ARG_OUTPUT}/.${NAME}.stamp")
@@ -136,7 +147,7 @@ function(katana_add_sql NAME)
     add_custom_command(
         OUTPUT "${stamp}"
         COMMAND $<TARGET_FILE:${KATANA_GEN_TARGET}> sql -i "${ARG_DIR}" -o "${ARG_OUTPUT}"
-                --emit ${ARG_EMIT} ${ns_args} ${bridge_args}
+                --emit ${ARG_EMIT} ${ns_args} ${bridge_args} ${strict_args} ${ARG_EXTRA_ARGS}
         COMMAND ${CMAKE_COMMAND} -E touch "${stamp}"
         DEPENDS ${KATANA_GEN_TARGET} ${sql_inputs} ${bridge_dep}
         COMMENT "katana_gen sql: ${NAME}"

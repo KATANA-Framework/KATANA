@@ -418,7 +418,8 @@ std::optional<std::string> extract_projection_segment(std::string_view sql,
 // `--` line comment, a `/* */` block comment, a `'...'` string literal (with `''` escape), or a
 // `$tag$...$tag$` dollar-quoted string. (Previously an `@word` in a comment minted a phantom
 // parameter — a real bug this fixes.)
-std::unordered_map<std::size_t, std::string> rewrite_named_parameters(std::string& sql) {
+std::unordered_map<std::size_t, std::string>
+rewrite_named_parameters(std::string& sql, std::unordered_set<std::size_t>& nullable_indices) {
     std::unordered_map<std::string, std::size_t> index_by_name;
     std::unordered_map<std::size_t, std::string> name_by_index;
     std::string out;
@@ -530,6 +531,12 @@ std::unordered_map<std::size_t, std::string> rewrite_named_parameters(std::strin
         auto [it, inserted] = index_by_name.try_emplace(name, index_by_name.size() + 1);
         if (inserted) {
             name_by_index.emplace(it->second, name);
+        }
+        // Optional-parameter marker: `@name?::type` → the generated arg is std::optional<T> (binds
+        // SQL NULL when empty). Consume the `?` so it doesn't reach the emitted SQL or the ::type cast.
+        if (end < sql.size() && sql[end] == '?') {
+            nullable_indices.insert(it->second);
+            ++end;
         }
         out += '$';
         out += std::to_string(it->second);
@@ -654,12 +661,14 @@ katana::result<sql_query> parse_sql_source(const sql_source& source) {
     query.source_path = source.path;
     query.mode = header->second;
     query.sql = std::move(body);
-    auto param_names = rewrite_named_parameters(query.sql); // @name → $N, in place
+    std::unordered_set<std::size_t> nullable_indices;
+    auto param_names = rewrite_named_parameters(query.sql, nullable_indices); // @name → $N, in place
     query.parameters = parse_parameters(query.sql);
     for (auto& param : query.parameters) {
         if (auto it = param_names.find(param.index); it != param_names.end()) {
             param.name = it->second;
         }
+        param.nullable = nullable_indices.contains(param.index);
     }
     query.columns = parse_columns(query.sql, query.mode);
     if (query.mode == sql_query_mode::exec && !query.columns.empty()) {

@@ -9,7 +9,9 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace katana::sql {
@@ -169,6 +171,47 @@ public:
 private:
     postgres_pool& pool_;
 };
+
+// Readiness probe for server.readiness_check(): runs a lightweight `SELECT 1` on the calling
+// reactor's pooled connection. `server.readiness_check(katana::sql::pool_readiness(pool))`.
+inline std::function<bool()> pool_readiness(postgres_pool& pool) {
+    return [&pool]() {
+        return pool.current_executor().query("readyz", "SELECT 1", {}).has_value();
+    };
+}
+
+// Run `body` inside a transaction on `ex`: BEGIN, run body(), then COMMIT on success or ROLLBACK on
+// failure. `body` is a callable returning katana::result<T> (any T, including void); its result is
+// returned, and BEGIN/COMMIT failures surface as an error result. Removes the hand-written
+// begin/commit/rollback boilerplate every write handler otherwise repeats:
+//
+//   auto r = katana::sql::transaction(ex, [&]() -> katana::result<void> {
+//       KATANA_TRY(repo.update_thing(...));
+//       KATANA_TRY(repo.audit(...));
+//       return {};
+//   });
+template <typename Fn>
+auto transaction(postgres_executor& ex, Fn&& body) -> std::invoke_result_t<Fn> {
+    postgres_transaction txn(ex);
+    if (auto begun = txn.begin(); !begun) {
+        return std::unexpected(begun.error());
+    }
+    auto result = std::forward<Fn>(body)();
+    if (!result) {
+        (void)txn.rollback();
+        return result;
+    }
+    if (auto committed = txn.commit(); !committed) {
+        return std::unexpected(committed.error());
+    }
+    return result;
+}
+
+// Convenience overload: run the transaction on the calling reactor's pooled connection.
+template <typename Fn>
+auto transaction(postgres_pool& pool, Fn&& body) -> std::invoke_result_t<Fn> {
+    return transaction(pool.current_executor(), std::forward<Fn>(body));
+}
 
 #endif
 

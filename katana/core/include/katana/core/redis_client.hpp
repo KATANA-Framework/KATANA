@@ -8,6 +8,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -154,5 +155,11 @@ public:
 private:
     redis_pool& pool_;
 };
+
+// Readiness probe for server.readiness_check(): true when the calling reactor's Redis connection is
+// live. `server.readiness_check(katana::http::pool_readiness(redis))`.
+inline std::function<bool()> pool_readiness(redis_pool& pool) {
+    return [&pool]() { return pool.current().connected(); };
+}
 
 } // namespace katana::http

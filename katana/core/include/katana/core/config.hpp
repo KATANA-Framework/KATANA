@@ -140,6 +140,7 @@ public:
     config& reload() {
         values_.clear();
         load_errors_.clear();
+        warnings_.clear();
         recording_ = false;
         for (const auto& source : sources_) {
             source(*this);
@@ -197,6 +198,10 @@ public:
 
     // Errors accumulated while loading sources (unreadable file, malformed lines).
     [[nodiscard]] const std::vector<std::string>& errors() const { return load_errors_; }
+
+    // Non-fatal warnings (e.g. an unreadable `*_file` secret indirection). Not counted by validate();
+    // log them if you like.
+    [[nodiscard]] const std::vector<std::string>& warnings() const { return warnings_; }
 
     // Return one message per required key that is missing or empty, combined with any load
     // errors. Empty result means the configuration is usable.
@@ -324,7 +329,11 @@ private:
             }
             std::ifstream in{path};
             if (!in) {
-                load_errors_.push_back("secret file not readable for " + key + ": " + path);
+                // A key ending in `_file` that isn't a real secret indirection (e.g. a path-bearing
+                // key that merely ends in `_file`) must NOT abort startup. Record a warning, not a
+                // load error — validate() ignores warnings, so only genuinely-required-and-missing
+                // keys fail. (Footgun fix: previously this failed validate() with no clear message.)
+                warnings_.push_back("secret file not readable for " + key + ": " + path);
                 continue;
             }
             std::string content((std::istreambuf_iterator<char>(in)),
@@ -372,6 +381,7 @@ private:
 
     std::map<std::string, std::string, std::less<>> values_;
     std::vector<std::string> load_errors_;
+    std::vector<std::string> warnings_;
     // Recorded source operations, replayed in order by reload(). recording_ is cleared during a
     // replay so the apply_* helpers don't re-record themselves.
     std::vector<std::function<void(config&)>> sources_;

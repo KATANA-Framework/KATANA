@@ -158,6 +158,26 @@ RETURNING id::bigint AS id, assignee_id::bigint AS assignee_id;
     EXPECT_NE(repo.find("'sent to @nobody'"), std::string::npos);
 }
 
+TEST_F(SqlCodegenTest, NullableNamedParameterBecomesOptional) {
+    // `@name?::type` generates std::optional<T> (binds SQL NULL when empty); the `?` is consumed.
+    write_sql("search.sql",
+              R"(-- name: search :many
+SELECT id::bigint AS id FROM t
+WHERE (@status?::text IS NULL OR status = @status?::text)
+LIMIT @lim::bigint;
+)");
+
+    ASSERT_TRUE(run_codegen());
+    const auto repo = read_file(temp_dir / "generated_sql_repository.hpp");
+    ASSERT_FALSE(repo.empty());
+
+    EXPECT_NE(repo.find("search(std::optional<std::string> arg_status, int64_t arg_lim) const"),
+              std::string::npos);
+    // Repeats of @status share one positional slot; only $1/$2 exist and no `?` leaks into the SQL.
+    EXPECT_EQ(repo.find("$3"), std::string::npos);
+    EXPECT_EQ(repo.find("?::text"), std::string::npos);
+}
+
 TEST_F(SqlCodegenTest, NamedParametersEmitParamsStructAndOverload) {
     write_sql("assign.sql",
               R"(-- name: assign_ticket :one

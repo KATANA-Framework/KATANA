@@ -21,6 +21,7 @@ struct sql_parameter {
     std::string name; // from an @name placeholder; empty for positional $N (falls back to pN)
     std::string pg_type;
     std::string cpp_type;
+    bool nullable = false; // from `@name?::type` — generated arg is std::optional<T> (binds SQL NULL)
 };
 
 struct sql_column {
