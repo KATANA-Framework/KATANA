@@ -551,7 +551,9 @@ TEST(HttpResponse, CustomHeaders) {
     std::string serialized = resp.serialize();
 
     EXPECT_TRUE(serialized.find("X-Custom-Header: custom-value") != std::string::npos);
-    EXPECT_TRUE(serialized.find("X-Request-ID: 12345") != std::string::npos);
+    // X-Request-Id is a known field now, so it serializes under its canonical name
+    // regardless of the caller's casing (header names are case-insensitive).
+    EXPECT_TRUE(serialized.find("X-Request-Id: 12345") != std::string::npos);
 }
 
 TEST(HttpMethod, ParseMethod) {

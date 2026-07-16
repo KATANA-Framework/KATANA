@@ -456,7 +456,7 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 
     auto finalize_response = [&](const request& req, response& resp) -> bool {
         metrics_.record_status(resp.status);
-        metrics_.in_flight.fetch_sub(1, std::memory_order_relaxed);
+        metrics_.end_request();
 
         // CORS headers for actual (non-preflight) responses from an allowed Origin.
         if (cors_) {
@@ -468,8 +468,8 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
 #ifdef KATANA_HAS_COMPRESSION
         // Response compression: encode a compressible body per the client's Accept-Encoding.
         if (compression_ && resp.body.size() >= compression_->min_size &&
-            !resp.headers.contains("Content-Encoding")) {
-            const std::string_view ct = resp.headers.get("content-type").value_or("");
+            !resp.headers.contains(field::content_encoding)) {
+            const std::string_view ct = resp.headers.get(field::content_type).value_or("");
             if (is_compressible_type(ct)) {
                 const content_encoding enc =
                     negotiate_encoding(req.header("accept-encoding").value_or(""), *compression_);
@@ -484,30 +484,27 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         }
 #endif
         const int64_t duration_micros =
-            std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::steady_clock::now() - state.request_start)
+            std::chrono::duration_cast<std::chrono::microseconds>(r.loop_now() -
+                                                                  state.request_start)
                 .count();
         metrics_.observe_duration_micros(duration_micros);
-        if (const int ri = state.current_route_index;
-            ri >= 0 && static_cast<size_t>(ri) < per_route_requests_.size()) {
-            per_route_requests_[static_cast<size_t>(ri)].fetch_add(1, std::memory_order_relaxed);
-            per_route_duration_micros_[static_cast<size_t>(ri)].fetch_add(
-                static_cast<uint64_t>(duration_micros < 0 ? 0 : duration_micros),
-                std::memory_order_relaxed);
+        if (const int ri = state.current_route_index; ri >= 0) {
+            note_route_request(static_cast<size_t>(ri),
+                               static_cast<uint64_t>(duration_micros < 0 ? 0 : duration_micros));
         }
 
         // Correlation id: echo the client's X-Request-Id, or generate one. Reflect it on the
         // response (so the caller can tie its logs to ours) and into the access log.
-        std::string generated_request_id;
+        char generated_request_id[16];
         std::string_view request_id;
-        if (auto inbound = req.header("x-request-id")) {
+        if (auto inbound = req.headers.get(field::x_request_id)) {
             request_id = *inbound;
         } else {
-            generated_request_id = detail::generate_request_id();
-            request_id = generated_request_id;
+            detail::generate_request_id(generated_request_id);
+            request_id = std::string_view(generated_request_id, sizeof(generated_request_id));
         }
-        if (!resp.headers.contains("X-Request-Id")) {
-            resp.headers.set_unknown("X-Request-Id", request_id); // copies; safe past this scope
+        if (!resp.headers.contains(field::x_request_id)) {
+            resp.headers.set(field::x_request_id, request_id); // copies; safe past this scope
         }
 
         const bool log_this_request =
@@ -784,7 +781,9 @@ void server::handle_connection(connection_state& state, [[maybe_unused]] reactor
         ctx.deferred_response_user = &state;
         ctx.deferred_response_factory = &server::make_deferred_response_handle;
         response resp{&state.arena};
-        state.request_start = std::chrono::steady_clock::now();
+        // Loop-iteration timestamp: free on the hot path, precise to the event-loop tick,
+        // which matches the request-duration histogram's 500us smallest bucket.
+        state.request_start = r.loop_now();
         if (tracing_enabled_) {
             state.current_trace = tracing::start_server_span(req.header("traceparent"));
             if (auto ts = req.header("tracestate")) {

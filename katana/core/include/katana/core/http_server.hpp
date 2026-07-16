@@ -34,68 +34,143 @@ namespace detail {
 constexpr size_t HTTP_SERVER_RESPONSE_BUFFER_CAPACITY = 8192;
 constexpr size_t HTTP_SERVER_ARENA_CAPACITY = 8192;
 
-// Generate a process-unique correlation id (16 lowercase hex chars from a monotonic counter).
-// Used when a request arrives without an `X-Request-Id` header.
-inline std::string generate_request_id() {
-    static std::atomic<uint64_t> counter{0};
-    const uint64_t n = counter.fetch_add(1, std::memory_order_relaxed);
+// Generate a process-unique correlation id (16 lowercase hex chars) into `out`.
+// Used when a request arrives without an `X-Request-Id` header. Uniqueness comes from a
+// per-thread counter seeded with a process-wide thread ordinal in the top byte, so the hot
+// path touches no shared cache line and performs no allocation.
+inline void generate_request_id(char (&out)[16]) {
+    static std::atomic<uint64_t> thread_ordinal{0};
+    thread_local uint64_t counter =
+        thread_ordinal.fetch_add(1, std::memory_order_relaxed) << 56;
+    const uint64_t n = counter++;
     static constexpr char hex[] = "0123456789abcdef";
-    char out[16];
     for (int i = 15; i >= 0; --i) {
         out[i] = hex[(n >> ((15 - i) * 4)) & 0xF];
     }
-    return std::string(out, 16);
 }
 } // namespace detail
 
 // Lightweight server-level RED metrics, exported in Prometheus text format via /metrics.
 // Counters are by response status class; in_flight is a gauge of requests being processed.
+//
+// Per-request counters are sharded by thread: every worker writes its own cache-line-aligned
+// shard (plain relaxed increments, no cross-core cache-line ping-pong at millions of rps) and
+// readers sum the shards on scrape. Only the low-frequency connection-level gauges stay as
+// single shared atomics.
 struct server_metrics {
-    std::atomic<uint64_t> requests_2xx{0};
-    std::atomic<uint64_t> requests_3xx{0};
-    std::atomic<uint64_t> requests_4xx{0};
-    std::atomic<uint64_t> requests_5xx{0};
-    std::atomic<int64_t> in_flight{0};
-    std::atomic<uint64_t> connection_timeouts{0};
-    std::atomic<int64_t> active_connections{0};
-    std::atomic<uint64_t> connections_rejected{0};
-
     // Request-duration histogram (Prometheus). Bucket upper bounds in microseconds, with the
-    // matching `le` labels in seconds. Buckets are cumulative-on-read (observe increments every
-    // bucket whose bound is >= the sample).
+    // matching `le` labels in seconds. Observe increments exactly one (non-cumulative) bucket;
+    // the cumulative `le` counts required by Prometheus are produced by prefix-summing on read.
     static constexpr std::array<int64_t, 14> duration_bounds_micros{
         500,    1000,    2500,    5000,    10000,   25000,    50000,
         100000, 250000,  500000,  1000000, 2500000, 5000000,  10000000};
     static constexpr std::array<std::string_view, 14> duration_bound_labels{
         "0.0005", "0.001", "0.0025", "0.005", "0.01", "0.025", "0.05",
         "0.1",    "0.25",  "0.5",    "1",     "2.5",  "5",      "10"};
-    std::array<std::atomic<uint64_t>, 14> duration_buckets{};
-    std::atomic<uint64_t> duration_count{0};
-    std::atomic<uint64_t> duration_sum_micros{0};
+
+    static constexpr size_t SHARD_COUNT = 16; // power of two; covers typical worker counts
+
+    struct alignas(64) shard {
+        std::atomic<uint64_t> requests_2xx{0};
+        std::atomic<uint64_t> requests_3xx{0};
+        std::atomic<uint64_t> requests_4xx{0};
+        std::atomic<uint64_t> requests_5xx{0};
+        std::atomic<int64_t> in_flight{0};
+        std::array<std::atomic<uint64_t>, 14> duration_buckets{}; // per-bucket, not cumulative
+        std::atomic<uint64_t> duration_count{0};
+        std::atomic<uint64_t> duration_sum_micros{0};
+    };
+    std::array<shard, SHARD_COUNT> shards{};
+
+    // Connection-level gauges/counters (touched per connection, not per request).
+    std::atomic<uint64_t> connection_timeouts{0};
+    std::atomic<int64_t> active_connections{0};
+    std::atomic<uint64_t> connections_rejected{0};
+
+    [[nodiscard]] static size_t shard_index() noexcept {
+        static std::atomic<uint32_t> next_slot{0};
+        thread_local const uint32_t slot =
+            next_slot.fetch_add(1, std::memory_order_relaxed) & (SHARD_COUNT - 1);
+        return slot;
+    }
+    [[nodiscard]] shard& local_shard() noexcept { return shards[shard_index()]; }
+
+    void begin_request() noexcept {
+        local_shard().in_flight.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void end_request() noexcept {
+        local_shard().in_flight.fetch_sub(1, std::memory_order_relaxed);
+    }
+
+    // Current in-flight gauge (sums shards; used by opt-in load shedding, not the hot path).
+    [[nodiscard]] int64_t in_flight_now() const noexcept {
+        int64_t total = 0;
+        for (const auto& sh : shards) {
+            total += sh.in_flight.load(std::memory_order_relaxed);
+        }
+        return total;
+    }
 
     void observe_duration_micros(int64_t micros) noexcept {
         if (micros < 0) {
             micros = 0;
         }
-        for (size_t i = 0; i < duration_bounds_micros.size(); ++i) {
-            if (micros <= duration_bounds_micros[i]) {
-                duration_buckets[i].fetch_add(1, std::memory_order_relaxed);
-            }
+        auto& sh = local_shard();
+        size_t i = 0;
+        while (i < duration_bounds_micros.size() && micros > duration_bounds_micros[i]) {
+            ++i;
         }
-        duration_count.fetch_add(1, std::memory_order_relaxed);
-        duration_sum_micros.fetch_add(static_cast<uint64_t>(micros), std::memory_order_relaxed);
+        if (i < sh.duration_buckets.size()) {
+            sh.duration_buckets[i].fetch_add(1, std::memory_order_relaxed);
+        }
+        sh.duration_count.fetch_add(1, std::memory_order_relaxed);
+        sh.duration_sum_micros.fetch_add(static_cast<uint64_t>(micros), std::memory_order_relaxed);
     }
 
     void record_status(int32_t status) noexcept {
+        auto& sh = local_shard();
         if (status >= 500) {
-            requests_5xx.fetch_add(1, std::memory_order_relaxed);
+            sh.requests_5xx.fetch_add(1, std::memory_order_relaxed);
         } else if (status >= 400) {
-            requests_4xx.fetch_add(1, std::memory_order_relaxed);
+            sh.requests_4xx.fetch_add(1, std::memory_order_relaxed);
         } else if (status >= 300) {
-            requests_3xx.fetch_add(1, std::memory_order_relaxed);
+            sh.requests_3xx.fetch_add(1, std::memory_order_relaxed);
         } else if (status >= 200) {
-            requests_2xx.fetch_add(1, std::memory_order_relaxed);
+            sh.requests_2xx.fetch_add(1, std::memory_order_relaxed);
         }
+    }
+
+    // Point-in-time aggregate across shards (relaxed reads; scrape-grade consistency).
+    struct totals {
+        uint64_t requests_2xx = 0;
+        uint64_t requests_3xx = 0;
+        uint64_t requests_4xx = 0;
+        uint64_t requests_5xx = 0;
+        int64_t in_flight = 0;
+        std::array<uint64_t, 14> cumulative_buckets{};
+        uint64_t duration_count = 0;
+        uint64_t duration_sum_micros = 0;
+    };
+
+    [[nodiscard]] totals aggregate() const noexcept {
+        totals t;
+        for (const auto& sh : shards) {
+            t.requests_2xx += sh.requests_2xx.load(std::memory_order_relaxed);
+            t.requests_3xx += sh.requests_3xx.load(std::memory_order_relaxed);
+            t.requests_4xx += sh.requests_4xx.load(std::memory_order_relaxed);
+            t.requests_5xx += sh.requests_5xx.load(std::memory_order_relaxed);
+            t.in_flight += sh.in_flight.load(std::memory_order_relaxed);
+            for (size_t i = 0; i < sh.duration_buckets.size(); ++i) {
+                t.cumulative_buckets[i] += sh.duration_buckets[i].load(std::memory_order_relaxed);
+            }
+            t.duration_count += sh.duration_count.load(std::memory_order_relaxed);
+            t.duration_sum_micros += sh.duration_sum_micros.load(std::memory_order_relaxed);
+        }
+        for (size_t i = 1; i < t.cumulative_buckets.size(); ++i) {
+            t.cumulative_buckets[i] += t.cumulative_buckets[i - 1];
+        }
+        return t;
     }
 
     // Render the sub-second part of a microsecond count as a zero-padded 6-digit fraction.
@@ -113,20 +188,17 @@ struct server_metrics {
             s += std::to_string(v);
             s += '\n';
         };
+        const totals t = aggregate();
         std::string out;
         out += "# HELP katana_http_requests_total Total HTTP responses by status class.\n";
         out += "# TYPE katana_http_requests_total counter\n";
-        line(out, "katana_http_requests_total", "{status=\"2xx\"}",
-             requests_2xx.load(std::memory_order_relaxed));
-        line(out, "katana_http_requests_total", "{status=\"3xx\"}",
-             requests_3xx.load(std::memory_order_relaxed));
-        line(out, "katana_http_requests_total", "{status=\"4xx\"}",
-             requests_4xx.load(std::memory_order_relaxed));
-        line(out, "katana_http_requests_total", "{status=\"5xx\"}",
-             requests_5xx.load(std::memory_order_relaxed));
+        line(out, "katana_http_requests_total", "{status=\"2xx\"}", t.requests_2xx);
+        line(out, "katana_http_requests_total", "{status=\"3xx\"}", t.requests_3xx);
+        line(out, "katana_http_requests_total", "{status=\"4xx\"}", t.requests_4xx);
+        line(out, "katana_http_requests_total", "{status=\"5xx\"}", t.requests_5xx);
         out += "# HELP katana_http_requests_in_flight HTTP requests currently being served.\n";
         out += "# TYPE katana_http_requests_in_flight gauge\n";
-        const int64_t live = in_flight.load(std::memory_order_relaxed);
+        const int64_t live = t.in_flight;
         line(out, "katana_http_requests_in_flight", "", static_cast<uint64_t>(live < 0 ? 0 : live));
         out += "# HELP katana_http_connection_timeouts_total Connections closed by an idle/read "
                "timeout.\n";
@@ -143,7 +215,7 @@ struct server_metrics {
         line(out, "katana_http_connections_rejected_total", "",
              connections_rejected.load(std::memory_order_relaxed));
 
-        const uint64_t dur_count = duration_count.load(std::memory_order_relaxed);
+        const uint64_t dur_count = t.duration_count;
         out += "# HELP katana_http_request_duration_seconds Request handling latency.\n";
         out += "# TYPE katana_http_request_duration_seconds histogram\n";
         for (size_t i = 0; i < duration_bound_labels.size(); ++i) {
@@ -151,11 +223,11 @@ struct server_metrics {
             labels += duration_bound_labels[i];
             labels += "\"}";
             line(out, "katana_http_request_duration_seconds_bucket", labels,
-                 duration_buckets[i].load(std::memory_order_relaxed));
+                 t.cumulative_buckets[i]);
         }
         line(out, "katana_http_request_duration_seconds_bucket", "{le=\"+Inf\"}", dur_count);
         // _sum is in seconds; format from the integer microsecond accumulator.
-        const uint64_t sum_micros = duration_sum_micros.load(std::memory_order_relaxed);
+        const uint64_t sum_micros = t.duration_sum_micros;
         out += "katana_http_request_duration_seconds_sum ";
         out += std::to_string(sum_micros / 1'000'000);
         out += '.';
@@ -488,8 +560,8 @@ private:
     enum class flush_result : uint8_t { complete, blocked, error };
 
     void dispatch_request(const request& req, request_context& ctx, response& out) const {
-        metrics_.in_flight.fetch_add(1, std::memory_order_relaxed);
-        if (auto rid = req.header("x-request-id")) {
+        metrics_.begin_request();
+        if (auto rid = req.headers.get(field::x_request_id)) {
             ctx.request_id = *rid; // inbound correlation id, visible to handlers
         }
 
@@ -497,7 +569,7 @@ private:
         // finalize_response balances it whether we serve or shed.
         if (load_shedding_) {
             if (load_shedding_->max_in_flight != 0 &&
-                metrics_.in_flight.load(std::memory_order_relaxed) >
+                metrics_.in_flight_now() >
                     static_cast<int64_t>(load_shedding_->max_in_flight)) {
                 out.assign_error(problem_details::service_unavailable("server overloaded"));
                 out.set_header("Retry-After", "1");
@@ -886,8 +958,30 @@ private:
     // Per-route metrics, sized from the router at run() (index = ctx.route_index). Populated
     // only when constructed with a router. Atomics are written from worker threads and read by
     // the /metrics handler.
+    // Per-route counters, sharded like server_metrics: shard-major layout
+    // [shard0: route0..routeN | shard1: route0..routeN | ...] so each worker touches only
+    // its own region; scrape sums the stride.
     std::vector<std::atomic<uint64_t>> per_route_requests_;
     std::vector<std::atomic<uint64_t>> per_route_duration_micros_;
+    size_t per_route_count_ = 0;
+
+    void note_route_request(size_t route_index, uint64_t duration_micros) noexcept {
+        if (route_index >= per_route_count_) {
+            return;
+        }
+        const size_t base = server_metrics::shard_index() * per_route_count_ + route_index;
+        per_route_requests_[base].fetch_add(1, std::memory_order_relaxed);
+        per_route_duration_micros_[base].fetch_add(duration_micros, std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] uint64_t sum_route_counter(const std::vector<std::atomic<uint64_t>>& v,
+                                             size_t route_index) const noexcept {
+        uint64_t total = 0;
+        for (size_t s = 0; s < server_metrics::SHARD_COUNT; ++s) {
+            total += v[s * per_route_count_ + route_index].load(std::memory_order_relaxed);
+        }
+        return total;
+    }
     std::vector<std::string> route_labels_;
 
     void init_per_route_metrics() {
@@ -895,8 +989,10 @@ private:
             return; // dispatcher without route metadata (e.g. a custom Dispatcher type)
         }
         const size_t n = route_count_fn_();
-        per_route_requests_ = std::vector<std::atomic<uint64_t>>(n);
-        per_route_duration_micros_ = std::vector<std::atomic<uint64_t>>(n);
+        per_route_count_ = n;
+        per_route_requests_ = std::vector<std::atomic<uint64_t>>(n * server_metrics::SHARD_COUNT);
+        per_route_duration_micros_ =
+            std::vector<std::atomic<uint64_t>>(n * server_metrics::SHARD_COUNT);
         route_labels_.clear();
         route_labels_.reserve(n);
         for (size_t i = 0; i < n; ++i) {
@@ -911,17 +1007,17 @@ private:
         }
         body += "# HELP katana_http_route_requests_total Requests handled per route.\n";
         body += "# TYPE katana_http_route_requests_total counter\n";
-        for (size_t i = 0; i < per_route_requests_.size(); ++i) {
+        for (size_t i = 0; i < per_route_count_; ++i) {
             body += "katana_http_route_requests_total{route=\"";
             body += route_labels_[i];
             body += "\"} ";
-            body += std::to_string(per_route_requests_[i].load(std::memory_order_relaxed));
+            body += std::to_string(sum_route_counter(per_route_requests_, i));
             body += '\n';
         }
         body += "# HELP katana_http_route_duration_seconds_sum Summed latency per route.\n";
         body += "# TYPE katana_http_route_duration_seconds_sum counter\n";
-        for (size_t i = 0; i < per_route_duration_micros_.size(); ++i) {
-            const uint64_t us = per_route_duration_micros_[i].load(std::memory_order_relaxed);
+        for (size_t i = 0; i < per_route_count_; ++i) {
+            const uint64_t us = sum_route_counter(per_route_duration_micros_, i);
             body += "katana_http_route_duration_seconds_sum{route=\"";
             body += route_labels_[i];
             body += "\"} ";

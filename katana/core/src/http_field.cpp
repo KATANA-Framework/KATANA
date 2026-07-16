@@ -353,6 +353,7 @@ get_field_name_table() noexcept {
          "X-Frame-Options",
          "X-Mittente",
          "X-PGP-Sig",
+         "X-Request-Id",
          "X-Ricevuta",
          "X-Riferimento-Message-ID",
          "X-TipoRicevuta",
@@ -401,9 +402,10 @@ inline size_t popular_hash(std::string_view name) noexcept {
            (POPULAR_HASH_SIZE - 1);
 }
 
-// Top 25 most common HTTP headers (linear search, ~22 ns)
-const std::array<field_entry, 25>& get_popular_headers() noexcept {
-    static const std::array<field_entry, 25> headers = {
+// Most common HTTP headers (hash-bucket lookup); includes X-Request-Id because KATANA
+// itself reads/sets it on every request for correlation ids.
+const std::array<field_entry, 26>& get_popular_headers() noexcept {
+    static const std::array<field_entry, 26> headers = {
         {{"Host", field::host, fnv1a_hash("Host")},
          {"User-Agent", field::user_agent, fnv1a_hash("User-Agent")},
          {"Accept", field::accept, fnv1a_hash("Accept")},
@@ -430,7 +432,8 @@ const std::array<field_entry, 25>& get_popular_headers() noexcept {
          {"Access-Control-Allow-Origin",
           field::access_control_allow_origin,
           fnv1a_hash("Access-Control-Allow-Origin")},
-         {"Content-Encoding", field::content_encoding, fnv1a_hash("Content-Encoding")}}};
+         {"Content-Encoding", field::content_encoding, fnv1a_hash("Content-Encoding")},
+         {"X-Request-Id", field::x_request_id, fnv1a_hash("X-Request-Id")}}};
     return headers;
 }
 
@@ -473,7 +476,8 @@ const std::array<field_entry, 342>& get_rare_headers() noexcept {
                 fld == field::transfer_encoding || fld == field::if_modified_since ||
                 fld == field::if_none_match || fld == field::etag || fld == field::expires ||
                 fld == field::last_modified || fld == field::vary ||
-                fld == field::access_control_allow_origin || fld == field::content_encoding) {
+                fld == field::access_control_allow_origin || fld == field::content_encoding ||
+                fld == field::x_request_id) {
                 continue;
             }
 

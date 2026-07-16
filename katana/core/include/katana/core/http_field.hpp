@@ -350,6 +350,7 @@ enum class field : uint16_t {
     x_frame_options,
     x_mittente,
     x_pgp_sig,
+    x_request_id,
     x_ricevuta,
     x_riferimento_message_id,
     x_tiporicevuta,
@@ -389,7 +390,7 @@ constexpr uint32_t fnv1a_hash(std::string_view str) noexcept {
 
 const std::array<std::string_view, static_cast<size_t>(field::MAX_FIELD_VALUE)>&
 get_field_name_table() noexcept;
-const std::array<field_entry, 25>& get_popular_headers() noexcept;
+const std::array<field_entry, 26>& get_popular_headers() noexcept;
 const std::array<field_entry, 342>& get_rare_headers() noexcept;
 } // namespace detail
 
