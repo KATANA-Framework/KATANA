@@ -118,7 +118,18 @@ std::optional<std::string> read_file(const fs::path& path) {
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
-std::optional<std::pair<std::string, sql_query_mode>> parse_header(std::string_view content) {
+struct sql_header {
+    std::string name;
+    sql_query_mode mode = sql_query_mode::exec;
+    bool gen_async = true;
+    bool gen_step = true;
+};
+
+// `-- name: <ident> :one|:many|:exec [:no-async] [:no-step]` — the mode may be followed by
+// variant opt-out flags. Unknown or duplicate flags reject the header (a typo silently keeping
+// dead variants alive is worse than a hard error), as does `:no-step` on :exec, which never
+// gets a step in the first place.
+std::optional<sql_header> parse_header(std::string_view content) {
     const auto first_line_end = content.find('\n');
     std::string header = trim_copy(content.substr(0, first_line_end));
     if (!header.starts_with("--")) {
@@ -130,37 +141,51 @@ std::optional<std::pair<std::string, sql_query_mode>> parse_header(std::string_v
     if (!to_lower_ascii(header).starts_with("name:")) {
         return std::nullopt;
     }
-
     header.erase(0, 5);
-    const auto mode_pos = header.rfind(':');
-    if (mode_pos == std::string::npos) {
+
+    std::vector<std::string> tokens;
+    {
+        std::istringstream stream(header);
+        std::string token;
+        while (stream >> token) {
+            tokens.push_back(std::move(token));
+        }
+    }
+    if (tokens.size() < 2) {
         return std::nullopt;
     }
 
-    const std::string name = trim_copy(header.substr(0, mode_pos));
-    const std::string mode_token = trim_copy(header.substr(mode_pos + 1));
-    if (name.empty()) {
+    sql_header out;
+    out.name = tokens[0];
+    if (!std::isalpha(static_cast<unsigned char>(out.name.front())) && out.name.front() != '_') {
         return std::nullopt;
     }
-
-    if (!std::isalpha(static_cast<unsigned char>(name.front())) && name.front() != '_') {
-        return std::nullopt;
-    }
-    for (char c : name) {
+    for (char c : out.name) {
         if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
             return std::nullopt;
         }
     }
 
-    sql_query_mode mode = sql_query_mode::exec;
-    if (mode_token == "one") {
-        mode = sql_query_mode::one;
-    } else if (mode_token == "many") {
-        mode = sql_query_mode::many;
-    } else if (mode_token != "exec") {
+    const std::string& mode_token = tokens[1];
+    if (mode_token == ":one") {
+        out.mode = sql_query_mode::one;
+    } else if (mode_token == ":many") {
+        out.mode = sql_query_mode::many;
+    } else if (mode_token != ":exec") {
         return std::nullopt;
     }
-    return std::make_pair(name, mode);
+
+    for (std::size_t i = 2; i < tokens.size(); ++i) {
+        if (tokens[i] == ":no-async" && out.gen_async) {
+            out.gen_async = false;
+        } else if (tokens[i] == ":no-step" && out.gen_step &&
+                   out.mode != sql_query_mode::exec) {
+            out.gen_step = false;
+        } else {
+            return std::nullopt;
+        }
+    }
+    return out;
 }
 
 std::string extract_body(std::string_view content) {
@@ -657,9 +682,11 @@ katana::result<sql_query> parse_sql_source(const sql_source& source) {
     }
 
     sql_query query;
-    query.name = header->first;
+    query.name = header->name;
     query.source_path = source.path;
-    query.mode = header->second;
+    query.mode = header->mode;
+    query.gen_async = header->gen_async;
+    query.gen_step = header->gen_step;
     query.sql = std::move(body);
     std::unordered_set<std::size_t> nullable_indices;
     auto param_names = rewrite_named_parameters(query.sql, nullable_indices); // @name → $N, in place
@@ -738,8 +765,9 @@ katana::result<sql_catalog> load_sql_catalog_from_sources(std::vector<sql_source
         if (!query) {
             std::cerr << "[sql] " << source.path.generic_string()
                       << ": failed to parse (" << query.error().message()
-                      << "). Expected a `-- name: <name> :one|:many|:exec` header and a "
-                         "non-empty query body; an :exec query must not RETURN columns.\n";
+                      << "). Expected a `-- name: <name> :one|:many|:exec [:no-async] "
+                         "[:no-step]` header and a non-empty query body; an :exec query must "
+                         "not RETURN columns and never has a step to disable.\n";
             return std::unexpected(query.error());
         }
         if (!seen_names.insert(query->name).second) {
@@ -761,7 +789,16 @@ std::string dump_sql_ast_summary(const sql_catalog& catalog) {
             out += ',';
         }
         out += "{\"name\":\"" + query.name + "\",\"mode\":\"" + sql_mode_literal(query.mode) +
-               "\",\"path\":\"" + query.source_path.generic_string() + "\",\"params\":[";
+               "\"";
+        // Variant opt-outs are emitted only when set, so default headers keep the historical
+        // (snapshot-stable) dump shape.
+        if (!query.gen_async) {
+            out += ",\"no_async\":true";
+        }
+        if (!query.gen_step) {
+            out += ",\"no_step\":true";
+        }
+        out += ",\"path\":\"" + query.source_path.generic_string() + "\",\"params\":[";
         for (std::size_t p = 0; p < query.parameters.size(); ++p) {
             const auto& param = query.parameters[p];
             if (p != 0) {

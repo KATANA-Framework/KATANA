@@ -29,6 +29,25 @@ Artifacts:
 - `generated_handlers.hpp` — `api_handler`, optional `async_api_handler`, and `async_api_handler_base` for async-first services.
 - `generated_router_bindings.hpp` — a static router wired to the handler.
 
+### SQL query annotations
+
+Each `.sql` file starts with `-- name: <name> :one|:many|:exec`, optionally followed by
+variant opt-outs:
+
+```sql
+-- name: overview_stats :one :no-step
+-- name: get_issue :one :no-async
+-- name: audit_issue :exec
+```
+
+- `:no-async` — skip the `<name>_async(...)` callback variant and its handler alias.
+- `:no-step` — skip the `<name>_step(...)` accessor used by `katana::sql::gather()`
+  (meaningless — and rejected — on `:exec`, which never gets a step).
+
+The positional sync method is always emitted; it is the API of record the other variants
+build on. Unknown or duplicated flags fail generation instead of silently keeping dead
+variants alive.
+
 ### Quick start
 ```bash
 katana_gen openapi -i benchmark/test_api.yaml -o benchmark/generated --emit all --alloc pmr

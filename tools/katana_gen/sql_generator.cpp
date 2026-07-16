@@ -168,11 +168,16 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
     out << "namespace " << sql_ns << " {\n\n";
     out << "class generated_repository {\n";
     out << "public:\n";
+    std::size_t handler_alias_count = 0;
     for (const auto& query : catalog.queries) {
+        if (!query.gen_async) {
+            continue;
+        }
         out << "    using " << query.name << "_async_handler = katana::inplace_function<void("
             << repository_return_type(query) << "), 256>;\n";
+        ++handler_alias_count;
     }
-    if (!catalog.queries.empty()) {
+    if (handler_alias_count != 0) {
         out << "\n";
     }
     out << "    explicit generated_repository(katana::sql::executor& executor) noexcept\n";
@@ -248,64 +253,68 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         }
         out << "    }\n\n";
 
-        out << "    bool " << query.name << "_async(";
-        for (std::size_t i = 0; i < query.parameters.size(); ++i) {
-            const auto& parameter = query.parameters[i];
-            if (i != 0) {
+        if (query.gen_async) {
+            out << "    bool " << query.name << "_async(";
+            for (std::size_t i = 0; i < query.parameters.size(); ++i) {
+                const auto& parameter = query.parameters[i];
+                if (i != 0) {
+                    out << ", ";
+                }
+                out << param_cpp_type(parameter) << " " << param_identifier(parameter);
+            }
+            if (!query.parameters.empty()) {
                 out << ", ";
             }
-            out << param_cpp_type(parameter) << " " << param_identifier(parameter);
-        }
-        if (!query.parameters.empty()) {
-            out << ", ";
-        }
-        out << query.name << "_async_handler handler) const {\n";
-        out << "        if (!handler) {\n";
-        out << "            return false;\n";
-        out << "        }\n";
-        out << "        if (async_executor_ == nullptr) {\n";
-        out << "            // No async executor: run synchronously and deliver the result inline\n";
-        out << "            // so the completion always fires (returning false here would hang a\n";
-        out << "            // deferred response).\n";
-        out << "            handler(" << query.name << "(";
-        for (std::size_t i = 0; i < query.parameters.size(); ++i) {
-            if (i != 0) {
-                out << ", ";
+            out << query.name << "_async_handler handler) const {\n";
+            out << "        if (!handler) {\n";
+            out << "            return false;\n";
+            out << "        }\n";
+            out << "        if (async_executor_ == nullptr) {\n";
+            out << "            // No async executor: run synchronously and deliver the result "
+                   "inline\n";
+            out << "            // so the completion always fires (returning false here would "
+                   "hang a\n";
+            out << "            // deferred response).\n";
+            out << "            handler(" << query.name << "(";
+            for (std::size_t i = 0; i < query.parameters.size(); ++i) {
+                if (i != 0) {
+                    out << ", ";
+                }
+                out << param_identifier(query.parameters[i]);
             }
-            out << param_identifier(query.parameters[i]);
+            out << "));\n";
+            out << "            return true;\n";
+            out << "        }\n";
+            out << "        katana::sql::parameters params;\n";
+            out << "        params.reserve(" << query.parameters.size() << ");\n";
+            for (const auto& parameter : query.parameters) {
+                out << "        params.push_back(katana::sql::encode_value("
+                    << param_identifier(parameter) << "));\n";
+            }
+            if (query.mode == sql_query_mode::exec) {
+                out << "        return async_executor_->exec_async(\"" << query.name << "\", "
+                    << query.name << "_sql, std::move(params), std::move(handler));\n";
+            } else {
+                out << "        return async_executor_->query_async(\"" << query.name << "\", "
+                    << query.name << "_sql, std::move(params),\n";
+                out << "            [handler = "
+                       "std::move(handler)](katana::result<katana::sql::rows> rows_result) {\n";
+                out << "                if (!rows_result) {\n";
+                out << "                    handler(std::unexpected(rows_result.error()));\n";
+                out << "                    return;\n";
+                out << "                }\n";
+                out << "                handler(fold_" << query.name
+                    << "(std::move(*rows_result)));\n";
+                out << "            });\n";
+            }
+            out << "    }\n\n";
         }
-        out << "));\n";
-        out << "            return true;\n";
-        out << "        }\n";
-        out << "        katana::sql::parameters params;\n";
-        out << "        params.reserve(" << query.parameters.size() << ");\n";
-        for (const auto& parameter : query.parameters) {
-            out << "        params.push_back(katana::sql::encode_value("
-                << param_identifier(parameter) << "));\n";
-        }
-        if (query.mode == sql_query_mode::exec) {
-            out << "        return async_executor_->exec_async(\"" << query.name << "\", "
-                << query.name << "_sql, std::move(params), std::move(handler));\n";
-        } else {
-            out << "        return async_executor_->query_async(\"" << query.name << "\", "
-                << query.name << "_sql, std::move(params),\n";
-            out << "            [handler = std::move(handler)](katana::result<katana::sql::rows> "
-                   "rows_result) {\n";
-            out << "                if (!rows_result) {\n";
-            out << "                    handler(std::unexpected(rows_result.error()));\n";
-            out << "                    return;\n";
-            out << "                }\n";
-            out << "                handler(fold_" << query.name
-                << "(std::move(*rows_result)));\n";
-            out << "            });\n";
-        }
-        out << "    }\n\n";
 
         // `<name>_step(args...)` packages this query as a katana::sql::query_step so several queries
         // can be fanned out with katana::sql::gather() over one pooled connection (pipelined on
         // Postgres) instead of hand-nesting the *_async callbacks (F14). exec-mode has no rows to
         // join, so it gets no step.
-        if (query.mode != sql_query_mode::exec) {
+        if (query.mode != sql_query_mode::exec && query.gen_step) {
             const std::string step_value = decoded_value_type(query);
             out << "    katana::sql::query_step<" << step_value << "> " << query.name << "_step(";
             for (std::size_t i = 0; i < query.parameters.size(); ++i) {
@@ -344,16 +353,18 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             out << ");\n";
             out << "    }\n\n";
 
-            out << "    bool " << query.name << "_async(const " << params_type << "& args, "
-                << query.name << "_async_handler handler) const {\n";
-            out << "        return " << query.name << "_async(";
-            for (const auto& parameter : query.parameters) {
-                out << "args." << parameter.name << ", ";
+            if (query.gen_async) {
+                out << "    bool " << query.name << "_async(const " << params_type << "& args, "
+                    << query.name << "_async_handler handler) const {\n";
+                out << "        return " << query.name << "_async(";
+                for (const auto& parameter : query.parameters) {
+                    out << "args." << parameter.name << ", ";
+                }
+                out << "std::move(handler));\n";
+                out << "    }\n\n";
             }
-            out << "std::move(handler));\n";
-            out << "    }\n\n";
 
-            if (query.mode != sql_query_mode::exec) {
+            if (query.mode != sql_query_mode::exec && query.gen_step) {
                 const std::string step_value = decoded_value_type(query);
                 out << "    katana::sql::query_step<" << step_value << "> " << query.name
                     << "_step(const " << params_type << "& args) const {\n";
@@ -406,7 +417,11 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         out << "    }\n\n";
 
         // fold_<name>: the shared rows→typed-result decoder behind both <name>_async and
-        // <name>_step, so the 0/1/N-row policy lives in one place per query.
+        // <name>_step, so the 0/1/N-row policy lives in one place per query. With both
+        // variants opted out it has no caller and is not emitted.
+        if (!query.gen_async && !query.gen_step) {
+            continue;
+        }
         const std::string decoded = decoded_value_type(query);
         out << "    static katana::result<" << decoded << "> fold_" << query.name
             << "(katana::sql::rows rows_result) {\n";

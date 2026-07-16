@@ -37,6 +37,11 @@ struct sql_query {
     std::string sql;
     std::vector<sql_parameter> parameters;
     std::vector<sql_column> columns;
+    // Header flags (`-- name: foo :one :no-async :no-step`) — opt out of generated variants a
+    // service never calls. The positional sync method is always emitted (it is the API of record
+    // and the only variant the others build on).
+    bool gen_async = true;
+    bool gen_step = true;
 };
 
 struct sql_catalog {

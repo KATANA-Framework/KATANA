@@ -278,6 +278,66 @@ ORDER BY id;
     EXPECT_EQ(ast_json, expected);
 }
 
+TEST_F(SqlCodegenTest, HeaderFlagsDisableGeneratedVariants) {
+    write_sql("get_widget.sql", R"(-- name: get_widget :one :no-async
+SELECT id::bigint AS id FROM widgets WHERE id = @id::bigint;
+)");
+    write_sql("list_widgets.sql", R"(-- name: list_widgets :many :no-step
+SELECT id::bigint AS id FROM widgets;
+)");
+    write_sql("count_widgets.sql", R"(-- name: count_widgets :one :no-async :no-step
+SELECT count(*)::bigint AS n FROM widgets;
+)");
+
+    ASSERT_TRUE(run_codegen());
+    const auto repo = read_file(temp_dir / "generated_sql_repository.hpp");
+    ASSERT_FALSE(repo.empty());
+
+    // :no-async drops the async method and its handler alias; the gather step stays.
+    EXPECT_EQ(repo.find("get_widget_async"), std::string::npos);
+    EXPECT_NE(repo.find("get_widget_step("), std::string::npos);
+    // :no-step drops the gather step; the async variant stays.
+    EXPECT_EQ(repo.find("list_widgets_step"), std::string::npos);
+    EXPECT_NE(repo.find("list_widgets_async("), std::string::npos);
+    // Both opted out: no fold_ decoder is left behind either; the sync method survives.
+    EXPECT_EQ(repo.find("count_widgets_async"), std::string::npos);
+    EXPECT_EQ(repo.find("count_widgets_step"), std::string::npos);
+    EXPECT_EQ(repo.find("fold_count_widgets"), std::string::npos);
+    EXPECT_NE(repo.find("katana::result<std::optional<CountWidgetsRow>> count_widgets("),
+              std::string::npos);
+}
+
+TEST_F(SqlCodegenTest, AstDumpMarksDisabledVariants) {
+    write_sql("get_widget.sql", R"(-- name: get_widget :one :no-async :no-step
+SELECT id::bigint AS id FROM widgets;
+)");
+
+    ASSERT_TRUE(run_codegen("--dump-ast --json"));
+
+    const auto ast_json = read_file(temp_dir / "sql_ast.json");
+    EXPECT_NE(ast_json.find(R"("no_async":true,"no_step":true)"), std::string::npos);
+}
+
+TEST_F(SqlCodegenTest, RejectsNoStepOnExecQuery) {
+    // :exec never gets a step, so opting one out is a header typo, not a no-op.
+    write_sql("purge.sql", R"(-- name: purge :exec :no-step
+DELETE FROM widgets;
+)");
+    EXPECT_FALSE(run_codegen());
+}
+
+TEST_F(SqlCodegenTest, RejectsUnknownOrDuplicateHeaderFlag) {
+    write_sql("foo.sql", R"(-- name: foo :one :no-asink
+SELECT 1::bigint AS x;
+)");
+    EXPECT_FALSE(run_codegen());
+
+    write_sql("foo.sql", R"(-- name: foo :one :no-async :no-async
+SELECT 1::bigint AS x;
+)");
+    EXPECT_FALSE(run_codegen());
+}
+
 TEST_F(SqlCodegenTest, RejectsExecReturningWithoutResultMode) {
     write_sql("touch_user.sql",
               R"(-- name: touch_user :exec
