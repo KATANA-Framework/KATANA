@@ -20,26 +20,14 @@ struct route_entry {
     std::span<const content_type_info> produces;
 };
 
-inline constexpr content_type_info route_0_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_0_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_produces[] = {
+inline constexpr content_type_info content_types_0[] = {
     {"application/json"},
 };
 
 inline constexpr route_entry routes[] = {
-    {"/notes", katana::http::method::post, "create_note", route_0_consumes, route_0_produces},
-    {"/notes", katana::http::method::get, "list_notes", {}, route_1_produces},
-    {"/notes/{id}", katana::http::method::get, "get_note", {}, route_2_produces},
+    {"/notes", katana::http::method::post, "create_note", content_types_0, content_types_0},
+    {"/notes", katana::http::method::get, "list_notes", {}, content_types_0},
+    {"/notes/{id}", katana::http::method::get, "get_note", {}, content_types_0},
 };
 
 inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);

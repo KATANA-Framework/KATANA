@@ -21,6 +21,7 @@
 #include "katana/core/router.hpp"
 #include "katana/core/problem.hpp"
 #include "katana/core/serde.hpp"
+#include "katana/core/serde_binary.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 #include "katana/core/http_utils.hpp"
@@ -246,7 +247,8 @@ inline katana::result<void> dispatch_create_order(const katana::http::request& r
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_CreateOrderRequest(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_CreateOrderRequest(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
@@ -288,11 +290,11 @@ class generated_router {
 public:
     explicit generated_router(api_handler& handler)
         : route_policies_{
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "customer_revenue"},
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "top_products"},
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "category_stats"},
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "order_detail"},
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "create_order"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "customer_revenue", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "top_products", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "category_stats", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "order_detail", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "create_order", false, std::string_view{}},
         }, route_entries_{
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/shop/customers/revenue">(),

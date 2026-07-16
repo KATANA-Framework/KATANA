@@ -20,36 +20,16 @@ struct route_entry {
     std::span<const content_type_info> produces;
 };
 
-inline constexpr content_type_info route_0_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_3_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_4_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_4_produces[] = {
+inline constexpr content_type_info content_types_0[] = {
     {"application/json"},
 };
 
 inline constexpr route_entry routes[] = {
-    {"/shop/customers/revenue", katana::http::method::get, "customer_revenue", {}, route_0_produces},
-    {"/shop/products/top", katana::http::method::get, "top_products", {}, route_1_produces},
-    {"/shop/categories/stats", katana::http::method::get, "category_stats", {}, route_2_produces},
-    {"/shop/orders/{id}", katana::http::method::get, "order_detail", {}, route_3_produces},
-    {"/shop/orders", katana::http::method::post, "create_order", route_4_consumes, route_4_produces},
+    {"/shop/customers/revenue", katana::http::method::get, "customer_revenue", {}, content_types_0},
+    {"/shop/products/top", katana::http::method::get, "top_products", {}, content_types_0},
+    {"/shop/categories/stats", katana::http::method::get, "category_stats", {}, content_types_0},
+    {"/shop/orders/{id}", katana::http::method::get, "order_detail", {}, content_types_0},
+    {"/shop/orders", katana::http::method::post, "create_order", content_types_0, content_types_0},
 };
 
 inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);

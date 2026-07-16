@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace katana::sql::generated {
+namespace generated {
 
 struct CategoryStatsRow {
     std::optional<std::string> category;
@@ -49,4 +49,4 @@ struct TopProductsByCategoryRow {
     std::optional<int64_t> category_rank;
 };
 
-} // namespace katana::sql::generated
+} // namespace generated

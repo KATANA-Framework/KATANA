@@ -1,6 +1,7 @@
 #pragma once
 
 #include "generated_sql_models.hpp"
+#include "katana/sql/gather.hpp"
 #include "katana/sql/runtime.hpp"
 
 #include <optional>
@@ -8,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace katana::sql::generated {
+namespace generated {
 
 class generated_repository {
 public:
@@ -20,7 +21,8 @@ public:
     using top_products_by_category_async_handler = katana::inplace_function<void(katana::result<std::vector<TopProductsByCategoryRow>>), 256>;
 
     explicit generated_repository(katana::sql::executor& executor) noexcept
-        : executor_(executor) {}
+        : executor_(executor),
+          async_executor_(dynamic_cast<katana::sql::async_executor*>(&executor)) {}
 
     katana::result<katana::sql::exec_result> bulk_insert_order_items(const std::vector<int64_t>& p1, const std::vector<int64_t>& p2, const std::vector<int64_t>& p3, const std::vector<double>& p4) const {
         katana::sql::parameters params;
@@ -36,8 +38,7 @@ public:
         if (!handler) {
             return false;
         }
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr) {
+        if (async_executor_ == nullptr) {
             // No async executor: run synchronously and deliver the result inline
             // so the completion always fires (returning false here would hang a
             // deferred response).
@@ -50,7 +51,7 @@ public:
         params.push_back(katana::sql::encode_value(p2));
         params.push_back(katana::sql::encode_value(p3));
         params.push_back(katana::sql::encode_value(p4));
-        return async_executor->exec_async("bulk_insert_order_items", bulk_insert_order_items_sql, std::move(params), std::move(handler));
+        return async_executor_->exec_async("bulk_insert_order_items", bulk_insert_order_items_sql, std::move(params), std::move(handler));
     }
 
     katana::result<std::vector<CategoryStatsRow>> category_stats() const {
@@ -76,8 +77,7 @@ public:
         if (!handler) {
             return false;
         }
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr) {
+        if (async_executor_ == nullptr) {
             // No async executor: run synchronously and deliver the result inline
             // so the completion always fires (returning false here would hang a
             // deferred response).
@@ -86,24 +86,20 @@ public:
         }
         katana::sql::parameters params;
         params.reserve(0);
-        return async_executor->query_async("category_stats", category_stats_sql, std::move(params),
+        return async_executor_->query_async("category_stats", category_stats_sql, std::move(params),
             [handler = std::move(handler)](katana::result<katana::sql::rows> rows_result) {
                 if (!rows_result) {
                     handler(std::unexpected(rows_result.error()));
                     return;
                 }
-                std::vector<CategoryStatsRow> out_rows;
-                out_rows.reserve(rows_result->size());
-                for (const auto& row : *rows_result) {
-                    auto mapped = map_category_stats(row);
-                    if (!mapped) {
-                        handler(std::unexpected(mapped.error()));
-                        return;
-                    }
-                    out_rows.push_back(std::move(*mapped));
-                }
-                handler(std::move(out_rows));
+                handler(fold_category_stats(std::move(*rows_result)));
             });
+    }
+
+    katana::sql::query_step<std::vector<CategoryStatsRow>> category_stats_step() const {
+        katana::sql::parameters step_params;
+        step_params.reserve(0);
+        return katana::sql::query_step<std::vector<CategoryStatsRow>>{"category_stats", category_stats_sql, std::move(step_params), &fold_category_stats};
     }
 
     katana::result<std::optional<CreateOrderRow>> create_order(int64_t p1, std::string_view p2) const {
@@ -139,8 +135,7 @@ public:
         if (!handler) {
             return false;
         }
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr) {
+        if (async_executor_ == nullptr) {
             // No async executor: run synchronously and deliver the result inline
             // so the completion always fires (returning false here would hang a
             // deferred response).
@@ -151,27 +146,22 @@ public:
         params.reserve(2);
         params.push_back(katana::sql::encode_value(p1));
         params.push_back(katana::sql::encode_value(p2));
-        return async_executor->query_async("create_order", create_order_sql, std::move(params),
+        return async_executor_->query_async("create_order", create_order_sql, std::move(params),
             [handler = std::move(handler)](katana::result<katana::sql::rows> rows_result) {
                 if (!rows_result) {
                     handler(std::unexpected(rows_result.error()));
                     return;
                 }
-                if (rows_result->size() > 1) {
-                    handler(std::unexpected(std::make_error_code(std::errc::invalid_argument)));
-                    return;
-                }
-                if (rows_result->empty()) {
-                    handler(std::optional<CreateOrderRow>{});
-                    return;
-                }
-                auto mapped = map_create_order(rows_result->front());
-                if (!mapped) {
-                    handler(std::unexpected(mapped.error()));
-                    return;
-                }
-                handler(std::optional<CreateOrderRow>(std::move(*mapped)));
+                handler(fold_create_order(std::move(*rows_result)));
             });
+    }
+
+    katana::sql::query_step<std::optional<CreateOrderRow>> create_order_step(int64_t p1, std::string_view p2) const {
+        katana::sql::parameters step_params;
+        step_params.reserve(2);
+        step_params.push_back(katana::sql::encode_value(p1));
+        step_params.push_back(katana::sql::encode_value(p2));
+        return katana::sql::query_step<std::optional<CreateOrderRow>>{"create_order", create_order_sql, std::move(step_params), &fold_create_order};
     }
 
     katana::result<std::vector<CustomerRevenueRankedRow>> customer_revenue_ranked(std::string_view p1, int64_t p2, int64_t p3) const {
@@ -200,8 +190,7 @@ public:
         if (!handler) {
             return false;
         }
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr) {
+        if (async_executor_ == nullptr) {
             // No async executor: run synchronously and deliver the result inline
             // so the completion always fires (returning false here would hang a
             // deferred response).
@@ -213,24 +202,23 @@ public:
         params.push_back(katana::sql::encode_value(p1));
         params.push_back(katana::sql::encode_value(p2));
         params.push_back(katana::sql::encode_value(p3));
-        return async_executor->query_async("customer_revenue_ranked", customer_revenue_ranked_sql, std::move(params),
+        return async_executor_->query_async("customer_revenue_ranked", customer_revenue_ranked_sql, std::move(params),
             [handler = std::move(handler)](katana::result<katana::sql::rows> rows_result) {
                 if (!rows_result) {
                     handler(std::unexpected(rows_result.error()));
                     return;
                 }
-                std::vector<CustomerRevenueRankedRow> out_rows;
-                out_rows.reserve(rows_result->size());
-                for (const auto& row : *rows_result) {
-                    auto mapped = map_customer_revenue_ranked(row);
-                    if (!mapped) {
-                        handler(std::unexpected(mapped.error()));
-                        return;
-                    }
-                    out_rows.push_back(std::move(*mapped));
-                }
-                handler(std::move(out_rows));
+                handler(fold_customer_revenue_ranked(std::move(*rows_result)));
             });
+    }
+
+    katana::sql::query_step<std::vector<CustomerRevenueRankedRow>> customer_revenue_ranked_step(std::string_view p1, int64_t p2, int64_t p3) const {
+        katana::sql::parameters step_params;
+        step_params.reserve(3);
+        step_params.push_back(katana::sql::encode_value(p1));
+        step_params.push_back(katana::sql::encode_value(p2));
+        step_params.push_back(katana::sql::encode_value(p3));
+        return katana::sql::query_step<std::vector<CustomerRevenueRankedRow>>{"customer_revenue_ranked", customer_revenue_ranked_sql, std::move(step_params), &fold_customer_revenue_ranked};
     }
 
     katana::result<std::optional<OrderDetailRow>> order_detail(int64_t p1) const {
@@ -265,8 +253,7 @@ public:
         if (!handler) {
             return false;
         }
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr) {
+        if (async_executor_ == nullptr) {
             // No async executor: run synchronously and deliver the result inline
             // so the completion always fires (returning false here would hang a
             // deferred response).
@@ -276,27 +263,21 @@ public:
         katana::sql::parameters params;
         params.reserve(1);
         params.push_back(katana::sql::encode_value(p1));
-        return async_executor->query_async("order_detail", order_detail_sql, std::move(params),
+        return async_executor_->query_async("order_detail", order_detail_sql, std::move(params),
             [handler = std::move(handler)](katana::result<katana::sql::rows> rows_result) {
                 if (!rows_result) {
                     handler(std::unexpected(rows_result.error()));
                     return;
                 }
-                if (rows_result->size() > 1) {
-                    handler(std::unexpected(std::make_error_code(std::errc::invalid_argument)));
-                    return;
-                }
-                if (rows_result->empty()) {
-                    handler(std::optional<OrderDetailRow>{});
-                    return;
-                }
-                auto mapped = map_order_detail(rows_result->front());
-                if (!mapped) {
-                    handler(std::unexpected(mapped.error()));
-                    return;
-                }
-                handler(std::optional<OrderDetailRow>(std::move(*mapped)));
+                handler(fold_order_detail(std::move(*rows_result)));
             });
+    }
+
+    katana::sql::query_step<std::optional<OrderDetailRow>> order_detail_step(int64_t p1) const {
+        katana::sql::parameters step_params;
+        step_params.reserve(1);
+        step_params.push_back(katana::sql::encode_value(p1));
+        return katana::sql::query_step<std::optional<OrderDetailRow>>{"order_detail", order_detail_sql, std::move(step_params), &fold_order_detail};
     }
 
     katana::result<std::vector<TopProductsByCategoryRow>> top_products_by_category(int64_t p1) const {
@@ -323,8 +304,7 @@ public:
         if (!handler) {
             return false;
         }
-        auto* async_executor = dynamic_cast<katana::sql::async_executor*>(&executor_);
-        if (async_executor == nullptr) {
+        if (async_executor_ == nullptr) {
             // No async executor: run synchronously and deliver the result inline
             // so the completion always fires (returning false here would hang a
             // deferred response).
@@ -334,28 +314,26 @@ public:
         katana::sql::parameters params;
         params.reserve(1);
         params.push_back(katana::sql::encode_value(p1));
-        return async_executor->query_async("top_products_by_category", top_products_by_category_sql, std::move(params),
+        return async_executor_->query_async("top_products_by_category", top_products_by_category_sql, std::move(params),
             [handler = std::move(handler)](katana::result<katana::sql::rows> rows_result) {
                 if (!rows_result) {
                     handler(std::unexpected(rows_result.error()));
                     return;
                 }
-                std::vector<TopProductsByCategoryRow> out_rows;
-                out_rows.reserve(rows_result->size());
-                for (const auto& row : *rows_result) {
-                    auto mapped = map_top_products_by_category(row);
-                    if (!mapped) {
-                        handler(std::unexpected(mapped.error()));
-                        return;
-                    }
-                    out_rows.push_back(std::move(*mapped));
-                }
-                handler(std::move(out_rows));
+                handler(fold_top_products_by_category(std::move(*rows_result)));
             });
+    }
+
+    katana::sql::query_step<std::vector<TopProductsByCategoryRow>> top_products_by_category_step(int64_t p1) const {
+        katana::sql::parameters step_params;
+        step_params.reserve(1);
+        step_params.push_back(katana::sql::encode_value(p1));
+        return katana::sql::query_step<std::vector<TopProductsByCategoryRow>>{"top_products_by_category", top_products_by_category_sql, std::move(step_params), &fold_top_products_by_category};
     }
 
 private:
     katana::sql::executor& executor_;
+    katana::sql::async_executor* const async_executor_;
 
     static constexpr std::string_view bulk_insert_order_items_sql = R"__KATANA_SQL__(
 INSERT INTO shop_order_items (order_id, product_id, qty, unit_price)
@@ -461,6 +439,19 @@ ORDER BY product_count DESC;
         return out;
     }
 
+    static katana::result<std::vector<CategoryStatsRow>> fold_category_stats(katana::sql::rows rows_result) {
+        std::vector<CategoryStatsRow> out_rows;
+        out_rows.reserve(rows_result.size());
+        for (const auto& row : rows_result) {
+            auto mapped = map_category_stats(row);
+            if (!mapped) {
+                return std::unexpected(mapped.error());
+            }
+            out_rows.push_back(std::move(*mapped));
+        }
+        return out_rows;
+    }
+
     static constexpr std::string_view create_order_sql = R"__KATANA_SQL__(
 INSERT INTO shop_orders (customer_id, status)
 VALUES ($1::bigint, $2::text)
@@ -484,6 +475,20 @@ RETURNING id::bigint AS id;
             }
         }
         return out;
+    }
+
+    static katana::result<std::optional<CreateOrderRow>> fold_create_order(katana::sql::rows rows_result) {
+        if (rows_result.size() > 1) {
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+        }
+        if (rows_result.empty()) {
+            return std::optional<CreateOrderRow>{};
+        }
+        auto mapped = map_create_order(rows_result.front());
+        if (!mapped) {
+            return std::unexpected(mapped.error());
+        }
+        return std::optional<CreateOrderRow>(std::move(*mapped));
     }
 
     static constexpr std::string_view customer_revenue_ranked_sql = R"__KATANA_SQL__(
@@ -585,6 +590,19 @@ LIMIT $2::bigint OFFSET $3::bigint;
             }
         }
         return out;
+    }
+
+    static katana::result<std::vector<CustomerRevenueRankedRow>> fold_customer_revenue_ranked(katana::sql::rows rows_result) {
+        std::vector<CustomerRevenueRankedRow> out_rows;
+        out_rows.reserve(rows_result.size());
+        for (const auto& row : rows_result) {
+            auto mapped = map_customer_revenue_ranked(row);
+            if (!mapped) {
+                return std::unexpected(mapped.error());
+            }
+            out_rows.push_back(std::move(*mapped));
+        }
+        return out_rows;
     }
 
     static constexpr std::string_view order_detail_sql = R"__KATANA_SQL__(
@@ -700,6 +718,20 @@ GROUP BY o.id, o.status, c.name, c.country;
         return out;
     }
 
+    static katana::result<std::optional<OrderDetailRow>> fold_order_detail(katana::sql::rows rows_result) {
+        if (rows_result.size() > 1) {
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+        }
+        if (rows_result.empty()) {
+            return std::optional<OrderDetailRow>{};
+        }
+        auto mapped = map_order_detail(rows_result.front());
+        if (!mapped) {
+            return std::unexpected(mapped.error());
+        }
+        return std::optional<OrderDetailRow>(std::move(*mapped));
+    }
+
     static constexpr std::string_view top_products_by_category_sql = R"__KATANA_SQL__(
 SELECT
   p.id::bigint AS product_id,
@@ -799,6 +831,19 @@ LIMIT $1::bigint;
         return out;
     }
 
+    static katana::result<std::vector<TopProductsByCategoryRow>> fold_top_products_by_category(katana::sql::rows rows_result) {
+        std::vector<TopProductsByCategoryRow> out_rows;
+        out_rows.reserve(rows_result.size());
+        for (const auto& row : rows_result) {
+            auto mapped = map_top_products_by_category(row);
+            if (!mapped) {
+                return std::unexpected(mapped.error());
+            }
+            out_rows.push_back(std::move(*mapped));
+        }
+        return out_rows;
+    }
+
 };
 
-} // namespace katana::sql::generated
+} // namespace generated

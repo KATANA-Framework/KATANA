@@ -20,52 +20,16 @@ struct route_entry {
     std::span<const content_type_info> produces;
 };
 
-inline constexpr content_type_info route_0_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_0_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_3_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_3_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_4_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_4_produces[] = {
+inline constexpr content_type_info content_types_0[] = {
     {"application/json"},
 };
 
 inline constexpr route_entry routes[] = {
-    {"/text/uppercase", katana::http::method::post, "text_uppercase", route_0_consumes, route_0_produces},
-    {"/text/lowercase", katana::http::method::post, "text_lowercase", route_1_consumes, route_1_produces},
-    {"/text/reverse", katana::http::method::post, "text_reverse", route_2_consumes, route_2_produces},
-    {"/text/stats", katana::http::method::post, "text_stats", route_3_consumes, route_3_produces},
-    {"/text/transform", katana::http::method::post, "text_transform", route_4_consumes, route_4_produces},
+    {"/text/uppercase", katana::http::method::post, "text_uppercase", content_types_0, content_types_0},
+    {"/text/lowercase", katana::http::method::post, "text_lowercase", content_types_0, content_types_0},
+    {"/text/reverse", katana::http::method::post, "text_reverse", content_types_0, content_types_0},
+    {"/text/stats", katana::http::method::post, "text_stats", content_types_0, content_types_0},
+    {"/text/transform", katana::http::method::post, "text_transform", content_types_0, content_types_0},
 };
 
 inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);

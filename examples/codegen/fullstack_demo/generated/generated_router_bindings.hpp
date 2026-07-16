@@ -21,6 +21,7 @@
 #include "katana/core/router.hpp"
 #include "katana/core/problem.hpp"
 #include "katana/core/serde.hpp"
+#include "katana/core/serde_binary.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 #include "katana/core/http_utils.hpp"
@@ -74,7 +75,8 @@ inline katana::result<void> dispatch_create_note(const katana::http::request& re
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_CreateNoteRequest(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_CreateNoteRequest(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
@@ -215,9 +217,9 @@ class generated_router {
 public:
     explicit generated_router(api_handler& handler)
         : route_policies_{
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{true, "100/second", std::optional<size_t>{100}, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "create_note"},
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::ttl, "5s"}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "list_notes"},
-        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "get_note"},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{true, "100/second", std::optional<size_t>{100}, katana::http::route_rate_limit_unit::second}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "create_note", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::ttl, "5s"}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "list_notes", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "get_note", false, std::string_view{}},
         }, route_entries_{
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/notes">(),

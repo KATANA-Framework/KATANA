@@ -20,16 +20,12 @@ struct route_entry {
     std::span<const content_type_info> produces;
 };
 
-inline constexpr content_type_info route_0_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_0_produces[] = {
+inline constexpr content_type_info content_types_0[] = {
     {"application/json"},
 };
 
 inline constexpr route_entry routes[] = {
-    {"/compute/sum", katana::http::method::post, "compute_sum", route_0_consumes, route_0_produces},
+    {"/compute/sum", katana::http::method::post, "compute_sum", content_types_0, content_types_0},
 };
 
 inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);

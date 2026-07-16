@@ -10,6 +10,12 @@ katana_gen openapi -i test_api.yaml -o ./generated --emit all --alloc pmr
 
 Flags:
 - `--emit dto|validator|serdes|router|handler|all` — what to generate (default `all`).
+- `--serdes server|client|all` — which directions of parse/serialize/validate to emit
+  (default `server`). A server parses+validates request types and serializes response
+  types; the mirror halves are dead code and are pruned. `client` is the mirror image
+  (for round-trip test harnesses); `all` keeps both directions for every schema.
+  Schemas no operation references stay in both directions, so a schema-library spec
+  (`paths: {}`) keeps full serdes.
 - `--alloc pmr|std` — pick `pmr` for arenas and a zero-alloc hot path.
 - `--layer flat|layered` — layer style (flat by default).
 - `--dump-ast` — write out `openapi_ast.json`.

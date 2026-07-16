@@ -31,18 +31,12 @@ using katana::monotonic_arena;
 // ============================================================
 
 [[nodiscard]] inline std::optional<compute_sum_request> parse_compute_sum_request(std::string_view json, monotonic_arena* arena);
-[[nodiscard]] inline std::optional<compute_sum_response> parse_compute_sum_response(std::string_view json, monotonic_arena* arena);
 
 [[nodiscard]] inline std::optional<compute_sum_request> parse_compute_sum_request(katana::serde::json_cursor& cur, monotonic_arena* arena);
 [[nodiscard]] inline std::optional<compute_sum_request_Item_t> parse_compute_sum_request_Item_t(katana::serde::json_cursor& cur, monotonic_arena* arena);
-[[nodiscard]] inline std::optional<compute_sum_response> parse_compute_sum_response(katana::serde::json_cursor& cur, monotonic_arena* arena);
 
-inline void serialize_compute_sum_request_into(const compute_sum_request& obj, std::string& out);
-inline void serialize_compute_sum_request_Item_t_into(const compute_sum_request_Item_t& obj, std::string& out);
 inline void serialize_compute_sum_response_into(const compute_sum_response& obj, std::string& out);
 
-inline std::string serialize_compute_sum_request(const compute_sum_request& obj);
-inline std::string serialize_compute_sum_request_Item_t(const compute_sum_request_Item_t& obj);
 inline std::string serialize_compute_sum_response(const compute_sum_response& obj);
 
 // ============================================================
@@ -88,54 +82,9 @@ inline std::string serialize_compute_sum_response(const compute_sum_response& ob
     return std::nullopt;
 }
 
-// parse compute_sum_response — number  ← api.yaml:27
-[[nodiscard]] inline std::optional<compute_sum_response> parse_compute_sum_response(katana::serde::json_cursor& cur, monotonic_arena* arena) {
-    (void)arena;
-    if (auto v = katana::serde::parse_double(cur)) return compute_sum_response{*v};
-    return std::nullopt;
-}
-
-[[nodiscard]] inline std::optional<compute_sum_response> parse_compute_sum_response(std::string_view json, monotonic_arena* arena) {
-    katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    auto result = parse_compute_sum_response(cur, arena);
-    if (!result) return std::nullopt;
-    cur.skip_ws();
-    if (!cur.eof()) return std::nullopt;
-    return result;
-}
-
 // ============================================================
 // JSON Serialize Functions
 // ============================================================
-
-// serialize compute_sum_request — array  ← api.yaml:15
-inline void serialize_compute_sum_request_into(const compute_sum_request& obj, std::string& json) {
-    const auto& arr = obj;
-    json.push_back('[');
-    for (size_t i = 0; i < arr.size(); ++i) {
-        if (i > 0) json.push_back(',');
-        serialize_compute_sum_request_Item_t_into(arr[i], json);
-    }
-    json.push_back(']');
-}
-
-inline std::string serialize_compute_sum_request(const compute_sum_request& obj) {
-    std::string json;
-    json.reserve(obj.size() * 16 + 2);
-    serialize_compute_sum_request_into(obj, json);
-    return json;
-}
-
-// serialize compute_sum_request_Item_t — number, field compute_sum_request.item  ← api.yaml:17
-inline void serialize_compute_sum_request_Item_t_into(const compute_sum_request_Item_t& obj, std::string& json) {
-    katana::serde::append_json_double(json, obj);
-}
-
-inline std::string serialize_compute_sum_request_Item_t(const compute_sum_request_Item_t& obj) {
-    std::string json;
-    serialize_compute_sum_request_Item_t_into(obj, json);
-    return json;
-}
 
 // serialize compute_sum_response — number  ← api.yaml:27
 inline void serialize_compute_sum_response_into(const compute_sum_response& obj, std::string& json) {

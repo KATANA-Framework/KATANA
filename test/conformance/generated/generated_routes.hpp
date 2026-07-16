@@ -20,29 +20,19 @@ struct route_entry {
     std::span<const content_type_info> produces;
 };
 
-inline constexpr content_type_info route_0_produces[] = {
+inline constexpr content_type_info content_types_0[] = {
     {"application/json"},
     {"application/cbor"},
 };
 
-inline constexpr content_type_info route_1_consumes[] = {
+inline constexpr content_type_info content_types_1[] = {
     {"application/json"},
-    {"application/cbor"},
-};
-
-inline constexpr content_type_info route_1_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_produces[] = {
-    {"application/json"},
-    {"application/cbor"},
 };
 
 inline constexpr route_entry routes[] = {
-    {"/pets", katana::http::method::get, "listPets", {}, route_0_produces},
-    {"/pets", katana::http::method::post, "createPet", route_1_consumes, route_1_produces},
-    {"/pets/{petId}", katana::http::method::get, "getPet", {}, route_2_produces},
+    {"/pets", katana::http::method::get, "listPets", {}, content_types_0},
+    {"/pets", katana::http::method::post, "createPet", content_types_0, content_types_1},
+    {"/pets/{petId}", katana::http::method::get, "getPet", {}, content_types_0},
     {"/pets/{petId}", katana::http::method::del, "deletePet", {}, {}},
 };
 

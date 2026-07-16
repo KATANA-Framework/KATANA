@@ -20,63 +20,19 @@ struct route_entry {
     std::span<const content_type_info> produces;
 };
 
-inline constexpr content_type_info route_0_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_3_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_3_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_4_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_5_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_5_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_6_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_6_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_7_produces[] = {
+inline constexpr content_type_info content_types_0[] = {
     {"application/json"},
 };
 
 inline constexpr route_entry routes[] = {
-    {"/tasks", katana::http::method::get, "listTasks", {}, route_0_produces},
-    {"/tasks", katana::http::method::post, "createTask", route_1_consumes, route_1_produces},
-    {"/tasks/{id}", katana::http::method::get, "getTask", {}, route_2_produces},
-    {"/tasks/{id}", katana::http::method::put, "updateTask", route_3_consumes, route_3_produces},
-    {"/tasks/{id}", katana::http::method::del, "deleteTask", {}, route_4_produces},
-    {"/tasks/batch", katana::http::method::post, "batchCreateTasks", route_5_consumes, route_5_produces},
-    {"/tasks/search", katana::http::method::post, "searchTasks", route_6_consumes, route_6_produces},
-    {"/health", katana::http::method::get, "healthCheck", {}, route_7_produces},
+    {"/tasks", katana::http::method::get, "listTasks", {}, content_types_0},
+    {"/tasks", katana::http::method::post, "createTask", content_types_0, content_types_0},
+    {"/tasks/{id}", katana::http::method::get, "getTask", {}, content_types_0},
+    {"/tasks/{id}", katana::http::method::put, "updateTask", content_types_0, content_types_0},
+    {"/tasks/{id}", katana::http::method::del, "deleteTask", {}, content_types_0},
+    {"/tasks/batch", katana::http::method::post, "batchCreateTasks", content_types_0, content_types_0},
+    {"/tasks/search", katana::http::method::post, "searchTasks", content_types_0, content_types_0},
+    {"/health", katana::http::method::get, "healthCheck", {}, content_types_0},
 };
 
 inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);

@@ -1,30 +1,26 @@
 // layer: flat
 // Auto-generated handler interfaces from OpenAPI specification
-//
+// 
 // Zero-boilerplate design:
 //   - Clean signatures: result<void> method(params, response& out)
 //   - Automatic validation: schema constraints checked before handler call
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
-//
-// Example:
-//   katana::result<void> get_user(int64_t id, response& out) override {
-//       auto user = db.find(id, &arena());  // arena() from context
-//       out = response::json(serialize_User(user));
-//       return {};
-//   }
+// 
+// A worked implementation example is at the bottom of this file.
 #pragma once
 
-#include "generated_dtos.hpp"
 #include "katana/core/http.hpp"
+#include "katana/core/problem.hpp"
 #include "katana/core/router.hpp"
-#include <optional>
+#include "generated_dtos.hpp"
 #include <string_view>
+#include <optional>
 #include <variant>
 
 using katana::http::request;
-using katana::http::request_context;
 using katana::http::response;
+using katana::http::request_context;
 
 namespace generated {
 
@@ -47,63 +43,101 @@ struct api_handler {
 
     // PUT /users/{id}
     virtual katana::result<void> update_user(int64_t id, const UserInput& body, response& out) = 0;
+
+};
+
+// Optional async handler interface for generated routers.
+// Implement only operations that should own deferred HTTP completion.
+// Returning false falls back to the synchronous api_handler method.
+struct async_api_handler {
+    virtual ~async_api_handler() = default;
+
+    virtual bool health_async(katana::http::async_response_writer out) {
+        (void)out;
+        return false;
+    }
+
+    virtual bool list_users_async(katana::http::async_response_writer out) {
+        (void)out;
+        return false;
+    }
+
+    virtual bool create_user_async(const UserInput& body, katana::http::async_response_writer out) {
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+    virtual bool get_user_async(int64_t id, katana::http::async_response_writer out) {
+        (void)id;
+        (void)out;
+        return false;
+    }
+
+    virtual bool update_user_async(int64_t id, const UserInput& body, katana::http::async_response_writer out) {
+        (void)id;
+        (void)body;
+        (void)out;
+        return false;
+    }
+
+};
+
+// Convenience base for async-first services.
+// Override *_async methods only; synchronous fallbacks return 501.
+struct async_api_handler_base : api_handler, async_api_handler {
+    virtual ~async_api_handler_base() = default;
+
+    katana::result<void> health(response& out) override {
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("health requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> list_users(response& out) override {
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("list_users requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> create_user(const UserInput& body, response& out) override {
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("create_user requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> get_user(int64_t id, response& out) override {
+        (void)id;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("get_user requires an async override or sync implementation"));
+        return {};
+    }
+
+    katana::result<void> update_user(int64_t id, const UserInput& body, response& out) override {
+        (void)id;
+        (void)body;
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("update_user requires an async override or sync implementation"));
+        return {};
+    }
+
 };
 
 // ============================================================================
-// USAGE EXAMPLES
+// USAGE NOTES
 // ============================================================================
-//
-// Example implementation of api_handler:
-//
-// class my_api : public generated::api_handler {
-// public:
-//     // Example 1: Simple request/response with arena allocator
-//     // Example 2: Error handling
-//     response handle_request(const some_request& req) override {
-//         if (req.value < 0) {
-//             return response::bad_request("value must be positive");
-//         }
-//         // ... normal processing ...
-//         return response::json(serialize_some_response(resp));
-//     }
-//
-//     // Example 3: Different response status codes
-//     response create_item(const create_request& req) override {
-//         auto item = db.create(req, &katana::http::arena());
-//         if (!item) {
-//             return response::internal_error("failed to create item");
-//         }
-//         return response::created(serialize_item(*item));
-//     }
-//
-//     // Example 4: Enum handling
-//     response transform_text(const text_transform_request& req) override {
-//         std::string result;
-//         switch (req.operation) {
-//             case text_transform_operation::upper:
-//                 result = to_upper(req.text);
-//                 break;
-//             case text_transform_operation::lower:
-//                 result = to_lower(req.text);
-//                 break;
-//             // ... other cases ...
-//         }
-//         text_transform_response resp(&katana::http::arena());
-//         resp.result = result;
-//         return response::json(serialize_text_transform_response(resp));
-//     }
-// };
 //
 // Available response helpers:
 //   - respond::into(out).text(...)
 //   - respond::into(out).json(...)
 //   - respond::into(out).created_json(...)
 //   - respond::into(out).no_content()
-//   - out = response::bad_request(message)
-//   - out = response::unauthorized(message)
-//   - out = response::forbidden(message)
-//   - out = response::not_found(message)
-//   - out = response::internal_error(message)
+//   - out.assign_error(katana::problem_details::bad_request(message))
+//   - out.assign_error(katana::problem_details::unauthorized(message))
+//   - out.assign_error(katana::problem_details::forbidden(message))
+//   - out.assign_error(katana::problem_details::not_found(message))
+//   - out.assign_error(katana::problem_details::internal_server_error(message))
 //
 // Context access functions (available in handler methods):
 //   - katana::http::req()    - Get current request

@@ -21,6 +21,7 @@
 #include "katana/core/router.hpp"
 #include "katana/core/problem.hpp"
 #include "katana/core/serde.hpp"
+#include "katana/core/serde_binary.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 #include "katana/core/http_utils.hpp"
@@ -62,7 +63,7 @@ constexpr uint64_t HASH_LIST_PETS = hash_string("/pets");
 
 // Dispatch for /pets
 inline katana::result<void> dispatch_list_pets(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
-    auto negotiated_content_type = negotiate_response_type(req, route_0_produces);
+    auto negotiated_content_type = negotiate_response_type(req, content_types_0);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
         return {};
@@ -73,6 +74,7 @@ inline katana::result<void> dispatch_list_pets(const katana::http::request& req,
         return {};
     }
     auto p_limit = query_param(req.uri, "limit");
+    if (p_limit) *p_limit = katana::http_utils::percent_decode_view(*p_limit, ctx.arena);
     std::optional<int64_t> limit;
     if (p_limit) {
         int64_t tmp = 0;
@@ -88,6 +90,18 @@ inline katana::result<void> dispatch_list_pets(const katana::http::request& req,
     if (p_session) session = *p_session;
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), response_content_type);
+            if (async_out) {
+                if (async_handler->list_pets_async(limit, X_Trace, session, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.list_pets(limit, X_Trace, session, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -106,11 +120,18 @@ inline katana::result<void> dispatch_create_pet(const katana::http::request& req
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
         return {};
     }
-    auto content_type_index = find_content_type(req.headers.get(katana::http::field::content_type), route_1_consumes);
+    auto content_type_index = find_content_type(req.headers.get(katana::http::field::content_type), content_types_0);
     if (!content_type_index) { out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {}; }
-    const auto& request_content_type = route_1_consumes[*content_type_index];
-    if (request_content_type.format != katana::http::media_format::json) { out.assign_error(katana::problem_details::not_implemented("codec for Content-Type is not implemented")); return {}; }
-    auto parsed_body = parse_PetCreateRequest(req.body, &ctx.arena);
+    const auto& request_content_type = content_types_0[*content_type_index];
+    std::string transcoded_body;
+    std::string_view body_view = req.body;
+    if (request_content_type.format != katana::http::media_format::json) {
+        auto transcoded = katana::serde::transcode_to_json(req.body, request_content_type.format);
+        if (!transcoded) { out.assign_error(katana::problem_details::bad_request("malformed request body")); return {}; }
+        transcoded_body = std::move(*transcoded);
+        body_view = transcoded_body;
+    }
+    auto parsed_body = parse_PetCreateRequest(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
@@ -122,6 +143,18 @@ inline katana::result<void> dispatch_create_pet(const katana::http::request& req
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), kJsonContentType);
+            if (async_out) {
+                if (async_handler->create_pet_async(*parsed_body, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.create_pet(*parsed_body, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -134,7 +167,7 @@ inline katana::result<void> dispatch_create_pet(const katana::http::request& req
 
 // Dispatch for /pets/{petId}
 inline katana::result<void> dispatch_get_pet(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
-    auto negotiated_content_type = negotiate_response_type(req, route_2_produces);
+    auto negotiated_content_type = negotiate_response_type(req, content_types_0);
     if (!negotiated_content_type) {
         out.assign_error(katana::problem_details::not_acceptable("unsupported Accept header"));
         return {};
@@ -146,6 +179,7 @@ inline katana::result<void> dispatch_get_pet(const katana::http::request& req, k
     }
     auto p_petId = ctx.params.get("petId");
     if (!p_petId) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param petId")); return {}; }
+    *p_petId = katana::http_utils::percent_decode_view(*p_petId, ctx.arena);
     int64_t petId = 0;
     {
         auto [ptr, ec] = std::from_chars(p_petId->data(), p_petId->data() + p_petId->size(), petId);
@@ -153,6 +187,18 @@ inline katana::result<void> dispatch_get_pet(const katana::http::request& req, k
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response(), response_content_type);
+            if (async_out) {
+                if (async_handler->get_pet_async(petId, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.get_pet(petId, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -167,6 +213,7 @@ inline katana::result<void> dispatch_get_pet(const katana::http::request& req, k
 inline katana::result<void> dispatch_delete_pet(const katana::http::request& req, katana::http::request_context& ctx, api_handler& handler, katana::http::response& out) {
     auto p_petId = ctx.params.get("petId");
     if (!p_petId) { out = katana::http::response::error(katana::problem_details::bad_request("missing path param petId")); return {}; }
+    *p_petId = katana::http_utils::percent_decode_view(*p_petId, ctx.arena);
     int64_t petId = 0;
     {
         auto [ptr, ec] = std::from_chars(p_petId->data(), p_petId->data() + p_petId->size(), petId);
@@ -174,6 +221,18 @@ inline katana::result<void> dispatch_delete_pet(const katana::http::request& req
     }
     // Set handler context for zero-boilerplate access
     katana::http::handler_context::scope context_scope(req, ctx);
+    if (ctx.can_defer_response()) {
+        if (auto* async_handler = dynamic_cast<async_api_handler*>(&handler)) {
+            auto async_out = katana::http::async_response_writer(ctx.share_deferred_response());
+            if (async_out) {
+                if (async_handler->delete_pet_async(petId, async_out)) {
+                    return {};
+                }
+                async_out.disarm();
+                ctx.reset_deferred_response();
+            }
+        }
+    }
     auto handler_result = handler.delete_pet(petId, out);
     if (!handler_result) {
         return std::unexpected(handler_result.error());
@@ -188,30 +247,43 @@ inline katana::result<void> dispatch_delete_pet(const katana::http::request& req
 class generated_router {
 public:
     explicit generated_router(api_handler& handler)
-        : route_entries_{
+        : route_policies_{
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "listPets", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "createPet", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "getPet", false, std::string_view{}},
+        katana::http::route_policy_view{katana::http::route_cache_policy_view{katana::http::route_cache_policy_kind::none, std::string_view{}}, katana::http::route_alloc_policy_view{katana::http::route_alloc_policy_kind::none, std::string_view{}, std::nullopt}, katana::http::route_rate_limit_policy_view{false, std::string_view{}, std::nullopt, katana::http::route_rate_limit_unit::unknown}, katana::http::route_idempotency_policy_view{katana::http::route_idempotency_policy_kind::none, std::string_view{}}, "deletePet", false, std::string_view{}},
+        }, route_entries_{
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/pets">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_list_pets(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[0]
         },
         katana::http::route_entry{katana::http::method::post,
                    katana::http::path_pattern::from_literal<"/pets">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_create_pet(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[1]
         },
         katana::http::route_entry{katana::http::method::get,
                    katana::http::path_pattern::from_literal<"/pets/{petId}">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_get_pet(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[2]
         },
         katana::http::route_entry{katana::http::method::del,
                    katana::http::path_pattern::from_literal<"/pets/{petId}">(),
                    katana::http::handler_fn([handler_ptr = &handler](const katana::http::request& req, katana::http::request_context& ctx, katana::http::response& out) -> katana::result<void> {
                        return dispatch_delete_pet(req, ctx, *handler_ptr, out);
                    })
+                   , katana::http::middleware_chain{}
+                   , &route_policies_[3]
         },
         } {
         router_.emplace(route_entries_);
@@ -224,10 +296,14 @@ public:
 
     [[nodiscard]] const katana::http::router& router() const noexcept { return *router_; }
     [[nodiscard]] katana::http::router& router() noexcept { return *router_; }
+    [[nodiscard]] std::span<const katana::http::route_policy_view> route_policies() const noexcept {
+        return std::span<const katana::http::route_policy_view>(route_policies_.data(), route_policies_.size());
+    }
     [[nodiscard]] operator const katana::http::router&() const noexcept { return *router_; }
     [[nodiscard]] operator katana::http::router&() noexcept { return *router_; }
 
 private:
+    std::array<katana::http::route_policy_view, route_count> route_policies_;
     std::array<katana::http::route_entry, route_count> route_entries_;
     std::optional<katana::http::router> router_;
 };
@@ -239,13 +315,16 @@ inline generated_router make_router(api_handler& handler) {
 // Optimized router with hash-based O(1) dispatch for static routes
 class fast_router {
 public:
-    explicit fast_router(api_handler& handler, const katana::http::router& fallback)
-        : handler_(handler), fallback_router_(fallback) {}
+    explicit fast_router(api_handler& handler,
+                         const katana::http::router& fallback,
+                         std::span<const katana::http::route_policy_view> route_policies)
+        : handler_(handler), fallback_router_(fallback), route_policies_(route_policies) {}
 
     katana::result<void> dispatch_to(
         const katana::http::request& req,
         katana::http::request_context& ctx,
         katana::http::response& out) const {
+        ctx.route_policy = nullptr;
         // Strip query string for matching
         std::string_view path = req.uri;
         auto query_pos = path.find('?');
@@ -259,20 +338,24 @@ public:
             case HASH_LIST_PETS:
                 if (path == "/pets") {
                     if (req.http_method == katana::http::method::get)
-                        { return dispatch_list_pets(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[0]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_list_pets(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                     if (req.http_method == katana::http::method::post)
-                        { return dispatch_create_pet(req, ctx, handler_, out); }
+                        { ctx.params.reset(); ctx.route_policy = &route_policies_[1]; auto policy_result = katana::http::apply_route_policy_executor(req, ctx, out); if (!policy_result) return std::unexpected(policy_result.error()); if (!*policy_result) return {}; auto dispatch_result = dispatch_create_pet(req, ctx, handler_, out); if (!dispatch_result) return dispatch_result; auto after_result = katana::http::apply_route_policy_after_dispatch(req, ctx, out); if (!after_result) return after_result; return {}; }
                 }
                 break;
             default:
                 break;
         }
 
-        // Fallback to standard router for:
-        // - Dynamic routes (with path parameters)
-        // - Hash collisions
-        // - Method mismatches
-        return fallback_router_.dispatch(req, ctx, out);
+        // Fallback to standard router for dynamic routes (path params), hash
+        // collisions, and method mismatches. Use dispatch_with_info +
+        // map_dispatch_error so a 405 keeps its Allow header (plain dispatch()
+        // drops the allowed-methods mask, violating RFC 7231).
+        auto fallback_info_ = fallback_router_.dispatch_with_info(req, ctx, out);
+        if (fallback_info_.has_error) {
+            katana::http::map_dispatch_error(fallback_info_, out);
+        }
+        return {};
     }
 
     katana::result<katana::http::response> operator()(
@@ -289,13 +372,14 @@ public:
 private:
     api_handler& handler_;
     const katana::http::router& fallback_router_;
+    std::span<const katana::http::route_policy_view> route_policies_;
 };
 
 // Create optimized router (recommended for production)
 class generated_fast_router {
 public:
     explicit generated_fast_router(api_handler& handler)
-        : router_bundle_(handler), fast_router_(handler, router_bundle_.router()) {}
+        : router_bundle_(handler), fast_router_(handler, router_bundle_.router(), router_bundle_.route_policies()) {}
 
     generated_fast_router(const generated_fast_router&) = delete;
     generated_fast_router& operator=(const generated_fast_router&) = delete;

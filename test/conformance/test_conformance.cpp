@@ -251,13 +251,15 @@ TEST_F(ConformanceTest, CreatePetRejectsUnsupportedMediaType) {
     EXPECT_EQ(handler.create_calls, 0);
 }
 
-TEST_F(ConformanceTest, CreatePetRejectsNonJsonRequestCodecBeforeHandler) {
+TEST_F(ConformanceTest, CreatePetRejectsMalformedNonJsonBodyBeforeHandler) {
+    // A declared binary codec (CBOR) is transcoded to JSON and fed to the generated parser
+    // (F11); a payload that doesn't decode is rejected before the handler runs.
     auto resp = run_request("POST",
                             "/pets",
                             {{"Accept", "application/json"}, {"Content-Type", "application/cbor"}},
                             "stub");
 
-    expect_problem(resp, 501, "codec for Content-Type is not implemented");
+    expect_problem(resp, 400, "malformed request body");
     EXPECT_EQ(handler.create_calls, 0);
 }
 

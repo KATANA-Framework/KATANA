@@ -17,15 +17,14 @@
 #pragma once
 
 #include "generated_dtos.hpp"
-#include "katana/core/format_validators.hpp"
 #include "katana/core/validation.hpp"
+#include "katana/core/format_validators.hpp"
 #include <algorithm>
-#include <cctype>
-#include <cmath>
 #include <optional>
-#include <regex>
-#include <string>
 #include <string_view>
+#include <string>
+#include <cmath>
+#include <cctype>
 #include <unordered_set>
 #include <vector>
 
@@ -36,21 +35,23 @@ using katana::validation_error_code;
 // Format Validators (from framework)
 // ============================================================
 
-using katana::format_validators::is_valid_datetime;
 using katana::format_validators::is_valid_email;
 using katana::format_validators::is_valid_uuid;
+using katana::format_validators::is_valid_datetime;
 
 // ============================================================
 // Validation Functions
 // ============================================================
 
+[[nodiscard]] inline std::optional<validation_error> validate_UserInput(const UserInput&);
+
+// validate UserInput — object, 3 field(s)  ← test_api.yaml:52
 [[nodiscard]] inline std::optional<validation_error> validate_UserInput(const UserInput& obj) {
     if (obj.name.empty()) {
         return validation_error{"name", validation_error_code::required_field_missing};
     }
-    if (!obj.name.empty() && obj.name.size() < UserInput::metadata::NAME_MIN_LENGTH) {
-        return validation_error{
-            "name", validation_error_code::string_too_short, UserInput::metadata::NAME_MIN_LENGTH};
+    if (!obj.name.empty() && katana::utf8_length(obj.name) < UserInput::field_constraints::NAME_MIN_LENGTH) {
+        return validation_error{"name", validation_error_code::string_too_short, UserInput::field_constraints::NAME_MIN_LENGTH};
     }
     if (obj.email.empty()) {
         return validation_error{"email", validation_error_code::required_field_missing};
@@ -58,9 +59,9 @@ using katana::format_validators::is_valid_uuid;
     if (!obj.email.empty() && !is_valid_email(obj.email)) {
         return validation_error{"email", validation_error_code::invalid_email_format};
     }
-    if (static_cast<double>(obj.age) < UserInput::metadata::AGE_MINIMUM) {
-        return validation_error{
-            "age", validation_error_code::value_too_small, UserInput::metadata::AGE_MINIMUM};
+    if (obj.age && static_cast<double>((*obj.age)) < UserInput::field_constraints::AGE_MINIMUM) {
+        return validation_error{"age", validation_error_code::value_too_small, UserInput::field_constraints::AGE_MINIMUM};
     }
     return std::nullopt;
 }
+

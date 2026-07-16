@@ -31,15 +31,11 @@ using katana::monotonic_arena;
 // ============================================================
 
 [[nodiscard]] inline std::optional<RegisterUserRequest> parse_RegisterUserRequest(std::string_view json, monotonic_arena* arena);
-[[nodiscard]] inline std::optional<register_user_response> parse_register_user_response(std::string_view json, monotonic_arena* arena);
 
 [[nodiscard]] inline std::optional<RegisterUserRequest> parse_RegisterUserRequest(katana::serde::json_cursor& cur, monotonic_arena* arena);
-[[nodiscard]] inline std::optional<register_user_response> parse_register_user_response(katana::serde::json_cursor& cur, monotonic_arena* arena);
 
-inline void serialize_RegisterUserRequest_into(const RegisterUserRequest& obj, std::string& out);
 inline void serialize_register_user_response_into(const register_user_response& obj, std::string& out);
 
-inline std::string serialize_RegisterUserRequest(const RegisterUserRequest& obj);
 inline std::string serialize_register_user_response(const register_user_response& obj);
 
 // ============================================================
@@ -95,69 +91,9 @@ inline std::string serialize_register_user_response(const register_user_response
     return result;
 }
 
-// parse register_user_response — string  ← api.yaml:21
-[[nodiscard]] inline std::optional<register_user_response> parse_register_user_response(katana::serde::json_cursor& cur, monotonic_arena* arena) {
-    if (auto v = cur.string()) {
-        return register_user_response{katana::serde::decode_json_string<arena_string<>>(*v, arena_allocator<char>(arena))};
-    }
-    return std::nullopt;
-}
-
-[[nodiscard]] inline std::optional<register_user_response> parse_register_user_response(std::string_view json, monotonic_arena* arena) {
-    katana::serde::json_cursor cur{json.data(), json.data() + json.size()};
-    auto result = parse_register_user_response(cur, arena);
-    if (!result) return std::nullopt;
-    cur.skip_ws();
-    if (!cur.eof()) return std::nullopt;
-    return result;
-}
-
 // ============================================================
 // JSON Serialize Functions
 // ============================================================
-
-// serialize RegisterUserRequest — object, 3 field(s)  ← api.yaml:25
-inline void serialize_RegisterUserRequest_into(const RegisterUserRequest& obj, std::string& json) {
-    json.push_back('{');
-    bool first_field_ = true;
-    if (!first_field_) json.push_back(',');
-    first_field_ = false;
-    json.append("\"email\":");
-    json.push_back('"');
-    katana::serde::escape_json_string_into(obj.email, json);
-    json.push_back('"');
-    if (!first_field_) json.push_back(',');
-    first_field_ = false;
-    json.append("\"password\":");
-    json.push_back('"');
-    katana::serde::escape_json_string_into(obj.password, json);
-    json.push_back('"');
-    if (obj.age) {
-    if (!first_field_) json.push_back(',');
-    first_field_ = false;
-    json.append("\"age\":");
-    {
-        if (!obj.age) {
-            json.append("null");
-        } else {
-            char buf[32];
-            auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *obj.age);
-            json.append(buf, static_cast<size_t>(ptr - buf));
-        }
-    }
-    }
-    json.push_back('}');
-}
-
-inline std::string serialize_RegisterUserRequest(const RegisterUserRequest& obj) {
-    std::string json;
-    size_t reserve_estimate = 114;
-    reserve_estimate += obj.email.size();
-    reserve_estimate += obj.password.size();
-    json.reserve(reserve_estimate);
-    serialize_RegisterUserRequest_into(obj, json);
-    return json;
-}
 
 // serialize register_user_response — string  ← api.yaml:21
 inline void serialize_register_user_response_into(const register_user_response& obj, std::string& json) {

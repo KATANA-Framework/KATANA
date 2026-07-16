@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace katana::sql::generated {
+namespace generated {
 
 struct CreateNoteRow {
     std::optional<int64_t> id;
@@ -33,4 +33,4 @@ struct ListNotesRow {
     std::optional<std::string> created_at;
 };
 
-} // namespace katana::sql::generated
+} // namespace generated

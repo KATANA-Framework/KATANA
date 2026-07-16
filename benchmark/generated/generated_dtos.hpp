@@ -21,9 +21,9 @@ using katana::arena_string;
 using katana::arena_vector;
 using katana::monotonic_arena;
 
-#include <cctype>
 #include <optional>
 #include <string_view>
+#include <cctype>
 
 #include <variant>
 
@@ -35,10 +35,11 @@ using katana::monotonic_arena;
 // Data Transfer Objects (DTOs)
 // ============================================================
 
+// UserInput — object, 3 field(s)  ← test_api.yaml:52
 /// Data type with 3 fields
 struct UserInput {
     // Compile-time metadata for validation
-    struct metadata {
+    struct field_constraints {
         static constexpr bool NAME_REQUIRED = true;
         static constexpr size_t NAME_MIN_LENGTH = 1;
         static constexpr bool EMAIL_REQUIRED = true;
@@ -46,24 +47,28 @@ struct UserInput {
         static constexpr double AGE_MINIMUM = 0;
     };
 
+
     explicit UserInput(monotonic_arena* arena = nullptr)
-        : arena_(arena), name(arena_allocator<char>(arena)), email(arena_allocator<char>(arena)) {}
+        : arena_(arena),
+          name(arena_allocator<char>(arena)),
+          email(arena_allocator<char>(arena)) {}
 
     monotonic_arena* arena_;
     arena_string<> name;
     arena_string<> email;
     /// Optional field
-    int64_t age = {};
+    std::optional<int64_t> age;
 };
 
+// UserInput_Name_t — string, field UserInput.name  ← test_api.yaml:58
 using UserInput_Name_t = arena_string<>;
 
+// UserInput_Email_t — string, field UserInput.email  ← test_api.yaml:61
 using UserInput_Email_t = arena_string<>;
 
+// UserInput_Age_t — integer, field UserInput.age  ← test_api.yaml:64
 using UserInput_Age_t = int64_t;
 
-using schema = std::monostate;
-
+// getUser_param_id — integer  ← test_api.yaml:33
 using getUser_param_id = int64_t;
 
-using schema_1 = std::monostate;
