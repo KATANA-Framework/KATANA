@@ -151,6 +151,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
     std::ostringstream out;
     out << "#pragma once\n\n";
     out << "#include \"generated_sql_models.hpp\"\n";
+    out << "#include \"katana/sql/gather.hpp\"\n";
     out << "#include \"katana/sql/runtime.hpp\"\n\n";
     out << "#include <optional>\n";
     out << "#include <string_view>\n";
@@ -330,6 +331,65 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         }
         out << "    }\n\n";
 
+        // `<name>_step(args...)` packages this query as a katana::sql::query_step so several queries
+        // can be fanned out with katana::sql::gather() over one pooled connection (pipelined on
+        // Postgres) instead of hand-nesting the *_async callbacks (F14). exec-mode has no rows to
+        // join, so it gets no step.
+        if (query.mode != sql_query_mode::exec) {
+            const std::string step_value = query.mode == sql_query_mode::one
+                                               ? "std::optional<" + row_type_name(query) + ">"
+                                               : "std::vector<" + row_type_name(query) + ">";
+            out << "    katana::sql::query_step<" << step_value << "> " << query.name << "_step(";
+            for (std::size_t i = 0; i < query.parameters.size(); ++i) {
+                if (i != 0) {
+                    out << ", ";
+                }
+                out << param_cpp_type(query.parameters[i]) << " "
+                    << param_identifier(query.parameters[i]);
+            }
+            out << ") const {\n";
+            out << "        katana::sql::parameters step_params;\n";
+            out << "        step_params.reserve(" << query.parameters.size() << ");\n";
+            for (const auto& parameter : query.parameters) {
+                out << "        step_params.push_back(katana::sql::encode_value("
+                    << param_identifier(parameter) << "));\n";
+            }
+            out << "        return katana::sql::query_step<" << step_value << ">{\"" << query.name
+                << "\", " << query.name << "_sql, std::move(step_params),\n";
+            out << "            [](katana::sql::rows rows_result) -> katana::result<" << step_value
+                << "> {\n";
+            if (query.mode == sql_query_mode::one) {
+                out << "                if (rows_result.size() > 1) {\n";
+                out << "                    return "
+                       "std::unexpected(std::make_error_code(std::errc::invalid_argument));\n";
+                out << "                }\n";
+                out << "                if (rows_result.empty()) {\n";
+                out << "                    return std::optional<" << row_type_name(query)
+                    << ">{};\n";
+                out << "                }\n";
+                out << "                auto mapped = map_" << query.name
+                    << "(rows_result.front());\n";
+                out << "                if (!mapped) {\n";
+                out << "                    return std::unexpected(mapped.error());\n";
+                out << "                }\n";
+                out << "                return std::optional<" << row_type_name(query)
+                    << ">(std::move(*mapped));\n";
+            } else {
+                out << "                std::vector<" << row_type_name(query) << "> out_rows;\n";
+                out << "                out_rows.reserve(rows_result.size());\n";
+                out << "                for (const auto& row : rows_result) {\n";
+                out << "                    auto mapped = map_" << query.name << "(row);\n";
+                out << "                    if (!mapped) {\n";
+                out << "                        return std::unexpected(mapped.error());\n";
+                out << "                    }\n";
+                out << "                    out_rows.push_back(std::move(*mapped));\n";
+                out << "                }\n";
+                out << "                return out_rows;\n";
+            }
+            out << "            }};\n";
+            out << "    }\n\n";
+        }
+
         // Named-args overloads — forward to the positional methods above (which stay the API of
         // record). Callers use `repo.query({.a = …, .b = …})` so same-type arguments can't swap.
         if (all_params_named(query)) {
@@ -354,6 +414,23 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             }
             out << "std::move(handler));\n";
             out << "    }\n\n";
+
+            if (query.mode != sql_query_mode::exec) {
+                const std::string step_value = query.mode == sql_query_mode::one
+                                                   ? "std::optional<" + row_type_name(query) + ">"
+                                                   : "std::vector<" + row_type_name(query) + ">";
+                out << "    katana::sql::query_step<" << step_value << "> " << query.name
+                    << "_step(const " << params_type << "& args) const {\n";
+                out << "        return " << query.name << "_step(";
+                for (std::size_t i = 0; i < query.parameters.size(); ++i) {
+                    if (i != 0) {
+                        out << ", ";
+                    }
+                    out << "args." << query.parameters[i].name;
+                }
+                out << ");\n";
+                out << "    }\n\n";
+            }
         }
     }
 
