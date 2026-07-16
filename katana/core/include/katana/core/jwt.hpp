@@ -49,6 +49,11 @@ public:
     // Parse a JWKS JSON document ({"keys":[{kty,kid,n,e,...}]}) into RSA/EC public keys.
     static result<jwks_set> parse(std::string_view jwks_json);
 
+    // Fetch a JWKS document from an http(s) URL and parse it. Convenience over the HTTP client +
+    // parse(); set verify_tls=false only for a self-signed dev endpoint. Re-fetch periodically to
+    // pick up key rotation.
+    static result<jwks_set> fetch(std::string_view url, bool verify_tls = true);
+
     [[nodiscard]] evp_pkey_st* find(std::string_view kid) const;
     [[nodiscard]] bool empty() const noexcept { return keys_.empty(); }
 

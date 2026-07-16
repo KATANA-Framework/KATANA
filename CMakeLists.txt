@@ -174,6 +174,7 @@ add_library(katana_core STATIC
     katana/core/src/syscall_metrics.cpp
     katana/core/src/io_buffer.cpp
     katana/core/src/arena.cpp
+    katana/core/src/http_client.cpp
     katana/core/src/problem.cpp
     katana/core/src/openapi_loader.cpp
     katana/core/src/redis_client.cpp

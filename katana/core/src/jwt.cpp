@@ -1,5 +1,6 @@
 #include "katana/core/jwt.hpp"
 
+#include "katana/core/http_client.hpp"
 #include "katana/core/serde.hpp"
 
 #include <openssl/bn.h>
@@ -472,6 +473,17 @@ result<std::string> sign_jwt_hs256(std::string_view payload_json, std::string_vi
     token.push_back('.');
     token += base64url_encode({mac, len});
     return token;
+}
+
+result<jwks_set> jwks_set::fetch(std::string_view url, bool verify_tls) {
+    auto resp = http::http_get(url, {.verify_tls = verify_tls});
+    if (!resp) {
+        return std::unexpected(resp.error());
+    }
+    if (resp->status != 200 || resp->body.empty()) {
+        return std::unexpected(make_error_code(error_code::openapi_parse_error));
+    }
+    return parse(resp->body);
 }
 
 } // namespace katana::auth
