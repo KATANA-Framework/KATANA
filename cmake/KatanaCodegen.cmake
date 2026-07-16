@@ -80,14 +80,19 @@ function(katana_add_openapi NAME)
     target_link_libraries(${NAME} INTERFACE katana::core)
 endfunction()
 
-# katana_add_typescript(<name> CONTRACT <spec.yaml> OUTPUT <dir> [INLINE_NAMING <operation|flat>])
+# katana_add_typescript(<name> CONTRACT <spec.yaml> OUTPUT <dir> [NAMESPACE <ns>]
+#                       [INLINE_NAMING <operation|flat>])
 #
 # Generates a TypeScript client (generated_client.ts) from an OpenAPI contract into OUTPUT, wiring
 # it as a build dependency of the given custom target name (${NAME}_ts). Unlike the C++ helpers it
 # does not produce a library — the .ts file is consumed by a separate frontend build.
+#
+# NAMESPACE prefixes the emitted client symbols (e.g. `console` -> `ConsoleApiClient`,
+# `createConsoleClient`) so several generated clients can coexist in one frontend without colliding
+# on `ApiClient`/`createClient`. Omit it for a single-contract app to keep the plain names.
 function(katana_add_typescript NAME)
     _katana_require_gen()
-    cmake_parse_arguments(ARG "" "CONTRACT;OUTPUT;INLINE_NAMING" "" ${ARGN})
+    cmake_parse_arguments(ARG "" "CONTRACT;OUTPUT;NAMESPACE;INLINE_NAMING" "" ${ARGN})
     if(NOT ARG_CONTRACT)
         message(FATAL_ERROR "katana_add_typescript(${NAME}): CONTRACT <spec.yaml> is required.")
     endif()
@@ -97,13 +102,17 @@ function(katana_add_typescript NAME)
     if(NOT ARG_INLINE_NAMING)
         set(ARG_INLINE_NAMING operation)
     endif()
+    set(ns_args "")
+    if(ARG_NAMESPACE)
+        set(ns_args --namespace ${ARG_NAMESPACE})
+    endif()
 
     file(MAKE_DIRECTORY "${ARG_OUTPUT}")
     set(client "${ARG_OUTPUT}/generated_client.ts")
     add_custom_command(
         OUTPUT "${client}"
         COMMAND $<TARGET_FILE:${KATANA_GEN_TARGET}> openapi -i "${ARG_CONTRACT}" -o "${ARG_OUTPUT}"
-                --emit typescript --inline-naming ${ARG_INLINE_NAMING}
+                --emit typescript --inline-naming ${ARG_INLINE_NAMING} ${ns_args}
         DEPENDS ${KATANA_GEN_TARGET} "${ARG_CONTRACT}"
         COMMENT "katana_gen typescript: ${NAME}"
         VERBATIM)

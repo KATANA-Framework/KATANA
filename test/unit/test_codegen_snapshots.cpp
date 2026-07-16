@@ -197,6 +197,18 @@ components:
     EXPECT_NE(ts.find("query?: { limit?: number }"), std::string::npos);
     // TS-only run must not drop a C++ package header alongside it.
     EXPECT_FALSE(fs::exists(temp_dir / "generated_openapi_package.hpp"));
+
+    // --namespace prefixes the client symbols so multiple contracts can coexist in one frontend
+    // without colliding on `ApiClient`/`createClient` (DX-17).
+    ASSERT_TRUE(run_codegen("ts.yaml", "--emit typescript --namespace console"));
+    auto ns_ts = read_file(temp_dir / "generated_client.ts");
+    ASSERT_FALSE(ns_ts.empty());
+    EXPECT_NE(ns_ts.find("export class ConsoleApiClient"), std::string::npos);
+    EXPECT_NE(ns_ts.find("export function createConsoleClient"), std::string::npos);
+    EXPECT_NE(ns_ts.find("export class ConsoleApiError"), std::string::npos);
+    // The unprefixed names must be gone — otherwise a second client would still collide.
+    EXPECT_EQ(ns_ts.find("export class ApiClient"), std::string::npos);
+    EXPECT_EQ(ns_ts.find("export function createClient"), std::string::npos);
 }
 
 TEST_F(CodegenSnapshotTest, StrictModeRejectsUnknownConstructs) {

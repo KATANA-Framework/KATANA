@@ -152,8 +152,43 @@ void emit_types(std::ostream& out, const document& doc) {
     }
 }
 
+// PascalCase a contract namespace ("console", "billing_api" -> "Console", "BillingApi") so multiple
+// generated clients in one TS project get distinct symbol names instead of all colliding on
+// `ApiClient` (DX-17). Empty ns -> empty prefix, preserving the historical unprefixed names.
+std::string pascal_ns(std::string_view ns) {
+    std::string out;
+    bool upper = true;
+    for (char c : ns) {
+        if (std::isalnum(static_cast<unsigned char>(c))) {
+            out.push_back(upper ? static_cast<char>(std::toupper(static_cast<unsigned char>(c))) : c);
+            upper = false;
+        } else {
+            upper = true; // word boundary: capitalize the next letter
+        }
+    }
+    return out;
+}
+
+// The client's public symbol names, prefixed per contract namespace (see pascal_ns / DX-17).
+struct client_names {
+    std::string client;       // e.g. ApiClient / ConsoleApiClient
+    std::string client_opts;  // ApiClientOptions
+    std::string error;        // ApiError
+    std::string req_opts;     // RequestOptions
+    std::string create_opts;  // CreateClientOptions
+    std::string create_fn;    // createClient / createConsoleClient
+};
+
+client_names make_client_names(std::string_view ns) {
+    const std::string p = pascal_ns(ns);
+    return {p + "ApiClient", p + "ApiClientOptions", p + "ApiError",
+            p + "RequestOptions", p + "CreateClientOptions",
+            p.empty() ? "createClient" : "create" + p + "Client"};
+}
+
 // Emit one typed async method per operation on the ApiClient class.
-void emit_method(std::ostream& out, const document& doc, std::string_view path, const operation& op) {
+void emit_method(std::ostream& out, const document& doc, std::string_view path, const operation& op,
+                 std::string_view req_opts) {
     std::string op_id = op.operation_id.empty()
                             ? sanitize_identifier(std::string(http_verb(op.method)) + "_" +
                                                   std::string(path))
@@ -212,7 +247,7 @@ void emit_method(std::ostream& out, const document& doc, std::string_view path, 
         sig << " }";
     }
     comma();
-    sig << "opts?: RequestOptions";
+    sig << "opts?: " << req_opts;
 
     // Path template with {param} → ${encodeURIComponent(String(param))}.
     std::string tmpl(path);
@@ -237,7 +272,8 @@ void emit_method(std::ostream& out, const document& doc, std::string_view path, 
 
 } // namespace
 
-std::string generate_typescript_client(const document& doc, const std::string& /*ns*/) {
+std::string generate_typescript_client(const document& doc, const std::string& ns) {
+    const client_names n = make_client_names(ns);
     std::ostringstream out;
     out << "// Auto-generated TypeScript client from OpenAPI specification. Do not edit by hand.\n";
     out << "//\n// Regenerate with: katana_gen openapi -i <spec> --emit typescript -o <dir>\n\n";
@@ -248,11 +284,11 @@ std::string generate_typescript_client(const document& doc, const std::string& /
     out << "// ============================================================\n";
     out << "// Client\n";
     out << "// ============================================================\n\n";
-    out << "export interface RequestOptions {\n";
+    out << "export interface " << n.req_opts << " {\n";
     out << "  signal?: AbortSignal;\n";
     out << "  headers?: Record<string, string>;\n";
     out << "}\n\n";
-    out << "export interface ApiClientOptions {\n";
+    out << "export interface " << n.client_opts << " {\n";
     out << "  /** Base URL of the API, e.g. \"http://localhost:8080\". */\n";
     out << "  baseUrl?: string;\n";
     out << "  /** Custom fetch implementation (defaults to the global fetch). */\n";
@@ -260,18 +296,18 @@ std::string generate_typescript_client(const document& doc, const std::string& /
     out << "  /** Static headers or a provider called per request (e.g. for auth tokens). */\n";
     out << "  headers?: Record<string, string> | (() => Record<string, string>);\n";
     out << "}\n\n";
-    out << "export class ApiError extends Error {\n";
+    out << "export class " << n.error << " extends Error {\n";
     out << "  constructor(public readonly status: number, public readonly body: string) {\n";
     out << "    super(`HTTP ${status}`);\n";
-    out << "    this.name = \"ApiError\";\n";
+    out << "    this.name = \"" << n.error << "\";\n";
     out << "  }\n";
     out << "}\n\n";
 
-    out << "export class ApiClient {\n";
+    out << "export class " << n.client << " {\n";
     out << "  private readonly baseUrl: string;\n";
     out << "  private readonly fetchFn: typeof fetch;\n";
     out << "  private readonly headers: Record<string, string> | (() => Record<string, string>);\n\n";
-    out << "  constructor(options: ApiClientOptions = {}) {\n";
+    out << "  constructor(options: " << n.client_opts << " = {}) {\n";
     out << "    this.baseUrl = (options.baseUrl ?? \"\").replace(/\\/$/, \"\");\n";
     // Bind to globalThis: a bare `fetch` called as `this.fetchFn(...)` would rebind `this` to the
     // client and throw \"Illegal invocation\" in the browser.
@@ -284,7 +320,7 @@ std::string generate_typescript_client(const document& doc, const std::string& /
     out << "    path: string,\n";
     out << "    query: Record<string, unknown> | undefined,\n";
     out << "    body: unknown,\n";
-    out << "    opts: RequestOptions | undefined,\n";
+    out << "    opts: " << n.req_opts << " | undefined,\n";
     out << "  ): Promise<T> {\n";
     out << "    let url = this.baseUrl + path;\n";
     out << "    if (query) {\n";
@@ -303,7 +339,7 @@ std::string generate_typescript_client(const document& doc, const std::string& /
     out << "      payload = JSON.stringify(body);\n";
     out << "    }\n";
     out << "    const res = await this.fetchFn(url, { method, headers, body: payload, signal: opts?.signal });\n";
-    out << "    if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => \"\"));\n";
+    out << "    if (!res.ok) throw new " << n.error << "(res.status, await res.text().catch(() => \"\"));\n";
     out << "    if (res.status === 204) return undefined as T;\n";
     out << "    const text = await res.text();\n";
     out << "    return (text ? JSON.parse(text) : undefined) as T;\n";
@@ -311,7 +347,7 @@ std::string generate_typescript_client(const document& doc, const std::string& /
 
     for (const auto& path : doc.paths) {
         for (const auto& op : path.operations) {
-            emit_method(out, doc, std::string(path.path.begin(), path.path.end()), op);
+            emit_method(out, doc, std::string(path.path.begin(), path.path.end()), op, n.req_opts);
         }
     }
 
@@ -319,18 +355,19 @@ std::string generate_typescript_client(const document& doc, const std::string& /
 
     // Auth-aware factory: fold a getToken() into the per-request `headers` provider so callers get a
     // ready-to-use client without hand-writing the Authorization header.
-    out << "export interface CreateClientOptions extends ApiClientOptions {\n";
+    out << "export interface " << n.create_opts << " extends " << n.client_opts << " {\n";
     out << "  /** Returns the current bearer token; injected as `Authorization: Bearer <token>`. */\n";
     out << "  getToken?: () => string | null | undefined;\n";
     out << "}\n\n";
-    out << "export function createClient(options: CreateClientOptions = {}): ApiClient {\n";
+    out << "export function " << n.create_fn << "(options: " << n.create_opts << " = {}): " << n.client
+        << " {\n";
     out << "  const { getToken, headers, ...rest } = options;\n";
     out << "  const provider = (): Record<string, string> => {\n";
     out << "    const base = typeof headers === \"function\" ? headers() : (headers ?? {});\n";
     out << "    const token = getToken?.();\n";
     out << "    return token ? { ...base, Authorization: `Bearer ${token}` } : { ...base };\n";
     out << "  };\n";
-    out << "  return new ApiClient({ ...rest, headers: provider });\n";
+    out << "  return new " << n.client << "({ ...rest, headers: provider });\n";
     out << "}\n";
     return out.str();
 }
