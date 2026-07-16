@@ -22,13 +22,32 @@ die() { echo -e "\033[31m✗ $*${c_0}" >&2; exit 1; }
 
 need() { command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not found. $2"; }
 
+# Single source of truth (DX-19): one $SVC/.env feeds docker-compose, the backend process, AND the
+# frontend, so the host port / DSN can't drift from what compose actually publishes. Compose reads it
+# via --env-file (ENV_FILE below); the backend inherits it as exported env; the frontend gets an
+# API base derived from the same API_PORT. Missing .env → built-in defaults, unchanged behaviour.
+ENV_FILE="$SVC/.env"
+if [ -f "$ENV_FILE" ]; then
+  set -a; . "$ENV_FILE"; set +a
+fi
+API_PORT="${API_PORT:-${PORT:-8080}}"
+WEB_PORT="${WEB_PORT:-3000}"
+PG_USER="${PG_USER:-katana}"
+PG_DB="${PG_DB:-katana}"
+
 compose() {
   if docker compose version >/dev/null 2>&1; then docker compose "$@";
   elif command -v docker-compose >/dev/null 2>&1; then docker-compose "$@";
   else die "docker compose not found. Install Docker."; fi
 }
 
-dc() { compose -f "$SVC/docker-compose.yml" -p "$(basename "$SVC")" "$@"; }
+# Thread the shared .env into compose so the containers publish exactly the ports/creds the host uses.
+dc() {
+  local env_arg=()
+  [ -f "$ENV_FILE" ] && env_arg=(--env-file "$ENV_FILE")
+  compose --project-directory "$SVC" "${env_arg[@]}" -f "$SVC/docker-compose.yml" \
+    -p "$(basename "$SVC")" "$@"
+}
 
 deps_up() {
   need docker "Install Docker to run the dependencies."
@@ -36,7 +55,7 @@ deps_up() {
   dc up -d
   say "waiting for Postgres to be ready…"
   for _ in $(seq 1 30); do
-    if dc exec -T postgres pg_isready -U katana -d katana >/dev/null 2>&1; then
+    if dc exec -T postgres pg_isready -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1; then
       say "dependencies ready"; return 0
     fi
     sleep 1
@@ -80,16 +99,22 @@ dev() {
   }
   trap cleanup EXIT INT TERM
 
-  say "starting backend on :8080  ${c_d}(logs prefixed [api])${c_0}"
+  # Frontend talks to the backend at the SAME API_PORT the backend binds — both from .env.
+  local api_base="${API_BASE_URL:-http://localhost:$API_PORT}"
+
+  # The backend inherits the exported .env (its own PREFIX_* keys — e.g. VIGIL_PORT / VIGIL_DATABASE_URL
+  # — plus the compose creds), so it connects to exactly the deps compose just published.
+  say "starting backend on :$API_PORT  ${c_d}(logs prefixed [api])${c_0}"
   ( "$bin" 2>&1 | sed "s/^/$(printf '\033[36m[api]\033[0m') /" ) &
   pids+=($!)
 
-  say "starting frontend on :3000  ${c_d}(logs prefixed [web])${c_0}"
-  ( cd "$SVC/web" && npm run dev 2>&1 | sed "s/^/$(printf '\033[35m[web]\033[0m') /" ) &
+  say "starting frontend on :$WEB_PORT  ${c_d}(logs prefixed [web])${c_0}"
+  ( cd "$SVC/web" && PORT="$WEB_PORT" NEXT_PUBLIC_API_BASE_URL="$api_base" \
+      npm run dev 2>&1 | sed "s/^/$(printf '\033[35m[web]\033[0m') /" ) &
   pids+=($!)
 
   echo
-  say "up: ${c_d}api${c_0} http://localhost:8080  ·  ${c_d}web${c_0} http://localhost:3000  ·  Ctrl-C to stop"
+  say "up: ${c_d}api${c_0} $api_base  ·  ${c_d}web${c_0} http://localhost:$WEB_PORT  ·  Ctrl-C to stop"
   wait
 }
 
