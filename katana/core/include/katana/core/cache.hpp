@@ -47,9 +47,18 @@ public:
             return route_policy_resolution::continue_request;
         }
 
-        auto snapshot =
-            store_.lookup(ctx.route_policy, options_.key_extractor(req, ctx), clock::now());
+        const std::string key = options_.key_extractor(req, ctx);
+        auto snapshot = store_.lookup(ctx.route_policy, key, clock::now());
         if (!snapshot.has_value()) {
+            // MISS: register a completion hook so that if the handler DEFERS (async), the real body
+            // is cached when it completes — the piece that lets a route be both cached and async.
+            // (For a synchronous handler this hook is never invoked; after_dispatch stores instead.)
+            const route_policy_view* policy = ctx.route_policy;
+            ctx.on_response_complete = [this, key, ttl = *ttl, policy](const response& completed) {
+                if (is_cacheable_response(completed)) {
+                    store_.store(policy, key, snapshot_response(completed), ttl, clock::now());
+                }
+            };
             return route_policy_resolution::continue_request;
         }
 
@@ -64,15 +73,10 @@ public:
             return {};
         }
 
-        // A deferred/async response is not populated yet at after_dispatch time — it completes later,
-        // off the policy path — so caching `out` here would store an empty body (and serve it on the
-        // next HIT). Skip the store and warn once: a route can be cached OR async, not both.
+        // A deferred/async response is not populated yet here — it completes later, off the policy
+        // path. It is cached by the on_response_complete hook registered in before_dispatch, so a
+        // route can now be both cached AND async. Nothing to store synchronously.
         if (ctx.is_response_deferred()) {
-            static std::atomic<bool> warned{false};
-            if (!warned.exchange(true, std::memory_order_relaxed)) {
-                katana::log::warn("cache_skipped_deferred_response")
-                    .field("hint", "x-katana-cache has no effect on an async/deferred handler");
-            }
             return {};
         }
 

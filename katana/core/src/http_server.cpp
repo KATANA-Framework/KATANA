@@ -32,6 +32,8 @@ struct deferred_response_state {
     reactor* owner_reactor = nullptr;
     std::weak_ptr<void> connection;
     std::atomic<bool> resolved{false};
+    // Run with the FINAL response when it completes (e.g. the response cache stores the real body).
+    http::request_context::response_complete_fn on_complete{};
 };
 
 struct deferred_response_delivery {
@@ -233,7 +235,8 @@ void server::prepare_active_response(connection_state& state, response& resp) {
     prepare_response_storage(state.active_response, state.active_response_body, resp);
 }
 
-deferred_response_handle server::make_deferred_response_handle(void* user) {
+deferred_response_handle server::make_deferred_response_handle(
+    void* user, http::request_context::response_complete_fn on_complete) {
     auto* state = static_cast<connection_state*>(user);
     if (state == nullptr || state->owner_server == nullptr || state->owner_reactor == nullptr) {
         return {};
@@ -243,6 +246,7 @@ deferred_response_handle server::make_deferred_response_handle(void* user) {
     deferred_state->owner = state->owner_server;
     deferred_state->owner_reactor = state->owner_reactor;
     deferred_state->connection = state->shared_from_this();
+    deferred_state->on_complete = std::move(on_complete);
     return deferred_response_handle(std::move(deferred_state),
                                     &server::complete_deferred_response_opaque,
                                     &server::cancel_deferred_response_opaque);
@@ -253,6 +257,11 @@ bool server::complete_deferred_response_opaque(std::shared_ptr<void> opaque_stat
     if (!try_resolve_deferred_response(state) || state->owner == nullptr ||
         state->owner_reactor == nullptr) {
         return false;
+    }
+
+    // Run the completion hook (e.g. cache the real body) with the final response, before delivery.
+    if (state->on_complete) {
+        state->on_complete(resp);
     }
 
     auto delivery = std::make_shared<deferred_response_delivery>();

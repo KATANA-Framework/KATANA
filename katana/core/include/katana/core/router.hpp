@@ -4,6 +4,8 @@
 #include "function_ref.hpp"
 #include "http.hpp"
 #include "inplace_function.hpp"
+
+#include <functional>
 #include "log.hpp"
 #include "principal.hpp"
 #include "problem.hpp"
@@ -375,7 +377,8 @@ private:
 struct request_context {
     using scheduled_task = inplace_function<void(), 128>;
     using schedule_task_fn = bool (*)(void*, scheduled_task);
-    using make_deferred_response_fn = deferred_response_handle (*)(void*);
+    using response_complete_fn = std::function<void(const response&)>;
+    using make_deferred_response_fn = deferred_response_handle (*)(void*, response_complete_fn);
 
     monotonic_arena& arena;
     path_params params{};
@@ -403,6 +406,10 @@ struct request_context {
     void* deferred_response_user = nullptr;
     make_deferred_response_fn deferred_response_factory = nullptr;
     bool response_deferred = false;
+    // Optional hook run with the FINAL response when a deferred/async response completes. A route
+    // policy (e.g. the response cache) sets this in before_dispatch so it can act on the real body
+    // that only exists after completion — the piece that makes a route both cached AND async.
+    response_complete_fn on_response_complete{};
 
     [[nodiscard]] bool can_schedule() const noexcept { return task_scheduler != nullptr; }
     [[nodiscard]] bool can_apply_route_policy() const noexcept {
@@ -444,7 +451,7 @@ struct request_context {
         }
 
         response_deferred = true;
-        return deferred_response_factory(deferred_response_user);
+        return deferred_response_factory(deferred_response_user, on_response_complete);
     }
 
     shared_deferred_response_handle share_deferred_response() {
