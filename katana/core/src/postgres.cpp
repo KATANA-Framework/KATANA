@@ -50,6 +50,15 @@ struct async_request {
     // Only for kind::pipeline: the batch and its single completion handler.
     std::vector<pipeline_item> batch;
     async_pipeline_handler pipeline_handler;
+    // Single-query requests coalesced into this pipeline batch (results fan out to one
+    // query_handler per item, in batch order). Empty for a caller-built gather() batch.
+    std::vector<async_request> coalesced;
+    // True when every batch item must run in its own implicit transaction (one PQpipelineSync
+    // per item). Set for coalesced independent queries; gather() batches keep the single sync.
+    bool sync_per_item = false;
+    // Monotonic id assigned at submission so a failed cross-thread wakeup can surgically
+    // remove exactly this request from the queue.
+    uint64_t submit_id = 0;
 };
 
 // A command we expect to read back from the pipeline, in send order: either a one-off PREPARE for an
@@ -82,6 +91,9 @@ struct reactor_async_state : std::enable_shared_from_this<reactor_async_state> {
     std::vector<katana::result<rows>> pipeline_results;
     std::vector<pipeline_expected> pipeline_plan;
     std::size_t pipeline_pos = 0;
+    // Number of PGRES_PIPELINE_SYNC markers still expected before the batch is complete
+    // (1 for gather() batches, batch-size for coalesced per-item-transaction batches).
+    std::size_t pipeline_syncs_pending = 0;
 };
 
 void maybe_debug_log(std::string_view message) {
@@ -448,6 +460,7 @@ void close_reactor_async_connection(reactor_async_state& state) {
     state.pipeline_results.clear();
     state.pipeline_plan.clear();
     state.pipeline_pos = 0;
+    state.pipeline_syncs_pending = 0;
     if (state.connection != nullptr) {
         PQfinish(state.connection);
         state.connection = nullptr;
@@ -634,14 +647,33 @@ bool start_reactor_pipeline_locked(reactor_async_state& state) {
         return false;
     };
 
+    const bool sync_per_item = state.active_request->sync_per_item;
+    state.pipeline_syncs_pending = 0;
+
+    // Statements whose PQsendPrepare is already in flight within THIS batch: the shared
+    // prepared_statements set is only updated once results are read, so a batch that
+    // repeats one statement (typical for coalesced hot queries) must not re-prepare it.
+    prepared_statement_set prepare_in_flight;
+
     for (std::size_t i = 0; i < batch.size(); ++i) {
         const auto& item = batch[i];
-        if (state.prepared_statements.find(item.statement_name) == state.prepared_statements.end()) {
+        if (state.prepared_statements.find(item.statement_name) ==
+                state.prepared_statements.end() &&
+            prepare_in_flight.insert(item.statement_name).second) {
             if (PQsendPrepare(state.connection, item.statement_name.c_str(), item.sql.c_str(), 0,
                               nullptr) == 0) {
                 return abort_pipeline(nullptr);
             }
             state.pipeline_plan.push_back({.item = i, .is_prepare = true});
+            // In per-item-transaction mode the PREPARE gets its own sync segment: a Parse
+            // that shares a segment with a failing query would be rolled back with it,
+            // leaving the client-side prepared set out of sync with the server forever.
+            if (sync_per_item) {
+                if (PQpipelineSync(state.connection) == 0) {
+                    return abort_pipeline(nullptr);
+                }
+                ++state.pipeline_syncs_pending;
+            }
         }
         auto values = build_param_values(item.params);
         if (PQsendQueryPrepared(state.connection, item.statement_name.c_str(), values.count(),
@@ -649,10 +681,22 @@ bool start_reactor_pipeline_locked(reactor_async_state& state) {
             return abort_pipeline(nullptr);
         }
         state.pipeline_plan.push_back({.item = i, .is_prepare = false});
+
+        // One Sync per item keeps every coalesced statement in its own implicit
+        // transaction (an error in one item must not abort its unrelated neighbours).
+        if (sync_per_item) {
+            if (PQpipelineSync(state.connection) == 0) {
+                return abort_pipeline(nullptr);
+            }
+            ++state.pipeline_syncs_pending;
+        }
     }
 
-    if (PQpipelineSync(state.connection) == 0) {
-        return abort_pipeline(nullptr);
+    if (!sync_per_item) {
+        if (PQpipelineSync(state.connection) == 0) {
+            return abort_pipeline(nullptr);
+        }
+        state.pipeline_syncs_pending = 1;
     }
 
     state.current_phase = reactor_async_state::phase::pipelining;
@@ -718,7 +762,13 @@ reactor_command_poll_result poll_pipeline_phase_locked(reactor_async_state& stat
         const auto status = PQresultStatus(result);
         if (status == PGRES_PIPELINE_SYNC) {
             PQclear(result);
-            return {.state = reactor_command_poll_result::status::ready};
+            if (state.pipeline_syncs_pending > 0) {
+                --state.pipeline_syncs_pending;
+            }
+            if (state.pipeline_syncs_pending == 0) {
+                return {.state = reactor_command_poll_result::status::ready};
+            }
+            continue; // per-item sync marker; more batch items follow
         }
         if (state.pipeline_pos >= state.pipeline_plan.size()) {
             PQclear(result); // defensive: unexpected result before sync
@@ -855,6 +905,33 @@ bool start_reactor_request_locked(reactor_async_state& state) {
 
     state.active_request = std::move(state.queue.front());
     state.queue.pop_front();
+
+    // Coalesce a run of queued single-query requests into one libpq pipeline batch: they
+    // reach the server in a single write and overlap server-side instead of paying a full
+    // client round-trip each. Every coalesced item still runs in its own implicit
+    // transaction (sync_per_item), so independent statements keep independent semantics.
+    constexpr std::size_t max_coalesced_queries = 16;
+    if (state.active_request->operation == async_request::kind::query && !state.queue.empty() &&
+        state.queue.front().operation == async_request::kind::query) {
+        async_request combined;
+        combined.operation = async_request::kind::pipeline;
+        combined.sync_per_item = true;
+        combined.coalesced.push_back(std::move(*state.active_request));
+        while (!state.queue.empty() &&
+               state.queue.front().operation == async_request::kind::query &&
+               combined.coalesced.size() < max_coalesced_queries) {
+            combined.coalesced.push_back(std::move(state.queue.front()));
+            state.queue.pop_front();
+        }
+        combined.batch.reserve(combined.coalesced.size());
+        for (auto& original : combined.coalesced) {
+            combined.batch.push_back(pipeline_item{.statement_name = original.statement_name,
+                                                   .sql = original.sql,
+                                                   .params = std::move(original.params)});
+        }
+        state.active_request = std::move(combined);
+    }
+
     state.current_phase = reactor_async_state::phase::idle;
     state.flush_pending = false;
     return true;
@@ -1061,6 +1138,17 @@ std::optional<reactor_request_completion> poll_reactor_request_locked(reactor_as
 
 void invoke_reactor_completion(reactor_request_completion completion) {
     if (completion.request.operation == async_request::kind::pipeline) {
+        if (!completion.request.coalesced.empty()) {
+            // Fan the batch results back out to the coalesced single-query requests.
+            auto& results = completion.pipeline_results;
+            for (std::size_t i = 0; i < completion.request.coalesced.size(); ++i) {
+                auto item_result = i < results.size()
+                                       ? std::move(results[i])
+                                       : katana::result<rows>(std::unexpected(sql_error()));
+                completion.request.coalesced[i].query_handler(std::move(item_result));
+            }
+            return;
+        }
         completion.request.pipeline_handler(std::move(completion.pipeline_results));
         return;
     }
@@ -1150,6 +1238,12 @@ struct postgres_executor::impl {
                                       async_request request,
                                       std::string_view connection_string,
                                       reactor& owner_reactor) {
+        static std::atomic<uint64_t> next_submit_id{1};
+        const uint64_t submit_id = next_submit_id.fetch_add(1, std::memory_order_relaxed);
+        request.submit_id = submit_id;
+
+        bool cross_thread = false;
+        reactor* driver = nullptr;
         {
             std::lock_guard<std::mutex> lock(state->mutex);
             if (state->stopping) {
@@ -1159,8 +1253,13 @@ struct postgres_executor::impl {
                 state->owner_reactor = &owner_reactor;
                 state->owner_thread_id = std::this_thread::get_id();
                 state->connection_string = std::string(connection_string);
-            } else if (state->owner_reactor != &owner_reactor) {
-                return false;
+            } else if (state->owner_reactor != &owner_reactor ||
+                       state->owner_thread_id != std::this_thread::get_id()) {
+                // The connection is owned by another reactor/thread. The queue itself is
+                // mutex-protected, so accept the request and wake the owner to drive it
+                // (rejecting here used to push callers onto the blocking fallback path).
+                cross_thread = true;
+                driver = state->owner_reactor;
             }
 
             const std::size_t pending_count =
@@ -1171,7 +1270,25 @@ struct postgres_executor::impl {
             state->queue.push_back(std::move(request));
         }
 
-        drive_reactor_async_queue(state);
+        if (!cross_thread) {
+            drive_reactor_async_queue(state);
+            return true;
+        }
+
+        if (driver->schedule([state]() { drive_reactor_async_queue(state); })) {
+            return true;
+        }
+
+        // Wakeup failed (reactor task queue full): surgically remove our request so the
+        // caller can fall back. If the owner already consumed it, it will execute — report
+        // success so the caller does not run the statement twice.
+        std::lock_guard<std::mutex> lock(state->mutex);
+        for (auto it = state->queue.begin(); it != state->queue.end(); ++it) {
+            if (it->submit_id == submit_id) {
+                state->queue.erase(it);
+                return false;
+            }
+        }
         return true;
     }
 
@@ -1275,7 +1392,27 @@ struct postgres_executor::impl {
 
     PGconn* connection = nullptr;
     async_state async;
-    std::shared_ptr<reactor_async_state> reactor_async = std::make_shared<reactor_async_state>();
+
+    // Several reactor-owned connections per executor, used round-robin. Commits are
+    // fsync-bound and a single PostgreSQL backend flushes them serially, so spreading
+    // independent requests over a few backends lets the WAL group-commit machinery
+    // overlap them (and read queries gain server-side parallelism for free). Connections
+    // are established lazily on first use.
+    static constexpr std::size_t reactor_async_connection_count = 4;
+    std::array<std::shared_ptr<reactor_async_state>, reactor_async_connection_count>
+        reactor_async_states = [] {
+            std::array<std::shared_ptr<reactor_async_state>, reactor_async_connection_count> arr;
+            for (auto& state : arr) {
+                state = std::make_shared<reactor_async_state>();
+            }
+            return arr;
+        }();
+    std::atomic<uint32_t> reactor_async_rr{0};
+
+    [[nodiscard]] const std::shared_ptr<reactor_async_state>& pick_reactor_state() noexcept {
+        const uint32_t slot = reactor_async_rr.fetch_add(1, std::memory_order_relaxed);
+        return reactor_async_states[slot % reactor_async_connection_count];
+    }
 };
 
 namespace {
@@ -1321,8 +1458,10 @@ katana::result<void> postgres_executor::ensure_connected() {
 }
 
 void postgres_executor::disconnect() noexcept {
-    if (impl_ != nullptr && impl_->reactor_async != nullptr) {
-        impl::shutdown_reactor_async(impl_->reactor_async);
+    if (impl_ != nullptr) {
+        for (const auto& state : impl_->reactor_async_states) {
+            impl::shutdown_reactor_async(state);
+        }
     }
 
     {
@@ -1448,8 +1587,8 @@ bool postgres_executor::query_async(std::string_view statement_name,
     request.query_handler = std::move(handler);
 
     if (auto* owner_reactor = current_handler_reactor();
-        owner_reactor != nullptr && impl_ != nullptr && impl_->reactor_async != nullptr) {
-        if (impl::enqueue_reactor_async(impl_->reactor_async,
+        owner_reactor != nullptr && impl_ != nullptr) {
+        if (impl::enqueue_reactor_async(impl_->pick_reactor_state(),
                                         std::move(request),
                                         config_.connection_string,
                                         *owner_reactor)) {
@@ -1495,8 +1634,8 @@ bool postgres_executor::exec_async(std::string_view statement_name,
     request.exec_handler = std::move(handler);
 
     if (auto* owner_reactor = current_handler_reactor();
-        owner_reactor != nullptr && impl_ != nullptr && impl_->reactor_async != nullptr) {
-        if (impl::enqueue_reactor_async(impl_->reactor_async,
+        owner_reactor != nullptr && impl_ != nullptr) {
+        if (impl::enqueue_reactor_async(impl_->pick_reactor_state(),
                                         std::move(request),
                                         config_.connection_string,
                                         *owner_reactor)) {
@@ -1535,7 +1674,7 @@ bool postgres_executor::query_pipeline(std::vector<pipeline_query> queries,
     // Pipelining lives on the reactor's own connection. Off a reactor thread (or without the reactor
     // async state) we cannot pipeline; return false so gather() falls back to sequential query_async.
     auto* owner_reactor = current_handler_reactor();
-    if (owner_reactor == nullptr || impl_ == nullptr || impl_->reactor_async == nullptr) {
+    if (owner_reactor == nullptr || impl_ == nullptr) {
         return false;
     }
 
@@ -1548,7 +1687,7 @@ bool postgres_executor::query_pipeline(std::vector<pipeline_query> queries,
     }
     request.pipeline_handler = std::move(handler);
 
-    return impl::enqueue_reactor_async(impl_->reactor_async, std::move(request),
+    return impl::enqueue_reactor_async(impl_->pick_reactor_state(), std::move(request),
                                        config_.connection_string, *owner_reactor);
 }
 
