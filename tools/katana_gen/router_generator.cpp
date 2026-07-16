@@ -1435,12 +1435,7 @@ std::string generate_handler_interfaces(const document& doc, const std::string& 
     out << "//   - Auto parameter binding: path/query/header/body → typed arguments\n";
     out << "//   - Context access: use katana::http::req(), ctx(), arena() for access\n";
     out << "// \n";
-    out << "// Example:\n";
-    out << "//   katana::result<void> get_user(int64_t id, response& out) override {\n";
-    out << "//       auto user = db.find(id, &arena());  // arena() from context\n";
-    out << "//       respond::into(out).json(serialize_User(user));\n";
-    out << "//       return {};\n";
-    out << "//   }\n";
+    out << "// A worked implementation example is at the bottom of this file.\n";
     out << "#pragma once\n\n";
     out << "#include \"katana/core/http.hpp\"\n";
     out << "#include \"katana/core/problem.hpp\"\n";
@@ -1832,112 +1827,73 @@ std::string generate_handler_interfaces(const document& doc, const std::string& 
 
     out << "};\n\n";
 
-    // Add usage examples
-    out << "// ============================================================================\n";
-    out << "// USAGE EXAMPLES\n";
-    out << "// ============================================================================\n";
-    out << "//\n";
-    out << "// Example implementation of api_handler:\n";
-    out << "//\n";
-    out << "// class my_api : public generated::api_handler {\n";
-    out << "// public:\n";
-    out << "//     // Example 1: Simple request/response with arena allocator\n";
-
-    // Find first operation to use as example
-    for (const auto& path_item : doc.paths) {
-        for (const auto& op : path_item.operations) {
-            if (op.operation_id.empty() || !op.body || op.body->content.empty()) {
-                continue;
-            }
-
-            std::string method_name = to_snake_case(op.operation_id);
-
-            // Get body type
-            std::string body_type;
-            if (!op.body->content.empty()) {
-                body_type = schema_identifier(doc, op.body->content[0].type);
-            }
-
-            // Get response type (first 200 response)
-            std::string response_type;
-            for (const auto& resp : op.responses) {
-                if (resp.status == 200 && !resp.content.empty()) {
-                    response_type = schema_identifier(doc, resp.content[0].type);
+    // Worked example built from the spec's own operations — never from placeholder types
+    // that don't exist in this contract. Emitted only when a suitable operation exists.
+    {
+        const katana::openapi::operation* example_op = nullptr;
+        const katana::openapi::schema* example_body = nullptr;
+        const katana::openapi::schema* example_resp = nullptr;
+        for (const auto& path_item : doc.paths) {
+            for (const auto& op : path_item.operations) {
+                if (op.operation_id.empty() || !op.body || op.body->content.empty()) {
+                    continue;
+                }
+                const katana::openapi::schema* body_schema = op.body->content[0].type;
+                const katana::openapi::schema* resp_schema = nullptr;
+                for (const auto& resp : op.responses) {
+                    if (resp.status == 200 && !resp.content.empty()) {
+                        resp_schema = resp.content[0].type;
+                        break;
+                    }
+                }
+                if (body_schema != nullptr && resp_schema != nullptr) {
+                    example_op = &op;
+                    example_body = body_schema;
+                    example_resp = resp_schema;
                     break;
                 }
             }
-
-            if (!body_type.empty() && !response_type.empty()) {
-                out << "//     katana::result<void> " << method_name << "(const " << body_type
-                    << "& body, response& out) override {\n";
-                out << "//         // Access request fields\n";
-                out << "//         auto input = body.text;\n";
-                out << "//\n";
-                out << "//         // Create response using arena allocator\n";
-                out << "//         " << response_type << " resp(&katana::http::arena());\n";
-                out << "//\n";
-                out << "//         // Process and set response fields\n";
-                out << "//         // resp.result = ...your logic here...\n";
-                out << "//\n";
-                out << "//         // Serialize into the provided response\n";
-                out << "//         respond::into(out).json(serialize_" << response_type
-                    << "(resp));\n";
-                out << "//         return {};\n";
-                out << "//     }\n";
-                out << "//\n";
+            if (example_op != nullptr) {
                 break;
             }
         }
-        break;
-    }
 
-    out << "//     // Example 2: Error handling\n";
-    out << "//     katana::result<void> handle_request(const some_request& req, response& out) "
-           "override {\n";
-    out << "//         if (req.value < 0) {\n";
-    out << "//             out.assign_error(katana::problem_details::bad_request(\"value must be "
-           "positive\"));\n";
-    out << "//             return {};\n";
-    out << "//         }\n";
-    out << "//         // ... normal processing ...\n";
-    out << "//         respond::into(out).json(serialize_some_response(resp));\n";
-    out << "//         return {};\n";
-    out << "//     }\n";
-    out << "//\n";
-    out << "//     // Example 3: Different response status codes\n";
-    out << "//     katana::result<void> create_item(const create_request& req, response& out) "
-           "override {\n";
-    out << "//         auto item = db.create(req, &katana::http::arena());\n";
-    out << "//         if (!item) {\n";
-    out << "//             "
-           "out.assign_error(katana::problem_details::internal_server_error(\"failed to create "
-           "item\"));\n";
-    out << "//             return {};\n";
-    out << "//         }\n";
-    out << "//         respond::into(out).created_json(serialize_item(*item));\n";
-    out << "//         return {};\n";
-    out << "//     }\n";
-    out << "//\n";
-    out << "//     // Example 4: Enum handling\n";
-    out << "//     katana::result<void> transform_text(const text_transform_request& req, "
-           "response& out) override {\n";
-    out << "//         std::string result;\n";
-    out << "//         switch (req.operation) {\n";
-    out << "//             case text_transform_request_operation_enum::upper:\n";
-    out << "//                 result = to_upper(req.text);\n";
-    out << "//                 break;\n";
-    out << "//             case text_transform_request_operation_enum::lower:\n";
-    out << "//                 result = to_lower(req.text);\n";
-    out << "//                 break;\n";
-    out << "//             // ... other cases ...\n";
-    out << "//         }\n";
-    out << "//         text_transform_response resp(&katana::http::arena());\n";
-    out << "//         resp.result = result;\n";
-    out << "//         respond::into(out).json(serialize_text_transform_response(resp));\n";
-    out << "//         return {};\n";
-    out << "//     }\n";
-    out << "// };\n";
-    out << "//\n";
+        if (example_op != nullptr) {
+            const std::string method_name = to_snake_case(example_op->operation_id);
+            const std::string body_type = schema_identifier(doc, example_body);
+            const std::string response_type = schema_identifier(doc, example_resp);
+            out << "// ============================================================================\n";
+            out << "// USAGE EXAMPLE\n";
+            out << "// ============================================================================\n";
+            out << "//\n";
+            out << "// class my_api : public " << router_ns << "::api_handler {\n";
+            out << "// public:\n";
+            out << "//     katana::result<void> " << method_name << "(const " << body_type
+                << "& body, response& out) override {\n";
+            if (!example_body->properties.empty()) {
+                out << "//         auto input = body."
+                    << property_member_identifier(example_body->properties[0].name) << ";\n";
+            }
+            out << "//         // Create the response on the request arena, fill it in\n";
+            out << "//         " << response_type << " resp(&katana::http::arena());\n";
+            if (!example_resp->properties.empty()) {
+                out << "//         // resp."
+                    << property_member_identifier(example_resp->properties[0].name)
+                    << " = ...your logic here...\n";
+            }
+            out << "//         respond::into(out).json(serialize_" << response_type
+                << "(resp));\n";
+            out << "//         return {};\n";
+            out << "//     }\n";
+            out << "// };\n";
+            out << "//\n";
+        } else {
+            out << "// ============================================================================\n";
+            out << "// USAGE NOTES\n";
+            out << "// ============================================================================\n";
+            out << "//\n";
+        }
+    }
     out << "// Available response helpers:\n";
     out << "//   - respond::into(out).text(...)\n";
     out << "//   - respond::into(out).json(...)\n";
