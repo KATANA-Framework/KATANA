@@ -1,9 +1,12 @@
 #include <drogon/drogon.h>
 #include <drogon/orm/DbClient.h>
 
+#include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <chrono>
 #include <cstdlib>
+#include <vector>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -352,7 +355,10 @@ int main() {
     const size_t workers = read_workers();
     auto state = std::make_shared<app_state>();
     if (const auto dsn = read_postgres_dsn()) {
-        state->db = drogon::orm::DbClient::newPgClient(*dsn, std::max<std::size_t>(workers, 1));
+        // Same pool sizing formula as the deadpool/psycopg comparison targets:
+        // workers * 4 clamped to [4, 64] connections.
+        const std::size_t pool_size = std::clamp<std::size_t>(workers * 4, 4, 64);
+        state->db = drogon::orm::DbClient::newPgClient(*dsn, pool_size);
         if (read_bool_env("KATANA_BENCHMARK_API_BOOTSTRAP", true)) {
             try {
                 bootstrap_stage4_fixture(*state);
@@ -410,6 +416,134 @@ int main() {
 
             Json::Value output(total);
             callback(HttpResponse::newHttpJsonResponse(output));
+        },
+        {Post});
+
+    app().registerHandler(
+        "/json",
+        [](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback) {
+            Json::Value payload(Json::objectValue);
+            payload["message"] = "Hello, World!";
+            callback(HttpResponse::newHttpJsonResponse(payload));
+        },
+        {Get});
+
+    app().registerHandler(
+        "/echo",
+        [](const HttpRequestPtr& request, std::function<void(const HttpResponsePtr&)>&& callback) {
+            const auto json = request->getJsonObject();
+            if (!json || !json->isObject()) {
+                callback(make_text_response(k400BadRequest, "payload must be a JSON object"));
+                return;
+            }
+            const auto& body = *json;
+
+            if (!body["message"].isString()) {
+                callback(make_text_response(k400BadRequest, "message is required"));
+                return;
+            }
+            const std::string message = body["message"].asString();
+            if (message.size() > 4096U) {
+                callback(make_text_response(k400BadRequest,
+                                            "message must be <= 4096 characters"));
+                return;
+            }
+            int64_t repeat = 1;
+            if (body.isMember("repeat")) {
+                if (!body["repeat"].isIntegral()) {
+                    callback(make_text_response(k400BadRequest, "repeat must be 1..=100"));
+                    return;
+                }
+                repeat = body["repeat"].asInt64();
+            }
+            if (repeat < 1 || repeat > 100) {
+                callback(make_text_response(k400BadRequest, "repeat must be 1..=100"));
+                return;
+            }
+            const bool uppercase =
+                body.isMember("uppercase") && body["uppercase"].isBool() &&
+                body["uppercase"].asBool();
+
+            std::string payload;
+            payload.reserve(message.size() * static_cast<std::size_t>(repeat));
+            for (int64_t i = 0; i < repeat; ++i) {
+                payload += message;
+            }
+            if (uppercase) {
+                for (char& c : payload) {
+                    c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                }
+            }
+
+            Json::Value out(Json::objectValue);
+            out["length"] = Json::Int64(static_cast<int64_t>(payload.size()));
+            out["message"] = std::move(payload);
+            callback(HttpResponse::newHttpJsonResponse(out));
+        },
+        {Post});
+
+    app().registerHandler(
+        "/compute/stats",
+        [](const HttpRequestPtr& request, std::function<void(const HttpResponsePtr&)>&& callback) {
+            const auto json = request->getJsonObject();
+            if (!json || !json->isObject()) {
+                callback(make_text_response(k400BadRequest, "payload must be a JSON object"));
+                return;
+            }
+            const auto& body = *json;
+
+            if (!body["values"].isArray()) {
+                callback(make_text_response(k400BadRequest, "values is required"));
+                return;
+            }
+            const auto& values = body["values"];
+            const Json::ArrayIndex size = values.size();
+            if (size == 0 || size > 10'000U) {
+                callback(make_text_response(k400BadRequest,
+                                            "values must contain 1..=10000 numbers"));
+                return;
+            }
+
+            std::vector<double> parsed;
+            parsed.reserve(size);
+            for (const auto& item : values) {
+                if (!item.isNumeric()) {
+                    callback(make_text_response(k400BadRequest,
+                                                "values must contain only numeric values"));
+                    return;
+                }
+                parsed.push_back(item.asDouble());
+            }
+
+            double sum = 0.0;
+            double min_value = parsed.front();
+            double max_value = parsed.front();
+            for (const double value : parsed) {
+                sum += value;
+                min_value = std::min(min_value, value);
+                max_value = std::max(max_value, value);
+            }
+
+            Json::Value out(Json::objectValue);
+            out["min"] = min_value;
+            out["max"] = max_value;
+            out["mean"] = sum / static_cast<double>(parsed.size());
+            out["sum"] = sum;
+            out["count"] = Json::Int64(static_cast<int64_t>(parsed.size()));
+
+            const bool include_median = body.isMember("include_median") &&
+                                        body["include_median"].isBool() &&
+                                        body["include_median"].asBool();
+            if (include_median) {
+                std::vector<double> sorted = parsed;
+                std::sort(sorted.begin(), sorted.end());
+                const std::size_t count = sorted.size();
+                out["median"] = (count % 2U == 0U)
+                                    ? (sorted[count / 2U - 1U] + sorted[count / 2U]) * 0.5
+                                    : sorted[count / 2U];
+            }
+
+            callback(HttpResponse::newHttpJsonResponse(out));
         },
         {Post});
 

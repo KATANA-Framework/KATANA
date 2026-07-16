@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+katana,json-pipe-10,2652871.03,983.0,2897.0,4818.0,55776,346.2,0,0

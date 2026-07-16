@@ -178,6 +178,19 @@ paths:
         '204':
           description: Item deleted
 
+  # --- Minimal JSON serialization (TechEmpower-style) ---
+  /json:
+    get:
+      operationId: json_message
+      summary: Minimal JSON object response
+      responses:
+        '200':
+          description: JSON message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonMessage'
+
   # --- Echo endpoint (minimal overhead measurement) ---
   /echo:
     post:
@@ -443,6 +456,14 @@ components:
           type: integer
         offset:
           type: integer
+
+    # --- JSON message type ---
+    JsonMessage:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
 
     # --- Echo types ---
     EchoRequest:

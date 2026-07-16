@@ -80,12 +80,32 @@ int main() {
     }
 
     const uint16_t port = read_port();
-    const uint16_t workers = static_cast<uint16_t>(
-        std::min<uint32_t>(std::max(1u, std::thread::hardware_concurrency()), 64));
+    uint32_t worker_request = std::max(1u, std::thread::hardware_concurrency());
+    for (const char* key : {"BENCH_WORKERS", "KATANA_WORKERS", "WORKERS"}) {
+        if (const char* raw = std::getenv(key)) {
+            const int parsed = std::atoi(raw);
+            if (parsed > 0) {
+                worker_request = static_cast<uint32_t>(parsed);
+                break;
+            }
+        }
+    }
+    const uint16_t workers = static_cast<uint16_t>(std::min<uint32_t>(worker_request, 64));
+
+    // The SQL pool binds one executor to each worker thread; fewer executors than workers
+    // means thread_local slot collisions, the blocking fallback path, and (until that race
+    // is fixed) a crash under load. Clamp up and warn instead of serving a broken config.
+    std::size_t executor_request = read_size_env("KATANA_BENCHMARK_API_EXECUTORS", workers);
+    if (executor_request < workers) {
+        std::cerr << "benchmark_api: KATANA_BENCHMARK_API_EXECUTORS=" << executor_request
+                  << " is below the worker count (" << workers << "); clamping to " << workers
+                  << " to avoid executor sharing between reactors\n";
+        executor_request = workers;
+    }
 
     katana::benchmark_api_demo::service service({
         .connection_string = dsn,
-        .executor_count = read_size_env("KATANA_BENCHMARK_API_EXECUTORS", workers),
+        .executor_count = executor_request,
         .eager_connect = true,
         .bootstrap_schema = read_bool_env("KATANA_BENCHMARK_API_BOOTSTRAP", true),
         .reset_data_on_start = read_bool_env("KATANA_BENCHMARK_API_RESET", true),

@@ -7,12 +7,7 @@
 //   - Auto parameter binding: path/query/header/body → typed arguments
 //   - Context access: use katana::http::req(), ctx(), arena() for access
 // 
-// Example:
-//   katana::result<void> get_user(int64_t id, response& out) override {
-//       auto user = db.find(id, &arena());  // arena() from context
-//       respond::into(out).json(serialize_User(user));
-//       return {};
-//   }
+// A worked implementation example is at the bottom of this file.
 #pragma once
 
 #include "katana/core/http.hpp"
@@ -65,6 +60,10 @@ struct api_handler {
     // DELETE /items/{id}
     // Delete item
     virtual katana::result<void> delete_item(int64_t id, response& out) = 0;
+
+    // GET /json
+    // Minimal JSON object response
+    virtual katana::result<void> json_message(response& out) = 0;
 
     // POST /echo
     // Echo back the request body
@@ -131,6 +130,11 @@ struct async_api_handler {
 
     virtual bool delete_item_async(int64_t id, katana::http::async_response_writer out) {
         (void)id;
+        (void)out;
+        return false;
+    }
+
+    virtual bool json_message_async(katana::http::async_response_writer out) {
         (void)out;
         return false;
     }
@@ -214,6 +218,12 @@ struct async_api_handler_base : api_handler, async_api_handler {
         return {};
     }
 
+    katana::result<void> json_message(response& out) override {
+        out = katana::http::response::error(
+            katana::problem_details::not_implemented("json_message requires an async override or sync implementation"));
+        return {};
+    }
+
     katana::result<void> echo(const EchoRequest& body, response& out) override {
         (void)body;
         out = katana::http::response::error(
@@ -230,66 +240,17 @@ struct async_api_handler_base : api_handler, async_api_handler {
 };
 
 // ============================================================================
-// USAGE EXAMPLES
+// USAGE EXAMPLE
 // ============================================================================
-//
-// Example implementation of api_handler:
 //
 // class my_api : public generated::api_handler {
 // public:
-//     // Example 1: Simple request/response with arena allocator
 //     katana::result<void> compute_sum(const SumRequest& body, response& out) override {
-//         // Access request fields
-//         auto input = body.text;
-//
-//         // Create response using arena allocator
+//         auto input = body.values;
+//         // Create the response on the request arena, fill it in
 //         SumResponse resp(&katana::http::arena());
-//
-//         // Process and set response fields
 //         // resp.result = ...your logic here...
-//
-//         // Serialize into the provided response
 //         respond::into(out).json(serialize_SumResponse(resp));
-//         return {};
-//     }
-//
-//     // Example 2: Error handling
-//     katana::result<void> handle_request(const some_request& req, response& out) override {
-//         if (req.value < 0) {
-//             out.assign_error(katana::problem_details::bad_request("value must be positive"));
-//             return {};
-//         }
-//         // ... normal processing ...
-//         respond::into(out).json(serialize_some_response(resp));
-//         return {};
-//     }
-//
-//     // Example 3: Different response status codes
-//     katana::result<void> create_item(const create_request& req, response& out) override {
-//         auto item = db.create(req, &katana::http::arena());
-//         if (!item) {
-//             out.assign_error(katana::problem_details::internal_server_error("failed to create item"));
-//             return {};
-//         }
-//         respond::into(out).created_json(serialize_item(*item));
-//         return {};
-//     }
-//
-//     // Example 4: Enum handling
-//     katana::result<void> transform_text(const text_transform_request& req, response& out) override {
-//         std::string result;
-//         switch (req.operation) {
-//             case text_transform_request_operation_enum::upper:
-//                 result = to_upper(req.text);
-//                 break;
-//             case text_transform_request_operation_enum::lower:
-//                 result = to_lower(req.text);
-//                 break;
-//             // ... other cases ...
-//         }
-//         text_transform_response resp(&katana::http::arena());
-//         resp.result = result;
-//         respond::into(out).json(serialize_text_transform_response(resp));
 //         return {};
 //     }
 // };

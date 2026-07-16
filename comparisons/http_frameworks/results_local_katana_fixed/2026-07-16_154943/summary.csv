@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+katana,stats-128,299033.01,1290.0,2676.0,4947.0,59972,358.5,0,0

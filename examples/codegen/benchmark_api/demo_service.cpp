@@ -654,6 +654,14 @@ public:
         return {};
     }
 
+    result<void> json_message(response& out) override {
+        auto& arena = katana::http::handler_context::arena();
+        JsonMessage resp(&arena);
+        resp.message = arena_string<>("Hello, World!", arena_allocator<char>(&arena));
+        out.assign_json(serialize_JsonMessage(resp));
+        return {};
+    }
+
     result<void> echo(const EchoRequest& req, response& out) override {
         std::string payload(req.message.data(), req.message.size());
         const int repeat_count = static_cast<int>(req.repeat.value_or(1));

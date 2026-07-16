@@ -273,6 +273,41 @@ struct HealthResponse {
     uptime_ms: i64,
 }
 
+#[derive(Serialize)]
+struct JsonMessageResponse {
+    message: &'static str,
+}
+
+#[derive(Deserialize)]
+struct EchoRequest {
+    message: String,
+    repeat: Option<i64>,
+    uppercase: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct EchoResponse {
+    message: String,
+    length: i64,
+}
+
+#[derive(Deserialize)]
+struct StatsRequest {
+    values: Vec<f64>,
+    include_median: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct StatsResponse {
+    min: f64,
+    max: f64,
+    mean: f64,
+    sum: f64,
+    count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    median: Option<f64>,
+}
+
 fn validate_create_item(body: &CreateItemRequest) -> Result<(), HttpError> {
     let name_len = body.name.chars().count();
     if name_len == 0 || name_len > 200 {
@@ -449,6 +484,79 @@ async fn compute_sum(
     }
 
     Ok(Json(nums.into_iter().sum()))
+}
+
+async fn json_message() -> Json<JsonMessageResponse> {
+    Json(JsonMessageResponse {
+        message: "Hello, World!",
+    })
+}
+
+async fn echo(
+    Json(body): Json<EchoRequest>,
+) -> Result<Json<EchoResponse>, (StatusCode, &'static str)> {
+    if body.message.chars().count() > 4096 {
+        return Err((StatusCode::BAD_REQUEST, "message must be <= 4096 characters"));
+    }
+    let repeat = body.repeat.unwrap_or(1);
+    if !(1..=100).contains(&repeat) {
+        return Err((StatusCode::BAD_REQUEST, "repeat must be 1..=100"));
+    }
+
+    let mut payload = body.message.repeat(repeat as usize);
+    if body.uppercase.unwrap_or(false) {
+        payload.make_ascii_uppercase();
+    }
+    let length = payload.len() as i64;
+    Ok(Json(EchoResponse {
+        message: payload,
+        length,
+    }))
+}
+
+async fn compute_stats(
+    Json(body): Json<StatsRequest>,
+) -> Result<Json<StatsResponse>, (StatusCode, &'static str)> {
+    let values = &body.values;
+    if values.is_empty() || values.len() > 10_000 {
+        return Err((StatusCode::BAD_REQUEST, "values must contain 1..=10000 numbers"));
+    }
+
+    let mut sum = 0.0_f64;
+    let mut min_value = values[0];
+    let mut max_value = values[0];
+    for &value in values {
+        sum += value;
+        if value < min_value {
+            min_value = value;
+        }
+        if value > max_value {
+            max_value = value;
+        }
+    }
+    let mean = sum / values.len() as f64;
+
+    let median = if body.include_median.unwrap_or(false) {
+        let mut sorted = values.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let size = sorted.len();
+        Some(if size % 2 == 0 {
+            (sorted[size / 2 - 1] + sorted[size / 2]) * 0.5
+        } else {
+            sorted[size / 2]
+        })
+    } else {
+        None
+    };
+
+    Ok(Json(StatsResponse {
+        min: min_value,
+        max: max_value,
+        mean,
+        sum,
+        count: values.len() as i64,
+        median,
+    }))
 }
 
 async fn health(State(state): State<Arc<AppState>>) -> Json<HealthResponse> {
@@ -647,7 +755,10 @@ fn main() {
         });
         let app = Router::new()
             .route("/", get(hello))
+            .route("/json", get(json_message))
+            .route("/echo", post(echo))
             .route("/compute/sum", post(compute_sum))
+            .route("/compute/stats", post(compute_stats))
             .route("/health", get(health))
             .route("/items", get(list_items).post(create_item))
             .route("/items/{id}", get(get_item).put(update_item).delete(delete_item))

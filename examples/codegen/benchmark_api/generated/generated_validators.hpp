@@ -46,27 +46,18 @@ using katana::format_validators::is_valid_datetime;
 
 [[nodiscard]] inline std::optional<validation_error> validate_SumRequest(const SumRequest&);
 [[nodiscard]] inline std::optional<validation_error> validate_SumRequest_Values_t(const SumRequest_Values_t&);
-[[nodiscard]] inline std::optional<validation_error> validate_SumResponse(const SumResponse&);
 [[nodiscard]] inline std::optional<validation_error> validate_StatsRequest(const StatsRequest&);
 [[nodiscard]] inline std::optional<validation_error> validate_StatsRequest_Values_t(const StatsRequest_Values_t&);
-[[nodiscard]] inline std::optional<validation_error> validate_StatsResponse(const StatsResponse&);
 [[nodiscard]] inline std::optional<validation_error> validate_RegisterRequest(const RegisterRequest&);
 [[nodiscard]] inline std::optional<validation_error> validate_RegisterRequest_Tags_t(const RegisterRequest_Tags_t&);
-[[nodiscard]] inline std::optional<validation_error> validate_UserResponse(const UserResponse&);
-[[nodiscard]] inline std::optional<validation_error> validate_Item(const Item&);
-[[nodiscard]] inline std::optional<validation_error> validate_Item_Tags_t(const Item_Tags_t&);
 [[nodiscard]] inline std::optional<validation_error> validate_ItemMetadata(const ItemMetadata&);
 [[nodiscard]] inline std::optional<validation_error> validate_CreateItemRequest(const CreateItemRequest&);
 [[nodiscard]] inline std::optional<validation_error> validate_CreateItemRequest_Tags_t(const CreateItemRequest_Tags_t&);
 [[nodiscard]] inline std::optional<validation_error> validate_UpdateItemRequest(const UpdateItemRequest&);
 [[nodiscard]] inline std::optional<validation_error> validate_UpdateItemRequest_Tags_t(const UpdateItemRequest_Tags_t&);
-[[nodiscard]] inline std::optional<validation_error> validate_ItemList(const ItemList&);
-[[nodiscard]] inline std::optional<validation_error> validate_ItemList_Items_t(const ItemList_Items_t&);
 [[nodiscard]] inline std::optional<validation_error> validate_EchoRequest(const EchoRequest&);
-[[nodiscard]] inline std::optional<validation_error> validate_EchoResponse(const EchoResponse&);
-[[nodiscard]] inline std::optional<validation_error> validate_health_check_response(const health_check_response&);
 
-// validate SumRequest — object, 1 field(s)  ← api.yaml:221
+// validate SumRequest — object, 1 field(s)  ← api.yaml:234
 [[nodiscard]] inline std::optional<validation_error> validate_SumRequest(const SumRequest& obj) {
     if (obj.values.empty()) {
         return validation_error{"values", validation_error_code::required_field_missing};
@@ -80,20 +71,14 @@ using katana::format_validators::is_valid_datetime;
     return std::nullopt;
 }
 
-// validate SumRequest_Values_t — array, field SumRequest.values  ← api.yaml:225
+// validate SumRequest_Values_t — array, field SumRequest.values  ← api.yaml:238
 [[nodiscard]] inline std::optional<validation_error> validate_SumRequest_Values_t(const SumRequest_Values_t& arr) {
     if (arr.size() < 1) return validation_error{"", validation_error_code::array_too_small, 1};
     if (arr.size() > 10000) return validation_error{"", validation_error_code::array_too_large, 10000};
     return std::nullopt;
 }
 
-// validate SumResponse — object, 2 field(s)  ← api.yaml:233
-[[nodiscard]] inline std::optional<validation_error> validate_SumResponse(const SumResponse& obj) {
-    (void)obj;
-    return std::nullopt;
-}
-
-// validate StatsRequest — object, 2 field(s)  ← api.yaml:243
+// validate StatsRequest — object, 2 field(s)  ← api.yaml:256
 [[nodiscard]] inline std::optional<validation_error> validate_StatsRequest(const StatsRequest& obj) {
     if (obj.values.empty()) {
         return validation_error{"values", validation_error_code::required_field_missing};
@@ -107,20 +92,14 @@ using katana::format_validators::is_valid_datetime;
     return std::nullopt;
 }
 
-// validate StatsRequest_Values_t — array, field StatsRequest.values  ← api.yaml:247
+// validate StatsRequest_Values_t — array, field StatsRequest.values  ← api.yaml:260
 [[nodiscard]] inline std::optional<validation_error> validate_StatsRequest_Values_t(const StatsRequest_Values_t& arr) {
     if (arr.size() < 1) return validation_error{"", validation_error_code::array_too_small, 1};
     if (arr.size() > 10000) return validation_error{"", validation_error_code::array_too_large, 10000};
     return std::nullopt;
 }
 
-// validate StatsResponse — object, 6 field(s)  ← api.yaml:257
-[[nodiscard]] inline std::optional<validation_error> validate_StatsResponse(const StatsResponse& obj) {
-    (void)obj;
-    return std::nullopt;
-}
-
-// validate RegisterRequest — object, 6 field(s)  ← api.yaml:279
+// validate RegisterRequest — object, 6 field(s)  ← api.yaml:292
 [[nodiscard]] inline std::optional<validation_error> validate_RegisterRequest(const RegisterRequest& obj) {
     if (obj.username.empty()) {
         return validation_error{"username", validation_error_code::required_field_missing};
@@ -190,7 +169,7 @@ using katana::format_validators::is_valid_datetime;
     return std::nullopt;
 }
 
-// validate RegisterRequest_Tags_t — array, field RegisterRequest.tags  ← api.yaml:301
+// validate RegisterRequest_Tags_t — array, field RegisterRequest.tags  ← api.yaml:314
 [[nodiscard]] inline std::optional<validation_error> validate_RegisterRequest_Tags_t(const RegisterRequest_Tags_t& arr) {
     if (arr.size() > 10) return validation_error{"", validation_error_code::array_too_large, 10};
     {
@@ -214,51 +193,13 @@ using katana::format_validators::is_valid_datetime;
     return std::nullopt;
 }
 
-// validate UserResponse — object, 5 field(s)  ← api.yaml:312
-[[nodiscard]] inline std::optional<validation_error> validate_UserResponse(const UserResponse& obj) {
-    if (obj.id.empty()) {
-        return validation_error{"id", validation_error_code::required_field_missing};
-    }
-    if (!obj.id.empty() && !is_valid_uuid(obj.id)) {
-        return validation_error{"id", validation_error_code::invalid_uuid_format};
-    }
-    if (obj.username.empty()) {
-        return validation_error{"username", validation_error_code::required_field_missing};
-    }
-    if (obj.email.empty()) {
-        return validation_error{"email", validation_error_code::required_field_missing};
-    }
-    if (obj.created_at.empty()) {
-        return validation_error{"created_at", validation_error_code::required_field_missing};
-    }
-    if (!obj.created_at.empty() && !is_valid_datetime(obj.created_at)) {
-        return validation_error{"created_at", validation_error_code::invalid_datetime_format};
-    }
-    return std::nullopt;
-}
-
-// validate Item — object, 8 field(s)  ← api.yaml:334
-[[nodiscard]] inline std::optional<validation_error> validate_Item(const Item& obj) {
-    if (obj.name.empty()) {
-        return validation_error{"name", validation_error_code::required_field_missing};
-    }
-    if (obj.metadata) { if (auto e_ = validate_ItemMetadata(*obj.metadata)) return e_; }
-    return std::nullopt;
-}
-
-// validate Item_Tags_t — array, field Item.tags  ← api.yaml:353
-[[nodiscard]] inline std::optional<validation_error> validate_Item_Tags_t(const Item_Tags_t& arr) {
-    (void)arr;
-    return std::nullopt;
-}
-
-// validate ItemMetadata — object, 4 field(s)  ← api.yaml:360
+// validate ItemMetadata — object, 4 field(s)  ← api.yaml:373
 [[nodiscard]] inline std::optional<validation_error> validate_ItemMetadata(const ItemMetadata& obj) {
     (void)obj;
     return std::nullopt;
 }
 
-// validate CreateItemRequest — object, 7 field(s)  ← api.yaml:373
+// validate CreateItemRequest — object, 7 field(s)  ← api.yaml:386
 [[nodiscard]] inline std::optional<validation_error> validate_CreateItemRequest(const CreateItemRequest& obj) {
     if (obj.name.empty()) {
         return validation_error{"name", validation_error_code::required_field_missing};
@@ -291,13 +232,13 @@ using katana::format_validators::is_valid_datetime;
     return std::nullopt;
 }
 
-// validate CreateItemRequest_Tags_t — array, field CreateItemRequest.tags  ← api.yaml:396
+// validate CreateItemRequest_Tags_t — array, field CreateItemRequest.tags  ← api.yaml:409
 [[nodiscard]] inline std::optional<validation_error> validate_CreateItemRequest_Tags_t(const CreateItemRequest_Tags_t& arr) {
     if (arr.size() > 20) return validation_error{"", validation_error_code::array_too_large, 20};
     return std::nullopt;
 }
 
-// validate UpdateItemRequest — object, 6 field(s)  ← api.yaml:405
+// validate UpdateItemRequest — object, 6 field(s)  ← api.yaml:418
 [[nodiscard]] inline std::optional<validation_error> validate_UpdateItemRequest(const UpdateItemRequest& obj) {
     if (obj.name && !obj.name->empty() && katana::utf8_length((*obj.name)) < UpdateItemRequest::field_constraints::NAME_MIN_LENGTH) {
         return validation_error{"name", validation_error_code::string_too_short, UpdateItemRequest::field_constraints::NAME_MIN_LENGTH};
@@ -320,26 +261,13 @@ using katana::format_validators::is_valid_datetime;
     return std::nullopt;
 }
 
-// validate UpdateItemRequest_Tags_t — array, field UpdateItemRequest.tags  ← api.yaml:425
+// validate UpdateItemRequest_Tags_t — array, field UpdateItemRequest.tags  ← api.yaml:438
 [[nodiscard]] inline std::optional<validation_error> validate_UpdateItemRequest_Tags_t(const UpdateItemRequest_Tags_t& arr) {
     if (arr.size() > 20) return validation_error{"", validation_error_code::array_too_large, 20};
     return std::nullopt;
 }
 
-// validate ItemList — object, 4 field(s)  ← api.yaml:431
-[[nodiscard]] inline std::optional<validation_error> validate_ItemList(const ItemList& obj) {
-    (void)obj;
-    for (const auto& it_ : obj.items) { if (auto e_ = validate_Item(it_)) return e_; }
-    return std::nullopt;
-}
-
-// validate ItemList_Items_t — array, field ItemList.items  ← api.yaml:435
-[[nodiscard]] inline std::optional<validation_error> validate_ItemList_Items_t(const ItemList_Items_t& arr) {
-    (void)arr;
-    return std::nullopt;
-}
-
-// validate EchoRequest — object, 3 field(s)  ← api.yaml:448
+// validate EchoRequest — object, 3 field(s)  ← api.yaml:469
 [[nodiscard]] inline std::optional<validation_error> validate_EchoRequest(const EchoRequest& obj) {
     if (obj.message.empty()) {
         return validation_error{"message", validation_error_code::required_field_missing};
@@ -353,20 +281,6 @@ using katana::format_validators::is_valid_datetime;
     if (obj.repeat && static_cast<double>((*obj.repeat)) > EchoRequest::field_constraints::REPEAT_MAXIMUM) {
         return validation_error{"repeat", validation_error_code::value_too_large, EchoRequest::field_constraints::REPEAT_MAXIMUM};
     }
-    return std::nullopt;
-}
-
-// validate EchoResponse — object, 2 field(s)  ← api.yaml:462
-[[nodiscard]] inline std::optional<validation_error> validate_EchoResponse(const EchoResponse& obj) {
-    if (obj.message.empty()) {
-        return validation_error{"message", validation_error_code::required_field_missing};
-    }
-    return std::nullopt;
-}
-
-// validate health_check_response — object, 2 field(s)  ← api.yaml:209
-[[nodiscard]] inline std::optional<validation_error> validate_health_check_response(const health_check_response& obj) {
-    (void)obj;
     return std::nullopt;
 }
 

@@ -269,6 +269,41 @@ struct HealthResponse {
     uptime_ms: i64,
 }
 
+#[derive(Serialize)]
+struct JsonMessageResponse {
+    message: &'static str,
+}
+
+#[derive(Deserialize)]
+struct EchoRequest {
+    message: String,
+    repeat: Option<i64>,
+    uppercase: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct EchoResponse {
+    message: String,
+    length: i64,
+}
+
+#[derive(Deserialize)]
+struct StatsRequest {
+    values: Vec<f64>,
+    include_median: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct StatsResponse {
+    min: f64,
+    max: f64,
+    mean: f64,
+    sum: f64,
+    count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    median: Option<f64>,
+}
+
 fn text_response(status: StatusCode, body: impl Into<String>) -> HttpResponse {
     HttpResponse::build(status)
         .content_type("text/plain; charset=utf-8")
@@ -464,6 +499,83 @@ async fn compute_sum(nums: web::types::Json<Vec<f64>>) -> HttpResponse {
     }
 
     HttpResponse::Ok().json(&values.into_iter().sum::<f64>())
+}
+
+async fn json_message() -> HttpResponse {
+    HttpResponse::Ok().json(&JsonMessageResponse {
+        message: "Hello, World!",
+    })
+}
+
+async fn echo(body: web::types::Json<EchoRequest>) -> HttpResponse {
+    let body = body.into_inner();
+    if body.message.chars().count() > 4096 {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "message must be <= 4096 characters",
+        );
+    }
+    let repeat = body.repeat.unwrap_or(1);
+    if !(1..=100).contains(&repeat) {
+        return text_response(StatusCode::BAD_REQUEST, "repeat must be 1..=100");
+    }
+
+    let mut payload = body.message.repeat(repeat as usize);
+    if body.uppercase.unwrap_or(false) {
+        payload.make_ascii_uppercase();
+    }
+    let length = payload.len() as i64;
+    HttpResponse::Ok().json(&EchoResponse {
+        message: payload,
+        length,
+    })
+}
+
+async fn compute_stats(body: web::types::Json<StatsRequest>) -> HttpResponse {
+    let body = body.into_inner();
+    let values = &body.values;
+    if values.is_empty() || values.len() > 10_000 {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "values must contain 1..=10000 numbers",
+        );
+    }
+
+    let mut sum = 0.0_f64;
+    let mut min_value = values[0];
+    let mut max_value = values[0];
+    for &value in values {
+        sum += value;
+        if value < min_value {
+            min_value = value;
+        }
+        if value > max_value {
+            max_value = value;
+        }
+    }
+    let mean = sum / values.len() as f64;
+
+    let median = if body.include_median.unwrap_or(false) {
+        let mut sorted = values.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let size = sorted.len();
+        Some(if size % 2 == 0 {
+            (sorted[size / 2 - 1] + sorted[size / 2]) * 0.5
+        } else {
+            sorted[size / 2]
+        })
+    } else {
+        None
+    };
+
+    HttpResponse::Ok().json(&StatsResponse {
+        min: min_value,
+        max: max_value,
+        mean,
+        sum,
+        count: values.len() as i64,
+        median,
+    })
 }
 
 async fn health(state: web::types::State<AppState>) -> HttpResponse {
@@ -732,7 +844,10 @@ async fn main() -> io::Result<()> {
         App::new()
             .state(state.clone())
             .service(web::resource("/").route(web::get().to(hello)))
+            .service(web::resource("/json").route(web::get().to(json_message)))
+            .service(web::resource("/echo").route(web::post().to(echo)))
             .service(web::resource("/compute/sum").route(web::post().to(compute_sum)))
+            .service(web::resource("/compute/stats").route(web::post().to(compute_stats)))
             .service(web::resource("/health").route(web::get().to(health)))
             .service(
                 web::resource("/items")

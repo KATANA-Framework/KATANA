@@ -85,7 +85,11 @@ VM IP.
 
 ## Latest Snapshot
 
-The current comparison snapshot is shown below.
+The current full report (8 scenarios including DB SELECT/INSERT, pipelining,
+local pinned + remote WAN runs, charts and raw data) is
+[RESULTS_2026-07-16.md](RESULTS_2026-07-16.md).
+
+The previous snapshot is shown below.
 
 ![HTTP framework comparison table](../table.jpg)
 
@@ -98,11 +102,22 @@ The current comparison snapshot is shown below.
 - `fastapi/` - Python FastAPI server
 - `targets.example.json` - ready-to-edit benchmark target matrix
 
-Each server intentionally implements only the two endpoints used by the current
-wrk stages:
+Each server implements the same endpoint set with identical validation:
 
-- `GET /` -> `Hello, World!`
+- `GET /` -> `Hello, World!` (plain text)
+- `GET /json` -> `{"message":"Hello, World!"}` (minimal JSON serialization)
 - `POST /compute/sum` -> JSON number equal to the sum of the input array
+- `POST /compute/stats` -> `{min,max,mean,sum,count[,median]}` for
+  `{"values":[...], "include_median":bool}` (1..=10000 numbers)
+- `POST /echo` -> `{"message":<transformed>,"length":N}` for
+  `{"message":str<=4096, "repeat":1..=100, "uppercase":bool}`
+- `GET /health` -> `{"status":"ok","uptime_ms":N}`
+- PostgreSQL-backed `/items` CRUD (same schema, same SQL, same seed):
+  - `GET /items?limit=&offset=&category=` — paginated SELECT + JSON array
+  - `GET /items/{id}` — single-row SELECT + JSON (db-point-select scenario)
+  - `POST /items` — INSERT ... RETURNING + JSON of the created row
+    (db-insert-returning scenario, requires `X-Request-Id` UUID header)
+  - `PUT /items/{id}`, `DELETE /items/{id}`
 
 For `/compute/sum`, every implementation enforces the same request shape that
 the KATANA OpenAPI example uses:
@@ -110,6 +125,11 @@ the KATANA OpenAPI example uses:
 - JSON array of numbers
 - minimum 1 item
 - maximum 1024 items
+
+On the KATANA side, `/json`, `/echo`, `/compute/stats` and the `/items` CRUD
+are served by the `benchmark_api` codegen example (generated from
+`examples/codegen/benchmark_api/api.yaml`), which is where those endpoint
+contracts come from.
 
 ## Why a Separate Folder
 

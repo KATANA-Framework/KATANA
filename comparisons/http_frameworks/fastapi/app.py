@@ -258,6 +258,35 @@ class HealthResponse(BaseModel):
     uptime_ms: int
 
 
+class JsonMessageResponse(BaseModel):
+    message: str
+
+
+class EchoRequest(BaseModel):
+    message: str = Field(max_length=4096)
+    repeat: int | None = Field(default=None, ge=1, le=100)
+    uppercase: bool | None = None
+
+
+class EchoResponse(BaseModel):
+    message: str
+    length: int
+
+
+class StatsRequest(BaseModel):
+    values: list[float] = Field(min_length=1, max_length=10_000)
+    include_median: bool | None = None
+
+
+class StatsResponse(BaseModel):
+    min: float
+    max: float
+    mean: float
+    sum: float
+    count: int
+    median: float | None = None
+
+
 def row_to_item(row: dict) -> ItemModel:
     return ItemModel(
         id=int(row["id"]),
@@ -328,6 +357,53 @@ async def compute_sum(nums: list[float]) -> float:
     if not 1 <= len(nums) <= MAX_ITEMS:
         raise HTTPException(status_code=400, detail="payload must contain 1..=1024 numbers")
     return float(sum(nums))
+
+
+@app.get("/json", response_model=JsonMessageResponse)
+async def json_message() -> JsonMessageResponse:
+    return JsonMessageResponse(message="Hello, World!")
+
+
+@app.post("/echo", response_model=EchoResponse)
+async def echo(body: EchoRequest) -> EchoResponse:
+    repeat = body.repeat if body.repeat is not None else 1
+    payload = body.message * repeat
+    if body.uppercase:
+        payload = payload.upper()
+    return EchoResponse(message=payload, length=len(payload))
+
+
+@app.post("/compute/stats", response_model=StatsResponse, response_model_exclude_none=True)
+async def compute_stats(body: StatsRequest) -> StatsResponse:
+    values = body.values
+    total = 0.0
+    min_value = values[0]
+    max_value = values[0]
+    for value in values:
+        total += value
+        if value < min_value:
+            min_value = value
+        if value > max_value:
+            max_value = value
+    mean = total / len(values)
+
+    median: float | None = None
+    if body.include_median:
+        sorted_values = sorted(values)
+        size = len(sorted_values)
+        if size % 2 == 0:
+            median = (sorted_values[size // 2 - 1] + sorted_values[size // 2]) * 0.5
+        else:
+            median = sorted_values[size // 2]
+
+    return StatsResponse(
+        min=min_value,
+        max=max_value,
+        mean=mean,
+        sum=total,
+        count=len(values),
+        median=median,
+    )
 
 
 def require_pool(request: Request) -> AsyncConnectionPool:

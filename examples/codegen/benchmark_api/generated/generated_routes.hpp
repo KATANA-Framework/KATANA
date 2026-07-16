@@ -20,77 +20,22 @@ struct route_entry {
     std::span<const content_type_info> produces;
 };
 
-inline constexpr content_type_info route_0_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_0_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_1_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_2_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_3_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_4_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_4_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_5_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_6_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_6_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_8_consumes[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_8_produces[] = {
-    {"application/json"},
-};
-
-inline constexpr content_type_info route_9_produces[] = {
+inline constexpr content_type_info content_types_0[] = {
     {"application/json"},
 };
 
 inline constexpr route_entry routes[] = {
-    {"/compute/sum", katana::http::method::post, "compute_sum", route_0_consumes, route_0_produces},
-    {"/compute/stats", katana::http::method::post, "compute_stats", route_1_consumes, route_1_produces},
-    {"/users/register", katana::http::method::post, "register_user", route_2_consumes, route_2_produces},
-    {"/items", katana::http::method::get, "list_items", {}, route_3_produces},
-    {"/items", katana::http::method::post, "create_item", route_4_consumes, route_4_produces},
-    {"/items/{id}", katana::http::method::get, "get_item", {}, route_5_produces},
-    {"/items/{id}", katana::http::method::put, "update_item", route_6_consumes, route_6_produces},
+    {"/compute/sum", katana::http::method::post, "compute_sum", content_types_0, content_types_0},
+    {"/compute/stats", katana::http::method::post, "compute_stats", content_types_0, content_types_0},
+    {"/users/register", katana::http::method::post, "register_user", content_types_0, content_types_0},
+    {"/items", katana::http::method::get, "list_items", {}, content_types_0},
+    {"/items", katana::http::method::post, "create_item", content_types_0, content_types_0},
+    {"/items/{id}", katana::http::method::get, "get_item", {}, content_types_0},
+    {"/items/{id}", katana::http::method::put, "update_item", content_types_0, content_types_0},
     {"/items/{id}", katana::http::method::del, "delete_item", {}, {}},
-    {"/echo", katana::http::method::post, "echo", route_8_consumes, route_8_produces},
-    {"/health", katana::http::method::get, "health_check", {}, route_9_produces},
+    {"/json", katana::http::method::get, "json_message", {}, content_types_0},
+    {"/echo", katana::http::method::post, "echo", content_types_0, content_types_0},
+    {"/health", katana::http::method::get, "health_check", {}, content_types_0},
 };
 
 inline constexpr size_t route_count = sizeof(routes) / sizeof(routes[0]);
@@ -166,6 +111,15 @@ namespace route_metadata {
         static constexpr katana::http::method method = katana::http::method::del;
         static constexpr std::string_view operation_id = "delete_item";
         static constexpr size_t path_param_count = 1;
+        static constexpr bool has_request_body = false;
+    };
+
+    // json_message: GET /json
+    struct json_message_metadata {
+        static constexpr std::string_view path = "/json";
+        static constexpr katana::http::method method = katana::http::method::get;
+        static constexpr std::string_view operation_id = "json_message";
+        static constexpr size_t path_param_count = 0;
         static constexpr bool has_request_body = false;
     };
 
