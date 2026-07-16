@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+fastapi,db-list,7067.56,29571.0,61689.0,66733.0,403044,369.0,0,0

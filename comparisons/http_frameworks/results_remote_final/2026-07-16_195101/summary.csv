@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+ntex,json-pipe-20,83539.28,308859.0,0.0,0.0,10808,17.7,43,0

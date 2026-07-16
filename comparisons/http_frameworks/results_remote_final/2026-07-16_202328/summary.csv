@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+fastapi,json-pipe-20,59650.32,140360.0,724086.0,0.0,420528,364.2,974,0

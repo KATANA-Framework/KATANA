@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+ntex,echo-json,10258.0,48365.0,56084.0,60407.0,11200,19.6,0,0

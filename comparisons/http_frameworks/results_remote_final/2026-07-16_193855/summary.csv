@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+axum,db-list,5220.18,40139.0,132661.0,288653.0,11972,49.5,1,0

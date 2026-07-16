@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+ntex,stats-128,10359.6,47815.0,56350.0,186217.0,10892,24.6,1,0

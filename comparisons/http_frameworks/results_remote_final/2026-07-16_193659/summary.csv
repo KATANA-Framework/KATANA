@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+axum,db-point-select,15976.95,15905.0,16648.0,24241.0,12080,108.2,0,0

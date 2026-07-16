@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+fastapi,json-small,10495.61,47847.0,54998.0,62693.0,392324,98.1,0,0

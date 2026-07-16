@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+drogon,stats-128,52186.0,9610.0,10762.0,13237.0,25784,399.1,0,0

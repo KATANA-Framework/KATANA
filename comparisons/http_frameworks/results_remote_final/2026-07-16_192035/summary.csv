@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+actix-web,db-point-select,16025.21,15865.0,16683.0,22117.0,14328,133.0,0,0

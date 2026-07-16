@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+drogon,json-small,10713.38,47664.0,53634.0,57760.0,24568,20.1,0,0

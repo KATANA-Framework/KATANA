@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+drogon,db-insert-returning,2089.55,107778.0,200250.0,375256.0,23364,20.6,105,0

@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+katana,db-point-select,16093.0,15786.0,16565.0,21735.0,42880,85.0,0,0

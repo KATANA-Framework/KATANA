@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+axum,json-pipe-20,83773.59,300079.0,0.0,0.0,14932,16.2,33,0

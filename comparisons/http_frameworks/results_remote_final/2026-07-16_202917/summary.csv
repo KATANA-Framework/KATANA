@@ -1,0 +1,2 @@
+framework,scenario,rps,p50_us,p90_us,p99_us,rss_peak_kb,cpu_pct_one_core,errors,non_2xx
+fastapi,db-insert-returning,8347.89,30350.0,35467.0,42119.0,400840,397.1,0,0
