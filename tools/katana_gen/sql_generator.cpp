@@ -168,7 +168,8 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         out << "\n";
     }
     out << "    explicit generated_repository(katana::sql::executor& executor) noexcept\n";
-    out << "        : executor_(executor) {}\n\n";
+    out << "        : executor_(executor),\n";
+    out << "          async_executor_(dynamic_cast<katana::sql::async_executor*>(&executor)) {}\n\n";
 
     for (const auto& query : catalog.queries) {
         const std::string return_type = repository_return_type(query);
@@ -254,9 +255,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         out << "        if (!handler) {\n";
         out << "            return false;\n";
         out << "        }\n";
-        out << "        auto* async_executor = "
-               "dynamic_cast<katana::sql::async_executor*>(&executor_);\n";
-        out << "        if (async_executor == nullptr) {\n";
+        out << "        if (async_executor_ == nullptr) {\n";
         out << "            // No async executor: run synchronously and deliver the result inline\n";
         out << "            // so the completion always fires (returning false here would hang a\n";
         out << "            // deferred response).\n";
@@ -277,10 +276,10 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
                 << param_identifier(parameter) << "));\n";
         }
         if (query.mode == sql_query_mode::exec) {
-            out << "        return async_executor->exec_async(\"" << query.name << "\", "
+            out << "        return async_executor_->exec_async(\"" << query.name << "\", "
                 << query.name << "_sql, std::move(params), std::move(handler));\n";
         } else if (query.mode == sql_query_mode::one) {
-            out << "        return async_executor->query_async(\"" << query.name << "\", "
+            out << "        return async_executor_->query_async(\"" << query.name << "\", "
                 << query.name << "_sql, std::move(params),\n";
             out << "            [handler = std::move(handler)](katana::result<katana::sql::rows> "
                    "rows_result) {\n";
@@ -308,7 +307,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
                 << ">(std::move(*mapped)));\n";
             out << "            });\n";
         } else {
-            out << "        return async_executor->query_async(\"" << query.name << "\", "
+            out << "        return async_executor_->query_async(\"" << query.name << "\", "
                 << query.name << "_sql, std::move(params),\n";
             out << "            [handler = std::move(handler)](katana::result<katana::sql::rows> "
                    "rows_result) {\n";
@@ -435,7 +434,8 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
     }
 
     out << "private:\n";
-    out << "    katana::sql::executor& executor_;\n\n";
+    out << "    katana::sql::executor& executor_;\n";
+    out << "    katana::sql::async_executor* const async_executor_;\n\n";
 
     for (const auto& query : catalog.queries) {
         out << "    static constexpr std::string_view " << query.name
