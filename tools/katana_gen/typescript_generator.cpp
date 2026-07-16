@@ -315,6 +315,22 @@ std::string generate_typescript_client(const document& doc, const std::string& /
         }
     }
 
+    out << "}\n\n";
+
+    // Auth-aware factory: fold a getToken() into the per-request `headers` provider so callers get a
+    // ready-to-use client without hand-writing the Authorization header.
+    out << "export interface CreateClientOptions extends ApiClientOptions {\n";
+    out << "  /** Returns the current bearer token; injected as `Authorization: Bearer <token>`. */\n";
+    out << "  getToken?: () => string | null | undefined;\n";
+    out << "}\n\n";
+    out << "export function createClient(options: CreateClientOptions = {}): ApiClient {\n";
+    out << "  const { getToken, headers, ...rest } = options;\n";
+    out << "  const provider = (): Record<string, string> => {\n";
+    out << "    const base = typeof headers === \"function\" ? headers() : (headers ?? {});\n";
+    out << "    const token = getToken?.();\n";
+    out << "    return token ? { ...base, Authorization: `Bearer ${token}` } : { ...base };\n";
+    out << "  };\n";
+    out << "  return new ApiClient({ ...rest, headers: provider });\n";
     out << "}\n";
     return out.str();
 }
