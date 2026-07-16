@@ -114,6 +114,7 @@ result<void> io_uring_reactor::run() {
     }
 
     while (running_.load(std::memory_order_relaxed)) {
+        loop_now_ = std::chrono::steady_clock::now();
         process_wheel_timer();
         process_timers();
         process_tasks();

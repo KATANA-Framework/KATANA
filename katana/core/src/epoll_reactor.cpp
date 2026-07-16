@@ -119,7 +119,8 @@ result<void> epoll_reactor::run() {
     }
 
     while (running_.load(std::memory_order_relaxed)) {
-        const auto loop_now = std::chrono::steady_clock::now();
+        loop_now_ = std::chrono::steady_clock::now();
+        const auto loop_now = loop_now_;
         process_wheel_timer();
         process_timers(loop_now);
         process_tasks();

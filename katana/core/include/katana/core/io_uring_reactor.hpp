@@ -44,6 +44,12 @@ public:
                               size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
     ~io_uring_reactor() noexcept;
 
+    // Timestamp taken once per event-loop iteration. Callbacks running on this reactor's
+    // thread can use it as a cheap "now" for coarse timing (request-duration metrics).
+    [[nodiscard]] std::chrono::steady_clock::time_point loop_now() const noexcept {
+        return loop_now_;
+    }
+
     io_uring_reactor(const io_uring_reactor&) = delete;
     io_uring_reactor& operator=(const io_uring_reactor&) = delete;
     io_uring_reactor(io_uring_reactor&&) = delete;
@@ -130,6 +136,8 @@ private:
     io_uring ring_;
     int32_t wakeup_fd_;
     std::atomic<bool> running_;
+    // Written once per loop iteration on the reactor thread; read via loop_now().
+    std::chrono::steady_clock::time_point loop_now_ = std::chrono::steady_clock::now();
     std::atomic<bool> graceful_shutdown_;
     std::chrono::steady_clock::time_point graceful_shutdown_deadline_;
     // Listener fds to deregister+close once when graceful shutdown begins.

@@ -24,10 +24,10 @@ public:
 
     wheel_timer() : current_slot_(0), last_tick_(clock::now()) {
         slots_.resize(WHEEL_SIZE);
-        for (auto& bucket : slots_) {
-            bucket.handles.reserve(256); // reduce reallocations on steady workloads
-        }
-        entries_.reserve(WHEEL_SIZE * 256); // avoid frequent reallocations on bursty add
+        // Start small and let the vectors grow amortized: the previous eager
+        // WHEEL_SIZE * 256 entry reserve pinned ~90 MB of RSS per reactor before the first
+        // connection ever arrived. Steady-state capacity settles at the actual peak load.
+        entries_.reserve(1024);
     }
 
     timeout_id add(duration timeout, callback_fn cb) {

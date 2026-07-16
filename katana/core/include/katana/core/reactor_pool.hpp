@@ -15,7 +15,13 @@ namespace katana {
 struct reactor_pool_config {
     uint32_t reactor_count = 0;
     int32_t max_events_per_reactor = 512;
-    size_t max_pending_tasks = 65536;
+    // Per-reactor scheduling queue capacity. Each reactor owns two ring buffers (tasks and
+    // timers) whose slots hold a 128-byte inplace_function and are fully constructed up
+    // front, so this value costs capacity * ~192B * 2 of resident memory per reactor
+    // (65536 used to pin ~25 MB per reactor before a single request was served). 8192
+    // still allows thousands of cross-thread wakeups in flight; schedule() reports
+    // overflow to the caller.
+    size_t max_pending_tasks = 8192;
     bool enable_adaptive_balancing = true;
     bool enable_thread_pinning = false;
     bool enable_metrics = true; // per-event reactor counters (the reactor collects these by default)

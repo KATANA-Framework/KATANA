@@ -42,6 +42,13 @@ public:
                            size_t max_pending_tasks = DEFAULT_MAX_PENDING_TASKS);
     ~epoll_reactor() noexcept;
 
+    // Timestamp taken once per event-loop iteration. Callbacks running on this reactor's
+    // thread can use it as a cheap "now" for coarse timing (request-duration metrics):
+    // it never costs a clock_gettime on the hot path and is exact to the loop iteration.
+    [[nodiscard]] std::chrono::steady_clock::time_point loop_now() const noexcept {
+        return loop_now_;
+    }
+
     epoll_reactor(const epoll_reactor&) = delete;
     epoll_reactor& operator=(const epoll_reactor&) = delete;
     epoll_reactor(epoll_reactor&&) = delete;
@@ -131,6 +138,8 @@ private:
     std::atomic<bool> running_;
     std::atomic<bool> graceful_shutdown_;
     std::chrono::steady_clock::time_point graceful_shutdown_deadline_;
+    // Written once per loop iteration on the reactor thread; read via loop_now().
+    std::chrono::steady_clock::time_point loop_now_ = std::chrono::steady_clock::now();
     // Listener fds to deregister+close once when graceful shutdown begins (set before the
     // worker thread starts; consumed on the reactor thread).
     std::vector<int32_t> shutdown_close_fds_;
