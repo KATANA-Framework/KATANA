@@ -23,9 +23,9 @@ namespace {
 using katana::openapi::schema;
 using katana::openapi::schema_kind;
 
-// Field type buckets that can be bridged. OTHER means "not a plain scalar/string" (nested object,
-// array, enum, …) and makes the whole match ineligible.
-enum class field_kind { integer, number, boolean, string, other };
+// Field type buckets that can be bridged. OTHER means "not bridgeable" (nested object, non-string
+// array, enum, …) and makes the whole match ineligible. STRING_ARRAY bridges text[] ↔ array<string>.
+enum class field_kind { integer, number, boolean, string, string_array, other };
 
 field_kind row_column_kind(const std::string& cpp_type) {
     if (cpp_type == "int64_t") {
@@ -39,6 +39,9 @@ field_kind row_column_kind(const std::string& cpp_type) {
     }
     if (cpp_type == "std::string") {
         return field_kind::string;
+    }
+    if (cpp_type == "std::vector<std::string>") {
+        return field_kind::string_array; // text[] ↔ array<string>
     }
     return field_kind::other;
 }
@@ -56,6 +59,12 @@ field_kind dto_property_kind(const schema* s) {
         return field_kind::boolean;
     case schema_kind::string:
         return s->enum_values.empty() ? field_kind::string : field_kind::other; // enums: skip
+    case schema_kind::array:
+        // array<string> (non-enum items) bridges to a text[] row column.
+        return (s->items != nullptr && s->items->kind == schema_kind::string &&
+                s->items->enum_values.empty())
+                   ? field_kind::string_array
+                   : field_kind::other;
     default:
         return field_kind::other;
     }
@@ -156,7 +165,8 @@ std::string generate_bridge(const sql_catalog& catalog, const katana::openapi::d
     out << "#include \"generated_sql_models.hpp\"\n";
     out << "#include \"katana/core/arena.hpp\"\n\n";
     out << "#include <optional>\n";
-    out << "#include <string>\n\n";
+    out << "#include <string>\n";
+    out << "#include <vector>\n\n";
     out << "namespace " << bridge_ns << " {\n\n";
 
     size_t emitted = 0;
@@ -225,6 +235,14 @@ std::string generate_bridge(const sql_catalog& catalog, const katana::openapi::d
             if (fm.kind == field_kind::string) {
                 out << "    if (row." << fm.row_member << ") dto." << fm.dto_member << ".assign(row."
                     << fm.row_member << "->begin(), row." << fm.row_member << "->end());\n";
+            } else if (fm.kind == field_kind::string_array) {
+                out << "    if (row." << fm.row_member << ") {\n";
+                out << "        for (const auto& elem : *row." << fm.row_member << ") {\n";
+                out << "            katana::arena_string<> s(elem.begin(), elem.end(), "
+                       "katana::arena_allocator<char>(arena));\n";
+                out << "            dto." << fm.dto_member << ".push_back(std::move(s));\n";
+                out << "        }\n";
+                out << "    }\n";
             } else {
                 out << "    dto." << fm.dto_member << " = row." << fm.row_member << ".value_or("
                     << zero_literal(fm.kind) << ");\n";
@@ -240,6 +258,13 @@ std::string generate_bridge(const sql_catalog& catalog, const katana::openapi::d
             if (fm.kind == field_kind::string) {
                 out << "    row." << fm.row_member << " = std::string(dto." << fm.dto_member
                     << ".begin(), dto." << fm.dto_member << ".end());\n";
+            } else if (fm.kind == field_kind::string_array) {
+                out << "    {\n";
+                out << "        std::vector<std::string> v;\n";
+                out << "        for (const auto& elem : dto." << fm.dto_member
+                    << ") v.emplace_back(elem.begin(), elem.end());\n";
+                out << "        row." << fm.row_member << " = std::move(v);\n";
+                out << "    }\n";
             } else {
                 out << "    row." << fm.row_member << " = dto." << fm.dto_member << ";\n";
             }
