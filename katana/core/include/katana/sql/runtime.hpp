@@ -324,6 +324,36 @@ public:
                             async_exec_handler handler) = 0;
 };
 
+// One query in a pipeline batch. `statement_name`/`sql` must outlive the call to query_pipeline()
+// (they are copied internally before it returns); `params` is moved.
+struct pipeline_query {
+    std::string_view statement_name;
+    std::string_view sql;
+    parameters params;
+};
+
+// Fired once, off the reactor, when the whole pipeline batch has completed. The vector holds one
+// result per input query, in the SAME order; an individual query's failure is its own element error,
+// it does not sink the batch.
+using async_pipeline_handler =
+    katana::inplace_function<void(std::vector<katana::result<rows>>), 512>;
+
+// Optional executor capability: run N queries in a single network round-trip (Postgres pipeline
+// mode) instead of one stall per query. katana::sql::gather() uses it when the executor implements
+// it and falls back to sequential query_async() chaining otherwise — so it is purely a latency
+// optimization, never a semantic change. Preserves the single-connection-per-reactor model: the
+// whole batch runs on the calling reactor's own connection.
+class pipelined_executor {
+public:
+    virtual ~pipelined_executor() = default;
+
+    // Returns true if the batch was accepted (and `handler` will fire exactly once later). Returns
+    // false without taking ownership of side effects if it cannot pipeline here (e.g. not on a
+    // reactor thread) — the caller should then fall back to sequential execution.
+    virtual bool query_pipeline(std::vector<pipeline_query> queries,
+                                async_pipeline_handler handler) = 0;
+};
+
 inline const cell* find_cell(const row& input, std::string_view key) {
     return input.find(key);
 }

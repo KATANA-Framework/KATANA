@@ -31,8 +31,15 @@ constexpr std::size_t async_queue_limit = 1024;
 using prepared_statement_set =
     std::unordered_set<std::string, transparent_string_hash, transparent_string_equal>;
 
+// One statement inside a pipeline batch.
+struct pipeline_item {
+    std::string statement_name;
+    std::string sql;
+    parameters params;
+};
+
 struct async_request {
-    enum class kind { query, exec };
+    enum class kind { query, exec, pipeline };
 
     kind operation = kind::query;
     std::string statement_name;
@@ -40,10 +47,20 @@ struct async_request {
     parameters params;
     async_query_handler query_handler;
     async_exec_handler exec_handler;
+    // Only for kind::pipeline: the batch and its single completion handler.
+    std::vector<pipeline_item> batch;
+    async_pipeline_handler pipeline_handler;
+};
+
+// A command we expect to read back from the pipeline, in send order: either a one-off PREPARE for an
+// item's statement (COMMAND_OK), or the item's actual query (TUPLES_OK). `item` indexes the batch.
+struct pipeline_expected {
+    std::size_t item = 0;
+    bool is_prepare = false;
 };
 
 struct reactor_async_state : std::enable_shared_from_this<reactor_async_state> {
-    enum class phase { idle, connecting, preparing, executing };
+    enum class phase { idle, connecting, preparing, executing, pipelining };
 
     PGconn* connection = nullptr;
     reactor* owner_reactor = nullptr;
@@ -59,6 +76,12 @@ struct reactor_async_state : std::enable_shared_from_this<reactor_async_state> {
     bool stopping = false;
     prepared_statement_set prepared_statements;
     std::string last_error;
+    // Resumable pipeline read state (only meaningful in phase::pipelining). `pipeline_results` holds
+    // one slot per batch item; `pipeline_expected` is the send-order command list; `pipeline_pos`
+    // is how far we've consumed across successive readable events.
+    std::vector<katana::result<rows>> pipeline_results;
+    std::vector<pipeline_expected> pipeline_plan;
+    std::size_t pipeline_pos = 0;
 };
 
 void maybe_debug_log(std::string_view message) {
@@ -422,6 +445,9 @@ void close_reactor_async_connection(reactor_async_state& state) {
     state.current_phase = reactor_async_state::phase::idle;
     state.flush_pending = false;
     state.prepared_statements.clear();
+    state.pipeline_results.clear();
+    state.pipeline_plan.clear();
+    state.pipeline_pos = 0;
     if (state.connection != nullptr) {
         PQfinish(state.connection);
         state.connection = nullptr;
@@ -432,6 +458,7 @@ struct reactor_request_completion {
     async_request request;
     katana::result<rows> query_result = std::unexpected(sql_error());
     katana::result<exec_result> exec_result_value = std::unexpected(sql_error());
+    std::vector<katana::result<rows>> pipeline_results; // only for kind::pipeline
 };
 
 enum class reactor_phase_poll_result { waiting, continue_now, failed };
@@ -575,6 +602,151 @@ bool start_reactor_execute_locked(reactor_async_state& state) {
     return ensure_reactor_watch(state, watch_events);
 }
 
+// Kick off a whole batch on one connection using libpq pipeline mode: send every item's PREPARE
+// (only if not already cached) + bound query back-to-back, then a single PQpipelineSync — so the
+// server sees N queries without a per-query network round-trip. Reading is resumable across readable
+// events via state.pipeline_* (F14: gather over one reactor connection).
+bool start_reactor_pipeline_locked(reactor_async_state& state) {
+    if (!state.active_request.has_value() || state.connection == nullptr) {
+        record_error_message(state.last_error, "reactor pipeline requested without active connection");
+        return false;
+    }
+    const auto& batch = state.active_request->batch;
+    if (batch.empty()) {
+        record_error_message(state.last_error, "reactor pipeline requested with empty batch");
+        return false;
+    }
+
+    if (PQenterPipelineMode(state.connection) == 0) {
+        record_error_message(state.last_error, PQerrorMessage(state.connection));
+        return false;
+    }
+
+    state.pipeline_results.assign(batch.size(), katana::result<rows>(std::unexpected(sql_error())));
+    state.pipeline_plan.clear();
+    state.pipeline_plan.reserve(batch.size() * 2);
+    state.pipeline_pos = 0;
+
+    auto abort_pipeline = [&](const char* context) {
+        record_error_message(state.last_error,
+                             context != nullptr ? context : PQerrorMessage(state.connection));
+        PQexitPipelineMode(state.connection);
+        return false;
+    };
+
+    for (std::size_t i = 0; i < batch.size(); ++i) {
+        const auto& item = batch[i];
+        if (state.prepared_statements.find(item.statement_name) == state.prepared_statements.end()) {
+            if (PQsendPrepare(state.connection, item.statement_name.c_str(), item.sql.c_str(), 0,
+                              nullptr) == 0) {
+                return abort_pipeline(nullptr);
+            }
+            state.pipeline_plan.push_back({.item = i, .is_prepare = true});
+        }
+        auto values = build_param_values(item.params);
+        if (PQsendQueryPrepared(state.connection, item.statement_name.c_str(), values.count(),
+                                values.data(), nullptr, nullptr, 0) == 0) {
+            return abort_pipeline(nullptr);
+        }
+        state.pipeline_plan.push_back({.item = i, .is_prepare = false});
+    }
+
+    if (PQpipelineSync(state.connection) == 0) {
+        return abort_pipeline(nullptr);
+    }
+
+    state.current_phase = reactor_async_state::phase::pipelining;
+    const int flush_status = PQflush(state.connection);
+    if (flush_status < 0) {
+        record_error_message(state.last_error, PQerrorMessage(state.connection));
+        return false;
+    }
+    state.flush_pending = flush_status == 1;
+    const auto watch_events =
+        state.flush_pending ? (event_type::readable | event_type::writable) : event_type::readable;
+    return ensure_reactor_watch(state, watch_events);
+}
+
+// Resumable read of a pipeline's results. Returns `ready` once the PGRES_PIPELINE_SYNC marker is
+// seen (all per-item results are already accumulated into state.pipeline_results); `waiting` if it
+// needs more socket input; `failed` on a protocol/socket error. Never returns a PGresult — pipeline
+// results are consumed in place, so `.result` stays null.
+reactor_command_poll_result poll_pipeline_phase_locked(reactor_async_state& state,
+                                                       event_type ready_events) {
+    if (state.connection == nullptr) {
+        record_error_message(state.last_error, "reactor pipeline poll without connection");
+        return {.state = reactor_command_poll_result::status::failed};
+    }
+
+    if (state.flush_pending) {
+        if (ready_events != event_type::none && !has_flag(ready_events, event_type::writable)) {
+            return {.state = reactor_command_poll_result::status::waiting};
+        }
+        const int flush_status = PQflush(state.connection);
+        if (flush_status < 0) {
+            record_error_message(state.last_error, PQerrorMessage(state.connection));
+            return {.state = reactor_command_poll_result::status::failed};
+        }
+        state.flush_pending = flush_status == 1;
+        const auto watch_events = state.flush_pending
+                                      ? (event_type::readable | event_type::writable)
+                                      : event_type::readable;
+        if (!ensure_reactor_watch(state, watch_events)) {
+            return {.state = reactor_command_poll_result::status::failed};
+        }
+        if (state.flush_pending) {
+            return {.state = reactor_command_poll_result::status::waiting};
+        }
+    }
+
+    for (;;) {
+        if (PQconsumeInput(state.connection) == 0) {
+            record_error_message(state.last_error, PQerrorMessage(state.connection));
+            return {.state = reactor_command_poll_result::status::failed};
+        }
+        if (PQisBusy(state.connection) != 0) {
+            if (!ensure_reactor_watch(state, event_type::readable)) {
+                return {.state = reactor_command_poll_result::status::failed};
+            }
+            return {.state = reactor_command_poll_result::status::waiting};
+        }
+
+        PGresult* result = PQgetResult(state.connection);
+        if (result == nullptr) {
+            continue; // end-of-command marker between queries; keep reading
+        }
+        const auto status = PQresultStatus(result);
+        if (status == PGRES_PIPELINE_SYNC) {
+            PQclear(result);
+            return {.state = reactor_command_poll_result::status::ready};
+        }
+        if (state.pipeline_pos >= state.pipeline_plan.size()) {
+            PQclear(result); // defensive: unexpected result before sync
+            continue;
+        }
+        const auto expected = state.pipeline_plan[state.pipeline_pos++];
+        const auto& item_name = state.active_request->batch[expected.item].statement_name;
+        if (expected.is_prepare) {
+            if (status == PGRES_COMMAND_OK) {
+                state.prepared_statements.insert(item_name);
+            } else if (status != PGRES_PIPELINE_ABORTED) {
+                state.pipeline_results[expected.item] =
+                    std::unexpected(sql_error_from_result(result));
+            }
+        } else {
+            if (status == PGRES_TUPLES_OK) {
+                state.pipeline_results[expected.item] = read_rows(result);
+            } else if (status == PGRES_PIPELINE_ABORTED) {
+                state.pipeline_results[expected.item] = std::unexpected(sql_error());
+            } else {
+                state.pipeline_results[expected.item] =
+                    std::unexpected(sql_error_from_result(result));
+            }
+        }
+        PQclear(result);
+    }
+}
+
 reactor_phase_poll_result poll_connect_phase_locked(reactor_async_state& state,
                                                     event_type ready_events) {
     if (state.connection == nullptr) {
@@ -703,8 +875,11 @@ std::optional<reactor_request_completion> poll_reactor_request_locked(reactor_as
         close_reactor_async_connection(state);
         if (completion.request.operation == async_request::kind::query) {
             completion.query_result = std::unexpected(sql_error());
-        } else {
+        } else if (completion.request.operation == async_request::kind::exec) {
             completion.exec_result_value = std::unexpected(sql_error());
+        } else {
+            completion.pipeline_results.assign(completion.request.batch.size(),
+                                               katana::result<rows>(std::unexpected(sql_error())));
         }
         return completion;
     };
@@ -723,6 +898,13 @@ std::optional<reactor_request_completion> poll_reactor_request_locked(reactor_as
         case reactor_async_state::phase::idle:
             if (state.connection == nullptr) {
                 if (!start_reactor_connect_locked(state)) {
+                    return fail_active_request();
+                }
+                continue;
+            }
+
+            if (state.active_request->operation == async_request::kind::pipeline) {
+                if (!start_reactor_pipeline_locked(state)) {
                     return fail_active_request();
                 }
                 continue;
@@ -833,11 +1015,55 @@ std::optional<reactor_request_completion> poll_reactor_request_locked(reactor_as
             }
             return completion;
         }
+
+        case reactor_async_state::phase::pipelining: {
+            auto poll_result = poll_pipeline_phase_locked(state, ready_events);
+            if (poll_result.state == reactor_command_poll_result::status::waiting) {
+                return std::nullopt;
+            }
+            if (poll_result.state == reactor_command_poll_result::status::failed) {
+                return fail_active_request();
+            }
+
+            // The per-item results are already in state.pipeline_results; move them into the
+            // completion before touching the connection.
+            reactor_request_completion completion;
+            completion.request = std::move(*state.active_request);
+            completion.pipeline_results = std::move(state.pipeline_results);
+            state.active_request.reset();
+            state.pipeline_results.clear();
+            state.pipeline_plan.clear();
+            state.pipeline_pos = 0;
+            state.current_phase = reactor_async_state::phase::idle;
+            state.last_error.clear();
+
+            // Drain the trailing end-of-pipeline marker and leave pipeline mode. If exit fails the
+            // connection is left in an unusable state, so drop it — the next request reconnects.
+            if (state.connection != nullptr) {
+                while (PGresult* trailing = PQgetResult(state.connection)) {
+                    PQclear(trailing);
+                }
+                if (PQexitPipelineMode(state.connection) == 0) {
+                    record_error_message(state.last_error, PQerrorMessage(state.connection));
+                    close_reactor_async_connection(state);
+                }
+            }
+
+            if (!state.active_request.has_value() && state.queue.empty()) {
+                state.watch.reset();
+                state.watch_events = event_type::none;
+            }
+            return completion;
+        }
         }
     }
 }
 
 void invoke_reactor_completion(reactor_request_completion completion) {
+    if (completion.request.operation == async_request::kind::pipeline) {
+        completion.request.pipeline_handler(std::move(completion.pipeline_results));
+        return;
+    }
     if (completion.request.operation == async_request::kind::query) {
         completion.request.query_handler(std::move(completion.query_result));
         return;
@@ -872,8 +1098,12 @@ void drive_reactor_async_queue(const std::shared_ptr<reactor_async_state>& state
                     close_reactor_async_connection(*state);
                     if (failed.request.operation == async_request::kind::query) {
                         failed.query_result = std::unexpected(sql_error());
-                    } else {
+                    } else if (failed.request.operation == async_request::kind::exec) {
                         failed.exec_result_value = std::unexpected(sql_error());
+                    } else {
+                        failed.pipeline_results.assign(
+                            failed.request.batch.size(),
+                            katana::result<rows>(std::unexpected(sql_error())));
                     }
                     completion = std::move(failed);
                 } else if (!state->active_request.has_value()) {
@@ -1296,6 +1526,32 @@ bool postgres_executor::exec_async(std::string_view statement_name,
     return true;
 }
 
+bool postgres_executor::query_pipeline(std::vector<pipeline_query> queries,
+                                       async_pipeline_handler handler) {
+    if (!handler || queries.empty()) {
+        return false;
+    }
+
+    // Pipelining lives on the reactor's own connection. Off a reactor thread (or without the reactor
+    // async state) we cannot pipeline; return false so gather() falls back to sequential query_async.
+    auto* owner_reactor = current_handler_reactor();
+    if (owner_reactor == nullptr || impl_ == nullptr || impl_->reactor_async == nullptr) {
+        return false;
+    }
+
+    async_request request;
+    request.operation = async_request::kind::pipeline;
+    request.batch.reserve(queries.size());
+    for (auto& q : queries) {
+        request.batch.push_back(
+            {std::string(q.statement_name), std::string(q.sql), std::move(q.params)});
+    }
+    request.pipeline_handler = std::move(handler);
+
+    return impl::enqueue_reactor_async(impl_->reactor_async, std::move(request),
+                                       config_.connection_string, *owner_reactor);
+}
+
 void postgres_executor::record_error(std::string message) {
     record_error_message(last_error_, std::move(message));
 }
@@ -1430,6 +1686,11 @@ bool postgres_pool_executor::exec_async(std::string_view statement_name,
                                         async_exec_handler handler) {
     return pool_.current_executor().exec_async(
         statement_name, sql, std::move(params), std::move(handler));
+}
+
+bool postgres_pool_executor::query_pipeline(std::vector<pipeline_query> queries,
+                                            async_pipeline_handler handler) {
+    return pool_.current_executor().query_pipeline(std::move(queries), std::move(handler));
 }
 
 } // namespace katana::sql
