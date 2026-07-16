@@ -368,6 +368,7 @@ std::string generate_router_bindings(const document& doc, const std::string& ns)
     out << "#include \"katana/core/router.hpp\"\n";
     out << "#include \"katana/core/problem.hpp\"\n";
     out << "#include \"katana/core/serde.hpp\"\n";
+    out << "#include \"katana/core/serde_binary.hpp\"\n";
     out << "#include \"katana/core/handler_context.hpp\"\n";
     out << "#include \"katana/core/http_server.hpp\"\n";
     out << "#include \"katana/core/http_utils.hpp\"\n";
@@ -901,6 +902,7 @@ std::string generate_router_bindings(const document& doc, const std::string& ns)
                         << "katana::problem_details::unsupported_media_type(\"unsupported "
                            "Content-Type\")); return {};\n";
                     dispatch_functions << "    }\n";
+                    dispatch_functions << "    std::string_view body_view = req.body;\n";
                 } else {
                     dispatch_functions
                         << "    auto content_type_index = find_content_type(req.headers.get("
@@ -912,11 +914,23 @@ std::string generate_router_bindings(const document& doc, const std::string& ns)
                            "Content-Type\")); return {}; }\n";
                     dispatch_functions << "    const auto& request_content_type = route_"
                                        << route_idx << "_consumes[*content_type_index];\n";
+                    // Transcode a declared binary body (CBOR/MessagePack) to JSON, then feed the same
+                    // generated parser. JSON passes through untouched.
+                    dispatch_functions << "    std::string transcoded_body;\n";
+                    dispatch_functions << "    std::string_view body_view = req.body;\n";
                     dispatch_functions
                         << "    if (request_content_type.format != "
-                           "katana::http::media_format::json) { out.assign_error("
-                        << "katana::problem_details::not_implemented(\"codec for Content-Type "
-                           "is not implemented\")); return {}; }\n";
+                           "katana::http::media_format::json) {\n";
+                    dispatch_functions
+                        << "        auto transcoded = katana::serde::transcode_to_json(req.body, "
+                           "request_content_type.format);\n";
+                    dispatch_functions
+                        << "        if (!transcoded) { out.assign_error("
+                           "katana::problem_details::bad_request(\"malformed request body\")); "
+                           "return {}; }\n";
+                    dispatch_functions << "        transcoded_body = std::move(*transcoded);\n";
+                    dispatch_functions << "        body_view = transcoded_body;\n";
+                    dispatch_functions << "    }\n";
                 }
 
                 const bool has_single_body_schema =
@@ -933,7 +947,7 @@ std::string generate_router_bindings(const document& doc, const std::string& ns)
                 if (has_single_body_schema) {
                     const std::string schema_name = body_schema_names.front();
                     dispatch_functions << "    auto parsed_body = parse_" << schema_name
-                                       << "(req.body, &ctx.arena);\n";
+                                       << "(body_view, &ctx.arena);\n";
                     dispatch_functions << "    if (!parsed_body) {\n";
                     dispatch_functions << "        out.assign_error("
                                        << "katana::problem_details::bad_request(\"invalid request "
@@ -948,7 +962,7 @@ std::string generate_router_bindings(const document& doc, const std::string& ns)
                         dispatch_functions << "    case " << media_idx << ": {\n";
                         if (!media_name.empty()) {
                             dispatch_functions << "        auto parsed_body_candidate = parse_"
-                                               << media_name << "(req.body, &ctx.arena);\n";
+                                               << media_name << "(body_view, &ctx.arena);\n";
                             dispatch_functions
                                 << "        if (!parsed_body_candidate) { out.assign_error("
                                 << "katana::problem_details::bad_request(\"invalid request "

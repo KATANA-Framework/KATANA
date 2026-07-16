@@ -459,7 +459,7 @@ paths:
               std::string::npos);
 }
 
-TEST_F(CodegenIntegrationTest, RouterBindingsStubNonJsonRequestCodecs) {
+TEST_F(CodegenIntegrationTest, RouterBindingsTranscodeNonJsonRequestCodecs) {
     const char* spec = R"(
 openapi: 3.0.0
 info:
@@ -498,8 +498,13 @@ paths:
         std::string::npos);
     EXPECT_NE(bindings.find("request_content_type.format != katana::http::media_format::json"),
               std::string::npos);
-    EXPECT_NE(bindings.find("problem_details::not_implemented"), std::string::npos);
-    EXPECT_NE(bindings.find("codec for Content-Type is not implemented"), std::string::npos);
+    // A declared binary body is transcoded to JSON and fed to the same generated parser (F11).
+    EXPECT_NE(bindings.find("katana::serde::transcode_to_json(req.body, request_content_type.format)"),
+              std::string::npos);
+    EXPECT_NE(bindings.find("body_view = transcoded_body;"), std::string::npos);
+    EXPECT_NE(bindings.find("(body_view, &ctx.arena)"), std::string::npos);
+    // No longer stubbed for the request path.
+    EXPECT_EQ(bindings.find("codec for Content-Type is not implemented"), std::string::npos);
 }
 
 TEST_F(CodegenIntegrationTest, RouterBindingsStubNonJsonResponseCodecs) {
