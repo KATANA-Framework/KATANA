@@ -5,10 +5,24 @@
 
 #include <string>
 #include <string_view>
+#include <unordered_set>
 
 namespace katana_gen {
 
 using katana::openapi::document;
+
+// Directional serdes reachability: which schemas need parse_ vs serialize_ emitted. Seeds:
+// request bodies + operation parameters → request side; response bodies → response side;
+// both closed transitively over properties/items/one_of/any_of/all_of/additional_properties.
+// A schema no operation references cannot be proven one-directional (library specs with
+// `paths: {}`), so it lands on both sides. `serdes_mode` maps the sides onto the sets:
+// "server" parses requests and serializes responses, "client" is the mirror image, "all"
+// keeps every schema in both sets (no pruning).
+struct serdes_reachability {
+    std::unordered_set<const katana::openapi::schema*> parse_set;
+    std::unordered_set<const katana::openapi::schema*> serialize_set;
+};
+serdes_reachability collect_serdes_reachability(const document& doc, std::string_view serdes_mode);
 
 std::string escape_json(std::string_view sv);
 std::string escape_cpp_string(std::string_view sv);
@@ -33,8 +47,10 @@ std::string inject_namespace(std::string content, const std::string& ns);
 // contracts can be linked into one binary without colliding. Empty preserves the legacy layout
 // (DTOs/JSON/validators at global scope, router under `namespace generated`).
 std::string generate_dtos(const document& doc, bool use_pmr, const std::string& ns = "");
-std::string generate_json_parsers(const document& doc, bool use_pmr, const std::string& ns = "");
-std::string generate_validators(const document& doc, const std::string& ns = "");
+std::string generate_json_parsers(const document& doc, bool use_pmr, const std::string& ns = "",
+                                  std::string_view serdes_mode = "all");
+std::string generate_validators(const document& doc, const std::string& ns = "",
+                                std::string_view serdes_mode = "all");
 std::string generate_router_table(const document& doc, const std::string& ns = "");
 std::string generate_handler_interfaces(const document& doc, const std::string& ns = "");
 std::string generate_router_bindings(const document& doc, const std::string& ns = "");

@@ -10,6 +10,7 @@ struct options {
     std::string input;
     std::filesystem::path output = ".";
     std::string emit = "all";                // dto,validator,serdes,router,all
+    std::string serdes = "server";           // server,client,all — parse/serialize directions
     std::string layer = "flat";              // flat,layered
     std::string allocator = "pmr";           // pmr,std
     std::string inline_naming = "operation"; // operation,flat

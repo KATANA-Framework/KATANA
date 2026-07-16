@@ -1314,8 +1314,19 @@ void collect_json_referenced_names(const document& doc, std::unordered_set<std::
 
 } // namespace
 
-std::string generate_json_parsers(const document& doc, bool use_pmr, const std::string& ns) {
+std::string generate_json_parsers(const document& doc, bool use_pmr, const std::string& ns,
+                                  std::string_view serdes_mode) {
     std::ostringstream out;
+
+    // Directional pruning: a server never parses its own responses nor serializes request
+    // bodies, so each direction is emitted only for the schemas its side can actually reach.
+    const serdes_reachability reach = collect_serdes_reachability(doc, serdes_mode);
+    const auto emit_parse = [&](const katana::openapi::schema& s) {
+        return reach.parse_set.contains(&s);
+    };
+    const auto emit_serialize = [&](const katana::openapi::schema& s) {
+        return reach.serialize_set.contains(&s);
+    };
 
     // Schemas reachable as a parse_/serialize_ call target. Used to drop dead,
     // never-called `std::monostate` aliases (the `schema_N` clutter) without
@@ -1433,7 +1444,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr, const std::
     // Forward declarations: parse (string_view overload) — skipped for inline field
     // wrappers, which are only ever parsed in place via the cursor overload.
     for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema) && !is_field_wrapper_schema(schema)) {
+        if (!skip_for_json(schema) && emit_parse(schema) && !is_field_wrapper_schema(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "[[nodiscard]] inline std::optional<" << name << "> parse_" << name
                 << "(std::string_view json, monotonic_arena* arena);\n";
@@ -1442,7 +1453,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr, const std::
     out << "\n";
     // Forward declarations: parse (cursor overload)
     for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
+        if (!skip_for_json(schema) && emit_parse(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "[[nodiscard]] inline std::optional<" << name << "> parse_" << name
                 << "(katana::serde::json_cursor& cur, monotonic_arena* arena);\n";
@@ -1451,7 +1462,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr, const std::
     out << "\n";
     // Forward declarations: serialize_into
     for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
+        if (!skip_for_json(schema) && emit_serialize(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "inline void serialize_" << name << "_into(const " << name
                 << "& obj, std::string& out);\n";
@@ -1460,7 +1471,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr, const std::
     out << "\n";
     // Forward declarations: serialize
     for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
+        if (!skip_for_json(schema) && emit_serialize(schema)) {
             auto name = schema_identifier(doc, &schema);
             out << "inline std::string serialize_" << name << "(const " << name << "& obj);\n";
         }
@@ -1476,7 +1487,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr, const std::
 
     // Only generate parsers for non-trivial schemas (objects with properties or arrays)
     for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
+        if (!skip_for_json(schema) && emit_parse(schema)) {
             generate_json_parser_for_schema(out, doc, schema, use_pmr);
         }
     }
@@ -1490,7 +1501,7 @@ std::string generate_json_parsers(const document& doc, bool use_pmr, const std::
 
     // Only generate serializers for non-trivial schemas
     for (const auto& schema : doc.schemas) {
-        if (!skip_for_json(schema)) {
+        if (!skip_for_json(schema) && emit_serialize(schema)) {
             generate_json_serializer_for_schema(out, doc, schema);
         }
     }

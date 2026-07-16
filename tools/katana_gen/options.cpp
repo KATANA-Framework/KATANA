@@ -20,6 +20,10 @@ Options:
   --emit <targets>           OpenAPI: dto,validator,serdes,router,handler,all
                              (typescript: opt-in only, not part of 'all')
                              SQL: models,repository,all (default: all)
+  --serdes <mode>            Directions to emit parse_/serialize_/validate_ for:
+                             server = parse+validate request types, serialize response
+                             types; client = the mirror image; all = both directions
+                             for every schema (default: server)
   --layer <mode>             Architecture: flat,layered (default: flat)
   --alloc <type>             Allocator: pmr,std (default: pmr)
   --inline-naming <style>    Inline schema naming: operation,flat (default: operation)
@@ -95,6 +99,11 @@ options parse_args(int argc, char** argv) {
                 print_usage();
             }
             opts.emit = argv[++i];
+        } else if (arg == "--serdes") {
+            if (i + 1 >= argc) {
+                print_usage();
+            }
+            opts.serdes = argv[++i];
         } else if (arg == "--layer") {
             if (i + 1 >= argc) {
                 print_usage();
@@ -128,6 +137,10 @@ options parse_args(int argc, char** argv) {
             std::cerr << "Unknown argument: " << arg << "\n";
             print_usage();
         }
+    }
+    if (opts.serdes != "server" && opts.serdes != "client" && opts.serdes != "all") {
+        std::cerr << "Invalid --serdes mode: " << opts.serdes << " (server|client|all)\n";
+        print_usage();
     }
     return opts;
 }

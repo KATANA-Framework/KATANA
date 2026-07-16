@@ -645,4 +645,81 @@ void ensure_inline_schema_names(document& doc, std::string_view naming_style) {
     }
 }
 
+namespace {
+
+// Transitive closure over the schema graph. The target set doubles as the visited set:
+// a schema already present was walked into this set before, so its subtree is covered.
+void walk_schema_closure(const katana::openapi::schema* s,
+                         std::unordered_set<const katana::openapi::schema*>& out) {
+    if (s == nullptr || !out.insert(s).second) {
+        return;
+    }
+    for (const auto& prop : s->properties) {
+        walk_schema_closure(prop.type, out);
+    }
+    walk_schema_closure(s->items, out);
+    for (const auto* member : s->one_of) {
+        walk_schema_closure(member, out);
+    }
+    for (const auto* member : s->any_of) {
+        walk_schema_closure(member, out);
+    }
+    for (const auto* member : s->all_of) {
+        walk_schema_closure(member, out);
+    }
+    walk_schema_closure(s->additional_properties, out);
+}
+
+} // namespace
+
+serdes_reachability collect_serdes_reachability(const document& doc,
+                                                std::string_view serdes_mode) {
+    serdes_reachability reach;
+    if (serdes_mode == "all") {
+        for (const auto& s : doc.schemas) {
+            reach.parse_set.insert(&s);
+            reach.serialize_set.insert(&s);
+        }
+        return reach;
+    }
+
+    std::unordered_set<const katana::openapi::schema*> request_side;
+    std::unordered_set<const katana::openapi::schema*> response_side;
+    for (const auto& path : doc.paths) {
+        for (const auto& op : path.operations) {
+            if (op.body != nullptr) {
+                for (const auto& media : op.body->content) {
+                    walk_schema_closure(media.type, request_side);
+                }
+            }
+            for (const auto& param : op.parameters) {
+                walk_schema_closure(param.type, request_side);
+            }
+            for (const auto& resp : op.responses) {
+                for (const auto& media : resp.content) {
+                    walk_schema_closure(media.type, response_side);
+                }
+            }
+        }
+    }
+
+    // Schemas no operation reaches keep both directions, transitively: their subtree may
+    // only be referenced by them, so it must follow them into both sides.
+    for (const auto& s : doc.schemas) {
+        if (!request_side.contains(&s) && !response_side.contains(&s)) {
+            walk_schema_closure(&s, request_side);
+            walk_schema_closure(&s, response_side);
+        }
+    }
+
+    if (serdes_mode == "client") {
+        reach.parse_set = std::move(response_side);
+        reach.serialize_set = std::move(request_side);
+    } else { // "server"
+        reach.parse_set = std::move(request_side);
+        reach.serialize_set = std::move(response_side);
+    }
+    return reach;
+}
+
 } // namespace katana_gen

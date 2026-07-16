@@ -170,7 +170,7 @@ int run_openapi(const options& opts) {
         if (opts.verbose) {
             log << "[verbose] Generating validators...\n";
         }
-        auto validator_code = with_layer(generate_validators(doc, opts.ns));
+        auto validator_code = with_layer(generate_validators(doc, opts.ns, opts.serdes));
         auto validator_path = opts.output / "generated_validators.hpp";
         std::ofstream out(validator_path, std::ios::binary);
         if (!out) {
@@ -189,7 +189,7 @@ int run_openapi(const options& opts) {
         if (opts.verbose) {
             log << "[verbose] Generating JSON parsers and serializers...\n";
         }
-        auto json_code = with_layer(generate_json_parsers(doc, use_pmr, opts.ns));
+        auto json_code = with_layer(generate_json_parsers(doc, use_pmr, opts.ns, opts.serdes));
         auto json_path = opts.output / "generated_json.hpp";
         std::ofstream out(json_path, std::ios::binary);
         if (!out) {

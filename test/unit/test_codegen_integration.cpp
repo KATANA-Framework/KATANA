@@ -173,10 +173,84 @@ components:
     create_openapi_spec("test.yaml", spec);
     ASSERT_TRUE(run_codegen("test.yaml", "dto,serdes"));
 
+    // A schema no operation references cannot be proven one-directional, so the default
+    // --serdes server keeps both directions for it (library specs stay fully usable).
     auto json_content = read_generated_file("generated_json.hpp");
     EXPECT_FALSE(json_content.empty());
     EXPECT_NE(json_content.find("parse_Config"), std::string::npos);
     EXPECT_NE(json_content.find("serialize_Config"), std::string::npos);
+}
+
+TEST_F(CodegenIntegrationTest, SerdesServerModePrunesDeadDirections) {
+    const char* spec = R"(
+openapi: 3.0.0
+info:
+  title: Directional API
+  version: 1.0.0
+paths:
+  /widgets:
+    post:
+      operationId: createWidget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWidgetRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Widget'
+components:
+  schemas:
+    CreateWidgetRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    Widget:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+)";
+
+    create_openapi_spec("directional.yaml", spec);
+
+    // Default (--serdes server): the server parses+validates request types and serializes
+    // response types; the mirror halves are dead code and must not be emitted.
+    ASSERT_TRUE(run_codegen("directional.yaml", "dto,validator,serdes"));
+    auto json_content = read_generated_file("generated_json.hpp");
+    EXPECT_NE(json_content.find("parse_CreateWidgetRequest"), std::string::npos);
+    EXPECT_EQ(json_content.find("serialize_CreateWidgetRequest"), std::string::npos);
+    EXPECT_NE(json_content.find("serialize_Widget"), std::string::npos);
+    EXPECT_EQ(json_content.find("parse_Widget"), std::string::npos);
+    auto validators = read_generated_file("generated_validators.hpp");
+    EXPECT_NE(validators.find("validate_CreateWidgetRequest"), std::string::npos);
+    EXPECT_EQ(validators.find("validate_Widget"), std::string::npos);
+
+    // --serdes client mirrors the directions (a C++ integration-test client parses
+    // responses and serializes requests).
+    ASSERT_TRUE(run_codegen("directional.yaml", "dto,serdes", "--serdes client"));
+    json_content = read_generated_file("generated_json.hpp");
+    EXPECT_NE(json_content.find("parse_Widget"), std::string::npos);
+    EXPECT_EQ(json_content.find("serialize_Widget"), std::string::npos);
+    EXPECT_NE(json_content.find("serialize_CreateWidgetRequest"), std::string::npos);
+    EXPECT_EQ(json_content.find("parse_CreateWidgetRequest"), std::string::npos);
+
+    // --serdes all keeps every schema in both directions (the pre-pruning behavior).
+    ASSERT_TRUE(run_codegen("directional.yaml", "dto,serdes", "--serdes all"));
+    json_content = read_generated_file("generated_json.hpp");
+    EXPECT_NE(json_content.find("parse_Widget"), std::string::npos);
+    EXPECT_NE(json_content.find("serialize_Widget"), std::string::npos);
+    EXPECT_NE(json_content.find("parse_CreateWidgetRequest"), std::string::npos);
+    EXPECT_NE(json_content.find("serialize_CreateWidgetRequest"), std::string::npos);
 }
 
 TEST_F(CodegenIntegrationTest, GeneratesRouteTable) {
@@ -494,7 +568,7 @@ paths:
 
     auto bindings = read_generated_file("generated_router_bindings.hpp");
     EXPECT_NE(
-        bindings.find("const auto& request_content_type = route_0_consumes[*content_type_index];"),
+        bindings.find("const auto& request_content_type = content_types_0[*content_type_index];"),
         std::string::npos);
     EXPECT_NE(bindings.find("request_content_type.format != katana::http::media_format::json"),
               std::string::npos);
@@ -540,7 +614,7 @@ paths:
 
     auto bindings = read_generated_file("generated_router_bindings.hpp");
     EXPECT_NE(bindings.find(
-                  "auto negotiated_content_type = negotiate_response_type(req, route_0_produces);"),
+                  "auto negotiated_content_type = negotiate_response_type(req, content_types_0);"),
               std::string::npos);
     EXPECT_NE(bindings.find("katana::http::infer_media_format(response_content_type) != "
                             "katana::http::media_format::json"),

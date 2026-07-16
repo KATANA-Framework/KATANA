@@ -573,8 +573,14 @@ void generate_validator_for_schema(std::ostream& out,
 
 } // namespace
 
-std::string generate_validators(const document& doc, const std::string& ns) {
+std::string generate_validators(const document& doc, const std::string& ns,
+                                std::string_view serdes_mode) {
     std::ostringstream out;
+
+    // Validators run on parsed input only (the bindings call validate_<Body> before the
+    // handler), so they follow the parse side of the serdes reachability: response-only
+    // schemas never see a validator.
+    const serdes_reachability reach = collect_serdes_reachability(doc, serdes_mode);
     out << "// Auto-generated validators from OpenAPI specification\n";
     out << "//\n";
     out << "// This file contains:\n";
@@ -606,7 +612,7 @@ std::string generate_validators(const document& doc, const std::string& ns) {
     // emit it only when the spec actually has a pattern that could require it.
     bool any_pattern = false;
     for (const auto& sc : doc.schemas) {
-        if (!sc.pattern.empty()) {
+        if (!sc.pattern.empty() && reach.parse_set.contains(&sc)) {
             any_pattern = true;
             break;
         }
@@ -644,7 +650,7 @@ std::string generate_validators(const document& doc, const std::string& ns) {
             const bool emits =
                 schema.kind == katana::openapi::schema_kind::array ||
                 (schema.kind == katana::openapi::schema_kind::object && !schema.properties.empty());
-            if (!emits) {
+            if (!emits || !reach.parse_set.contains(&schema)) {
                 continue;
             }
             auto name = schema_identifier(doc, &schema);
@@ -657,7 +663,9 @@ std::string generate_validators(const document& doc, const std::string& ns) {
     }
 
     for (const auto& schema : doc.schemas) {
-        generate_validator_for_schema(out, doc, schema);
+        if (reach.parse_set.contains(&schema)) {
+            generate_validator_for_schema(out, doc, schema);
+        }
     }
 
     return inject_namespace(out.str(), ns);
