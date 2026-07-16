@@ -8,6 +8,7 @@
 #include "katana/core/jwt.hpp"
 #include "katana/core/router.hpp"
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -39,7 +40,12 @@ struct jwt_auth_config {
 struct api_key_config {
     std::string header = "x-api-key";                // header carrying the key
     std::string query_param;                         // optional: also accept ?<param>=<key>
-    std::unordered_map<std::string, principal> keys; // key → principal (subject + scopes)
+    std::unordered_map<std::string, principal> keys; // static key → principal (subject + scopes)
+    // Dynamic resolver for keys that don't live in a static map — e.g. hash the presented key and
+    // look it up in a database/secret store. Consulted when the static map misses. Returning a
+    // principal authenticates; std::nullopt means "invalid key". Because the authenticator composes
+    // ahead of the x-katana policy chain, DB-backed key auth gates before rate-limit/idempotency.
+    std::function<std::optional<principal>(std::string_view presented_key)> resolver;
 };
 
 enum class auth_status : uint8_t { ok, missing, invalid };

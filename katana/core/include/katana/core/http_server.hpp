@@ -325,6 +325,15 @@ public:
         return *this;
     }
 
+    /// Register a global middleware that runs on every request **before** routing and the route
+    /// policy chain (cache/rate-limit/idempotency) — the seam contract-generated routes lack. Use it
+    /// for request-id/logging middleware, or path-scoped auth that must gate before policies. Runs in
+    /// registration order; a middleware that doesn't call `next` short-circuits the request.
+    server& use(middleware_fn middleware) {
+        global_middleware_.push_back(std::move(middleware));
+        return *this;
+    }
+
     /// Enable JWT bearer auth (HS256/RS256/ES256 + JWKS). Routes annotated with x-katana-auth are
     /// enforced by the contract-first executor; the `auth::require_auth()` middleware can also use
     /// this configuration. Combine with api_key_auth() to accept either.
@@ -505,15 +514,28 @@ private:
             try_serve_metrics(req, out)) {
             return;
         }
-        if (router_) {
-            dispatch_or_problem(*router_, req, ctx, out);
+
+        // Terminal step: routing + the route's policy chain + handler. Errors are mapped into `out`.
+        const handler_fn route_terminal =
+            [this](const request& r, request_context& c, response& o) -> result<void> {
+            if (router_) {
+                dispatch_or_problem(*router_, r, c, o);
+                return {};
+            }
+            auto dr = dispatch_callback_(r, c, o);
+            if (!dr) {
+                map_route_error(dr.error(), o);
+            }
+            return {};
+        };
+
+        // Global pre-routing middleware (server.use) runs ahead of routing + policies.
+        if (global_middleware_.empty()) {
+            (void)route_terminal(req, ctx, out);
             return;
         }
-
-        auto dispatch_result = dispatch_callback_(req, ctx, out);
-        if (!dispatch_result) {
-            map_route_error(dispatch_result.error(), out);
-        }
+        const middleware_chain global{global_middleware_.data(), global_middleware_.size()};
+        (void)global.run(req, ctx, route_terminal, out);
     }
 
     // Serve the built-in liveness/readiness endpoints. Returns true if it handled the
@@ -688,6 +710,7 @@ private:
     std::function<void()> on_start_callback_;
     std::function<void()> on_stop_callback_;
     std::function<void(const request&, const response&)> on_request_callback_;
+    std::vector<middleware_fn> global_middleware_; // server.use(): runs before routing + policies
     route_policy_executor* policy_executor_ = nullptr;
 
     // Built-in health/readiness endpoints (served before the user router). `/healthz` is

@@ -76,4 +76,32 @@ TEST(Auth, ApiKeyAuthenticatesAndRejects) {
               static_cast<int>(auth::auth_status::invalid));
 }
 
+TEST(Auth, ApiKeyResolverIsConsultedWhenStaticMapMisses) {
+    // F5: DB-backed keys — a resolver is consulted when the static map has no match.
+    auth::authenticator a;
+    auth::api_key_config kc;
+    kc.header = "x-api-key";
+    kc.resolver = [](std::string_view presented) -> std::optional<auth::principal> {
+        if (presented == "db-key") {
+            return auth::principal{"project-7", {"ingest:write"}};
+        }
+        return std::nullopt;
+    };
+    a.configure_api_key(kc);
+
+    const std::string good = "db-key";
+    http::request ok_req;
+    ok_req.headers.set_view("x-api-key", good);
+    auto ok = a.authenticate(ok_req);
+    EXPECT_EQ(static_cast<int>(ok.status), static_cast<int>(auth::auth_status::ok));
+    EXPECT_EQ(ok.who.subject, "project-7");
+    EXPECT_TRUE(ok.who.has_scope("ingest:write"));
+
+    const std::string bad = "revoked";
+    http::request bad_req;
+    bad_req.headers.set_view("x-api-key", bad);
+    EXPECT_EQ(static_cast<int>(a.authenticate(bad_req).status),
+              static_cast<int>(auth::auth_status::invalid));
+}
+
 #endif // KATANA_HAS_OPENSSL

@@ -25,12 +25,17 @@ auth_result authenticator::authenticate(const http::request& req) const {
         }
     }
 
-    // 2) API key (header).
+    // 2) API key (header). Static map first, then the optional dynamic resolver (e.g. DB lookup).
     if (api_key_) {
         if (auto key = req.header(api_key_->header)) {
             auto it = api_key_->keys.find(std::string(*key));
             if (it != api_key_->keys.end()) {
                 return {auth_status::ok, it->second};
+            }
+            if (api_key_->resolver) {
+                if (auto who = api_key_->resolver(*key)) {
+                    return {auth_status::ok, std::move(*who)};
+                }
             }
             return {auth_status::invalid, {}};
         }
