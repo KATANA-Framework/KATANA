@@ -27,7 +27,7 @@ Options:
   --layer <mode>             Architecture: flat,layered (default: flat)
   --alloc <type>             Allocator: pmr,std (default: pmr)
   --inline-naming <style>    Inline schema naming: operation,flat (default: operation)
-  --openapi <spec>           SQL: also emit a Row<->DTO bridge against this OpenAPI spec
+  --openapi <spec>           SQL: also emit a Row->DTO bridge against this OpenAPI spec
   --json                     Output as JSON format
   --check                    Validate input only, no files written
   --strict                   Strict validation, fail on any error

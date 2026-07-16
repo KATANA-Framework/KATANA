@@ -249,11 +249,13 @@ SELECT id::bigint AS id FROM widgets WHERE id = $1::bigint;
 
     const auto bridge = read_file(temp_dir / "generated_bridge.hpp");
     ASSERT_FALSE(bridge.empty());
-    // Exact match → both converters, in the shared namespace.
+    // Exact match → a Row→DTO converter in the shared namespace. The reverse (DTO→Row)
+    // direction has no consumer by construction — query inputs are Params structs, not
+    // Rows — so it is not emitted.
     EXPECT_NE(bridge.find("namespace wid"), std::string::npos);
     EXPECT_NE(bridge.find("Widget to_Widget(const GetWidgetRow& row, katana::monotonic_arena*"),
               std::string::npos);
-    EXPECT_NE(bridge.find("GetWidgetRow to_GetWidgetRow(const Widget& dto)"), std::string::npos);
+    EXPECT_EQ(bridge.find("GetWidgetRow to_GetWidgetRow(const Widget& dto)"), std::string::npos);
     // Subset row (only id) must NOT be bridged to Widget.
     EXPECT_EQ(bridge.find("CountWidgetRow to_"), std::string::npos);
 }

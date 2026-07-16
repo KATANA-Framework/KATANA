@@ -1,9 +1,10 @@
-// Row↔DTO bridge generator. For each generated `<Name>Row` whose field set exactly matches an
+// Row→DTO bridge generator. For each generated `<Name>Row` whose field set exactly matches an
 // OpenAPI DTO (same normalized field names, compatible scalar/string types, all DTO fields required
-// scalars/strings), it emits `to_<Dto>(row, arena)` and `to_<Row>(dto)` converters. Anything that
-// is ambiguous or only a partial match is skipped with a warning — the bridge never emits a
-// mapping it isn't sure about. Targets pmr DTOs (the default), whose fields are arena_string<> /
-// scalars constructed from an arena.
+// scalars/strings), it emits a `to_<Dto>(row, arena)` converter. The reverse (DTO→Row) direction
+// has no consumer by construction — query inputs are Params structs, not Rows — so it is not
+// emitted. Anything that is ambiguous or only a partial match is skipped with a warning — the
+// bridge never emits a mapping it isn't sure about. Targets pmr DTOs (the default), whose fields
+// are arena_string<> / scalars constructed from an arena.
 
 #include "katana_gen/generator.hpp"
 #include "katana_gen/sql_codegen.hpp"
@@ -160,7 +161,7 @@ std::string generate_bridge(const sql_catalog& catalog, const katana::openapi::d
 
     std::ostringstream out;
     out << "#pragma once\n\n";
-    out << "// Auto-generated Row<->DTO converters. Do not edit by hand.\n\n";
+    out << "// Auto-generated Row->DTO converters. Do not edit by hand.\n\n";
     out << "#include \"generated_dtos.hpp\"\n";
     out << "#include \"generated_sql_models.hpp\"\n";
     out << "#include \"katana/core/arena.hpp\"\n\n";
@@ -249,27 +250,6 @@ std::string generate_bridge(const sql_catalog& catalog, const katana::openapi::d
             }
         }
         out << "    return dto;\n}\n\n";
-
-        // to_<Row>(dto)
-        out << "inline " << row_name << " to_" << row_name << "(const " << dto.type_name
-            << "& dto) {\n";
-        out << "    " << row_name << " row;\n";
-        for (const auto& fm : fields) {
-            if (fm.kind == field_kind::string) {
-                out << "    row." << fm.row_member << " = std::string(dto." << fm.dto_member
-                    << ".begin(), dto." << fm.dto_member << ".end());\n";
-            } else if (fm.kind == field_kind::string_array) {
-                out << "    {\n";
-                out << "        std::vector<std::string> v;\n";
-                out << "        for (const auto& elem : dto." << fm.dto_member
-                    << ") v.emplace_back(elem.begin(), elem.end());\n";
-                out << "        row." << fm.row_member << " = std::move(v);\n";
-                out << "    }\n";
-            } else {
-                out << "    row." << fm.row_member << " = dto." << fm.dto_member << ";\n";
-            }
-        }
-        out << "    return row;\n}\n\n";
         ++emitted;
     }
 

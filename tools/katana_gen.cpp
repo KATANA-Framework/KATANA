@@ -415,7 +415,7 @@ int run_sql(const options& opts) {
             return 1;
         }
         out << bridge_code;
-        log << "[codegen] Row<->DTO bridge written to " << bridge_path << "\n";
+        log << "[codegen] Row->DTO bridge written to " << bridge_path << "\n";
         emit_bridge = true;
     }
 

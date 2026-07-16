@@ -56,9 +56,9 @@ std::string dump_sql_ast_summary(const sql_catalog& catalog);
 // namespace (and multiple contracts can link into one binary via distinct namespaces).
 std::string generate_sql_models(const sql_catalog& catalog, const std::string& ns = "");
 std::string generate_sql_repository(const sql_catalog& catalog, const std::string& ns = "");
-// Row↔DTO bridge: for each generated <Name>Row whose field set exactly matches an OpenAPI DTO
-// (by normalized name + compatible scalar type), emit `to_<Dto>(row, arena)` and `to_<Row>(dto)`
-// converters. Ambiguous/partial matches are skipped with a warning (never a wrong mapping).
+// Row→DTO bridge: for each generated <Name>Row whose field set exactly matches an OpenAPI DTO
+// (by normalized name + compatible scalar type), emit a `to_<Dto>(row, arena)` converter.
+// Ambiguous/partial matches are skipped with a warning (never a wrong mapping).
 std::string generate_bridge(const sql_catalog& catalog, const katana::openapi::document& doc,
                             const std::string& ns = "");
 std::string sql_mode_literal(sql_query_mode mode);
