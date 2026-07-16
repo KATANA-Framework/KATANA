@@ -56,6 +56,61 @@ static std::string generate_headers_get(std::string_view header_name) {
     return std::string("\"") + std::string(header_name) + "\"";
 }
 
+// Routes reference pooled content-type arrays (content_types_<k>) instead of one array per
+// route: typical specs use the same set (usually just application/json) everywhere, so the
+// per-route copies collapse into a handful of shared constants. Both generate_router_table
+// (definitions) and generate_router_bindings (references) derive the pool from the document
+// with build_content_type_pool, so the emitted names always agree.
+struct content_type_pool {
+    std::vector<std::vector<std::string>> sets; // unique content-type lists, first-appearance order
+    std::vector<std::string> consumes; // per route index: array name, or "" without body content
+    std::vector<std::string> produces; // per route index: array name, or "" without response content
+};
+
+static std::string intern_content_type_set(content_type_pool& pool, std::vector<std::string> set) {
+    for (size_t i = 0; i < pool.sets.size(); ++i) {
+        if (pool.sets[i] == set) {
+            return "content_types_" + std::to_string(i);
+        }
+    }
+    pool.sets.push_back(std::move(set));
+    return "content_types_" + std::to_string(pool.sets.size() - 1);
+}
+
+static content_type_pool build_content_type_pool(const document& doc) {
+    content_type_pool pool;
+    for (const auto& path : doc.paths) {
+        for (const auto& op : path.operations) {
+            std::string consumes_name;
+            if (op.body && !op.body->content.empty()) {
+                std::vector<std::string> set;
+                for (const auto& media : op.body->content) {
+                    set.emplace_back(media.content_type.data(), media.content_type.size());
+                }
+                consumes_name = intern_content_type_set(pool, std::move(set));
+            }
+            pool.consumes.push_back(std::move(consumes_name));
+
+            std::string produces_name;
+            std::vector<std::string> unique_types;
+            for (const auto& resp : op.responses) {
+                for (const auto& media : resp.content) {
+                    std::string type(media.content_type.data(), media.content_type.size());
+                    if (std::find(unique_types.begin(), unique_types.end(), type) ==
+                        unique_types.end()) {
+                        unique_types.push_back(std::move(type));
+                    }
+                }
+            }
+            if (!unique_types.empty()) {
+                produces_name = intern_content_type_set(pool, std::move(unique_types));
+            }
+            pool.produces.push_back(std::move(produces_name));
+        }
+    }
+    return pool;
+}
+
 // Helper to convert to UPPER_SNAKE_CASE
 static std::string to_upper_snake_case(std::string_view str) {
     std::string result;
@@ -208,87 +263,29 @@ std::string generate_router_table(const document& doc, const std::string& ns) {
     out << "    std::span<const content_type_info> produces;\n";
     out << "};\n\n";
 
-    // Generate content type arrays for each operation
-    size_t route_idx = 0;
-    for (const auto& path : doc.paths) {
-        for (const auto& op : path.operations) {
-            // Request content types (consumes)
-            if (op.body && !op.body->content.empty()) {
-                out << "inline constexpr content_type_info route_" << route_idx
-                    << "_consumes[] = {\n";
-                for (const auto& media : op.body->content) {
-                    out << "    {\"" << media.content_type << "\"},\n";
-                }
-                out << "};\n\n";
-            }
-
-            // Response content types (produces)
-            bool has_response_content = false;
-            for (const auto& resp : op.responses) {
-                if (!resp.content.empty()) {
-                    has_response_content = true;
-                    break;
-                }
-            }
-
-            if (has_response_content) {
-                out << "inline constexpr content_type_info route_" << route_idx
-                    << "_produces[] = {\n";
-                // Collect unique content types from all responses
-                std::vector<std::string_view> unique_types;
-                for (const auto& resp : op.responses) {
-                    for (const auto& media : resp.content) {
-                        bool found = false;
-                        std::string_view media_type_sv(media.content_type.data(),
-                                                       media.content_type.size());
-                        for (const auto& existing : unique_types) {
-                            if (existing == media_type_sv) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found) {
-                            unique_types.push_back(media_type_sv);
-                        }
-                    }
-                }
-                for (const auto& type : unique_types) {
-                    out << "    {\"" << type << "\"},\n";
-                }
-                out << "};\n\n";
-            }
-            ++route_idx;
+    // Pooled content-type sets — routes with identical consumes/produces share one array.
+    const content_type_pool pool = build_content_type_pool(doc);
+    for (size_t i = 0; i < pool.sets.size(); ++i) {
+        out << "inline constexpr content_type_info content_types_" << i << "[] = {\n";
+        for (const auto& type : pool.sets[i]) {
+            out << "    {\"" << type << "\"},\n";
         }
+        out << "};\n\n";
     }
 
     out << "inline constexpr route_entry routes[] = {\n";
-    route_idx = 0;
+    size_t route_idx = 0;
     for (const auto& path : doc.paths) {
         for (const auto& op : path.operations) {
             out << "    {\"" << path.path << "\", ";
             out << "katana::http::method::" << method_enum_literal(op.method);
             out << ", \"" << op.operation_id << "\", ";
 
-            // Consumes
-            if (op.body && !op.body->content.empty()) {
-                out << "route_" << route_idx << "_consumes, ";
-            } else {
-                out << "{}, ";
-            }
+            const std::string& consumes_name = pool.consumes[route_idx];
+            out << (consumes_name.empty() ? "{}" : consumes_name) << ", ";
 
-            // Produces
-            bool has_response_content = false;
-            for (const auto& resp : op.responses) {
-                if (!resp.content.empty()) {
-                    has_response_content = true;
-                    break;
-                }
-            }
-            if (has_response_content) {
-                out << "route_" << route_idx << "_produces";
-            } else {
-                out << "{}";
-            }
+            const std::string& produces_name = pool.produces[route_idx];
+            out << (produces_name.empty() ? "{}" : produces_name);
 
             out << "},\n";
             ++route_idx;
@@ -346,6 +343,8 @@ std::string generate_router_table(const document& doc, const std::string& ns) {
 
 std::string generate_router_bindings(const document& doc, const std::string& ns) {
     const std::string router_ns = ns.empty() ? "generated" : ns;
+    // Same pool generate_router_table emitted into generated_routes.hpp — referenced by name here.
+    const content_type_pool pool = build_content_type_pool(doc);
     std::ostringstream out;
     out << "// Auto-generated router bindings from OpenAPI specification\n";
     out << "// \n";
@@ -574,8 +573,8 @@ std::string generate_router_bindings(const document& doc, const std::string& ns)
                     dispatch_functions << "    }\n";
                 } else {
                     dispatch_functions
-                        << "    auto negotiated_content_type = negotiate_response_type(req, route_"
-                        << route_idx << "_produces);\n";
+                        << "    auto negotiated_content_type = negotiate_response_type(req, "
+                        << pool.produces[route_idx] << ");\n";
                     dispatch_functions << "    if (!negotiated_content_type) {\n";
                     dispatch_functions << "        out.assign_error("
                                        << "katana::problem_details::not_acceptable("
@@ -906,14 +905,15 @@ std::string generate_router_bindings(const document& doc, const std::string& ns)
                 } else {
                     dispatch_functions
                         << "    auto content_type_index = find_content_type(req.headers.get("
-                        << generate_headers_get("Content-Type") << "), route_" << route_idx
-                        << "_consumes);\n";
+                        << generate_headers_get("Content-Type") << "), "
+                        << pool.consumes[route_idx] << ");\n";
                     dispatch_functions
                         << "    if (!content_type_index) { out.assign_error("
                         << "katana::problem_details::unsupported_media_type(\"unsupported "
                            "Content-Type\")); return {}; }\n";
-                    dispatch_functions << "    const auto& request_content_type = route_"
-                                       << route_idx << "_consumes[*content_type_index];\n";
+                    dispatch_functions << "    const auto& request_content_type = "
+                                       << pool.consumes[route_idx]
+                                       << "[*content_type_index];\n";
                     // Transcode a declared binary body (CBOR/MessagePack) to JSON, then feed the same
                     // generated parser. JSON passes through untouched.
                     dispatch_functions << "    std::string transcoded_body;\n";
