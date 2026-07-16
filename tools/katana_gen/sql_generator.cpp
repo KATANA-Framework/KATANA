@@ -99,6 +99,14 @@ std::string param_struct_type_name(const sql_query& query) {
     return to_pascal_case_local(query.name) + "Params";
 }
 
+// Typed value a non-exec query decodes to: optional<Row> for :one, vector<Row> for :many.
+std::string decoded_value_type(const sql_query& query) {
+    if (query.mode == sql_query_mode::one) {
+        return "std::optional<" + row_type_name(query) + ">";
+    }
+    return "std::vector<" + row_type_name(query) + ">";
+}
+
 // Owning member type for the params struct (so callers can aggregate-init with temporaries): strings
 // own, vectors own, scalars pass through.
 std::string param_owning_type(const sql_parameter& parameter) {
@@ -278,34 +286,6 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         if (query.mode == sql_query_mode::exec) {
             out << "        return async_executor_->exec_async(\"" << query.name << "\", "
                 << query.name << "_sql, std::move(params), std::move(handler));\n";
-        } else if (query.mode == sql_query_mode::one) {
-            out << "        return async_executor_->query_async(\"" << query.name << "\", "
-                << query.name << "_sql, std::move(params),\n";
-            out << "            [handler = std::move(handler)](katana::result<katana::sql::rows> "
-                   "rows_result) {\n";
-            out << "                if (!rows_result) {\n";
-            out << "                    handler(std::unexpected(rows_result.error()));\n";
-            out << "                    return;\n";
-            out << "                }\n";
-            out << "                if (rows_result->size() > 1) {\n";
-            out << "                    "
-                   "handler(std::unexpected(std::make_error_code(std::errc::invalid_argument)));\n";
-            out << "                    return;\n";
-            out << "                }\n";
-            out << "                if (rows_result->empty()) {\n";
-            out << "                    handler(std::optional<" << row_type_name(query)
-                << ">{});\n";
-            out << "                    return;\n";
-            out << "                }\n";
-            out << "                auto mapped = map_" << query.name
-                << "(rows_result->front());\n";
-            out << "                if (!mapped) {\n";
-            out << "                    handler(std::unexpected(mapped.error()));\n";
-            out << "                    return;\n";
-            out << "                }\n";
-            out << "                handler(std::optional<" << row_type_name(query)
-                << ">(std::move(*mapped)));\n";
-            out << "            });\n";
         } else {
             out << "        return async_executor_->query_async(\"" << query.name << "\", "
                 << query.name << "_sql, std::move(params),\n";
@@ -315,17 +295,8 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             out << "                    handler(std::unexpected(rows_result.error()));\n";
             out << "                    return;\n";
             out << "                }\n";
-            out << "                std::vector<" << row_type_name(query) << "> out_rows;\n";
-            out << "                out_rows.reserve(rows_result->size());\n";
-            out << "                for (const auto& row : *rows_result) {\n";
-            out << "                    auto mapped = map_" << query.name << "(row);\n";
-            out << "                    if (!mapped) {\n";
-            out << "                        handler(std::unexpected(mapped.error()));\n";
-            out << "                        return;\n";
-            out << "                    }\n";
-            out << "                    out_rows.push_back(std::move(*mapped));\n";
-            out << "                }\n";
-            out << "                handler(std::move(out_rows));\n";
+            out << "                handler(fold_" << query.name
+                << "(std::move(*rows_result)));\n";
             out << "            });\n";
         }
         out << "    }\n\n";
@@ -335,9 +306,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
         // Postgres) instead of hand-nesting the *_async callbacks (F14). exec-mode has no rows to
         // join, so it gets no step.
         if (query.mode != sql_query_mode::exec) {
-            const std::string step_value = query.mode == sql_query_mode::one
-                                               ? "std::optional<" + row_type_name(query) + ">"
-                                               : "std::vector<" + row_type_name(query) + ">";
+            const std::string step_value = decoded_value_type(query);
             out << "    katana::sql::query_step<" << step_value << "> " << query.name << "_step(";
             for (std::size_t i = 0; i < query.parameters.size(); ++i) {
                 if (i != 0) {
@@ -354,38 +323,8 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
                     << param_identifier(parameter) << "));\n";
             }
             out << "        return katana::sql::query_step<" << step_value << ">{\"" << query.name
-                << "\", " << query.name << "_sql, std::move(step_params),\n";
-            out << "            [](katana::sql::rows rows_result) -> katana::result<" << step_value
-                << "> {\n";
-            if (query.mode == sql_query_mode::one) {
-                out << "                if (rows_result.size() > 1) {\n";
-                out << "                    return "
-                       "std::unexpected(std::make_error_code(std::errc::invalid_argument));\n";
-                out << "                }\n";
-                out << "                if (rows_result.empty()) {\n";
-                out << "                    return std::optional<" << row_type_name(query)
-                    << ">{};\n";
-                out << "                }\n";
-                out << "                auto mapped = map_" << query.name
-                    << "(rows_result.front());\n";
-                out << "                if (!mapped) {\n";
-                out << "                    return std::unexpected(mapped.error());\n";
-                out << "                }\n";
-                out << "                return std::optional<" << row_type_name(query)
-                    << ">(std::move(*mapped));\n";
-            } else {
-                out << "                std::vector<" << row_type_name(query) << "> out_rows;\n";
-                out << "                out_rows.reserve(rows_result.size());\n";
-                out << "                for (const auto& row : rows_result) {\n";
-                out << "                    auto mapped = map_" << query.name << "(row);\n";
-                out << "                    if (!mapped) {\n";
-                out << "                        return std::unexpected(mapped.error());\n";
-                out << "                    }\n";
-                out << "                    out_rows.push_back(std::move(*mapped));\n";
-                out << "                }\n";
-                out << "                return out_rows;\n";
-            }
-            out << "            }};\n";
+                << "\", " << query.name << "_sql, std::move(step_params), &fold_" << query.name
+                << "};\n";
             out << "    }\n\n";
         }
 
@@ -415,9 +354,7 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             out << "    }\n\n";
 
             if (query.mode != sql_query_mode::exec) {
-                const std::string step_value = query.mode == sql_query_mode::one
-                                                   ? "std::optional<" + row_type_name(query) + ">"
-                                                   : "std::vector<" + row_type_name(query) + ">";
+                const std::string step_value = decoded_value_type(query);
                 out << "    katana::sql::query_step<" << step_value << "> " << query.name
                     << "_step(const " << params_type << "& args) const {\n";
                 out << "        return " << query.name << "_step(";
@@ -466,6 +403,38 @@ std::string generate_sql_repository(const sql_catalog& catalog, const std::strin
             out << "        }\n";
         }
         out << "        return out;\n";
+        out << "    }\n\n";
+
+        // fold_<name>: the shared rows→typed-result decoder behind both <name>_async and
+        // <name>_step, so the 0/1/N-row policy lives in one place per query.
+        const std::string decoded = decoded_value_type(query);
+        out << "    static katana::result<" << decoded << "> fold_" << query.name
+            << "(katana::sql::rows rows_result) {\n";
+        if (query.mode == sql_query_mode::one) {
+            out << "        if (rows_result.size() > 1) {\n";
+            out << "            return "
+                   "std::unexpected(std::make_error_code(std::errc::invalid_argument));\n";
+            out << "        }\n";
+            out << "        if (rows_result.empty()) {\n";
+            out << "            return " << decoded << "{};\n";
+            out << "        }\n";
+            out << "        auto mapped = map_" << query.name << "(rows_result.front());\n";
+            out << "        if (!mapped) {\n";
+            out << "            return std::unexpected(mapped.error());\n";
+            out << "        }\n";
+            out << "        return " << decoded << "(std::move(*mapped));\n";
+        } else {
+            out << "        " << decoded << " out_rows;\n";
+            out << "        out_rows.reserve(rows_result.size());\n";
+            out << "        for (const auto& row : rows_result) {\n";
+            out << "            auto mapped = map_" << query.name << "(row);\n";
+            out << "            if (!mapped) {\n";
+            out << "                return std::unexpected(mapped.error());\n";
+            out << "            }\n";
+            out << "            out_rows.push_back(std::move(*mapped));\n";
+            out << "        }\n";
+            out << "        return out_rows;\n";
+        }
         out << "    }\n\n";
     }
 
