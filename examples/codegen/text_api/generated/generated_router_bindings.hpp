@@ -21,6 +21,7 @@
 #include "katana/core/router.hpp"
 #include "katana/core/problem.hpp"
 #include "katana/core/serde.hpp"
+#include "katana/core/serde_binary.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 #include "katana/core/http_utils.hpp"
@@ -78,7 +79,8 @@ inline katana::result<void> dispatch_text_uppercase(const katana::http::request&
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_text_uppercase_request(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_text_uppercase_request(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
@@ -126,7 +128,8 @@ inline katana::result<void> dispatch_text_lowercase(const katana::http::request&
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_text_lowercase_request(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_text_lowercase_request(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
@@ -174,7 +177,8 @@ inline katana::result<void> dispatch_text_reverse(const katana::http::request& r
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_text_reverse_request(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_text_reverse_request(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
@@ -222,7 +226,8 @@ inline katana::result<void> dispatch_text_stats(const katana::http::request& req
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_text_stats_request(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_text_stats_request(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }
@@ -270,7 +275,8 @@ inline katana::result<void> dispatch_text_transform(const katana::http::request&
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_text_transform_request(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_text_transform_request(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }

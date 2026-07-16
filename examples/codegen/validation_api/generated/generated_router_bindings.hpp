@@ -21,6 +21,7 @@
 #include "katana/core/router.hpp"
 #include "katana/core/problem.hpp"
 #include "katana/core/serde.hpp"
+#include "katana/core/serde_binary.hpp"
 #include "katana/core/handler_context.hpp"
 #include "katana/core/http_server.hpp"
 #include "katana/core/http_utils.hpp"
@@ -74,7 +75,8 @@ inline katana::result<void> dispatch_register_user(const katana::http::request& 
                              kJsonContentType)) {
         out.assign_error(katana::problem_details::unsupported_media_type("unsupported Content-Type")); return {};
     }
-    auto parsed_body = parse_RegisterUserRequest(req.body, &ctx.arena);
+    std::string_view body_view = req.body;
+    auto parsed_body = parse_RegisterUserRequest(body_view, &ctx.arena);
     if (!parsed_body) {
         out.assign_error(katana::problem_details::bad_request("invalid request body")); return {};
     }

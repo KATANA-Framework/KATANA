@@ -6,13 +6,13 @@
 #   katana down  [service-dir]   stop the dependencies
 #   katana build [service-dir]   (re)generate contracts + build the backend
 #
-# service-dir defaults to examples/services/pulse (the reference template). It must contain a
+# service-dir defaults to submodules/Vigil (the reference consumer). It must contain a
 # CMakeLists.txt, a docker-compose.yml, and a web/ frontend.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CMD="${1:-dev}"
-SVC="${2:-$ROOT/examples/services/pulse}"
+SVC="${2:-$ROOT/submodules/Vigil}"
 SVC="$(cd "$SVC" && pwd)"
 
 c_g="\033[32m"; c_y="\033[33m"; c_d="\033[2m"; c_0="\033[0m"

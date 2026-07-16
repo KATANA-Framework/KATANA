@@ -1,3 +1,3 @@
-[submodule "submodules/CaseCore"]
-	path = submodules/CaseCore
-	url = https://github.com/KATANA-Framework/CaseCore.git
+[submodule "submodules/Vigil"]
+	path = submodules/Vigil
+	url = https://github.com/KATANA-Framework/Vigil.git

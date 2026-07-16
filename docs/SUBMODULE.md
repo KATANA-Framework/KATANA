@@ -51,4 +51,4 @@ with `-DENABLE_TESTING=ON` / `-DENABLE_EXAMPLES=ON` if you want them.
 
 Give each contract a distinct `NAMESPACE` and link them all — KATANA namespaces every generated
 symbol (OpenAPI under `<ns>::`, SQL under `katana::sql::<ns>::`), and `katana::http::composite_router`
-mounts the generated routers on one server. See `examples/services/pulse` for a worked example.
+mounts the generated routers on one server. See `submodules/Vigil` for a full worked example.
